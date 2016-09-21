@@ -25,10 +25,10 @@ let rec replace x value term =
         else
             Let(id, typ, (replace x value t1), (replace x value t2))
     | LetRec(id1, typ1, typ2, id2, t1, t2) ->
-        if (id2 = x) then
-            LetRec(id1, typ1, typ2, id2, t1, (replace x value t2))
-        elif (id1 = x) then
+        if (id1 = x) then
             LetRec(id1, typ1, typ2, id2, t1, t2)
+        elif (id2 = x) then
+            LetRec(id1, typ1, typ2, id2, t1, (replace x value t2))
         else
             LetRec(id1, typ1, typ2, id2,  (replace x value t1),  (replace x value t2))
     | Nil -> Nil
