@@ -42,65 +42,22 @@ let rec replace x value term =
 let rec eval t =
     match t with
     | V(v) -> V(v)
-    | OP(t1, Add, t2) ->
+    | OP(t1, op, t2) ->
         let t1' = eval t1 in
         let t2' = eval t2 in
         match t1', t2' with
-        | V(N(I(n1))), V(N(I(n2))) -> V(N(I(n1 + n2)))
-        | _, _ -> raise WrongExpression
-    | OP(t1, Subtract, t2) ->
-        let t1' = eval t1 in
-        let t2' = eval t2 in
-        match t1', t2' with
-        | V(N(I(n1))), V(N(I(n2))) -> V(N(I(n1 - n2)))
-        | _, _ -> raise WrongExpression
-    | OP(t1, Multiply, t2) ->
-        let t1' = eval t1 in
-        let t2' = eval t2 in
-        match t1', t2' with
-        | V(N(I(n1))), V(N(I(n2))) -> V(N(I(n1 * n2)))
-        | _, _ -> raise WrongExpression
-    | OP(t1, LessThan, t2) ->
-        let t1' = eval t1 in
-        let t2' = eval t2 in
-        match t1', t2' with
-        | V(N(I(n1))), V(N(I(n2))) when n1 < n2 -> V(B(True))
-        | V(N(I(n1))), V(N(I(n2))) when not(n1 < n2) -> V(B(False))
-        | _, _ -> raise WrongExpression
-    | OP(t1, LessOrEqual, t2) ->
-        let t1' = eval t1 in
-        let t2' = eval t2 in
-        match t1', t2' with
-        | V(N(I(n1))), V(N(I(n2))) when n1 <= n2 -> V(B(True))
-        | V(N(I(n1))), V(N(I(n2))) when not(n1 <= n2) -> V(B(False))
-        | _, _ -> raise WrongExpression
-    | OP(t1, Equal, t2) ->
-        let t1' = eval t1 in
-        let t2' = eval t2 in
-        match t1', t2' with
-        | V(N(I(n1))), V(N(I(n2))) when n1 = n2 -> V(B(True))
-        | V(N(I(n1))), V(N(I(n2))) when not(n1 = n2) -> V(B(False))
-        | _, _ -> raise WrongExpression
-    | OP(t1, Different, t2) ->
-        let t1' = eval t1 in
-        let t2' = eval t2 in
-        match t1', t2' with
-        | V(N(I(n1))), V(N(I(n2))) when n1 <> n2 -> V(B(True))
-        | V(N(I(n1))), V(N(I(n2))) when not(n1 <> n2) -> V(B(False))
-        | _, _ -> raise WrongExpression
-    | OP(t1, GreaterOrEqual, t2) ->
-        let t1' = eval t1 in
-        let t2' = eval t2 in
-        match t1', t2' with
-        | V(N(I(n1))), V(N(I(n2))) when n1 >= n2 -> V(B(True))
-        | V(N(I(n1))), V(N(I(n2))) when not(n1 >= n2) -> V(B(False))
-        | _, _ -> raise WrongExpression
-    | OP(t1, GreaterThan, t2) ->
-        let t1' = eval t1 in
-        let t2' = eval t2 in
-        match t1', t2' with
-        | V(N(I(n1))), V(N(I(n2))) when n1 > n2 -> V(B(True))
-        | V(N(I(n1))), V(N(I(n2))) when not(n1 > n2) -> V(B(False))
+        | V(N(I(n1))), V(N(I(n2))) ->
+            match op with
+            | Add -> V(N(I(n1 + n2)))
+            | Subtract -> V(N(I(n1 - n2)))
+            | Multiply -> V(N(I(n1 * n2)))
+            | Divide -> raise WrongExpression
+            | LessThan -> if n1 < n2 then V(B(True)) else V(B(False))
+            | LessOrEqual -> if n1 <= n2 then V(B(True)) else V(B(False))
+            | Equal -> if n1 = n2 then V(B(True)) else V(B(False))
+            | Different -> if n1 <> n2 then V(B(True)) else V(B(False))
+            | GreaterThan -> if n1 > n2 then V(B(True)) else V(B(False))
+            | GreaterOrEqual -> if n1 >= n2 then V(B(True)) else V(B(False))
         | _, _ -> raise WrongExpression
     | Cond(t1, t2, t3) ->
         let t1' = eval t1 in
