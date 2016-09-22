@@ -62,15 +62,19 @@ let rec eval t =
     | Cond(t1, t2, t3) ->
         let t1' = eval t1 in
         match t1' with
-        | V(True) ->
-            let t2' = eval t2 in
-            match t2' with
-            | V(v) -> V(v)
-            | _ -> raise WrongExpression
-        | V(False) ->
-            let t3' = eval t3 in
-            match t3' with
-            | V(v) -> V(v)
-            | _ -> raise WrongExpression
+        | V(True) -> eval t2
+        | V(False) -> eval t3
+        | _ -> raise WrongExpression
+    | App(t1, t2) ->
+        let t1' = eval t1 in
+        let t2' = eval t2 in
+        match t1', t2' with
+        | Fn(id, typ, e), V(v) -> eval (replace id (V(v)) e)
+        | _, _ -> raise WrongExpression
+    | Fn(id, typ, t1) as fn -> fn
+    | Let(id, typ, t1, t2) ->
+        let t1' = eval t1 in
+        match t1' with
+        | V(v) -> eval (replace id t1' t2)
         | _ -> raise WrongExpression
     | _ -> raise WrongExpression
