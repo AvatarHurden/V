@@ -6,16 +6,10 @@ type Type =
     | Bool
     | Function of Type * Type
 
-type n =
-    | I of int
-
-type b =
+type v =
     | True
     | False
-
-type v =
-    | B of b
-    | N of n
+    | I of int
 
 type op =
     | Add

@@ -46,28 +46,28 @@ let rec eval t =
         let t1' = eval t1 in
         let t2' = eval t2 in
         match t1', t2' with
-        | V(N(I(n1))), V(N(I(n2))) ->
+        | V(I(n1)), V(I(n2)) ->
             match op with
-            | Add -> V(N(I(n1 + n2)))
-            | Subtract -> V(N(I(n1 - n2)))
-            | Multiply -> V(N(I(n1 * n2)))
+            | Add -> V(I(n1 + n2))
+            | Subtract -> V(I(n1 - n2))
+            | Multiply -> V(I(n1 * n2))
             | Divide -> raise WrongExpression
-            | LessThan -> if n1 < n2 then V(B(True)) else V(B(False))
-            | LessOrEqual -> if n1 <= n2 then V(B(True)) else V(B(False))
-            | Equal -> if n1 = n2 then V(B(True)) else V(B(False))
-            | Different -> if n1 <> n2 then V(B(True)) else V(B(False))
-            | GreaterThan -> if n1 > n2 then V(B(True)) else V(B(False))
-            | GreaterOrEqual -> if n1 >= n2 then V(B(True)) else V(B(False))
+            | LessThan -> if n1 < n2 then V(True) else V(False)
+            | LessOrEqual -> if n1 <= n2 then V(True) else V(False)
+            | Equal -> if n1 = n2 then V(True) else V(False)
+            | Different -> if n1 <> n2 then V(True) else V(False)
+            | GreaterThan -> if n1 > n2 then V(True) else V(False)
+            | GreaterOrEqual -> if n1 >= n2 then V(True) else V(False)
         | _, _ -> raise WrongExpression
     | Cond(t1, t2, t3) ->
         let t1' = eval t1 in
         match t1' with
-        | V(B(True)) ->
+        | V(True) ->
             let t2' = eval t2 in
             match t2' with
             | V(v) -> V(v)
             | _ -> raise WrongExpression
-        | V(B(False)) ->
+        | V(False) ->
             let t3' = eval t3 in
             match t3' with
             | V(v) -> V(v)
