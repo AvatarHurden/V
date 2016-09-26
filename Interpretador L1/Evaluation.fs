@@ -77,4 +77,31 @@ let rec eval t =
         match t1' with
         | V(v) -> eval (replace id t1' t2)
         | _ -> raise WrongExpression
+    | LetRec(id1, typ1, typ2, id2, t1, t2) ->
+        let rec2 = LetRec(id1, typ1, typ2, id2, t1, t1) in
+        let fn = Fn(id2, typ1, rec2) in
+        eval (replace id1 fn t2)
+    | Nil -> Nil
+    | Cons(t1, t2) ->
+        let t2' = eval t2 in
+        match t2' with
+        | Cons(_, _) -> Cons(t1, t2')
+        | Nil -> Cons(t1, Nil)
+        | _ -> raise WrongExpression
+    | Head(t1) -> 
+        let t1' = eval t1 in
+        match t1' with
+        | Cons(head, tail) -> head
+        | _ -> raise WrongExpression
+    | Tail(t1) -> 
+        let t1' = eval t1 in
+        match t1' with
+        | Cons(head, tail) -> tail
+        | _ -> raise WrongExpression
+    | Raise -> Raise
+    | Try(t1, t2) ->
+        let t1' = eval t1 in
+        match t1' with
+        | Raise -> eval t2
+        | _ -> t1'
     | _ -> raise WrongExpression
