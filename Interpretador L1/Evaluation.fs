@@ -5,7 +5,9 @@ open Definition
 // Replace identifier x for value in term
 let rec replace x value term = 
     match term with
-    | V(v) -> V(v)
+    | True -> True
+    | False -> False
+    | I(i) -> I(i)
     | OP(t1, op, t2) -> OP((replace x value t1), op, (replace x value t2))
     | Cond(t1, t2, t3) -> Cond((replace x value t1), (replace x value t2), (replace x value t3))
     | X(id) ->
@@ -41,42 +43,45 @@ let rec replace x value term =
 
 let rec eval t =
     match t with
-    | V(v) -> V(v)
+    | True -> True
+    | False -> False
+    | I(i) -> I(i)
     | OP(t1, op, t2) ->
         let t1' = eval t1 in
         let t2' = eval t2 in
         match t1', t2' with
-        | V(I(n1)), V(I(n2)) ->
+        | I(n1), I(n2) ->
             match op with
-            | Add -> V(I(n1 + n2))
-            | Subtract -> V(I(n1 - n2))
-            | Multiply -> V(I(n1 * n2))
+            | Add -> I(n1 + n2)
+            | Subtract -> I(n1 - n2)
+            | Multiply -> I(n1 * n2)
             | Divide -> raise WrongExpression
-            | LessThan -> if n1 < n2 then V(True) else V(False)
-            | LessOrEqual -> if n1 <= n2 then V(True) else V(False)
-            | Equal -> if n1 = n2 then V(True) else V(False)
-            | Different -> if n1 <> n2 then V(True) else V(False)
-            | GreaterThan -> if n1 > n2 then V(True) else V(False)
-            | GreaterOrEqual -> if n1 >= n2 then V(True) else V(False)
+            | LessThan -> if n1 < n2 then True else False
+            | LessOrEqual -> if n1 <= n2 then True else False
+            | Equal -> if n1 = n2 then True else False
+            | Different -> if n1 <> n2 then True else False
+            | GreaterThan -> if n1 > n2 then True else False
+            | GreaterOrEqual -> if n1 >= n2 then True else False
         | _, _ -> raise WrongExpression
     | Cond(t1, t2, t3) ->
         let t1' = eval t1 in
         match t1' with
-        | V(True) -> eval t2
-        | V(False) -> eval t3
+        | True -> eval t2
+        | False -> eval t3
         | _ -> raise WrongExpression
     | App(t1, t2) ->
         let t1' = eval t1 in
         let t2' = eval t2 in
         match t1', t2' with
-        | Fn(id, typ, e), V(v) -> eval (replace id (V(v)) e)
+        | Fn(id, typ, e), v when V(v) -> eval (replace id v e)
         | _, _ -> raise WrongExpression
     | Fn(id, typ, t1) as fn -> fn
     | Let(id, typ, t1, t2) ->
         let t1' = eval t1 in
-        match t1' with
-        | V(v) -> eval (replace id t1' t2)
-        | _ -> raise WrongExpression
+        if V(t1') then
+            eval (replace id t1' t2)
+        else
+            raise WrongExpression
     | LetRec(id1, typ1, typ2, id2, t1, t2) ->
         let rec2 = LetRec(id1, typ1, typ2, id2, t1, t1) in
         let fn = Fn(id2, typ1, rec2) in

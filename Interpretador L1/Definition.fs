@@ -6,11 +6,6 @@ type Type =
     | Bool
     | Function of Type * Type
 
-type v =
-    | True
-    | False
-    | I of int
-
 type op =
     | Add
     | Subtract
@@ -25,14 +20,16 @@ type op =
 
 type Ident =
     | X of string
-
+    
 type term =
-    | V of v
+    | True
+    | False
+    | I of int
     | OP of term * op * term
     | Cond of term * term * term
     | X of Ident
-    | App of term * term
     | Fn of Ident * Type * term
+    | App of term * term
     | Let of Ident * Type * term * term
     | LetRec of Ident * Type * Type * Ident * term * term
     | Nil
@@ -42,5 +39,10 @@ type term =
     | Tail of term
     | Raise
     | Try of term * term
+
+let V(term) =
+    match term with
+    | True | False | I(_) | Fn(_, _, _) -> true
+    | _ -> false
 
 exception WrongExpression
