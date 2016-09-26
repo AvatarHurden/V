@@ -18,8 +18,7 @@ type op =
     | GreaterOrEqual
     | GreaterThan
 
-type Ident =
-    | X of string
+type Ident = string
     
 type term =
     | True
