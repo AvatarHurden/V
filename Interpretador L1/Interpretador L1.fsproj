@@ -56,9 +56,10 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Definition.fs" />
-    <Compile Include="Sugar.fs" />
     <Compile Include="Evaluation.fs" />
+    <Compile Include="Sugar.fs" />
     <Compile Include="Tests.fs" />
+    <Compile Include="SugarTests.fs" />
     <Compile Include="Program.fs" />
     <None Include="App.config" />
     <Content Include="packages.config" />
