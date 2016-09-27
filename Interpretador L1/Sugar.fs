@@ -2,8 +2,14 @@
 
 open System.Text.RegularExpressions
 open Definition
+open System
 
 exception InvalidEntryText of string
+
+
+  ////////////////
+ //  Printing  //
+////////////////
 
 let rec typeString typ =
     match typ with
@@ -68,6 +74,72 @@ let rec stringify term =
     | Try(t1, t2) ->
         sprintf "try\n\t%s\nexcept\n\t%s" (stringify t1) (stringify t2)
 
+type term with
+    member public this.DisplayValue = stringify this
+
+
+
+  ///////////////
+ //  Parsing  //
+///////////////
+
+type DelimiterPairs =
+    | Parenthesis
+    | Brackets
+    | IfThen
+    | ThenElse
+    | LetRecIn
+    | LetSemicolon
+    | TryExcept
+
+let openings = 
+    dict[
+        "(", Parenthesis; 
+        "{", Brackets;
+        "if", IfThen;
+        "then", ThenElse;
+        "let rec", LetRecIn;
+        "let", LetSemicolon;
+        "try", TryExcept
+        ]
+
+let findClosing (text:string) =
+    let pair = openings.Keys |> Seq.fold (fun acc x -> if text.StartsWith(x) then openings.Item(x) else acc) Parenthesis 
+    let subtractor = 
+        match pair with
+        | Parenthesis -> ")"
+        | Brackets -> "}"
+        | IfThen -> "then"
+        | ThenElse -> "else"
+        | LetRecIn -> "in"
+        | LetSemicolon -> ";"
+        | TryExcept -> "except"
+    let adder = 
+        match pair with
+        | Parenthesis -> "("
+        | Brackets -> "{"
+        | IfThen -> "if"
+        | ThenElse -> "then"
+        | LetRecIn -> "let rec"
+        | LetSemicolon -> "let"
+        | TryExcept -> "try"
+    let mutable count = 1
+    let mutable iterator = 1
+    while count <> 0 && iterator < text.Length do
+        if text.Substring(iterator).StartsWith(subtractor) then
+            count <- count - 1
+        else if text.Substring(iterator).StartsWith(adder) then
+            count <- count + 1
+        else 
+            ()
+        iterator <- iterator + 1
+    if (count = 0) then
+        text.Substring(0, iterator)
+    elif count < 0 then
+        raise (InvalidEntryText ("There is an extra opening " + adder))
+    else
+        raise (InvalidEntryText ("Missing a closing " + subtractor))
+
 let (|Match|_|) pattern input =
     let re = new Regex(pattern, RegexOptions.Singleline)
     let m = re.Match(input) in
@@ -86,6 +158,86 @@ let rec parseType text =
         Function(parseType typ1, parseType typ2)
     | x -> Type.X(x)
 
+type Match = string * (string list)
+    
+let getWhile (allowed : string list) (term: string) =
+    let mutable index = 0
+    let mutable found = true
+    while index < term.Length && found do
+        found <- Seq.fold (fun acc x -> acc || term.Substring(index).StartsWith(x)) false allowed
+        if found then index <- index + 1 else ()
+    term.Substring(0, index)
+
+let rec findOP (text: string) =
+    let mutable curIndex = 1
+    let term1, _: Match = findTerm (text.Substring(curIndex))
+    curIndex <- curIndex + term1.Length
+    let opString = text.Substring(curIndex)
+    let opTrimmed = opString.TrimStart()
+    let op = 
+        if   opTrimmed.StartsWith "+"  then "+"
+        elif opTrimmed.StartsWith "-"  then "-"
+        elif opTrimmed.StartsWith "*"  then "*"
+        elif opTrimmed.StartsWith "/"  then "/"
+        elif opTrimmed.StartsWith "<=" then "<="
+        elif opTrimmed.StartsWith "<"  then "<"
+        elif opTrimmed.StartsWith "="  then "="
+        elif opTrimmed.StartsWith "!=" then "!="
+        elif opTrimmed.StartsWith ">=" then ">="
+        elif opTrimmed.StartsWith ">"  then ">"
+        else raise (InvalidEntryText ("Operator is unknown at " + text))
+    let opString = getWhile [" "; op] opString
+    curIndex <- curIndex + opString.Length
+    let term2, _ = findTerm (text.Substring(curIndex))
+    curIndex <- curIndex + term2.Length
+    (text.Substring(0,curIndex+1), [term1; op; term2])
+and
+    findTerm (text: string) =
+    if Char.IsDigit(text.Chars(0)) then
+        let s = text.ToCharArray()
+        let t = s |> Seq.takeWhile (fun x -> Char.IsDigit(x))
+        (String.Concat(t), [String.Concat(t)])
+    elif text.StartsWith("(") then
+        findOP text
+    else
+        ("", [""])
+    
+let rec parseOP (text: string) =
+    let term, [term1; opString; term2] = findOP text
+    let op = 
+        match opString with
+        | "+" -> Add
+        | "-" -> Subtract
+        | "*" -> Multiply
+        | "/" -> Divide
+        | "<=" -> LessOrEqual
+        | "<" -> LessThan
+        | "=" -> Equal
+        | "!=" -> Different
+        | ">=" -> GreaterOrEqual
+        | ">" -> GreaterThan
+        | _ -> raise (InvalidEntryText ("Operator " + opString + " is unknown - in " + term))
+    OP(parseTerm term1, op, parseTerm term2)
+and
+    parseTerm (text: string) =
+    if text.StartsWith("(") then
+        parseOP text
+    elif Char.IsDigit(text.Chars(0)) then
+        I(int text)
+    else
+        raise WrongExpression
+//    elif text.StartsWith("if") then
+//        parseCond text
+//    elif text.StartsWith("fn") then
+//        parseFn text
+//    elif text.StartsWith("let rec") then
+//        parseLetRec text
+//    elif text.StartsWith("let") then
+//        parseLet text
+//    elif text.StartsWith("empty? ") then
+//        IsEmpty(parse text.Substring(("empty? ".Length)))
+
+// Will Delete this
 let rec parse text =
     match text with
     | Match "^let rec (.*)\((.*): (.*)\): (.*)\r?\n\t(.*)\r?\nin (.*)" [id1; id2; typ1; typ2; t1; t2] ->
@@ -135,6 +287,3 @@ let rec parse text =
         Raise
     | x -> X(x)
     
-
-type term with
-    member public this.DisplayValue = stringify this
