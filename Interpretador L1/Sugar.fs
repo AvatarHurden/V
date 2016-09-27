@@ -158,9 +158,9 @@ let rec parseType text =
         Function(parseType typ1, parseType typ2)
     | x -> Type.X(x)
 
-type Match = string * (string list)
+type Match = string * term
     
-let getWhile (allowed : string list) (term: string) =
+let getWhile allowed (term: string) =
     let mutable index = 0
     let mutable found = true
     while index < term.Length && found do
@@ -170,72 +170,43 @@ let getWhile (allowed : string list) (term: string) =
 
 let rec findOP (text: string) =
     let mutable curIndex = 1
-    let term1, _: Match = findTerm (text.Substring(curIndex))
+
+    let term1, t1: Match = findTerm (text.Substring(curIndex))
     curIndex <- curIndex + term1.Length
+
     let opString = text.Substring(curIndex)
     let opTrimmed = opString.TrimStart()
-    let op = 
-        if   opTrimmed.StartsWith "+"  then "+"
-        elif opTrimmed.StartsWith "-"  then "-"
-        elif opTrimmed.StartsWith "*"  then "*"
-        elif opTrimmed.StartsWith "/"  then "/"
-        elif opTrimmed.StartsWith "<=" then "<="
-        elif opTrimmed.StartsWith "<"  then "<"
-        elif opTrimmed.StartsWith "="  then "="
-        elif opTrimmed.StartsWith "!=" then "!="
-        elif opTrimmed.StartsWith ">=" then ">="
-        elif opTrimmed.StartsWith ">"  then ">"
+    let opChar, op = 
+        if   opTrimmed.StartsWith "+"  then "+", Add
+        elif opTrimmed.StartsWith "-"  then "-", Subtract
+        elif opTrimmed.StartsWith "*"  then "*", Multiply
+        elif opTrimmed.StartsWith "/"  then "/", Divide
+        elif opTrimmed.StartsWith "<=" then "<=", LessOrEqual
+        elif opTrimmed.StartsWith "<"  then "<", LessThan
+        elif opTrimmed.StartsWith "="  then "=", Equal
+        elif opTrimmed.StartsWith "!=" then "!=", Different
+        elif opTrimmed.StartsWith ">=" then ">=", GreaterOrEqual
+        elif opTrimmed.StartsWith ">"  then ">", GreaterThan
         else raise (InvalidEntryText ("Operator is unknown at " + text))
-    let opString = getWhile [" "; op] opString
+    let opString = getWhile [" "; "\n"; "\r"; "\t"; opChar] opString
     curIndex <- curIndex + opString.Length
-    let term2, _ = findTerm (text.Substring(curIndex))
+
+    let term2, t2 = findTerm (text.Substring(curIndex))
     curIndex <- curIndex + term2.Length
-    (text.Substring(0,curIndex+1), [term1; op; term2])
+
+    (text.Substring(0,curIndex+1), OP(t1, op, t2))
 and
     findTerm (text: string) =
-    if Char.IsDigit(text.Chars(0)) then
+    if text.StartsWith("(") then
+        findOP text
+    elif Char.IsDigit(text.Chars(0)) then
         let s = text.ToCharArray()
         let t = s |> Seq.takeWhile (fun x -> Char.IsDigit(x))
-        (String.Concat(t), [String.Concat(t)])
-    elif text.StartsWith("(") then
-        findOP text
+        (String.Concat(t), I(int (String.Concat(t))))
     else
-        ("", [""])
+        ("", Nil)
     
-let rec parseOP (text: string) =
-    let term, [term1; opString; term2] = findOP text
-    let op = 
-        match opString with
-        | "+" -> Add
-        | "-" -> Subtract
-        | "*" -> Multiply
-        | "/" -> Divide
-        | "<=" -> LessOrEqual
-        | "<" -> LessThan
-        | "=" -> Equal
-        | "!=" -> Different
-        | ">=" -> GreaterOrEqual
-        | ">" -> GreaterThan
-        | _ -> raise (InvalidEntryText ("Operator " + opString + " is unknown - in " + term))
-    OP(parseTerm term1, op, parseTerm term2)
-and
-    parseTerm (text: string) =
-    if text.StartsWith("(") then
-        parseOP text
-    elif Char.IsDigit(text.Chars(0)) then
-        I(int text)
-    else
-        raise WrongExpression
-//    elif text.StartsWith("if") then
-//        parseCond text
-//    elif text.StartsWith("fn") then
-//        parseFn text
-//    elif text.StartsWith("let rec") then
-//        parseLetRec text
-//    elif text.StartsWith("let") then
-//        parseLet text
-//    elif text.StartsWith("empty? ") then
-//        IsEmpty(parse text.Substring(("empty? ".Length)))
+let rec parseTerm (text: string) = snd (findTerm text)
 
 // Will Delete this
 let rec parse text =

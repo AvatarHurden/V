@@ -73,6 +73,9 @@ type TestStringify() =
      member that.opCenter() =
         stringify (snd opCenter) |> should equal (fst opCenter)
 
+let compare text term =
+    parse text |> should equal term
+
 [<TestFixture>]
 type TestParse() =
 
@@ -84,7 +87,7 @@ type TestParse() =
     [<Category("Type")>]
     [<Category("X")>]
     member that.``simple let and cond``() =
-        parse (fst simpleLetAndCond) |> should equal (snd simpleLetAndCond)
+        compare (fst simpleLetAndCond) (snd simpleLetAndCond)
 
     [<Test>]
     [<Category("OP")>]
@@ -92,6 +95,8 @@ type TestParse() =
     member that.opRight() =
         parseTerm (fst opRight) |> should equal (snd opRight)
         
+
+
     [<Test>]
     [<Category("OP")>]
     [<Category("Value")>]
