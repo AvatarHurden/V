@@ -16,16 +16,23 @@ let rec typeString typ =
     | Type.X(s) -> s
     | Int -> "Int"
     | Bool -> "Bool"
-    | Function(t1, t2) ->  sprintf "%s -> %s" (typeString t1) (typeString t2)
+    | Function(t1, t2) ->  
+        match t1 with
+        | Function(_,_) -> 
+            sprintf "(%s) -> %s" (typeString t1) (typeString t2)
+        | _ ->
+            sprintf "%s -> %s" (typeString t1) (typeString t2)
 
-let rec stringify term =
+
+let rec stringify term lvl =
+    let tabs = String.replicate(lvl) "\t"
     match term with
     | True -> 
-        "true"
+        tabs + "true"
     | False -> 
-        "false"
+        tabs + "false"
     | I(i) -> 
-        string i
+        tabs + (string i)
     | OP(n1, op, n2) ->
         let opString = match op with
                         | Add -> "+"
@@ -38,44 +45,56 @@ let rec stringify term =
                         | Different -> "!="
                         | GreaterOrEqual -> ">="
                         | GreaterThan -> ">"
-        sprintf "(%s %s %s)" (stringify n1) opString (stringify n2)
+        sprintf "%s(%s %s %s)" tabs (stringify n1 0) opString (stringify n2 0)
     | Cond(t1, t2, t3) ->
-        sprintf "if %s then\n\t%s\nelse\n\t%s" (stringify t1) (stringify t2) (stringify t3)
+        sprintf "%sif %s then\n%s\n%selse\n%s" 
+            tabs (stringify t1 0) (stringify t2 (lvl+1)) tabs (stringify t3 (lvl+1))
     | X(id) -> 
-        id
+        tabs + id
     | Fn(id, typ, t) -> 
-        sprintf "fn(%s: %s):\n\treturn %s\n" id (typeString typ) (stringify t)
-    | App(t1, t2) ->
-        let t1' = (stringify t1)
-        if t1'.EndsWith("\n") then
-            sprintf "%s%s" t1' (stringify t2)
+        let term = (stringify t (lvl+1))
+        if term.EndsWith("\n") then
+            sprintf "%sfn(%s: %s) {\n%s%s}\n" 
+                tabs id (typeString typ) (stringify t (lvl+1)) tabs
         else
-            sprintf "%s %s" t1' (stringify t2)
+            sprintf "%sfn(%s: %s) {\n%s\n%s}\n" 
+                tabs id (typeString typ) (stringify t (lvl+1)) tabs
+     | App(t1, t2) ->
+        let t1' = (stringify t1 0)
+        if t1'.EndsWith("\n") then
+            sprintf "%s%s%s" tabs t1' (stringify t2 0)
+        else
+            sprintf "%s%s %s" tabs t1' (stringify t2 0)
     | Let(id, typ, t1, t2) ->
-        sprintf "let %s: %s = %s in\n%s" id (typeString typ) (stringify t1) (stringify t2)
+        sprintf "%slet %s: %s = %s;\n%s" 
+            tabs id (typeString typ) (stringify t1 0) (stringify t2 lvl)
     | LetRec(id, typ1, typ2, id2, t1, t2) ->
         let typ1' = typeString typ1
         let typ2' = typeString typ2
-        let t1' = stringify t1
-        let t2' = stringify t2
-        sprintf "let rec %s(%s: %s): %s\n\t%s\nin %s" id id2 typ1' typ2' t1' t2'
+        let t1' = stringify t1 (lvl+1)
+        let t2' = stringify t2 0
+        sprintf "%slet rec %s(%s: %s): %s {\n%s}\n%sin %s" 
+            tabs id id2 typ1' typ2' t1' tabs t2'
     | Nil -> 
         "nil"
     | Cons(t1, t2) ->
-        sprintf "%s::%s" (stringify t1) (stringify t2)
+        sprintf "%s%s::%s" tabs (stringify t1 0) (stringify t2 0)
     | IsEmpty(t) ->
-        sprintf "empty? %s" (stringify t)
+        sprintf "%sempty? %s" tabs (stringify t 0)
     | Head(t) ->
-        sprintf "head %s" (stringify t)
+        sprintf "%shead %s" tabs (stringify t 0)
     | Tail(t) ->
-        sprintf "tail %s" (stringify t)
+        sprintf "%stail %s" tabs (stringify t 0)
     | Raise ->
-        "raise"
+        tabs + "raise"
     | Try(t1, t2) ->
-        sprintf "try\n\t%s\nexcept\n\t%s" (stringify t1) (stringify t2)
+        sprintf "%stry\n%s\nexcept\n%s" 
+            tabs (stringify t1 (lvl+1)) (stringify t2 (lvl+1))
+
+let print term = stringify term 0
 
 type term with
-    member public this.DisplayValue = stringify this
+    member public this.DisplayValue = stringify this 0
 
 
 
@@ -197,16 +216,36 @@ let rec findOP (text: string) =
     (text.Substring(0,curIndex+1), OP(t1, op, t2))
 and
     findTerm (text: string) =
-    if text.StartsWith("(") then
-        findOP text
-    elif Char.IsDigit(text.Chars(0)) then
-        let s = text.ToCharArray()
-        let t = s |> Seq.takeWhile (fun x -> Char.IsDigit(x))
-        (String.Concat(t), I(int (String.Concat(t))))
-    else
-        ("", Nil)
+
+    let emptyText = getWhile [" "; "\n"; "\r"; "\t"] text
+    let text = text.Substring(emptyText.Length)
+
+    let subText, term = 
+        if text.StartsWith("(") then
+            let s, t = findOP text
+            (emptyText + s, t)
+        elif Char.IsDigit(text.Chars(0)) then
+            let s = text.ToCharArray()
+            let t = s |> Seq.takeWhile (fun x -> Char.IsDigit(x))
+            (emptyText+String.Concat(t), I(int (String.Concat(t))))
+        else
+            (emptyText, Nil)
+    (subText, term)
+//    if (subText = text) then
+//        (subText, term)
+//    else
+//        let restText, restTerm = findTerm (text.Substring(subText.Length))
+//        (subText+restText, App(term, restTerm))
     
-let rec parseTerm (text: string) = snd (findTerm text)
+let rec parseTerm (text: string) =
+    let mutable remaining = text
+    let mutable sub, term = findTerm remaining
+    remaining <- remaining.Substring(sub.Length)
+    while remaining.Length > 0 do
+        let temp = findTerm remaining
+        term <- App(term, snd temp)
+        remaining <- remaining.Substring((fst temp).Length)
+    term
 
 // Will Delete this
 let rec parse text =

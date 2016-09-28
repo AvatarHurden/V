@@ -7,13 +7,13 @@ open Sugar
 
 let simpleLetAndCond = (
 
-    ("let x: Int = 3 in
-let y: Int = 4 in
-let b: Bool = false in
+    "let x: Int = 3;
+let y: Int = 4;
+let b: Bool = false;
 if b then
 	(x + y)
 else
-	(x - y)".Replace("\r", "")), 
+	(x - y)".Replace("\r", "").Replace("    ", "\t"), 
 
     Let("x", Int, I(3), 
         Let("y", Int, I(4), 
@@ -42,6 +42,44 @@ let opCenter = (
     OP(OP(I(1), Add, I(2)), Add, OP(I(3), Add, I(4)))
 )
 
+let nestedIf = (
+    "if true then
+    if false then
+        1
+    else
+        2
+else
+    3".Replace("\r", "").Replace("    ", "\t"),
+        
+    Cond(True, Cond(False, I(1), I(2)), I(3))
+)
+
+let nestedFn = (
+    "fn(x: Int) {
+    fn(y: Int) {
+        (x + y)
+    }
+}
+"       .Replace("\r", "").Replace("    ", "\t"),
+     
+     Fn("x", Int, Fn("y", Int, OP(X("x"), Add, X("y"))))
+)
+
+let app3 = (
+    "let app3: (Int -> Int) -> Int = fn(f: Int -> Int) {
+    f 3
+}
+;
+app3 fn(x: Int) {
+    (x + 1)
+}
+".Replace("\r", "").Replace("    ", "\t"),
+    
+    Let("app3", Function(Function(Int, Int), Int), 
+        Fn("f", Function(Int, Int), App(X("f"), I(3))),
+            App(X("app3"), Fn("x", Int, OP(X("x"), Add, I(1)))))
+)
+
 [<TestFixture>]
 type TestStringify() =
 
@@ -53,25 +91,50 @@ type TestStringify() =
     [<Category("Type")>]
     [<Category("X")>]
     member that.``simple let and cond``() =
-        stringify (snd simpleLetAndCond) |> should equal (fst simpleLetAndCond)
+        print (snd simpleLetAndCond) |> should equal (fst simpleLetAndCond)
         
     [<Test>]
     [<Category("OP")>]
     [<Category("Value")>]
     member that.opRight() =
-        stringify (snd opRight) |> should equal (fst opRight)
+        print (snd opRight) |> should equal (fst opRight)
         
     [<Test>]
     [<Category("OP")>]
     [<Category("Value")>]
     member that.opLeft() =
-        stringify (snd opLeft) |> should equal (fst opLeft)
+        print (snd opLeft) |> should equal (fst opLeft)
         
     [<Test>]
     [<Category("OP")>]
     [<Category("Value")>]
      member that.opCenter() =
-        stringify (snd opCenter) |> should equal (fst opCenter)
+        print (snd opCenter) |> should equal (fst opCenter)
+
+    [<Test>]
+    [<Category("Cond")>]
+    [<Category("Value")>]
+     member that.nestedIf() =
+        print (snd nestedIf) |> should equal (fst nestedIf)
+
+    [<Test>]
+    [<Category("Fn")>]
+    [<Category("OP")>]
+    [<Category("X")>]
+    [<Category("Value")>]
+     member that.nestedFn() =
+        print (snd nestedFn) |> should equal (fst nestedFn)
+
+    [<Test>]
+    [<Category("Let")>]
+    [<Category("Fn")>]
+    [<Category("App")>]
+    [<Category("OP")>]
+    [<Category("X")>]
+    [<Category("Type")>]
+    [<Category("Value")>]
+     member that.app3() =
+        print (snd app3) |> should equal (fst app3)
 
 let compare text term =
     parse text |> should equal term
@@ -95,8 +158,6 @@ type TestParse() =
     member that.opRight() =
         parseTerm (fst opRight) |> should equal (snd opRight)
         
-
-
     [<Test>]
     [<Category("OP")>]
     [<Category("Value")>]
@@ -108,3 +169,28 @@ type TestParse() =
     [<Category("Value")>]
      member that.opCenter() =
         parseTerm (fst opCenter) |> should equal (snd opCenter)
+
+    [<Test>]
+    [<Category("Cond")>]
+    [<Category("Value")>]
+     member that.nestedIf() =
+        parseTerm (fst nestedIf) |> should equal (snd nestedIf)
+
+    [<Test>]
+    [<Category("Fn")>]
+    [<Category("OP")>]
+    [<Category("X")>]
+    [<Category("Value")>]
+     member that.nestedFn() =
+        parseTerm (fst nestedFn) |> should equal (snd nestedFn)
+
+    [<Test>]
+    [<Category("Let")>]
+    [<Category("Fn")>]
+    [<Category("App")>]
+    [<Category("OP")>]
+    [<Category("X")>]
+    [<Category("Type")>]
+    [<Category("Value")>]
+     member that.app3() =
+        parseTerm (fst app3) |> should equal (snd app3)
