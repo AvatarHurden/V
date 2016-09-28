@@ -9,7 +9,12 @@ open Evaluation
 type TestReplace() = 
 
     [<Test>]
-    member that.``replace let``() =
+    [<Category("Let")>]
+    [<Category("Fn")>]
+    [<Category("OP")>]
+    [<Category("Value")>]
+    [<Category("X")>]
+    member that.``let``() =
         let app = App(Fn("x", Int, OP(X("x"), Add, I(1))), OP(X("x"), Add, X("y")))
         let defy = Let("y", Int, I(40), app)
         let defx = Let("x", Int, OP(I(10), Add, X("y")), defy)
@@ -22,7 +27,13 @@ type TestReplace() =
 type TestEval() =
 
     [<Test>]
-    member that.``eval factorial``() =
+    [<Category("LetRec")>]
+    [<Category("Cond")>]
+    [<Category("App")>]
+    [<Category("OP")>]
+    [<Category("Value")>]
+    [<Category("X")>]
+    member that.``factorial``() =
         let fatMult = OP(X("x"), Multiply, App(X("fat"), OP(X("x"), Subtract, I(1))))
         let fnTerm =  Cond(OP(X("x"), Equal, I(0)), I(1), fatMult)
         let fat = LetRec("fat", Int, Int, "x", fnTerm, App(X("fat"), I(5))) in
