@@ -224,28 +224,23 @@ and
         (emptyText+String.Concat(t), I(int (String.Concat(t))))
     else
         (emptyText, Nil)
-//        let restText, restTerm = findTerm (text.Substring(subText.Length))
-//        (subText+restText, App(term, restTerm))
     
 let findTerms text =
     let mutable subText, term = findTerm text
     while not (subText.Equals(text)) do
+        // here I'll test if I can find an operator.
+        // If found, add the text to subText and save the operator
         let newText, newTerm = findTerm (text.Substring(subText.Length))
         subText <- subText + newText
+        
         term <- App(term, newTerm)
     term
 
 let rec parseTerm (text: String) = 
-    let text = Seq.fold (fun (acc: String) x -> acc.Replace(x, " ")) text ["\n"; "\t"; "\r"]
+    let text = ["\n"; "\t"; "\r"] |> Seq.fold (fun (acc: String) x -> acc.Replace(x, " ")) text
     findTerms text
-//    let mutable remaining = text
-//    let mutable sub, term = findTerm remaining
-//    remaining <- remaining.Substring(sub.Length)
-//    while remaining.Length > 0 do
-//        let temp = findTerm remaining
-//        term <- App(term, snd temp)
-//        remaining <- remaining.Substring((fst temp).Length)
-//    term
+
+
 
 // Will Delete this
 let rec parse text =
