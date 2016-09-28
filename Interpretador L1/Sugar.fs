@@ -179,14 +179,9 @@ let rec parseType text =
 
 type Match = string * term
     
-let getWhile allowed (term: string) =
-    let mutable index = 0
-    let mutable found = true
-    while index < term.Length && found do
-        found <- Seq.fold (fun acc x -> acc || term.Substring(index).StartsWith(x)) false allowed
-        if found then index <- index + 1 else ()
-    term.Substring(0, index)
-
+let getSpaces (term: string) =
+    String.Concat (term |> Seq.takeWhile Char.IsWhiteSpace)
+    
 let rec findOP (text: string) =
     let mutable curIndex = 1
 
@@ -207,7 +202,7 @@ let rec findOP (text: string) =
         elif opTrimmed.StartsWith ">=" then ">=", GreaterOrEqual
         elif opTrimmed.StartsWith ">"  then ">", GreaterThan
         else raise (InvalidEntryText ("Operator is unknown at " + text))
-    let opString = getWhile [" "; "\n"; "\r"; "\t"; opChar] opString
+    let opString = (getSpaces opString) + opChar
     curIndex <- curIndex + opString.Length
 
     let term2, t2 = findTerm (text.Substring(curIndex))
@@ -217,35 +212,40 @@ let rec findOP (text: string) =
 and
     findTerm (text: string) =
 
-    let emptyText = getWhile [" "; "\n"; "\r"; "\t"] text
-    let text = text.Substring(emptyText.Length)
+    let emptyText = getSpaces text
+    let trimmedText = text.Substring(emptyText.Length)
 
-    let subText, term = 
-        if text.StartsWith("(") then
-            let s, t = findOP text
-            (emptyText + s, t)
-        elif Char.IsDigit(text.Chars(0)) then
-            let s = text.ToCharArray()
-            let t = s |> Seq.takeWhile (fun x -> Char.IsDigit(x))
-            (emptyText+String.Concat(t), I(int (String.Concat(t))))
-        else
-            (emptyText, Nil)
-    (subText, term)
-//    if (subText = text) then
-//        (subText, term)
-//    else
+    if trimmedText.StartsWith("(") then
+        let s, t = findOP trimmedText
+        (emptyText + s, t)
+    elif Char.IsDigit(trimmedText.Chars(0)) then
+        let s = trimmedText.ToCharArray()
+        let t = s |> Seq.takeWhile (fun x -> Char.IsDigit(x))
+        (emptyText+String.Concat(t), I(int (String.Concat(t))))
+    else
+        (emptyText, Nil)
 //        let restText, restTerm = findTerm (text.Substring(subText.Length))
 //        (subText+restText, App(term, restTerm))
     
-let rec parseTerm (text: string) =
-    let mutable remaining = text
-    let mutable sub, term = findTerm remaining
-    remaining <- remaining.Substring(sub.Length)
-    while remaining.Length > 0 do
-        let temp = findTerm remaining
-        term <- App(term, snd temp)
-        remaining <- remaining.Substring((fst temp).Length)
+let findTerms text =
+    let mutable subText, term = findTerm text
+    while not (subText.Equals(text)) do
+        let newText, newTerm = findTerm (text.Substring(subText.Length))
+        subText <- subText + newText
+        term <- App(term, newTerm)
     term
+
+let rec parseTerm (text: String) = 
+    let text = Seq.fold (fun (acc: String) x -> acc.Replace(x, " ")) text ["\n"; "\t"; "\r"]
+    findTerms text
+//    let mutable remaining = text
+//    let mutable sub, term = findTerm remaining
+//    remaining <- remaining.Substring(sub.Length)
+//    while remaining.Length > 0 do
+//        let temp = findTerm remaining
+//        term <- App(term, snd temp)
+//        remaining <- remaining.Substring((fst temp).Length)
+//    term
 
 // Will Delete this
 let rec parse text =
