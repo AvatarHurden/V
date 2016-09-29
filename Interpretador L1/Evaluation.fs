@@ -55,13 +55,15 @@ let rec eval t =
             | Add -> I(n1 + n2)
             | Subtract -> I(n1 - n2)
             | Multiply -> I(n1 * n2)
-            | Divide -> raise WrongExpression
+            | Divide when n2 <> 0 -> I(n1 / n2)
+            | Divide when n2 = 0 -> raise WrongExpression
             | LessThan -> if n1 < n2 then True else False
             | LessOrEqual -> if n1 <= n2 then True else False
             | Equal -> if n1 = n2 then True else False
             | Different -> if n1 <> n2 then True else False
             | GreaterThan -> if n1 > n2 then True else False
             | GreaterOrEqual -> if n1 >= n2 then True else False
+            | _ -> raise WrongExpression
         | _, _ -> raise WrongExpression
     | Cond(t1, t2, t3) ->
         let t1' = eval t1 in
