@@ -17,6 +17,7 @@ type op =
     | Different
     | GreaterOrEqual
     | GreaterThan
+    | Application
 
 type Ident = string
     
@@ -28,7 +29,6 @@ type term =
     | Cond of term * term * term
     | X of Ident
     | Fn of Ident * Type * term
-    | App of term * term
     | Let of Ident * Type * term * term
     | LetRec of Ident * Type * Type * Ident * term * term
     | Nil

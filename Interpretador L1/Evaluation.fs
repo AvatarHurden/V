@@ -15,7 +15,6 @@ let rec replace x value term =
             value
         else
             X(id)
-    | App(t1, t2) -> App((replace x value t1), (replace x value t2))
     | Fn(id, typ, t1) ->
         if (id = x) then
             Fn(id, typ, t1)
@@ -46,6 +45,12 @@ let rec eval t =
     | True -> True
     | False -> False
     | I(i) -> I(i)
+    | OP(t1, Application, t2) ->
+        let t1' = eval t1 in
+        let t2' = eval t2 in
+        match t1', t2' with
+        | Fn(id, typ, e), v when V(v) -> eval (replace id v e)
+        | _, _ -> raise WrongExpression
     | OP(t1, op, t2) ->
         let t1' = eval t1 in
         let t2' = eval t2 in
@@ -71,12 +76,6 @@ let rec eval t =
         | True -> eval t2
         | False -> eval t3
         | _ -> raise WrongExpression
-    | App(t1, t2) ->
-        let t1' = eval t1 in
-        let t2' = eval t2 in
-        match t1', t2' with
-        | Fn(id, typ, e), v when V(v) -> eval (replace id v e)
-        | _, _ -> raise WrongExpression
     | Fn(id, typ, t1) as fn -> fn
     | Let(id, typ, t1, t2) ->
         let t1' = eval t1 in
