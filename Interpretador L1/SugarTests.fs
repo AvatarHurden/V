@@ -76,8 +76,8 @@ app3 fn(x: Int) {
 ".Replace("\r", "").Replace("    ", "\t"),
     
     Let("app3", Function(Function(Int, Int), Int), 
-        Fn("f", Function(Int, Int), App(X("f"), I(3))),
-            App(X("app3"), Fn("x", Int, OP(X("x"), Add, I(1)))))
+        Fn("f", Function(Int, Int), OP(X("f"), Application, I(3))),
+            OP(X("app3"), Application, Fn("x", Int, OP(X("x"), Add, I(1)))))
 )
 
 [<TestFixture>]
