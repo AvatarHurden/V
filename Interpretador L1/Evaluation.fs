@@ -53,10 +53,11 @@ let rec eval t =
         | Fn(id, typ, e), _ -> raise (WrongExpression(sprintf "Second operand %A is not a value at %A" t2' t))
         | _, _ -> raise (WrongExpression(sprintf "Operands %A and %A do not match the Application operator at %A" t1' t2' t))
     | OP(t1, Cons, t2) ->
+        let t1' = eval t1 
         let t2' = eval t2 in
-        match t2' with
-        | OP(_, Cons, _) -> OP(t1, Cons, t2')
-        | Nil -> OP(t1, Cons, Nil)
+        match t1', t2' with
+        | v, OP(_, Cons, _) when V(v) -> OP(t1', Cons, t2')
+        | v, Nil when V(v) -> OP(t1', Cons, Nil)
         | _ -> raise (WrongExpression(sprintf "Term %A is not a list at %A" t2' t))
     | OP(t1, op, t2) ->
         let t1' = eval t1 in

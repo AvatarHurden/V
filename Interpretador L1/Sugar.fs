@@ -81,10 +81,10 @@ let rec private stringify term lvl =
         let typ2' = typeString typ2
         let t1' = stringify t1 (lvl+1)
         let t2' = stringify t2 0
-        sprintf "%slet rec %s(%s: %s): %s {\n%s}\n%sin %s" 
+        sprintf "%sletrec %s(%s: %s): %s {\n%s}\n%sin %s" 
             tabs id id2 typ1' typ2' t1' tabs t2'
     | Nil -> 
-        "nil"
+        sprintf "%snil" tabs
     | IsEmpty(t) ->
         sprintf "%sempty? %s" tabs (stringify t 0)
     | Head(t) ->
@@ -228,7 +228,7 @@ let rec private findType (text:string) =
         if trimmedText.StartsWith("[") then
             let s, inside = findClosingPair SquareBrackets trimmedText 0
             let _, t = findType inside
-            (processed+s, List(t))
+            (processed+s+endingSpaces, List(t))
         elif trimmedText.StartsWith("(") then
             let s, inside = findClosingPair Parenthesis trimmedText 0
             let _, t = findType inside
@@ -264,7 +264,8 @@ let rec private findLet text =
         try 
             findClosingPair (Custom(":", "=")) (definition.Substring(processedText.Length)) 0
         with
-        | InvalidEntryText _ -> raise (InvalidEntryText  "Must set a type for every variable")
+        | InvalidEntryText _ -> 
+            InvalidEntryText(sprintf "Must set a type at %A" definition) |> raise
 
     let _, typ = findType typeString
     processedText <- processedText + s
@@ -287,7 +288,8 @@ and private findFn (text: string) =
         try 
             findClosingPair Parenthesis (text.Substring(processed.Length)) 1
         with
-        | InvalidEntryText _ -> raise (InvalidEntryText  "Must set a type for a function's parameter")
+        | InvalidEntryText _ ->
+            InvalidEntryText(sprintf "Must set a type for the parameter at %A" text) |> raise
 
     let _, typ = findType typeString
     processed <- processed + s
@@ -325,7 +327,8 @@ and private findLetRec (text: string) =
         try 
             findClosingPair Parenthesis (definition.Substring(processed.Length)) 1
         with
-        | InvalidEntryText _ -> raise (InvalidEntryText  "Must set a type for a let rec parameter")
+        | InvalidEntryText _ -> 
+            InvalidEntryText  (sprintf "Must set a type for parameter at %A" definition) |> raise
 
     let _, typ1 = findType typ1String
     processed <- processed + s
@@ -334,7 +337,8 @@ and private findLetRec (text: string) =
         try 
             findClosingPair (Custom(":", "{")) (definition.Substring(processed.Length)) 0
         with
-        | InvalidEntryText _ -> raise (InvalidEntryText  "Must set a return type for let rec")
+        | InvalidEntryText _ -> 
+            InvalidEntryText  (sprintf "Must set a type for return at %A" definition) |> raise
 
     let _, typ2 = findType typ2String
     processed <- processed + s
