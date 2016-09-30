@@ -201,26 +201,29 @@ let findIdent text =
 // Recursively find the type information in the input string.
 // The string must contain only a type definition (that is, it must end without any
 // other characters except for empty spaces)
-let rec findType text =
+let rec findType (text:string) =
     let mutable processed = getSpaces text
-    let trimmedText = text.Substring(processed.Length)
+    let trimmedText = text.Trim()
+    let endingSpaces = text.Substring(processed.Length+trimmedText.Length)
 
     let typ1Text, typ1 = 
         if trimmedText.StartsWith("(") then
             let opening, inside, closing = findClosing trimmedText
             let s, t = findType inside
-            (opening+s+closing, t)
+            (processed+opening+s+closing, t)
         elif trimmedText.StartsWith("Int") then
-            ("Int", Int)
+            (processed+"Int"+endingSpaces, Int)
         elif trimmedText.StartsWith("Bool") then
-            ("Bool", Bool)
+            (processed+"Bool"+endingSpaces, Bool)
         else
             raise (InvalidEntryText "Invalid Type information")
     
-    if typ1Text.Equals(trimmedText) then
+    if typ1Text.Equals(processed+trimmedText+endingSpaces) then
         (typ1Text, typ1)
     else
-        processed <- processed + typ1Text + (getSpaces (text.Substring(processed.Length)))
+        processed <- typ1Text
+        let emptyText = getSpaces (text.Substring(processed.Length))
+        processed <- processed + emptyText
         if text.Substring(processed.Length).StartsWith("->") then
             processed <- processed + "->"
             let typ2Text, typ2 = text.Substring(processed.Length) |> findType 
