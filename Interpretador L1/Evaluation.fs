@@ -33,7 +33,6 @@ let rec replace x value term =
         else
             LetRec(id1, typ1, typ2, id2,  (replace x value t1),  (replace x value t2))
     | Nil -> Nil
-    | Cons(t1, t2) -> Cons((replace x value t1), (replace x value t2))
     | IsEmpty(t1) -> IsEmpty((replace x value t1))
     | Head(t1) -> Head((replace x value t1))
     | Tail(t1) -> Tail((replace x value t1))
@@ -51,6 +50,12 @@ let rec eval t =
         match t1', t2' with
         | Fn(id, typ, e), v when V(v) -> eval (replace id v e)
         | _, _ -> raise WrongExpression
+    | OP(t1, Cons, t2) ->
+        let t2' = eval t2 in
+        match t2' with
+        | OP(_, Cons, _) -> OP(t1, Cons, t2')
+        | Nil -> OP(t1, Cons, Nil)
+        | _ -> raise WrongExpression
     | OP(t1, op, t2) ->
         let t1' = eval t1 in
         let t2' = eval t2 in
@@ -86,21 +91,21 @@ let rec eval t =
         let fn = Fn(id2, typ1, rec2) in
         eval (replace id1 fn t2)
     | Nil -> Nil
-    | Cons(t1, t2) ->
-        let t2' = eval t2 in
-        match t2' with
-        | Cons(_, _) -> Cons(t1, t2')
-        | Nil -> Cons(t1, Nil)
+    | IsEmpty(t) ->
+        let t' = eval t
+        match t' with
+        | Nil -> True
+        | OP(_, Cons, _) -> False
         | _ -> raise WrongExpression
     | Head(t1) -> 
         let t1' = eval t1 in
         match t1' with
-        | Cons(head, tail) -> head
+        | OP(head, Cons, tail) -> head
         | _ -> raise WrongExpression
     | Tail(t1) -> 
         let t1' = eval t1 in
         match t1' with
-        | Cons(head, tail) -> tail
+        | OP(head, Cons, tail) -> tail
         | _ -> raise WrongExpression
     | Raise -> Raise
     | Try(t1, t2) ->

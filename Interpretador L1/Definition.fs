@@ -5,6 +5,7 @@ type Type =
     | Int
     | Bool
     | Function of Type * Type
+    | List of Type
 
 type op =
     | Add
@@ -18,6 +19,7 @@ type op =
     | GreaterOrEqual
     | GreaterThan
     | Application
+    | Cons
 
 type Ident = string
     
@@ -32,7 +34,6 @@ type term =
     | Let of Ident * Type * term * term
     | LetRec of Ident * Type * Type * Ident * term * term
     | Nil
-    | Cons of term * term
     | IsEmpty of term
     | Head of term
     | Tail of term
@@ -41,7 +42,8 @@ type term =
 
 let V(term) =
     match term with
-    | True | False | I(_) | Fn(_, _, _) -> true
+    | True | False | I(_) | Fn(_, _, _) 
+    | Nil | OP(_, Cons, _) -> true
     | _ -> false
 
 exception WrongExpression
