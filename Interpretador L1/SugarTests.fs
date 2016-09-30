@@ -137,7 +137,7 @@ type TestStringify() =
         print (snd app3) |> should equal (fst app3)
 
 let compare text term =
-    parse text |> should equal term
+    parseTerm text |> should equal term
 
 [<TestFixture>]
 type TestParse() =

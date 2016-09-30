@@ -202,13 +202,32 @@ let findIdent text =
 // The string must contain only a type definition (that is, it must end without any
 // other characters except for empty spaces)
 let rec findType text =
-    let emptyText = getSpaces text
-    let trimmedText = text.Trim()
-    match trimmedText with
-    | "Int" -> Int
-    | "Bool" -> Bool
-    | _ -> Int
+    let mutable processed = getSpaces text
+    let trimmedText = text.Substring(processed.Length)
+
+    let typ1Text, typ1 = 
+        if trimmedText.StartsWith("(") then
+            let opening, inside, closing = findClosing trimmedText
+            let s, t = findType inside
+            (opening+s+closing, t)
+        elif trimmedText.StartsWith("Int") then
+            ("Int", Int)
+        elif trimmedText.StartsWith("Bool") then
+            ("Bool", Bool)
+        else
+            raise (InvalidEntryText "Invalid Type information")
     
+    if typ1Text.Equals(trimmedText) then
+        (typ1Text, typ1)
+    else
+        processed <- processed + typ1Text + (getSpaces (text.Substring(processed.Length)))
+        if text.Substring(processed.Length).StartsWith("->") then
+            processed <- processed + "->"
+            let typ2Text, typ2 = text.Substring(processed.Length) |> findType 
+            (processed+typ2Text, Function(typ1, typ2))
+        else
+            raise (InvalidEntryText "Invalid Type information")
+        
 // Finds an entire Let expression. After the ";", calls findTerms with the remaining text
 let rec findLet text =
     let opening, definition, closing = findClosing text
@@ -217,7 +236,7 @@ let rec findLet text =
     let mutable processedText = s
 
     let s, typeString = findBetween ":" "=" (definition.Substring(processedText.Length))
-    let typ = findType typeString
+    let _, typ = findType typeString
     processedText <- processedText + s
 
     let t1 = findTerms (definition.Substring(processedText.Length))
@@ -240,7 +259,7 @@ and findTerm (text: string) =
         (emptyText+s, t)
         //let opening, closing, subTerm = findClosing trimmedText
     elif trimmedText.StartsWith("(") then
-        let opening, closing, subTerm = findClosing trimmedText
+        let opening, subTerm, closing = findClosing trimmedText
         let s, t = (opening+subTerm+closing, findTerms subTerm)
         (emptyText + s, t)
     elif Char.IsDigit(trimmedText.Chars(0)) then
