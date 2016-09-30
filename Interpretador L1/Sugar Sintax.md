@@ -44,19 +44,18 @@ Greater|>
 
 O nome de uma variável é uma string de tamanho arbitrário com o seguinte conjunto de caracteres restritos:
 
-||||
--|-|-|:-|
+|||||
+---|---|---|:---|---
 .|,|;|:
 +|-|/|*
 <|=|>|!
 (|)|{|}
-[|]|?| 
-(O último é um espaço em branco)
+[|]|?| (espaço)
 
 Além disso, variáveis não podem ser nomeadas com os seguintes termos reservados:
 
-|||
--|-|-
+||||
+---|---|---|---
 fn|let|letrec
 head|tail|nil
 try|except|raise
