@@ -118,6 +118,32 @@ type private DelimiterPairs =
 let private getSpaces (term: string) =
     String.Concat (term |> Seq.takeWhile Char.IsWhiteSpace)
   
+let private countPairs pair (text: string) =
+    let adder, subtractor = 
+        match pair with
+        | Parenthesis -> "(", ")"
+        | Brackets -> "{", "}"
+        | SquareBrackets -> "[", "]"
+        | IfThen -> "if ", "then "
+        | ThenElse -> "then ", "else "
+        | LetRecIn -> "letrec ", "in " 
+        | LetSemicolon -> "let ", ";"
+        | TryExcept -> "try ", "except "
+        | Custom(t1, t2) -> t2, t1
+
+    let mutable count = 0
+    let mutable iterator = 0
+    while (iterator < text.Length) do
+        if text.Substring(iterator).StartsWith(subtractor) then
+            count <- count - 1
+        elif text.Substring(iterator).StartsWith(adder) then
+            count <- count + 1
+        else
+            ()
+        iterator <- iterator + 1
+
+    adder, subtractor, count
+
 // Finds a string between the first level of the delimiter pairs specified.
 // Identifies matching pairs (that is, the string "(())" will match the first opening
 // parenthesis with the final closing one)
@@ -246,7 +272,7 @@ let rec private findLet text =
 
     (text, Let(id, typ, t1, t2))
 
-and findFn (text: string) = 
+and private findFn (text: string) = 
     let mutable processed = "fn("
 
     let s, idString = findClosingPair (Custom("(", ":")) (text.Substring(processed.Length)) 1
@@ -268,7 +294,7 @@ and findFn (text: string) =
 
     (processed, Fn(id, typ, t))
 
-and findIf (text: string) =
+and private findIf (text: string) =
     let total, t1String = findClosingPair IfThen text 0
     let t1 = findTerms t1String
     let mutable processed = total
@@ -281,7 +307,7 @@ and findIf (text: string) =
 
     (text, Cond(t1, t2, t3))
 
-and findLetRec (text: string) =
+and private findLetRec (text: string) =
     let total, definition = findClosingPair LetRecIn text 0
 
     let s, id1 = findIdent definition
@@ -317,7 +343,7 @@ and findLetRec (text: string) =
 
     (text, LetRec(id1, typ1, typ2, id2, t1, t2))
 
-and findTry (text: string) =
+and private findTry (text: string) =
     let total, t1String = findClosingPair TryExcept text 0
     let t1 = findTerms t1String
 
@@ -328,7 +354,7 @@ and findTry (text: string) =
 // If this function finds a "subterm" (that is, an opening parenthesis), it calls
 // findTerms resursively
 // Returns a tuple made of (all the processed text, term)
-and findTerm (text: string) =
+and private findTerm (text: string) =
 
     let emptyText = getSpaces text
     let trimmedText = text.Substring(emptyText.Length)
@@ -380,7 +406,7 @@ and
 // Repeatedly calls findTerm to find all terms defined in the input string
 // This is needed to deal with the left-associativity of operations
 // Returns the finished term (when more than one subterm exists, this is always an OP)
-    findTerms text =
+    private findTerms text =
     let text = text.TrimEnd()
     let mutable subText, term = findTerm text
     while not (subText.Equals(text)) do
@@ -413,6 +439,16 @@ and
         term <- OP(term, op, newTerm)
     term
 
-let rec parseTerm (text: String) = 
+let rec parseTerm (text: String) =
+    let pairs = [Parenthesis;Brackets;SquareBrackets;IfThen;
+        ThenElse;LetRecIn;LetSemicolon;TryExcept]
+    for pair in pairs do
+        let opening, closing, count = countPairs pair text
+        if count < 0 then
+            raise (InvalidEntryText ("There is an extra " + closing))
+        elif count > 1 then
+            raise (InvalidEntryText ("There is an extra " + opening))
+        else
+            ()
     let text = ["\n"; "\t"; "\r"] |> Seq.fold (fun (acc: String) x -> acc.Replace(x, " ")) text
     findTerms text
