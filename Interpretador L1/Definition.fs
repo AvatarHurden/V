@@ -46,4 +46,4 @@ let V(term) =
     | Nil | OP(_, Cons, _) -> true
     | _ -> false
 
-exception WrongExpression
+exception WrongExpression of string
