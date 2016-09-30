@@ -42,7 +42,11 @@ let rec private stringify term lvl =
         else
             sprintf "%s%s %s" tabs t1' (stringify t2 0)
     | OP(t1, Cons, t2) ->
-        sprintf "%s%s::%s" tabs (stringify t1 0) (stringify t2 0)
+        match t1 with
+        | OP(_, cons, _) ->
+            sprintf "%s(%s)::%s" tabs (stringify t1 0) (stringify t2 0)
+        | _ ->
+            sprintf "%s%s::%s" tabs (stringify t1 0) (stringify t2 0)
     | OP(n1, op, n2) ->
         let opString = match op with
                         | Add -> "+"
@@ -124,12 +128,12 @@ let private countPairs pair (text: string) =
         | Parenthesis -> "(", ")"
         | Brackets -> "{", "}"
         | SquareBrackets -> "[", "]"
-        | IfThen -> "if ", "then "
-        | ThenElse -> "then ", "else "
+        | IfThen -> "if ", " then "
+        | ThenElse -> " then ", " else "
         | LetRecIn -> "letrec ", "in " 
         | LetSemicolon -> "let ", ";"
         | TryExcept -> "try ", "except "
-        | Custom(t1, t2) -> t2, t1
+        | Custom(t1, t2) -> t1, t2
 
     let mutable count = 0
     let mutable iterator = 0
@@ -153,17 +157,17 @@ let private countPairs pair (text: string) =
 //      all text until and including the closing delimiter
 //      the text inside the opening and closing delimiter
 let private findClosingPair pair (text:string) startingCount =
-    let subtractor, adder = 
+    let adder, subtractor = 
         match pair with
-        | Parenthesis -> ")", "("
-        | Brackets -> "}", "{"
-        | SquareBrackets -> "]", "["
-        | IfThen -> "then ", "if "
-        | ThenElse -> "else ", "then "
-        | LetRecIn -> "in ", "letrec " 
-        | LetSemicolon -> ";", "let "
-        | TryExcept -> "except ", "try "
-        | Custom(t1, t2) -> t2, t1
+        | Parenthesis -> "(", ")"
+        | Brackets -> "{", "}"
+        | SquareBrackets -> "[", "]"
+        | IfThen -> "if ", " then "
+        | ThenElse -> " then ", " else "
+        | LetRecIn -> "letrec ", "in " 
+        | LetSemicolon -> "let ", ";"
+        | TryExcept -> "try ", " except "
+        | Custom(t1, t2) -> t1, t2
 
     let mutable processed = getSpaces text
     let trimmedText = text.Substring(processed.Length)
@@ -203,11 +207,11 @@ let private findClosingPair pair (text:string) startingCount =
 let private findIdent text = 
     let emptyText = getSpaces text
     let trimmedText = text.Substring(emptyText.Length)
-    let prohibited = " .,;:+-/*<=>(){}?".ToCharArray()
+    let prohibited = " .,;:+-/*<=>(){}[]?!".ToCharArray()
     let ident = String.Concat (trimmedText |> Seq.takeWhile (fun x -> not (Seq.exists ((=) x) prohibited)))
     match ident with
     | "let" | "true" | "false" | "if" | "then" | "else" | "fn" | "letrec"
-    | "nil" | "empty" | "head" | "tail" | "raise" | "try" | "except" ->
+    | "nil" | "head" | "tail" | "raise" | "try" | "except" ->
         raise (InvalidEntryText ("A variable cannot be called " + ident))
     | _ ->
         (emptyText+ident, ident)   
