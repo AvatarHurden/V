@@ -44,4 +44,4 @@ let V(term) =
     | True | False | I(_) | Fn(_, _, _) -> true
     | _ -> false
 
-exception WrongExpression
+exception WrongExpression of string

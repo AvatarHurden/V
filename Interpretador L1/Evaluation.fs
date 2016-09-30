@@ -50,7 +50,9 @@ let rec eval t =
         let t2' = eval t2 in
         match t1', t2' with
         | Fn(id, typ, e), v when V(v) -> eval (replace id v e)
-        | _, _ -> raise WrongExpression
+        | _, v when V(v) -> raise (WrongExpression(sprintf "First operand %A is not a function at %A" t1' t))
+        | Fn(id, typ, e), _ -> raise (WrongExpression(sprintf "Second operand %A is not a value at %A" t2' t))
+        | _, _ -> raise (WrongExpression(sprintf "Operands %A and %A do not match the Application operator at %A" t1' t2' t))
     | OP(t1, op, t2) ->
         let t1' = eval t1 in
         let t2' = eval t2 in
@@ -61,28 +63,30 @@ let rec eval t =
             | Subtract -> I(n1 - n2)
             | Multiply -> I(n1 * n2)
             | Divide when n2 <> 0 -> I(n1 / n2)
-            | Divide when n2 = 0 -> raise WrongExpression
+            | Divide when n2 = 0 -> raise (WrongExpression(sprintf "Can't divide by zero at %A" t))
             | LessThan -> if n1 < n2 then True else False
             | LessOrEqual -> if n1 <= n2 then True else False
             | Equal -> if n1 = n2 then True else False
             | Different -> if n1 <> n2 then True else False
             | GreaterThan -> if n1 > n2 then True else False
             | GreaterOrEqual -> if n1 >= n2 then True else False
-            | _ -> raise WrongExpression
-        | _, _ -> raise WrongExpression
+            | _ -> raise (WrongExpression(sprintf "Term %A is not an operator at %A" op t))
+        | _, I(n) -> raise (WrongExpression(sprintf "First operand %A is not a number at %A" t1' t))
+        | I(n), _ -> raise (WrongExpression(sprintf "Second operand %A is not a number at %A" t2' t))
+        | _, _ -> raise (WrongExpression(sprintf "Operands %A and %A are not numbers at %A" t1' t2' t))
     | Cond(t1, t2, t3) ->
         let t1' = eval t1 in
         match t1' with
         | True -> eval t2
         | False -> eval t3
-        | _ -> raise WrongExpression
+        | _ -> raise (WrongExpression(sprintf "Term %A is not a Boolean value at %A" t1' t))
     | Fn(id, typ, t1) as fn -> fn
     | Let(id, typ, t1, t2) ->
         let t1' = eval t1 in
         if V(t1') then
             eval (replace id t1' t2)
         else
-            raise WrongExpression
+            raise (WrongExpression(sprintf "Term %A is not a value at %A" t1' t))
     | LetRec(id1, typ1, typ2, id2, t1, t2) ->
         let rec2 = LetRec(id1, typ1, typ2, id2, t1, t1) in
         let fn = Fn(id2, typ1, rec2) in
@@ -93,21 +97,21 @@ let rec eval t =
         match t2' with
         | Cons(_, _) -> Cons(t1, t2')
         | Nil -> Cons(t1, Nil)
-        | _ -> raise WrongExpression
+        | _ -> raise (WrongExpression(sprintf "Term %A is not a list at %A" t2' t))
     | Head(t1) -> 
         let t1' = eval t1 in
         match t1' with
         | Cons(head, tail) -> head
-        | _ -> raise WrongExpression
+        | _ -> raise (WrongExpression(sprintf "Term %A is not a list at %A" t1' t))
     | Tail(t1) -> 
         let t1' = eval t1 in
         match t1' with
         | Cons(head, tail) -> tail
-        | _ -> raise WrongExpression
+        | _ -> raise (WrongExpression(sprintf "Term %A is not a list at %A" t1' t))
     | Raise -> Raise
     | Try(t1, t2) ->
         let t1' = eval t1 in
         match t1' with
         | Raise -> eval t2
         | _ -> t1'
-    | _ -> raise WrongExpression
+    | _ -> raise (WrongExpression(sprintf "%A is not a Term" t))
