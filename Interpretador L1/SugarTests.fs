@@ -131,6 +131,33 @@ let letRecList = (
                 OP(I(4), Cons, OP(I(3), Cons, OP(I(2), Cons, OP(I(1), Cons, Nil))))))
 )
 
+let facList = (
+    "letrec faclist(x: Int): [Int] {
+    letrec fac(y: Int): Int {
+        if y = 0 then 1 else y*(fac (y-1))
+    } in
+    if x = 0 then
+        nil
+    else
+        (fac x) :: (faclist (x-1))
+} in faclist 5",
+
+    LetRec("faclist", Int, List(Int), "x", 
+        LetRec("fac", Int, Int, "y", 
+            Cond(
+                OP(X("y"), Equal, I(0)),
+                 I(1),
+                 OP(X("y"), Multiply, OP(X("fac"), Application, OP(X("y"), Subtract, I(1))))),
+        Cond(
+            OP(X("x"), Equal, I(0)),
+                 Nil,
+                 OP(OP(X("fac"), Application, X("x")), 
+                    Cons, 
+                 OP(X("faclist"), Application, OP(X("x"), Subtract, I(1)))))),
+    OP(X("faclist"), Application, I(5)))
+    
+)
+
 [<TestFixture>]
 type TestStringify() =
 
@@ -291,3 +318,14 @@ type TestParse() =
     [<Category("X")>]
      member that.list() =
         parseTerm (fst letRecList) |> should equal (snd letRecList)
+        
+    [<Test>]
+    [<Category("LetRec")>]
+    [<Category("Raise")>]
+    [<Category("Cond")>]
+    [<Category("OP")>]
+    [<Category("Type")>]
+    [<Category("Value")>]
+    [<Category("X")>]
+     member that.facList() =
+        parseTerm (fst facList) |> should equal (snd facList)

@@ -448,6 +448,7 @@ and
     term
 
 let rec parseTerm (text: String) =
+    let text = ["\n"; "\t"; "\r"] |> Seq.fold (fun (acc: String) x -> acc.Replace(x, " ")) text
     let pairs = [Parenthesis;Brackets;SquareBrackets;IfThen;
         ThenElse;LetRecIn;LetSemicolon;TryExcept]
     for pair in pairs do
@@ -458,5 +459,4 @@ let rec parseTerm (text: String) =
             raise (InvalidEntryText ("There is an extra " + opening))
         else
             ()
-    let text = ["\n"; "\t"; "\r"] |> Seq.fold (fun (acc: String) x -> acc.Replace(x, " ")) text
     findTerms text
