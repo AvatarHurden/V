@@ -80,6 +80,57 @@ app3 fn(x: Int) {
             OP(X("app3"), Application, Fn("x", Int, OP(X("x"), Add, I(1)))))
 )
 
+let nestedLet = (
+    "let banana  :  (   Bool  ->  Int  )->Int   =let x:Int=4;x+4;
+    let x: Int = 2*2;
+    let y:Int=6-(1+1+1);
+    x+banana+y    
+    ",
+    
+    Let("banana", Function(Function(Bool, Int), Int),
+        Let("x", Int, I(4), OP(X("x"), Add, I(4))),
+        Let("x", Int, OP(I(2), Multiply, I(2)),
+            Let("y", Int, OP(I(6), Subtract, OP(OP(I(1), Add, I(1)), Add, I(1))),
+                OP(OP(X("x"), Add, X("banana")), Add, X("y")))))
+)
+
+let factorial = (
+    "letrec fat(x: Int): Int {
+        if x = 0 then 1 else x*(fat (x-1))
+     } in fat 5",
+    
+    LetRec("fat", Int, Int, "x", 
+        Cond(OP(X("x"), Equal, I(0)), I(1), 
+            OP(X("x"), Multiply, OP(X("fat"), Application, OP(X("x"), Subtract, I(1))))), 
+        OP(X("fat"), Application, I(5)))
+)
+
+let simpleTry = (
+    "try
+        if true then raise else 1
+     except
+        fn(x: Int) { x+3 } 4",
+        
+     Try(
+        Cond(True, Raise, I(1)),
+        OP(Fn("x", Int, OP(X("x"), Add, I(3))), Application, I(4))
+        )
+)
+
+let letRecList = (
+    "letrec sum(x: [Int]): Int {
+        if empty? x then 0 else (head x)+(sum(tail x))
+    } in sum(4::3::2::1::nil)", 
+    
+    LetRec("sum", List(Int), Int, "x",
+        Cond(IsEmpty(X("x")), 
+            I(0), 
+            OP(Head(X("x")), Add, OP(X("sum"), Application, Tail(X("x"))))),
+            
+            OP(X("sum"), Application, 
+                OP(I(4), Cons, OP(I(3), Cons, OP(I(2), Cons, OP(I(1), Cons, Nil))))))
+)
+
 [<TestFixture>]
 type TestStringify() =
 
@@ -179,10 +230,20 @@ type TestParse() =
     [<Test>]
     [<Category("Fn")>]
     [<Category("OP")>]
+    [<Category("Type")>]
     [<Category("X")>]
     [<Category("Value")>]
      member that.nestedFn() =
         parseTerm (fst nestedFn) |> should equal (snd nestedFn)
+
+    [<Test>]
+    [<Category("Let")>]
+    [<Category("OP")>]
+    [<Category("Type")>]
+    [<Category("X")>]
+    [<Category("Value")>]
+     member that.nestedLet() =
+        parseTerm (fst nestedLet) |> should equal (snd nestedLet)
 
     [<Test>]
     [<Category("Let")>]
@@ -194,3 +255,39 @@ type TestParse() =
     [<Category("Value")>]
      member that.app3() =
         parseTerm (fst app3) |> should equal (snd app3)
+
+    [<Test>]
+    [<Category("LetRec")>]
+    [<Category("Cond")>]
+    [<Category("OP")>]
+    [<Category("Type")>]
+    [<Category("Value")>]
+    [<Category("X")>]
+     member that.factorial() =
+        parseTerm (fst factorial) |> should equal (snd factorial)
+
+    [<Test>]
+    [<Category("Try")>]
+    [<Category("Raise")>]
+    [<Category("Fn")>]
+    [<Category("Cond")>]
+    [<Category("OP")>]
+    [<Category("Type")>]
+    [<Category("Value")>]
+    [<Category("X")>]
+     member that.simpleTry() =
+        parseTerm (fst simpleTry) |> should equal (snd simpleTry)
+
+    [<Test>]
+    [<Category("LetRec")>]
+    [<Category("Raise")>]
+    [<Category("IsEmpty")>]
+    [<Category("Head")>]
+    [<Category("Tail")>]
+    [<Category("Cond")>]
+    [<Category("OP")>]
+    [<Category("Type")>]
+    [<Category("Value")>]
+    [<Category("X")>]
+     member that.list() =
+        parseTerm (fst letRecList) |> should equal (snd letRecList)

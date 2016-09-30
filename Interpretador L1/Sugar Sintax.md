@@ -24,7 +24,7 @@ X(id)|id
 Fn(id, typ, t)|fn(id: typ) { t }
 App(t1, t2)|t1 t2
 Let(id, typ, t1, t2)|let id: typ = t1; t2
-LetRec(id1, typ1, typ2, id2, t1, t2)|let rec id1(id2: typ1): typ2 { t1 } in t2
+LetRec(id1, typ1, typ2, id2, t1, t2)|letrec id1(id2: typ1): typ2 { t1 } in t2
 Nil|nil
 Cons(t1, t2)|t1::t2
 IsEmpty(t)|empty? t

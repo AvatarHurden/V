@@ -11,7 +11,7 @@ exception InvalidEntryText of string
  //  Printing  //
 ////////////////
 
-let rec typeString typ =
+let rec private typeString typ =
     match typ with
     | Type.X(s) -> s
     | Int -> "Int"
@@ -22,9 +22,11 @@ let rec typeString typ =
             sprintf "(%s) -> %s" (typeString t1) (typeString t2)
         | _ ->
             sprintf "%s -> %s" (typeString t1) (typeString t2)
+    | List(t) ->
+        sprintf "[%s]" (typeString t)
 
 
-let rec stringify term lvl =
+let rec private stringify term lvl =
     let tabs = String.replicate(lvl) "\t"
     match term with
     | True -> 
@@ -39,6 +41,8 @@ let rec stringify term lvl =
             sprintf "%s%s%s" tabs t1' (stringify t2 0)
         else
             sprintf "%s%s %s" tabs t1' (stringify t2 0)
+    | OP(t1, Cons, t2) ->
+        sprintf "%s%s::%s" tabs (stringify t1 0) (stringify t2 0)
     | OP(n1, op, n2) ->
         let opString = match op with
                         | Add -> "+"
@@ -77,8 +81,6 @@ let rec stringify term lvl =
             tabs id id2 typ1' typ2' t1' tabs t2'
     | Nil -> 
         "nil"
-    | Cons(t1, t2) ->
-        sprintf "%s%s::%s" tabs (stringify t1 0) (stringify t2 0)
     | IsEmpty(t) ->
         sprintf "%sempty? %s" tabs (stringify t 0)
     | Head(t) ->
@@ -102,115 +104,105 @@ type term with
  //  Parsing  //
 ///////////////
 
-type DelimiterPairs =
+type private DelimiterPairs =
     | Parenthesis
     | Brackets
+    | SquareBrackets
     | IfThen
     | ThenElse
     | LetRecIn
     | LetSemicolon
     | TryExcept
+    | Custom of string * string
 
-let openings = 
-    dict[
-        "(", Parenthesis; 
-        "{", Brackets;
-        "if ", IfThen;
-        "then ", ThenElse;
-        "let rec ", LetRecIn;
-        "let ", LetSemicolon;
-        "try ", TryExcept
-        ]
-
-let findClosing (text:string) =
-    let pair = openings.Keys |> Seq.fold (fun acc x -> if text.StartsWith(x) then openings.Item(x) else acc) Parenthesis 
-    let subtractor = 
-        match pair with
-        | Parenthesis -> ")"
-        | Brackets -> "}"
-        | IfThen -> "then "
-        | ThenElse -> "else "
-        | LetRecIn -> "in "
-        | LetSemicolon -> ";"
-        | TryExcept -> "except "
-    let adder = 
-        match pair with
-        | Parenthesis -> "("
-        | Brackets -> "{"
-        | IfThen -> "if "
-        | ThenElse -> "then "
-        | LetRecIn -> "let rec "
-        | LetSemicolon -> "let "
-        | TryExcept -> "try "
-    let mutable count = 1
-    let mutable iterator = 1
-    while count <> 0 && iterator < text.Length do
-        if text.Substring(iterator).StartsWith(subtractor) then
-            count <- count - 1
-        else if text.Substring(iterator).StartsWith(adder) then
-            count <- count + 1
-        else 
-            ()
-        iterator <- iterator + 1
-    if (count = 0) then
-        adder, text.Substring(adder.Length, iterator - adder.Length - subtractor.Length), subtractor
-    elif count < 0 then
-        raise (InvalidEntryText ("There is an extra opening " + adder))
-    else
-        raise (InvalidEntryText ("Missing a closing " + subtractor))
-
-let getSpaces (term: string) =
+let private getSpaces (term: string) =
     String.Concat (term |> Seq.takeWhile Char.IsWhiteSpace)
   
-// Encontra todo o texto entre a primeira ocorrência de StartText e a primeira 
-// de endText. É permitido apenas espaços em branco entre o começo de text
-// e a primeira ocorrência de startText. Caso endText seja vazio, vai até o fim
-// de text. Caso startText seja vazio, texto do interior começa no começo do text
-// Retorna uma tupla composta de:
-//      espaços em branco + todo o texto até endText
-//      texto do interior + espaços em branco
-let findBetween startText endText text =
+// Finds a string between the first level of the delimiter pairs specified.
+// Identifies matching pairs (that is, the string "(())" will match the first opening
+// parenthesis with the final closing one)
+// If you wish to specify a starting "level" for the search, set startingCount to
+// the number of "openings" you want to simulate already having processed
+// Returns a tuple composed of:
+//      all text until and including the closing delimiter
+//      the text inside the opening and closing delimiter
+let private findClosingPair pair (text:string) startingCount =
+    let subtractor, adder = 
+        match pair with
+        | Parenthesis -> ")", "("
+        | Brackets -> "}", "{"
+        | SquareBrackets -> "]", "["
+        | IfThen -> "then ", "if "
+        | ThenElse -> "else ", "then "
+        | LetRecIn -> "in ", "letrec " 
+        | LetSemicolon -> ";", "let "
+        | TryExcept -> "except ", "try "
+        | Custom(t1, t2) -> t2, t1
+
     let mutable processed = getSpaces text
     let trimmedText = text.Substring(processed.Length)
-    if not (trimmedText.StartsWith(startText)) then
-        raise (InvalidEntryText("Expected to find " + startText + ", but found " 
-            + trimmedText.Substring(startText.Length) + " instead"))
+    
+    let mutable count = startingCount
+    let mutable fresh = count = 0
+    let mutable inside = ""
+
+    while (fresh || count <> 0) && not (processed.Equals(text)) do
+        let chars =
+            if text.Substring(processed.Length).StartsWith(subtractor) then
+                count <- count - 1
+                subtractor.Length
+            elif text.Substring(processed.Length).StartsWith(adder) then
+                count <- count + 1
+                adder.Length
+            else
+                1
+
+        if not fresh && count > 0 then
+            inside <- inside + text.Substring(processed.Length, chars)
+        processed <- processed + text.Substring(processed.Length, chars)
+        if count <> 0 then
+            fresh <- false
+
+    if (count = 0) then
+        processed, inside
+    elif count < 0 then
+        raise (InvalidEntryText ("Missing an opening " + adder))
     else
-        processed <- processed + startText
-
-        let mutable count = 0
-        while not (text.Substring(processed.Length + count).StartsWith(endText)) do
-            count <- count + 1
-        
-        let inside = text.Substring(processed.Length, count)
-        processed <- processed + inside + endText
-
-        (processed, inside)
+        raise (InvalidEntryText ("Missing a closing " + subtractor))
 
 // Avança em text até encontrar algum caractere inválido para nome de variáveis
 // Se o nome encontrado for algum texto reservado, lança uma exceção.
 // Permite espaços brancos no começo da string
 // O retorno da função é uma tupla composto de (espaço em branco+ident, ident)
-let findIdent text = 
+let private findIdent text = 
     let emptyText = getSpaces text
     let trimmedText = text.Substring(emptyText.Length)
     let prohibited = " .,;:+-/*<=>(){}?".ToCharArray()
     let ident = String.Concat (trimmedText |> Seq.takeWhile (fun x -> not (Seq.exists ((=) x) prohibited)))
-    (emptyText+ident, ident)   
+    match ident with
+    | "let" | "true" | "false" | "if" | "then" | "else" | "fn" | "letrec"
+    | "nil" | "empty" | "head" | "tail" | "raise" | "try" | "except" ->
+        raise (InvalidEntryText ("A variable cannot be called " + ident))
+    | _ ->
+        (emptyText+ident, ident)   
 
 // Recursively find the type information in the input string.
 // The string must contain only a type definition (that is, it must end without any
 // other characters except for empty spaces)
-let rec findType (text:string) =
+let rec private findType (text:string) =
     let mutable processed = getSpaces text
     let trimmedText = text.Trim()
     let endingSpaces = text.Substring(processed.Length+trimmedText.Length)
 
     let typ1Text, typ1 = 
-        if trimmedText.StartsWith("(") then
-            let opening, inside, closing = findClosing trimmedText
-            let s, t = findType inside
-            (processed+opening+s+closing, t)
+        if trimmedText.StartsWith("[") then
+            let s, inside = findClosingPair SquareBrackets trimmedText 0
+            let _, t = findType inside
+            (processed+s, List(t))
+        elif trimmedText.StartsWith("(") then
+            let s, inside = findClosingPair Parenthesis trimmedText 0
+            let _, t = findType inside
+            (processed+s, t)
         elif trimmedText.StartsWith("Int") then
             (processed+"Int"+endingSpaces, Int)
         elif trimmedText.StartsWith("Bool") then
@@ -232,22 +224,106 @@ let rec findType (text:string) =
             raise (InvalidEntryText "Invalid Type information")
         
 // Finds an entire Let expression. After the ";", calls findTerms with the remaining text
-let rec findLet text =
-    let opening, definition, closing = findClosing text
+let rec private findLet text =
+    let total, definition = findClosingPair LetSemicolon text 0
 
     let s, id = findIdent definition
     let mutable processedText = s
 
-    let s, typeString = findBetween ":" "=" (definition.Substring(processedText.Length))
+    let s, typeString = 
+        try 
+            findClosingPair (Custom(":", "=")) (definition.Substring(processedText.Length)) 0
+        with
+        | InvalidEntryText _ -> raise (InvalidEntryText  "Must set a type for every variable")
+
     let _, typ = findType typeString
     processedText <- processedText + s
 
     let t1 = findTerms (definition.Substring(processedText.Length))
-    processedText <- opening + definition + closing
+    processedText <- total
 
     let t2 = findTerms (text.Substring(processedText.Length))
 
     (text, Let(id, typ, t1, t2))
+
+and findFn (text: string) = 
+    let mutable processed = "fn("
+
+    let s, idString = findClosingPair (Custom("(", ":")) (text.Substring(processed.Length)) 1
+    let _, id = findIdent idString
+    processed <- processed + s
+
+    let s, typeString =
+        try 
+            findClosingPair Parenthesis (text.Substring(processed.Length)) 1
+        with
+        | InvalidEntryText _ -> raise (InvalidEntryText  "Must set a type for a function's parameter")
+
+    let _, typ = findType typeString
+    processed <- processed + s
+
+    let s, tString = findClosingPair Brackets (text.Substring(processed.Length)) 0
+    let t = findTerms tString
+    processed <- processed + s
+
+    (processed, Fn(id, typ, t))
+
+and findIf (text: string) =
+    let total, t1String = findClosingPair IfThen text 0
+    let t1 = findTerms t1String
+    let mutable processed = total
+
+    let total, t2String = findClosingPair ThenElse (text.Substring(processed.Length)) 1
+    let t2 = findTerms t2String
+    processed <- processed + total
+
+    let t3 = text.Substring(processed.Length) |> findTerms
+
+    (text, Cond(t1, t2, t3))
+
+and findLetRec (text: string) =
+    let total, definition = findClosingPair LetRecIn text 0
+
+    let s, id1 = findIdent definition
+    let mutable processed = s
+
+    let s, id2String = findClosingPair (Custom("(", ":")) (definition.Substring(processed.Length)) 0
+    let _, id2 = findIdent id2String
+    processed <- processed + s
+
+    let s, typ1String = 
+        try 
+            findClosingPair Parenthesis (definition.Substring(processed.Length)) 1
+        with
+        | InvalidEntryText _ -> raise (InvalidEntryText  "Must set a type for a let rec parameter")
+
+    let _, typ1 = findType typ1String
+    processed <- processed + s
+
+    let s, typ2String = 
+        try 
+            findClosingPair (Custom(":", "{")) (definition.Substring(processed.Length)) 0
+        with
+        | InvalidEntryText _ -> raise (InvalidEntryText  "Must set a return type for let rec")
+
+    let _, typ2 = findType typ2String
+    processed <- processed + s
+
+    let s, t1String = findClosingPair Brackets (definition.Substring(processed.Length)) 1
+    let t1 = findTerms t1String
+    processed <- total
+
+    let t2 = findTerms (text.Substring(processed.Length))
+
+    (text, LetRec(id1, typ1, typ2, id2, t1, t2))
+
+and findTry (text: string) =
+    let total, t1String = findClosingPair TryExcept text 0
+    let t1 = findTerms t1String
+
+    let t2 = text.Substring(total.Length) |> findTerms
+
+    (text, Try(t1, t2))
 // Finds a single term in the input string
 // If this function finds a "subterm" (that is, an opening parenthesis), it calls
 // findTerms resursively
@@ -257,18 +333,46 @@ and findTerm (text: string) =
     let emptyText = getSpaces text
     let trimmedText = text.Substring(emptyText.Length)
     
-    if trimmedText.StartsWith("let ") then
+    if trimmedText.StartsWith("letrec ") then
+        let s, t = findLetRec trimmedText
+        (emptyText+s, t)
+    elif trimmedText.StartsWith("let ") then
         let s, t = findLet trimmedText
         (emptyText+s, t)
-        //let opening, closing, subTerm = findClosing trimmedText
+    elif trimmedText.StartsWith("fn(") then
+        let s, t = findFn trimmedText
+        (emptyText+s, t)
+    elif trimmedText.StartsWith("if ") then
+        let s, t = findIf trimmedText
+        (emptyText+s, t)
+    elif trimmedText.StartsWith("try ") then
+        let s, t = findTry trimmedText
+        (emptyText+s, t)
+    elif trimmedText.StartsWith("empty? ") then
+        let t = trimmedText.Substring("empty? ".Length) |> findTerms
+        (emptyText+trimmedText, IsEmpty(t))
+    elif trimmedText.StartsWith("head ") then
+        let t = trimmedText.Substring("head ".Length) |> findTerms
+        (emptyText+trimmedText, Head(t))
+    elif trimmedText.StartsWith("tail ") then
+        let t = trimmedText.Substring("tail ".Length) |> findTerms
+        (emptyText+trimmedText, Tail(t))
     elif trimmedText.StartsWith("(") then
-        let opening, subTerm, closing = findClosing trimmedText
-        let s, t = (opening+subTerm+closing, findTerms subTerm)
+        let s, subTerm = findClosingPair Parenthesis trimmedText 0
+        let s, t = (s, findTerms subTerm)
         (emptyText + s, t)
     elif Char.IsDigit(trimmedText.Chars(0)) then
         let s = trimmedText.ToCharArray()
         let t = s |> Seq.takeWhile (fun x -> Char.IsDigit(x))
         (emptyText+String.Concat(t), I(int (String.Concat(t))))
+    elif trimmedText.Equals("true") then
+        (emptyText+trimmedText, True)
+    elif trimmedText.Equals("false") then
+        (emptyText+trimmedText, False)
+    elif trimmedText.Equals("raise") then
+        (emptyText+trimmedText, Raise)
+    elif trimmedText.Equals("nil") then
+        (emptyText+trimmedText, Nil)
     else
         let text, ident = findIdent trimmedText
         (emptyText+text, X(ident))
@@ -294,10 +398,16 @@ and
             elif opTrimmed.StartsWith "!=" then "!=", Different
             elif opTrimmed.StartsWith ">=" then ">=", GreaterOrEqual
             elif opTrimmed.StartsWith ">"  then ">", GreaterThan
+            elif opTrimmed.StartsWith "::" then "::", Cons
             else "", Application
         subText <- subText + (getSpaces opString) + opChar
 
-        let newText, newTerm = findTerm (text.Substring(subText.Length).TrimEnd())
+        let newText, newTerm =
+            if op = Cons then
+                let rest = text.Substring(subText.Length)
+                (rest, findTerms rest)
+            else
+                findTerm (text.Substring(subText.Length).TrimEnd())
         subText <- subText + newText
         
         term <- OP(term, op, newTerm)
