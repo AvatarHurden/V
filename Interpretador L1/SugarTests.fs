@@ -59,8 +59,7 @@ let nestedFn = (
     fn(y: Int) {
         (x + y)
     }
-}
-"       .Replace("\r", "").Replace("    ", "\t"),
+}".Replace("\r", "").Replace("    ", "\t"),
      
      Fn("x", Int, Fn("y", Int, OP(X("x"), Add, X("y"))))
 )
@@ -68,12 +67,10 @@ let nestedFn = (
 let app3 = (
     "let app3: (Int -> Int) -> Int = fn(f: Int -> Int) {
     f 3
-}
-;
+};
 app3 fn(x: Int) {
     (x + 1)
-}
-".Replace("\r", "").Replace("    ", "\t"),
+}".Replace("\r", "").Replace("    ", "\t"),
     
     Let("app3", Function(Function(Int, Int), Int), 
         Fn("f", Function(Int, Int), OP(X("f"), Application, I(3))),

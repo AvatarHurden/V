@@ -40,6 +40,18 @@ Different|!=
 GreaterOrEqual|>=
 Greater|>
 
+## Prioridade de operadores
+
+A seguinte ordem de prioridade foi escolhida, baseada no comportamento de F#:
+
+- Multiplicação, Divisão
+- Soma, Subtração
+- Cons
+- Aplicação
+- Testes (<, >, =, etc)
+
+É possível forçar a ordem desejada de avaliação com o uso de parênteses entre operações.
+
 ## Açúcar Sintático
 
 ### Listas

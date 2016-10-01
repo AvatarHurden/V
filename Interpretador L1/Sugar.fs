@@ -118,6 +118,15 @@ type private DelimiterPairs =
     | TryExcept
     | Custom of string * string
 
+let operatorsAtPriority i =
+    match i with
+    | 4 -> [LessOrEqual; LessThan; Equal; Different; GreaterThan; GreaterOrEqual]
+    | 3 -> [Application]
+    | 2 -> [Cons]
+    | 1 -> [Add; Subtract]
+    | 0 -> [Multiply; Divide]
+    | _ -> []
+
 let private getSpaces (term: string) =
     String.Concat (term |> Seq.takeWhile Char.IsWhiteSpace)
   
@@ -433,13 +442,15 @@ and private findTerm (text: string) =
     else
         let text, ident = findIdent trimmedText
         (emptyText+text, X(ident))
-and
+
 // Repeatedly calls findTerm to find all terms defined in the input string
 // This is needed to deal with the left-associativity of operations
 // Returns the finished term (when more than one subterm exists, this is always an OP)
-    private findTerms text =
+and private findTerms text =
     let text = text.TrimEnd()
     let mutable subText, term = findTerm text
+
+    let mutable termList = [] |> List.toSeq
     while not (subText.Equals(text)) do
 
         let opString = text.Substring(subText.Length)
@@ -459,6 +470,8 @@ and
             else "", Application
         subText <- subText + (getSpaces opString) + opChar
 
+        termList <- Seq.append termList [|(term, Some op)|]
+
         let newText, newTerm =
             if op = Cons then
                 let rest = text.Substring(subText.Length)
@@ -467,8 +480,29 @@ and
                 findTerm (text.Substring(subText.Length).TrimEnd())
         subText <- subText + newText
         
-        term <- OP(term, op, newTerm)
-    term
+        term <- newTerm
+    termList <- Seq.append termList [|(term, None)|]
+
+    let mutable priority = 0;
+    while (operatorsAtPriority priority).Length > 0 do
+        let mutable index = 0;
+        while termList |> Seq.nth index |> snd |> (=) None |> not do
+            let op = (termList |> Seq.nth index |> snd).Value
+            if (operatorsAtPriority priority) |> Seq.exists ((=) op) then
+                let t1 = termList |> Seq.nth index |> fst
+                let t2 = termList |> Seq.nth (index + 1) |> fst
+
+                let nextOp = termList |> Seq.nth (index + 1) |> snd
+                termList <- Seq.append (Seq.take index termList)
+                    (Seq.append [(OP(t1, op, t2), nextOp)] (Seq.skip (index+2) termList))
+                index <- if index = 0 then 0 else index - 1
+            else
+                index <- index + 1
+            let t = termList |> Seq.toArray
+            ()
+        priority <- priority + 1
+
+    termList |> Seq.nth 0 |> fst
 
 let rec parseTerm (text: String) =
     let text = ["\n"; "\t"; "\r"] |> Seq.fold (fun (acc: String) x -> acc.Replace(x, " ")) text
