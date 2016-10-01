@@ -98,15 +98,14 @@ O resultado dessa expressão é o mesmo que:
 
 ## Variáveis
 
-O nome de uma variável é uma string de tamanho arbitrário com o seguinte conjunto de caracteres restritos:
+O nome de uma variável é uma string de tamanho arbitrário composto de qualquer caractere com exceção dos seguintes:
 
-|||||
+||||||
 ---|---|---|:---|---
-.|,|;|:
-+|-|/|*
-<|=|>|!
-(|)|{|}
-[|]|?| (espaço)
+.|,|;|:|\
++|-|/|*|<
+=|>|!|(|)
+{|}|[|]|?
 
 Além disso, variáveis não podem ser nomeadas com os seguintes termos reservados:
 

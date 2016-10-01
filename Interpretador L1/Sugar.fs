@@ -217,7 +217,7 @@ let private findClosingPair pair (text:string) startingCount =
 // O retorno da função é uma tupla composto de (espaço em branco+ident, ident)
 let private findIdent text = 
     let emptyText, trimmedText = splitSpaces text
-    let prohibited = " .,;:+-/*<=>(){}[]?!".ToCharArray()
+    let prohibited = " .,;:+-/*<=>(){}[]?!\\".ToCharArray()
     let ident = String.Concat (trimmedText |> Seq.takeWhile (fun x -> not (Seq.exists ((=) x) prohibited)))
     match ident with
     | "let" | "true" | "false" | "if" | "then" | "else" | "fn" | "letrec"
