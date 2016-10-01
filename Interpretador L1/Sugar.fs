@@ -71,7 +71,7 @@ let rec private stringify term lvl =
             sprintf "%sfn(%s: %s) {\n%s%s}\n" 
                 tabs id (typeString typ) (stringify t (lvl+1)) tabs
         else
-            sprintf "%sfn(%s: %s) {\n%s\n%s}\n" 
+            sprintf "%sfn(%s: %s) {\n%s\n%s}" 
                 tabs id (typeString typ) (stringify t (lvl+1)) tabs
     | Let(id, typ, t1, t2) ->
         sprintf "%slet %s: %s = %s;\n%s" 
@@ -281,9 +281,9 @@ let rec private findLet text =
         (text, Let(id, typ, t1, t2))
 
 and private findFn (text: string) = 
-    let mutable processed = "fn("
+    let mutable processed = "fn"
 
-    let s, idString = findClosingPair (Custom("(", ":")) (text.Substring(processed.Length)) 1
+    let s, idString = findClosingPair (Custom("(", ":")) (text.Substring(processed.Length)) 0
     let _, id = findIdent idString
     processed <- processed + s
 
@@ -393,7 +393,7 @@ and private findTerm (text: string) =
     if trimmedText.StartsWith("let ") then
         let s, t = findLet trimmedText
         (emptyText+s, t)
-    elif trimmedText.StartsWith("fn(") then
+    elif trimmedText.StartsWith("fn(") || trimmedText.StartsWith("fn ") then
         let s, t = findFn trimmedText
         (emptyText+s, t)
     elif trimmedText.StartsWith("if ") then
