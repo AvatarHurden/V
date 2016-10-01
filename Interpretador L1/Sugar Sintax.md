@@ -11,7 +11,7 @@ X(id)|id
 Fn(id, typ, t)|fn(id: typ) { t }
 App(t1, t2)|t1 t2
 Let(id, typ, t1, t2)|let id: typ = t1; t2
-LetRec(id1, typ1, typ2, id2, t1, t2)|letrec id1(id2: typ1): typ2 { t1 } in t2
+LetRec(id1, typ1, typ2, id2, t1, t2)|let rec id1(id2: typ1): typ2 { t1 }; t2
 Nil|nil
 Cons(t1, t2)|t1::t2
 IsEmpty(t)|empty? t
@@ -40,6 +40,62 @@ Different|!=
 GreaterOrEqual|>=
 Greater|>
 
+## Prioridade de operadores
+
+A seguinte ordem de prioridade foi escolhida, baseada no comportamento de F#:
+
+- Multiplicação, Divisão
+- Soma, Subtração
+- Cons
+- Aplicação
+- Testes (<, >, =, etc)
+
+É possível forçar a ordem desejada de avaliação com o uso de parênteses entre operações.
+
+## Açúcar Sintático
+
+### Listas
+
+É possível definir listas com a seguinte sintaxe:
+
+	[e1, e2, (...), en]
+
+Ao fazer isso, cada elemento separado por vírgula será o primeiro termo de uma **Cons**, e o último elemento estará unido com **Nil**. 
+
+Dessa forma, a expressão 
+	
+    [1,2,3]
+    
+É equivalente a
+
+	Cons(1, Cons(2, Cons(3, Nil)))
+
+### Funções nomeadas
+
+É possível condensar uma expressão **let** seguida de uma expressão **fn** com a seguinte sintaxe: 
+
+	let id1(id2: typ1): typ2 {
+    	t
+    };
+    t2
+    
+O resultado dessa expressão é o mesmo que:
+
+	let id1: typ1 -> typ2 = fn(id2: typ1) {
+    	t
+    }; 
+    t2
+
+### Funções lambda
+
+	\id: typ => t
+    
+É o mesmo que:
+
+	fn(id: typ) {
+    	t
+    }
+
 ## Variáveis
 
 O nome de uma variável é uma string de tamanho arbitrário com o seguinte conjunto de caracteres restritos:
@@ -56,7 +112,7 @@ Além disso, variáveis não podem ser nomeadas com os seguintes termos reservad
 
 ||||
 ---|---|---|---
-fn|let|letrec
+fn|let|rec
 head|tail|nil
 try|except|raise
 if|then|else

@@ -59,8 +59,7 @@ let nestedFn = (
     fn(y: Int) {
         (x + y)
     }
-}
-"       .Replace("\r", "").Replace("    ", "\t"),
+}".Replace("\r", "").Replace("    ", "\t"),
      
      Fn("x", Int, Fn("y", Int, OP(X("x"), Add, X("y"))))
 )
@@ -68,12 +67,10 @@ let nestedFn = (
 let app3 = (
     "let app3: (Int -> Int) -> Int = fn(f: Int -> Int) {
     f 3
-}
-;
+};
 app3 fn(x: Int) {
     (x + 1)
-}
-".Replace("\r", "").Replace("    ", "\t"),
+}".Replace("\r", "").Replace("    ", "\t"),
     
     Let("app3", Function(Function(Int, Int), Int), 
         Fn("f", Function(Int, Int), OP(X("f"), Application, I(3))),
@@ -95,9 +92,10 @@ let nestedLet = (
 )
 
 let factorial = (
-    "letrec fat(x: Int): Int {
+    "let rec fat(x: Int): Int {
         if x = 0 then 1 else x*(fat (x-1))
-     } in fat 5",
+     };
+     fat 5",
     
     LetRec("fat", Int, Int, "x", 
         Cond(OP(X("x"), Equal, I(0)), I(1), 
@@ -118,9 +116,10 @@ let simpleTry = (
 )
 
 let letRecList = (
-    "letrec sum(x: [Int]): Int {
+    "let rec sum(x: [Int]): Int {
         if empty? x then 0 else (head x)+(sum(tail x))
-    } in sum(4::3::2::1::nil)", 
+    };
+    sum(4::3::2::1::nil)", 
     
     LetRec("sum", List(Int), Int, "x",
         Cond(IsEmpty(X("x")), 
@@ -132,15 +131,16 @@ let letRecList = (
 )
 
 let facList = (
-    "letrec faclist(x: Int): [Int] {
-    letrec fac(y: Int): Int {
+    "let rec faclist(x: Int): [Int] {
+    let rec fac(y: Int): Int {
         if y = 0 then 1 else y*(fac (y-1))
-    } in
+    };
     if x = 0 then
         nil
     else
         (fac x) :: (faclist (x-1))
-} in faclist 5",
+};
+faclist 5",
 
     LetRec("faclist", Int, List(Int), "x", 
         LetRec("fac", Int, Int, "y", 
