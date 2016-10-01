@@ -10,6 +10,7 @@ exception InvalidEntryText of string
   ////////////////
  //  Printing  //
 ////////////////
+//#region Printing
 
 let rec private typeString typ =
     match typ with
@@ -24,7 +25,6 @@ let rec private typeString typ =
             sprintf "%s -> %s" (typeString t1) (typeString t2)
     | List(t) ->
         sprintf "[%s]" (typeString t)
-
 
 let rec private stringify term lvl =
     let tabs = String.replicate(lvl) "\t"
@@ -102,11 +102,13 @@ let print term = stringify term 0
 type term with
     member public this.DisplayValue = stringify this 0
 
+//#endregion Printing
 
 
   ///////////////
  //  Parsing  //
 ///////////////
+//#region Parsing
 
 type private DelimiterPairs =
     | Parenthesis
@@ -118,6 +120,7 @@ type private DelimiterPairs =
     | TryExcept
     | Custom of string * string
 
+//#region Utilities
 let operatorsAtPriority i =
     match i with
     | 4 -> [LessOrEqual; LessThan; Equal; Different; GreaterThan; GreaterOrEqual]
@@ -206,6 +209,8 @@ let private findClosingPair pair (text:string) startingCount =
     else
         raise (InvalidEntryText ("Missing a closing " + subtractor))
 
+//#endregion Utilities
+
 // Avança em text até encontrar algum caractere inválido para nome de variáveis
 // Se o nome encontrado for algum texto reservado, lança uma exceção.
 // Permite espaços brancos no começo da string
@@ -272,22 +277,70 @@ let rec private findLet text =
         let s, id = findIdent definition
         let mutable processedText = s
 
-        let s, typeString = 
-            try 
-                findClosingPair (Custom(":", "=")) (definition.Substring(processedText.Length)) 0
-            with
-            | InvalidEntryText _ -> 
-                InvalidEntryText(sprintf "Must set a type at %A" definition) |> raise
+        let emptyText = definition.Substring(processedText.Length) |> getSpaces 
+        processedText <- processedText + emptyText
+        let trimmedText = definition.Substring(processedText.Length)
 
-        let _, typ = findType typeString
-        processedText <- processedText + s
+        if trimmedText.StartsWith("(") then
+            findLetFunction text total trimmedDefinition
+        else
+            let s, typeString = 
+                try 
+                    findClosingPair (Custom(":", "=")) (definition.Substring(processedText.Length)) 0
+                with
+                | InvalidEntryText _ -> 
+                    InvalidEntryText(sprintf "Must set a type at %A" definition) |> raise
+        
+            let _, typ = findType typeString
+            processedText <- processedText + s
 
-        let t1 = findTerms (definition.Substring(processedText.Length))
-        processedText <- total
+            let t1 = findTerms (definition.Substring(processedText.Length))
+            processedText <- total
 
-        let t2 = findTerms (text.Substring(processedText.Length))
+            let t2 = findTerms (text.Substring(processedText.Length))
 
-        (text, Let(id, typ, t1, t2))
+            (text, Let(id, typ, t1, t2))
+
+and private findLetRec (text: string) (total: string) (definition: string) =
+    let s, id1 = findIdent definition
+    let mutable processed = s
+
+    let s, id2String = findClosingPair (Custom("(", ":")) (definition.Substring(processed.Length)) 0
+    let _, id2 = findIdent id2String
+    processed <- processed + s
+
+    let s, typ1String = 
+        try 
+            findClosingPair Parenthesis (definition.Substring(processed.Length)) 1
+        with
+        | InvalidEntryText _ -> 
+            InvalidEntryText  (sprintf "Must set a type for parameter at %A" definition) |> raise
+
+    let _, typ1 = findType typ1String
+    processed <- processed + s
+
+    let s, typ2String = 
+        try 
+            findClosingPair (Custom(":", "{")) (definition.Substring(processed.Length)) 0
+        with
+        | InvalidEntryText _ -> 
+            InvalidEntryText  (sprintf "Must set a type for return at %A" definition) |> raise
+
+    let _, typ2 = findType typ2String
+    processed <- processed + s
+
+    let s, t1String = findClosingPair Brackets (definition.Substring(processed.Length)) 1
+    let t1 = findTerms t1String
+    processed <- total
+
+    let t2 = findTerms (text.Substring(processed.Length))
+
+    (text, LetRec(id1, typ1, typ2, id2, t1, t2))
+
+and private findLetFunction (text: string) (total: string) (definition: string) =
+    let _, LetRec(id1, typ1, typ2, id2, t1, t2) = findLetRec text total definition
+    
+    (text, Let(id1, Function(typ1, typ2), Fn(id2, typ1, t1), t2))    
 
 and private findFn (text: string) = 
     let mutable processed = "fn"
@@ -346,41 +399,6 @@ and private findIf (text: string) =
 
     (text, Cond(t1, t2, t3))
 
-and private findLetRec (text: string) (total: string) (definition: string) =
-    let s, id1 = findIdent definition
-    let mutable processed = s
-
-    let s, id2String = findClosingPair (Custom("(", ":")) (definition.Substring(processed.Length)) 0
-    let _, id2 = findIdent id2String
-    processed <- processed + s
-
-    let s, typ1String = 
-        try 
-            findClosingPair Parenthesis (definition.Substring(processed.Length)) 1
-        with
-        | InvalidEntryText _ -> 
-            InvalidEntryText  (sprintf "Must set a type for parameter at %A" definition) |> raise
-
-    let _, typ1 = findType typ1String
-    processed <- processed + s
-
-    let s, typ2String = 
-        try 
-            findClosingPair (Custom(":", "{")) (definition.Substring(processed.Length)) 0
-        with
-        | InvalidEntryText _ -> 
-            InvalidEntryText  (sprintf "Must set a type for return at %A" definition) |> raise
-
-    let _, typ2 = findType typ2String
-    processed <- processed + s
-
-    let s, t1String = findClosingPair Brackets (definition.Substring(processed.Length)) 1
-    let t1 = findTerms t1String
-    processed <- total
-
-    let t2 = findTerms (text.Substring(processed.Length))
-
-    (text, LetRec(id1, typ1, typ2, id2, t1, t2))
 
 and private findTry (text: string) =
     let total, t1String = findClosingPair TryExcept text 0
@@ -541,3 +559,5 @@ let rec parseTerm (text: String) =
         else
             ()
     findTerms text
+
+//#endregion Parsing

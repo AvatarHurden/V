@@ -70,6 +70,22 @@ Dessa forma, a expressão
 
 	Cons(1, Cons(2, Cons(3, Nil)))
 
+### Funções nomeadas
+
+É possível condensar uma expressão **let** seguida de uma expressão **fn** com a seguinte sintaxe: 
+
+	let id1(id2: typ1): typ2 {
+    	t
+    };
+    t2
+    
+O resultado dessa expressão é o mesmo que:
+
+	let id1: typ1 -> typ2 = fn(id2: typ1) {
+    	t
+    }; 
+    t2
+
 ### Funções lambda
 
 	\id: typ => t
