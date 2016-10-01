@@ -359,6 +359,28 @@ and private findTry (text: string) =
     let t2 = text.Substring(total.Length) |> findTerms
 
     (text, Try(t1, t2))
+
+and private findList (text: string) =
+    let mutable index = 1
+    while [|','; ']'|] |> Seq.exists ((=) (text.Chars(index))) |> not do
+        if text.Substring(index).StartsWith("[") then
+            let (s:string), _ = findList(text.Substring(index))
+            index <- index + (s.Length)
+        else
+            index <- index + 1
+    if text.Chars(index) = ',' then
+        let s, t = text.Substring(index) |> findList
+        text.Substring(0, index) + s, OP(findTerms (text.Substring(1, index-1)), Cons, t)
+    else
+        let s = text.Substring(0, index+1)
+        let t =
+            match index with
+            | 1 -> 
+                Nil
+            | _ -> 
+                OP(text.Substring(1, index-1) |> findTerms, Cons, Nil)
+        s, t
+
 // Finds a single term in the input string
 // If this function finds a "subterm" (that is, an opening parenthesis), it calls
 // findTerms resursively
@@ -392,6 +414,9 @@ and private findTerm (text: string) =
     elif trimmedText.StartsWith("(") then
         let s, subTerm = findClosingPair Parenthesis trimmedText 0
         let s, t = (s, findTerms subTerm)
+        (emptyText + s, t)
+    elif trimmedText.StartsWith("[") then
+        let s, t = findList trimmedText
         (emptyText + s, t)
     elif Char.IsDigit(trimmedText.Chars(0)) then
         let s = trimmedText.ToCharArray()

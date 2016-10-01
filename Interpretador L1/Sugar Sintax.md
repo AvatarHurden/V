@@ -40,6 +40,24 @@ Different|!=
 GreaterOrEqual|>=
 Greater|>
 
+## Açúcar Sintático
+
+### Listas
+
+É possível definir listas com a seguinte sintaxe:
+
+	[e1, e2, (...), en]
+
+Ao fazer isso, cada elemento separado por vírgula será o primeiro termo de uma **Cons**, e o último elemento estará unido com **Nil**. 
+
+Dessa forma, a expressão 
+	
+    [1,2,3]
+    
+É equivalente a
+
+	Cons(1, Cons(2, Cons(3, Nil)))
+
 ## Variáveis
 
 O nome de uma variável é uma string de tamanho arbitrário com o seguinte conjunto de caracteres restritos:
