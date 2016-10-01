@@ -122,12 +122,12 @@ type private DelimiterPairs =
 
 //#region Utilities
 let operatorsAtPriority i =
-    match i with
-    | 4 -> [LessOrEqual; LessThan; Equal; Different; GreaterThan; GreaterOrEqual]
+    match i with             
+    | 0 -> [Multiply; Divide]  
+    | 1 -> [Add; Subtract]   
+    | 2 -> [Cons]                                                      
     | 3 -> [Application]
-    | 2 -> [Cons]
-    | 1 -> [Add; Subtract]
-    | 0 -> [Multiply; Divide]
+    | 4 -> [LessOrEqual; LessThan; Equal; Different; GreaterThan; GreaterOrEqual]
     | _ -> []
 
 let private splitSpaces (term: string) =

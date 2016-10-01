@@ -9,11 +9,9 @@ OP(t1, op, t2)|t1 op t2
 Cond(t1, t2, t3)|if t1 then t2 else t3
 X(id)|id
 Fn(id, typ, t)|fn(id: typ) { t }
-App(t1, t2)|t1 t2
 Let(id, typ, t1, t2)|let id: typ = t1; t2
 LetRec(id1, typ1, typ2, id2, t1, t2)|let rec id1(id2: typ1): typ2 { t1 }; t2
 Nil|nil
-Cons(t1, t2)|t1::t2
 IsEmpty(t)|empty? t
 Head(t)|head t
 Tail(t)|tail t
@@ -33,6 +31,8 @@ Add|+
 Subtract|-
 Multiply|*
 Divide|/
+Cons|::
+Application| (espaço)
 LessThan|<
 LessOrEqual|<=
 Equal|=
@@ -123,10 +123,10 @@ true|false|
 Existem 2 tipos de associativade. Eles são:
 
 - Associatividade à esquerda, onde "a b c" é o mesmo que "(a b) c"
-	- Fazem parte desse grupo os termos **OP** e **App**
+	- Fazem parte desse grupo todas as operações, com exceção de **Cons**
 
 - Associatividade à direita, onde "a b c" é o mesmo que "a (b c)"
-	- Fazem parte deste grupo o termo **Cons** e o tipo **Function**
+	- Fazem parte deste grupo a operação **Cons** e o tipo **Function**
 
 É possível alterar a associativade de qualquer termo com o uso de parênteses.
 
