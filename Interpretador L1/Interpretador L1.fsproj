@@ -57,6 +57,7 @@
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Definition.fs" />
     <Compile Include="Evaluation.fs" />
+    <Compile Include="TypeInference.fs" />
     <Compile Include="Sugar.fs" />
     <Compile Include="Tests.fs" />
     <Compile Include="SugarTests.fs" />
