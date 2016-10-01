@@ -31,8 +31,11 @@ type term =
     | Cond of term * term * term
     | X of Ident
     | Fn of Ident * Type * term
+    | Fn' of Ident * term
     | Let of Ident * Type * term * term
+    | Let' of Ident * term * term
     | LetRec of Ident * Type * Type * Ident * term * term
+    | LetRec' of Ident * Ident * term * term
     | Nil
     | IsEmpty of term
     | Head of term

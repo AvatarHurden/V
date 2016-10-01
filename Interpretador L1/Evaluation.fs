@@ -20,18 +20,36 @@ let rec replace x value term =
             Fn(id, typ, t1)
         else
             Fn(id, typ, (replace x value t1))
+    | Fn'(id, t1) ->
+        if (id = x) then
+            Fn'(id, t1)
+        else
+            Fn'(id, (replace x value t1))
     | Let(id, typ, t1, t2) ->
         if (id = x) then
             Let(id, typ, (replace x value t1), t2)
         else
             Let(id, typ, (replace x value t1), (replace x value t2))
+    | Let'(id, t1, t2) ->
+        if (id = x) then
+            Let'(id, (replace x value t1), t2)
+        else
+            Let'(id, (replace x value t1), (replace x value t2))
     | LetRec(id1, typ1, typ2, id2, t1, t2) ->
+        LetRec'(id1, id2, t1, t2) |> replace x value
         if (id1 = x) then
             LetRec(id1, typ1, typ2, id2, t1, t2)
         elif (id2 = x) then
             LetRec(id1, typ1, typ2, id2, t1, (replace x value t2))
         else
             LetRec(id1, typ1, typ2, id2,  (replace x value t1),  (replace x value t2))
+    | LetRec'(id1, id2, t1, t2) ->
+        if (id1 = x) then
+            LetRec'(id1, id2, t1, t2)
+        elif (id2 = x) then
+            LetRec'(id1, id2, t1, (replace x value t2))
+        else
+            LetRec'(id1, id2,  (replace x value t1),  (replace x value t2))
     | Nil -> Nil
     | IsEmpty(t1) -> IsEmpty((replace x value t1))
     | Head(t1) -> Head((replace x value t1))
@@ -49,6 +67,7 @@ let rec eval t =
         let t2' = eval t2 in
         match t1', t2' with
         | Fn(id, typ, e), v when V(v) -> eval (replace id v e)
+        | Fn'(id, e), v when V(v) -> eval (replace id v e)
         | _, v when V(v) -> raise (WrongExpression(sprintf "First operand %A is not a function at %A" t1' t))
         | Fn(id, typ, e), _ -> raise (WrongExpression(sprintf "Second operand %A is not a value at %A" t2' t))
         | _, _ -> raise (WrongExpression(sprintf "Operands %A and %A do not match the Application operator at %A" t1' t2' t))
@@ -87,7 +106,14 @@ let rec eval t =
         | False -> eval t3
         | _ -> raise (WrongExpression(sprintf "Term %A is not a Boolean value at %A" t1' t))
     | Fn(id, typ, t1) as fn -> fn
+    | Fn'(id, t1) as fn -> fn
     | Let(id, typ, t1, t2) ->
+        let t1' = eval t1 in
+        if V(t1') then
+            eval (replace id t1' t2)
+        else
+            raise (WrongExpression(sprintf "Term %A is not a value at %A" t1' t))
+    | Let'(id, t1, t2) ->
         let t1' = eval t1 in
         if V(t1') then
             eval (replace id t1' t2)
@@ -96,6 +122,10 @@ let rec eval t =
     | LetRec(id1, typ1, typ2, id2, t1, t2) ->
         let rec2 = LetRec(id1, typ1, typ2, id2, t1, t1) in
         let fn = Fn(id2, typ1, rec2) in
+        eval (replace id1 fn t2)
+    | LetRec'(id1, id2, t1, t2) ->
+        let rec2 = LetRec'(id1, id2, t1, t1) in
+        let fn = Fn'(id2, rec2) in
         eval (replace id1 fn t2)
     | Nil -> Nil
     | IsEmpty(t1) ->

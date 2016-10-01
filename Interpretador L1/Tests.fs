@@ -65,3 +65,16 @@ type TestEval() =
     member that.faclist() =
         eval facList |> should equal 
             (OP(I(120), Cons, OP(I(24), Cons, OP(I(6), Cons, OP(I(2), Cons, OP(I(1), Cons, Nil))))))
+
+    [<Test>]
+    [<Category("LetRec'")>]
+    [<Category("Cond")>]
+    [<Category("OP")>]
+    [<Category("Value")>]
+    [<Category("X")>]
+    member that.fac'() =
+        let fatMult = OP(X("x"), Multiply, OP(X("fat"), Application, OP(X("x"), Subtract, I(1))))
+        let fnTerm =  Cond(OP(X("x"), Equal, I(0)), I(1), fatMult)
+        let fat = LetRec'("fat", "x", fnTerm, OP(X("fat"), Application, I(5))) in
+
+        eval fat |> should equal (I(120))
