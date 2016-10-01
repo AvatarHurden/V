@@ -130,8 +130,9 @@ let operatorsAtPriority i =
     | 0 -> [Multiply; Divide]
     | _ -> []
 
-let private getSpaces (term: string) =
-    String.Concat (term |> Seq.takeWhile Char.IsWhiteSpace)
+let private splitSpaces (term: string) =
+    let empty = String.Concat (term |> Seq.takeWhile Char.IsWhiteSpace)
+    empty, term.Substring(empty.Length)
   
 let private countPairs pair (text: string) =
     let adder, subtractor = 
@@ -178,8 +179,7 @@ let private findClosingPair pair (text:string) startingCount =
         | TryExcept -> "try ", " except "
         | Custom(t1, t2) -> t1, t2
 
-    let mutable processed = getSpaces text
-    let trimmedText = text.Substring(processed.Length)
+    let mutable processed, trimmedText = splitSpaces text
     
     let mutable count = startingCount
     let mutable fresh = count = 0
@@ -216,8 +216,7 @@ let private findClosingPair pair (text:string) startingCount =
 // Permite espaços brancos no começo da string
 // O retorno da função é uma tupla composto de (espaço em branco+ident, ident)
 let private findIdent text = 
-    let emptyText = getSpaces text
-    let trimmedText = text.Substring(emptyText.Length)
+    let emptyText, trimmedText = splitSpaces text
     let prohibited = " .,;:+-/*<=>(){}[]?!".ToCharArray()
     let ident = String.Concat (trimmedText |> Seq.takeWhile (fun x -> not (Seq.exists ((=) x) prohibited)))
     match ident with
@@ -231,8 +230,8 @@ let private findIdent text =
 // The string must contain only a type definition (that is, it must end without any
 // other characters except for empty spaces)
 let rec private findType (text:string) =
-    let mutable processed = getSpaces text
-    let trimmedText = text.Trim()
+    let mutable processed, trimmedText = splitSpaces text
+    trimmedText <- trimmedText.TrimEnd()
     let endingSpaces = text.Substring(processed.Length+trimmedText.Length)
 
     let typ1Text, typ1 = 
@@ -255,7 +254,7 @@ let rec private findType (text:string) =
         (typ1Text, typ1)
     else
         processed <- typ1Text
-        let emptyText = getSpaces (text.Substring(processed.Length))
+        let emptyText, _ = splitSpaces (text.Substring(processed.Length))
         processed <- processed + emptyText
         if text.Substring(processed.Length).StartsWith("->") then
             processed <- processed + "->"
@@ -268,8 +267,7 @@ let rec private findType (text:string) =
 let rec private findLet text =
     let total, definition = findClosingPair LetSemicolon text 0
 
-    let emptyText = getSpaces definition
-    let trimmedDefinition = definition.Substring(emptyText.Length)
+    let emptyText, trimmedDefinition = splitSpaces definition
     if trimmedDefinition.StartsWith("rec ") then
         findLetRec text total (trimmedDefinition.Substring("rec ".Length))
     else
@@ -277,7 +275,7 @@ let rec private findLet text =
         let s, id = findIdent definition
         let mutable processedText = s
 
-        let emptyText = definition.Substring(processedText.Length) |> getSpaces 
+        let emptyText, _ = definition.Substring(processedText.Length) |> splitSpaces 
         processedText <- processedText + emptyText
         let trimmedText = definition.Substring(processedText.Length)
 
@@ -435,8 +433,7 @@ and private findList (text: string) =
 // Returns a tuple made of (all the processed text, term)
 and private findTerm (text: string) =
 
-    let emptyText = getSpaces text
-    let trimmedText = text.Substring(emptyText.Length)
+    let emptyText, trimmedText = splitSpaces text
     
     if trimmedText.StartsWith("let ") then
         let s, t = findLet trimmedText
@@ -510,7 +507,7 @@ and private findTerms text =
             elif opTrimmed.StartsWith ">"  then ">", GreaterThan
             elif opTrimmed.StartsWith "::" then "::", Cons
             else "", Application
-        subText <- subText + (getSpaces opString) + opChar
+        subText <- subText + (opString |> splitSpaces |> fst) + opChar
 
         termList <- Seq.append termList [|(term, Some op)|]
 
