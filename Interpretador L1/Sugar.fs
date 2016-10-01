@@ -312,6 +312,27 @@ and private findFn (text: string) =
 
     (processed, Fn(id, typ, t))
 
+and private findLambda (text: string) =
+    let mutable processed = "\\"
+
+    let s, idString = findClosingPair (Custom("\\", ":")) (text.Substring(processed.Length)) 1
+    let _, id = findIdent idString
+    processed <- processed + s
+
+    let s, typeString =
+        try 
+            findClosingPair (Custom(":", "=>")) (text.Substring(processed.Length)) 1
+        with
+        | InvalidEntryText _ ->
+            InvalidEntryText(sprintf "Must set a type for the parameter at %A" text) |> raise
+
+    let _, typ = findType typeString
+    processed <- processed + s
+
+    let t = findTerms (text.Substring(processed.Length))
+
+    (text, Fn(id, typ, t))
+
 and private findIf (text: string) =
     let total, t1String = findClosingPair IfThen text 0
     let t1 = findTerms t1String
@@ -404,6 +425,9 @@ and private findTerm (text: string) =
         (emptyText+s, t)
     elif trimmedText.StartsWith("fn(") || trimmedText.StartsWith("fn ") then
         let s, t = findFn trimmedText
+        (emptyText+s, t)
+    elif trimmedText.StartsWith("\\") then
+        let s, t = findLambda trimmedText
         (emptyText+s, t)
     elif trimmedText.StartsWith("if ") then
         let s, t = findIf trimmedText

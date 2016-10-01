@@ -70,6 +70,16 @@ Dessa forma, a expressão
 
 	Cons(1, Cons(2, Cons(3, Nil)))
 
+### Funções lambda
+
+	\id: typ => t
+    
+É o mesmo que:
+
+	fn(id: typ) {
+    	t
+    }
+
 ## Variáveis
 
 O nome de uma variável é uma string de tamanho arbitrário com o seguinte conjunto de caracteres restritos:
