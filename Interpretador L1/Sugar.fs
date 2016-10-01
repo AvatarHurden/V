@@ -80,8 +80,8 @@ let rec private stringify term lvl =
         let typ1' = typeString typ1
         let typ2' = typeString typ2
         let t1' = stringify t1 (lvl+1)
-        let t2' = stringify t2 0
-        sprintf "%sletrec %s(%s: %s): %s {\n%s}\n%sin %s" 
+        let t2' = stringify t2 lvl
+        sprintf "%slet rec %s(%s: %s): %s {\n%s\n%s};\n%s" 
             tabs id id2 typ1' typ2' t1' tabs t2'
     | Nil -> 
         sprintf "%snil" tabs
@@ -114,7 +114,6 @@ type private DelimiterPairs =
     | SquareBrackets
     | IfThen
     | ThenElse
-    | LetRecIn
     | LetSemicolon
     | TryExcept
     | Custom of string * string
@@ -130,7 +129,6 @@ let private countPairs pair (text: string) =
         | SquareBrackets -> "[", "]"
         | IfThen -> "if ", " then "
         | ThenElse -> " then ", " else "
-        | LetRecIn -> "letrec ", "in " 
         | LetSemicolon -> "let ", ";"
         | TryExcept -> "try ", "except "
         | Custom(t1, t2) -> t1, t2
@@ -164,7 +162,6 @@ let private findClosingPair pair (text:string) startingCount =
         | SquareBrackets -> "[", "]"
         | IfThen -> "if ", " then "
         | ThenElse -> " then ", " else "
-        | LetRecIn -> "letrec ", "in " 
         | LetSemicolon -> "let ", ";"
         | TryExcept -> "try ", " except "
         | Custom(t1, t2) -> t1, t2
@@ -257,25 +254,31 @@ let rec private findType (text:string) =
 let rec private findLet text =
     let total, definition = findClosingPair LetSemicolon text 0
 
-    let s, id = findIdent definition
-    let mutable processedText = s
+    let emptyText = getSpaces definition
+    let trimmedDefinition = definition.Substring(emptyText.Length)
+    if trimmedDefinition.StartsWith("rec ") then
+        findLetRec text total (trimmedDefinition.Substring("rec ".Length))
+    else
 
-    let s, typeString = 
-        try 
-            findClosingPair (Custom(":", "=")) (definition.Substring(processedText.Length)) 0
-        with
-        | InvalidEntryText _ -> 
-            InvalidEntryText(sprintf "Must set a type at %A" definition) |> raise
+        let s, id = findIdent definition
+        let mutable processedText = s
 
-    let _, typ = findType typeString
-    processedText <- processedText + s
+        let s, typeString = 
+            try 
+                findClosingPair (Custom(":", "=")) (definition.Substring(processedText.Length)) 0
+            with
+            | InvalidEntryText _ -> 
+                InvalidEntryText(sprintf "Must set a type at %A" definition) |> raise
 
-    let t1 = findTerms (definition.Substring(processedText.Length))
-    processedText <- total
+        let _, typ = findType typeString
+        processedText <- processedText + s
 
-    let t2 = findTerms (text.Substring(processedText.Length))
+        let t1 = findTerms (definition.Substring(processedText.Length))
+        processedText <- total
 
-    (text, Let(id, typ, t1, t2))
+        let t2 = findTerms (text.Substring(processedText.Length))
+
+        (text, Let(id, typ, t1, t2))
 
 and private findFn (text: string) = 
     let mutable processed = "fn("
@@ -313,9 +316,7 @@ and private findIf (text: string) =
 
     (text, Cond(t1, t2, t3))
 
-and private findLetRec (text: string) =
-    let total, definition = findClosingPair LetRecIn text 0
-
+and private findLetRec (text: string) (total: string) (definition: string) =
     let s, id1 = findIdent definition
     let mutable processed = s
 
@@ -367,10 +368,7 @@ and private findTerm (text: string) =
     let emptyText = getSpaces text
     let trimmedText = text.Substring(emptyText.Length)
     
-    if trimmedText.StartsWith("letrec ") then
-        let s, t = findLetRec trimmedText
-        (emptyText+s, t)
-    elif trimmedText.StartsWith("let ") then
+    if trimmedText.StartsWith("let ") then
         let s, t = findLet trimmedText
         (emptyText+s, t)
     elif trimmedText.StartsWith("fn(") then
@@ -450,7 +448,7 @@ and
 let rec parseTerm (text: String) =
     let text = ["\n"; "\t"; "\r"] |> Seq.fold (fun (acc: String) x -> acc.Replace(x, " ")) text
     let pairs = [Parenthesis;Brackets;SquareBrackets;IfThen;
-        ThenElse;LetRecIn;LetSemicolon;TryExcept]
+        ThenElse;LetSemicolon;TryExcept]
     for pair in pairs do
         let opening, closing, count = countPairs pair text
         if count < 0 then
