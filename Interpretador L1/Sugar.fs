@@ -436,6 +436,43 @@ and private findList (text: string) =
                 OP(text.Substring(1, index-1) |> findTerms, Cons, Nil)
         s, t
 
+and private findComprehension (text: string) =
+    let mutable compr, inside = findClosingPair SquareBrackets text 0
+    try
+        let mutable index = 0;
+        while index < inside.Length && inside.Substring(index).StartsWith(" for ") |> not do
+            if (inside.Substring(index).StartsWith("[")) then
+                let s, _ = findClosingPair SquareBrackets (inside.Substring(index)) 0
+                index <- index + s.Length
+            else
+                index <- index + 1
+
+        if index = inside.Length then
+            InvalidEntryText "" |> raise
+
+        let t1String = inside.Substring(0, index)
+        let t1 = findTerms t1String
+        inside <- inside.Substring(index)
+
+        let s, idString = findClosingPair (Custom("for ", " in ")) inside 0
+        let _, id = findIdent idString
+
+        let t2String = inside.Substring(s.Length)
+        let t2 = findTerms t2String
+
+        let f = Fn(id, None, t1)
+        let mapT = 
+            Let("f", None, f, 
+                Cond(IsEmpty(X("l")), 
+                    Nil, 
+                    OP(OP(X("f"), Application, Head(X("l"))), Cons, OP(X("map"), Application, Tail(X("l"))))
+                ))
+
+        compr, LetRec("map", None, None, "l", mapT, OP(X("map"), Application, t2))
+    with
+    | InvalidEntryText _ ->
+        findList text
+
 // Finds a single term in the input string
 // If this function finds a "subterm" (that is, an opening parenthesis), it calls
 // findTerms resursively
@@ -473,7 +510,7 @@ and private findTerm (text: string) =
         let s, t = (s, findTerms subTerm)
         (emptyText + s, t)
     elif trimmedText.StartsWith("[") then
-        let s, t = findList trimmedText
+        let s, t = findComprehension trimmedText
         (emptyText + s, t)
     elif Char.IsDigit(trimmedText.Chars(0)) then
         let s = trimmedText.ToCharArray()

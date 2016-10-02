@@ -357,19 +357,19 @@ x 3".Replace("\r", ""))
 
     [<Test>]
     member that.map() =
-    parseTerm  "let t2 = 1::2::3::nil;
-                let f = fn(x) {
-                    (x * 2)
-                };
-                let rec map(l) {
-                    if empty? l then
-                        nil
-                    else
-                        (f head l)::map tail l
-                };
-                map t2" 
-    |> print |> should equal
-        ("let t2 = 1::2::3::nil;
+        parseTerm  "let t2 = 1::2::3::nil;
+                    let f = fn(x) {
+                        (x * 2)
+                    };
+                    let rec map(l) {
+                        if empty? l then
+                            nil
+                        else
+                            (f head l)::map tail l
+                    };
+                    map t2" 
+        |> print |> should equal
+            ("let t2 = 1::2::3::nil;
 let f = fn(x) {
     (x * 2)
 };
@@ -380,3 +380,18 @@ let rec map(l) {
         (f head l)::map tail l
 };
 map t2".Replace("\r", "").Replace("    ", "\t"))
+
+    [<Test>]
+    member that.comprehension() =
+        parseTerm  "[x*2 for x in [1,2,3]]" 
+        |> print |> should equal
+            ("let rec map(l) {
+    let f = fn(x) {
+    (x * 2)
+};
+    if empty? l then
+        nil
+    else
+        (f head l)::map tail l
+};
+map 1::2::3::nil".Replace("\r", "").Replace("    ", "\t"))

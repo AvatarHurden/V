@@ -8,9 +8,12 @@ I(i)|i
 OP(t1, op, t2)|t1 op t2
 Cond(t1, t2, t3)|if t1 then t2 else t3
 X(id)|id
-Fn(id, typ, t)|fn(id: typ) { t }
-Let(id, typ, t1, t2)|let id: typ = t1; t2
-LetRec(id1, typ1, typ2, id2, t1, t2)|let rec id1(id2: typ1): typ2 { t1 }; t2
+Fn(id, Some typ, t)|fn(id: typ) { t }
+Fn(id, None, t)|fn(id) { t }
+Let(id, Some typ, t1, t2)|let id: typ = t1; t2
+Let(id, None, t1, t2)|let id = t1; t2
+LetRec(id1, Some typ1, Some typ2, id2, t1, t2)|let rec id1(id2: typ1): typ2 { t1 }; t2
+LetRec(id1, None, None, id2, t1, t2)|let rec id1(id2) { t1 }; t2
 Nil|nil
 IsEmpty(t)|empty? t
 Head(t)|head t
@@ -51,6 +54,20 @@ A seguinte ordem de prioridade foi escolhida, baseada no comportamento de F#:
 - Testes (<, >, =, etc)
 
 É possível forçar a ordem desejada de avaliação com o uso de parênteses entre operações.
+
+## Associatividade
+
+Existem 2 tipos de associativade. Eles são:
+
+- Associatividade à esquerda, onde "a b c" é o mesmo que "(a b) c"
+	- Fazem parte desse grupo todas as operações, com exceção de **Cons**
+
+- Associatividade à direita, onde "a b c" é o mesmo que "a (b c)"
+	- Fazem parte deste grupo a operação **Cons** e o tipo **Function**, além dos termos **head**, **tail** e **empty?**.
+
+É possível alterar a associativade de qualquer termo com o uso de parênteses.
+
+
 
 ## Açúcar Sintático
 
@@ -96,6 +113,22 @@ O resultado dessa expressão é o mesmo que:
     	t
     }
 
+### Compreensão de listas
+
+	[t for id in t2]
+
+É o mesmo que:
+
+	let rec map(l) {
+    	let f = fn(id) {
+        	t
+        };
+    	if empty? l then
+        	nil
+        else
+        	(f head l)::(map tail l)	
+    }; map t2
+
 ## Variáveis
 
 O nome de uma variável é uma string de tamanho arbitrário composto de qualquer caractere com exceção dos seguintes:
@@ -116,16 +149,3 @@ head|tail|nil
 try|except|raise
 if|then|else
 true|false|
-
-## Associatividade
-
-Existem 2 tipos de associativade. Eles são:
-
-- Associatividade à esquerda, onde "a b c" é o mesmo que "(a b) c"
-	- Fazem parte desse grupo todas as operações, com exceção de **Cons**
-
-- Associatividade à direita, onde "a b c" é o mesmo que "a (b c)"
-	- Fazem parte deste grupo a operação **Cons** e o tipo **Function**
-
-É possível alterar a associativade de qualquer termo com o uso de parênteses.
-
