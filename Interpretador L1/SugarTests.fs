@@ -15,9 +15,9 @@ if b then
 else
 	(x - y)".Replace("\r", "").Replace("    ", "\t"), 
 
-    Let("x", Int, I(3), 
-        Let("y", Int, I(4), 
-            Let("b", Bool, False, 
+    Let("x", Some Int, I(3), 
+        Let("y", Some Int, I(4), 
+            Let("b", Some Bool, False, 
                 Cond(X("b"), 
                     OP(X("x"), Add, X("y")), 
                     OP(X("x"), Subtract, X("y"))))))
@@ -61,7 +61,7 @@ let nestedFn = (
     }
 }".Replace("\r", "").Replace("    ", "\t"),
      
-     Fn("x", Int, Fn("y", Int, OP(X("x"), Add, X("y"))))
+     Fn("x", Some Int, Fn("y", Some Int, OP(X("x"), Add, X("y"))))
 )
 
 let app3 = (
@@ -72,9 +72,9 @@ app3 fn(x: Int) {
     (x + 1)
 }".Replace("\r", "").Replace("    ", "\t"),
     
-    Let("app3", Function(Function(Int, Int), Int), 
-        Fn("f", Function(Int, Int), OP(X("f"), Application, I(3))),
-            OP(X("app3"), Application, Fn("x", Int, OP(X("x"), Add, I(1)))))
+    Let("app3", Function(Function(Int, Int), Int) |> Some, 
+        Fn("f", Function(Int, Int) |> Some, OP(X("f"), Application, I(3))),
+            OP(X("app3"), Application, Fn("x", Some Int, OP(X("x"), Add, I(1)))))
 )
 
 let nestedLet = (
@@ -84,10 +84,10 @@ let nestedLet = (
     x+banana+y    
     ",
     
-    Let("banana", Function(Function(Bool, Int), Int),
-        Let("x", Int, I(4), OP(X("x"), Add, I(4))),
-        Let("x", Int, OP(I(2), Multiply, I(2)),
-            Let("y", Int, OP(I(6), Subtract, OP(OP(I(1), Add, I(1)), Add, I(1))),
+    Let("banana", Function(Function(Bool, Int), Int) |> Some,
+        Let("x", Some Int, I(4), OP(X("x"), Add, I(4))),
+        Let("x", Some Int, OP(I(2), Multiply, I(2)),
+            Let("y", Some Int, OP(I(6), Subtract, OP(OP(I(1), Add, I(1)), Add, I(1))),
                 OP(OP(X("x"), Add, X("banana")), Add, X("y")))))
 )
 
@@ -97,7 +97,7 @@ let factorial = (
      };
      fat 5",
     
-    LetRec("fat", Int, Int, "x", 
+    LetRec("fat", Some Int, Some Int, "x", 
         Cond(OP(X("x"), Equal, I(0)), I(1), 
             OP(X("x"), Multiply, OP(X("fat"), Application, OP(X("x"), Subtract, I(1))))), 
         OP(X("fat"), Application, I(5)))
@@ -111,7 +111,7 @@ let simpleTry = (
         
      Try(
         Cond(True, Raise, I(1)),
-        OP(Fn("x", Int, OP(X("x"), Add, I(3))), Application, I(4))
+        OP(Fn("x", Some Int, OP(X("x"), Add, I(3))), Application, I(4))
         )
 )
 
@@ -121,7 +121,7 @@ let letRecList = (
     };
     sum(4::3::2::1::nil)", 
     
-    LetRec("sum", List(Int), Int, "x",
+    LetRec("sum", List(Int) |> Some, Some Int, "x",
         Cond(IsEmpty(X("x")), 
             I(0), 
             OP(Head(X("x")), Add, OP(X("sum"), Application, Tail(X("x"))))),
@@ -142,8 +142,8 @@ let facList = (
 };
 faclist 5",
 
-    LetRec("faclist", Int, List(Int), "x", 
-        LetRec("fac", Int, Int, "y", 
+    LetRec("faclist", Some Int, List(Int) |> Some, "x", 
+        LetRec("fac", Some Int, Some Int, "y", 
             Cond(
                 OP(X("y"), Equal, I(0)),
                  I(1),
@@ -329,3 +329,54 @@ type TestParse() =
     [<Category("X")>]
      member that.facList() =
         parseTerm (fst facList) |> should equal (snd facList)
+
+[<TestFixture>]
+type TestParsePrint() =
+
+    [<Test>]
+    member that.``wrong type let``() =
+        (fun () -> parseTerm "let x: = 3; x+3" |> ignore) |> should throw typeof<InvalidEntryText>
+
+    [<Test>]
+    member that.``wrong type named function``() =
+        (fun () -> parseTerm "let x(y:Int) { y+2} ; x 3" |> ignore) |> should throw typeof<InvalidEntryText>
+
+    [<Test>]
+    member that.``named function``() =
+        parseTerm "let x(y:Int): Int { y+2} ; x 3" |> print |> 
+            should equal ("let x: Int -> Int = fn(y: Int) {
+\t(y + 2)
+};
+x 3".Replace("\r", ""))
+
+    [<Test>]
+    member that.``let``() =
+        parseTerm "let x = 4; x+4" |> print|> should equal
+            ("let x = 4;
+(x + 4)".Replace("\r", ""))
+
+    [<Test>]
+    member that.map() =
+    parseTerm  "let t2 = 1::2::3::nil;
+                let f = fn(x) {
+                    (x * 2)
+                };
+                let rec map(l) {
+                    if empty? l then
+                        nil
+                    else
+                        (f head l)::map tail l
+                };
+                map t2" 
+    |> print |> should equal
+        ("let t2 = 1::2::3::nil;
+let f = fn(x) {
+    (x * 2)
+};
+let rec map(l) {
+    if empty? l then
+        nil
+    else
+        (f head l)::map tail l
+};
+map t2".Replace("\r", "").Replace("    ", "\t"))

@@ -65,7 +65,7 @@ let rec private stringify term lvl =
             tabs (stringify t1 0) (stringify t2 (lvl+1)) tabs (stringify t3 (lvl+1))
     | X(id) -> 
         tabs + id
-    | Fn(id, typ, t) -> 
+    | Fn(id, Some typ, t) -> 
         let term = (stringify t (lvl+1))
         if term.EndsWith("\n") then
             sprintf "%sfn(%s: %s) {\n%s%s}\n" 
@@ -73,16 +73,32 @@ let rec private stringify term lvl =
         else
             sprintf "%sfn(%s: %s) {\n%s\n%s}" 
                 tabs id (typeString typ) (stringify t (lvl+1)) tabs
-    | Let(id, typ, t1, t2) ->
+    | Fn(id, None, t) -> 
+        let term = (stringify t (lvl+1))
+        if term.EndsWith("\n") then
+            sprintf "%sfn(%s) {\n%s%s}\n" 
+                tabs id (stringify t (lvl+1)) tabs
+        else
+            sprintf "%sfn(%s) {\n%s\n%s}" 
+                tabs id (stringify t (lvl+1)) tabs
+    | Let(id, Some typ, t1, t2) ->
         sprintf "%slet %s: %s = %s;\n%s" 
             tabs id (typeString typ) (stringify t1 0) (stringify t2 lvl)
-    | LetRec(id, typ1, typ2, id2, t1, t2) ->
+    | Let(id, None, t1, t2) ->
+        sprintf "%slet %s = %s;\n%s" 
+            tabs id (stringify t1 0) (stringify t2 lvl)
+    | LetRec(id, Some typ1, Some typ2, id2, t1, t2) ->
         let typ1' = typeString typ1
         let typ2' = typeString typ2
         let t1' = stringify t1 (lvl+1)
         let t2' = stringify t2 lvl
         sprintf "%slet rec %s(%s: %s): %s {\n%s\n%s};\n%s" 
             tabs id id2 typ1' typ2' t1' tabs t2'
+    | LetRec(id, None, None, id2, t1, t2) ->
+        let t1' = stringify t1 (lvl+1)
+        let t2' = stringify t2 lvl
+        sprintf "%slet rec %s(%s) {\n%s\n%s};\n%s" 
+            tabs id id2 t1' tabs t2'
     | Nil -> 
         sprintf "%snil" tabs
     | IsEmpty(t) ->
@@ -262,7 +278,20 @@ let rec private findType (text:string) =
             (processed+typ2Text, Function(typ1, typ2))
         else
             raise (InvalidEntryText "Invalid Type information")
-        
+           
+let rec private findIdTypePair (text:string) =
+    let s, id = findIdent text
+    
+    let emptyText, trimmedText = text.Substring(s.Length) |> splitSpaces
+    
+    let typ =
+        if trimmedText.StartsWith(":") then
+            trimmedText.Substring(1) |> findType |> snd |> Some
+        else
+            None
+
+    (id, typ)
+
 // Finds an entire Let expression. After the ";", calls findTerms with the remaining text
 let rec private findLet text =
     let total, definition = findClosingPair LetSemicolon text 0
@@ -282,15 +311,21 @@ let rec private findLet text =
         if trimmedText.StartsWith("(") then
             findLetFunction text total trimmedDefinition
         else
-            let s, typeString = 
-                try 
-                    findClosingPair (Custom(":", "=")) (definition.Substring(processedText.Length)) 0
-                with
-                | InvalidEntryText _ -> 
-                    InvalidEntryText(sprintf "Must set a type at %A" definition) |> raise
-        
-            let _, typ = findType typeString
-            processedText <- processedText + s
+            let typ = 
+                if trimmedText.StartsWith(":") then
+                    try 
+                        let s, typeString = findClosingPair (Custom(":", "=")) (definition.Substring(processedText.Length)) 0
+                        let _, typ = findType typeString
+                        processedText <- processedText + s
+                        Some typ
+                    with
+                    | InvalidEntryText _ -> 
+                        InvalidEntryText(sprintf "Must set a type at %A" definition) |> raise
+                elif trimmedText.StartsWith("=") then
+                    processedText <- processedText + "="
+                    None
+                else
+                    definition |> sprintf "Expected a \"=\" at %A" |> InvalidEntryText |> raise
 
             let t1 = findTerms (definition.Substring(processedText.Length))
             processedText <- total
@@ -300,61 +335,44 @@ let rec private findLet text =
             (text, Let(id, typ, t1, t2))
 
 and private findLetRec (text: string) (total: string) (definition: string) =
-    let s, id1 = findIdent definition
-    let mutable processed = s
 
-    let s, id2String = findClosingPair (Custom("(", ":")) (definition.Substring(processed.Length)) 0
-    let _, id2 = findIdent id2String
-    processed <- processed + s
+    let s, internalIds = findClosingPair Parenthesis definition 0
+    let id2, typ1 = findIdTypePair internalIds
 
-    let s, typ1String = 
-        try 
-            findClosingPair Parenthesis (definition.Substring(processed.Length)) 1
-        with
-        | InvalidEntryText _ -> 
-            InvalidEntryText  (sprintf "Must set a type for parameter at %A" definition) |> raise
+    let s2, id1 = findIdent definition
+    
+    let mutable remaining = definition.Replace(s.Substring(s2.Length), "")
+    let s, externalIds = findClosingPair (Custom("}", "{")) remaining 1
+    let id1, typ2 = findIdTypePair externalIds
 
-    let _, typ1 = findType typ1String
-    processed <- processed + s
-
-    let s, typ2String = 
-        try 
-            findClosingPair (Custom(":", "{")) (definition.Substring(processed.Length)) 0
-        with
-        | InvalidEntryText _ -> 
-            InvalidEntryText  (sprintf "Must set a type for return at %A" definition) |> raise
-
-    let _, typ2 = findType typ2String
-    processed <- processed + s
-
-    let s, t1String = findClosingPair Brackets (definition.Substring(processed.Length)) 1
+    remaining <- remaining.Replace(s, "")
+    let s, t1String = findClosingPair Brackets remaining 1
     let t1 = findTerms t1String
-    processed <- total
 
-    let t2 = findTerms (text.Substring(processed.Length))
+    let t2 = findTerms (text.Substring(total.Length))
 
-    (text, LetRec(id1, typ1, typ2, id2, t1, t2))
+    match typ1, typ2 with
+    | None, None | Some _, Some _ -> 
+        (text, LetRec(id1, typ1, typ2, id2, t1, t2))
+    | _, _ ->  
+        InvalidEntryText "You must either specify all types for a function, or none" |> raise
+        
 
 and private findLetFunction (text: string) (total: string) (definition: string) =
     let _, LetRec(id1, typ1, typ2, id2, t1, t2) = findLetRec text total definition
-    
-    (text, Let(id1, Function(typ1, typ2), Fn(id2, typ1, t1), t2))    
+
+    match typ1, typ2 with
+    | None, None ->    
+        (text, Let(id1, None, Fn(id2, None, t1), t2))    
+    | Some typ1, Some typ2 ->
+        (text, Let(id1, Function(typ1, typ2) |> Some, Fn(id2, Some typ1, t1), t2))
+
 
 and private findFn (text: string) = 
     let mutable processed = "fn"
 
-    let s, idString = findClosingPair (Custom("(", ":")) (text.Substring(processed.Length)) 0
-    let _, id = findIdent idString
-    processed <- processed + s
-
-    let s, typeString =
-        try 
-            findClosingPair Parenthesis (text.Substring(processed.Length)) 1
-        with
-        | InvalidEntryText _ ->
-            InvalidEntryText(sprintf "Must set a type for the parameter at %A" text) |> raise
-
-    let _, typ = findType typeString
+    let s, idString = findClosingPair Parenthesis (text.Substring(processed.Length)) 0
+    let id, typ = findIdTypePair idString
     processed <- processed + s
 
     let s, tString = findClosingPair Brackets (text.Substring(processed.Length)) 0
@@ -366,23 +384,14 @@ and private findFn (text: string) =
 and private findLambda (text: string) =
     let mutable processed = "\\"
 
-    let s, idString = findClosingPair (Custom("\\", ":")) (text.Substring(processed.Length)) 1
-    let _, id = findIdent idString
-    processed <- processed + s
-
-    let s, typeString =
-        try 
-            findClosingPair (Custom(":", "=>")) (text.Substring(processed.Length)) 1
-        with
-        | InvalidEntryText _ ->
-            InvalidEntryText(sprintf "Must set a type for the parameter at %A" text) |> raise
-
-    let _, typ = findType typeString
+    let s, idString = findClosingPair (Custom("\\", "=>")) (text.Substring(processed.Length)) 1
+    let id, typ = findIdTypePair idString
     processed <- processed + s
 
     let t = findTerms (text.Substring(processed.Length))
 
     (text, Fn(id, typ, t))
+
 
 and private findIf (text: string) =
     let total, t1String = findClosingPair IfThen text 0
@@ -397,7 +406,6 @@ and private findIf (text: string) =
 
     (text, Cond(t1, t2, t3))
 
-
 and private findTry (text: string) =
     let total, t1String = findClosingPair TryExcept text 0
     let t1 = findTerms t1String
@@ -405,6 +413,7 @@ and private findTry (text: string) =
     let t2 = text.Substring(total.Length) |> findTerms
 
     (text, Try(t1, t2))
+
 
 and private findList (text: string) =
     let mutable index = 1
