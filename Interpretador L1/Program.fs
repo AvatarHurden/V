@@ -33,8 +33,10 @@ let main argv =
         term |> print |> printfn "Your input was interpreted as:\n\n%O"
         Console.WriteLine()
         Console.WriteLine()
-        term |> eval |> print |> printfn "Your program resulted in:\n\n%O"
+        term |> eval |> print |> printfn "Your program resulted in:\n\n%O\n"
+        term |> type_infer |> printfn "Your program is of type:\n\n%A"
     with
+    | WrongExpression e -> Console.WriteLine e
     | InvalidEntryText t -> Console.WriteLine t
 
     let t2 = System.Console.ReadLine()
