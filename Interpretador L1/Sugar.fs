@@ -237,7 +237,7 @@ let private findIdent text =
     let ident = String.Concat (trimmedText |> Seq.takeWhile (fun x -> not (Seq.exists ((=) x) prohibited)))
     match ident with
     | "let" | "true" | "false" | "if" | "then" | "else" | "fn" | "letrec"
-    | "nil" | "head" | "tail" | "raise" | "try" | "except" ->
+    | "nil" | "head" | "tail" | "raise" | "try" | "except" | "for" | "in" ->
         raise (InvalidEntryText ("A variable cannot be called " + ident))
     | _ ->
         (emptyText+ident, ident)   

@@ -142,10 +142,9 @@ O nome de uma variável é uma string de tamanho arbitrário composto de qualque
 
 Além disso, variáveis não podem ser nomeadas com os seguintes termos reservados:
 
-||||
----|---|---|---
-fn|let|rec
-head|tail|nil
-try|except|raise
-if|then|else
-true|false|
+|||||
+---|---|---|---|
+fn|let|rec|for
+in|head|tail|nil
+try|except|raise|true
+false|if|then|else
