@@ -41,61 +41,89 @@ let rec replace x value term =
 
 let rec eval t =
     match t with
-    | True -> True
-    | False -> False
-    | I(i) -> I(i)
+    | True -> 
+        True
+    | False -> 
+        False
+    | I(i) -> 
+        I(i)
     | OP(t1, Application, t2) ->
-        let t1' = eval t1 in
-        let t2' = eval t2 in
-        match t1', t2' with
-        | Fn(id, typ, e), v when V(v) -> eval (replace id v e)
-        | _, v when V(v) -> raise (WrongExpression(sprintf "First operand %A is not a function at %A" t1' t))
-        | Fn(id, typ, e), _ -> raise (WrongExpression(sprintf "Second operand %A is not a value at %A" t2' t))
-        | _, _ -> raise (WrongExpression(sprintf "Operands %A and %A do not match the Application operator at %A" t1' t2' t))
+        let t1' = eval t1
+        match t1' with
+        | Raise -> 
+            Raise
+        | Fn(id, typ, e) ->
+            let t2' = eval t2
+            match t2' with
+            | Raise -> 
+                Raise
+            | v when V(v) -> 
+                eval (replace id v e)
+            |  _ -> 
+                raise (WrongExpression(sprintf "Second operand %A is not a value at %A" t2' t))
+        | _ ->
+            raise (WrongExpression(sprintf "First operand %A is not a function at %A" t1' t))
     | OP(t1, Cons, t2) ->
         let t1' = eval t1 
-        let t2' = eval t2 in
-        match t1', t2' with
-        | v, OP(_, Cons, _) when V(v) -> OP(t1', Cons, t2')
-        | v, Nil when V(v) -> OP(t1', Cons, Nil)
-        | _ -> raise (WrongExpression(sprintf "Term %A is not a list at %A" t2' t))
-    | OP(t1, op, t2) ->
-        let t1' = eval t1 in
-        let t2' = eval t2 in
-        match t1', t2' with
-        | I(n1), I(n2) ->
-            match op with
-            | Add -> I(n1 + n2)
-            | Subtract -> I(n1 - n2)
-            | Multiply -> I(n1 * n2)
-            | Divide when n2 <> 0 -> I(n1 / n2)
-            | Divide when n2 = 0 -> raise (WrongExpression(sprintf "Can't divide by zero at %A" t))
-            | LessThan -> if n1 < n2 then True else False
-            | LessOrEqual -> if n1 <= n2 then True else False
-            | Equal -> if n1 = n2 then True else False
-            | Different -> if n1 <> n2 then True else False
-            | GreaterThan -> if n1 > n2 then True else False
-            | GreaterOrEqual -> if n1 >= n2 then True else False
-            | _ -> raise (WrongExpression(sprintf "Term %A is not an operator at %A" op t))
-        | _, I(n) -> raise (WrongExpression(sprintf "First operand %A is not a number at %A" t1' t))
-        | I(n), _ -> raise (WrongExpression(sprintf "Second operand %A is not a number at %A" t2' t))
-        | _, _ -> raise (WrongExpression(sprintf "Operands %A and %A are not numbers at %A" t1' t2' t))
-    | Cond(t1, t2, t3) ->
-        let t1' = eval t1 in
         match t1' with
+        | Raise -> 
+            Raise
+        | v when V(v) ->
+            let t2' = eval t2
+            match t2' with
+            | OP(_, Cons, _) when V(v) -> 
+                OP(t1', Cons, t2')
+            | Nil when V(v) -> 
+                OP(t1', Cons, Nil)
+            | _ -> 
+                raise (WrongExpression(sprintf "Term %A is not a list at %A" t2' t))
+        | _ ->
+            raise (WrongExpression(sprintf "Term %A is not a value at %A" t1' t))
+    | OP(t1, op, t2) ->
+        let t1' = eval t1
+        match t1' with
+        | Raise ->
+            Raise
+        | I(n1) ->
+            let t2' = eval t2
+            match t2' with
+            | Raise ->
+                Raise
+            | I(n2) ->
+                match op with
+                | Add -> I(n1 + n2)
+                | Subtract -> I(n1 - n2)
+                | Multiply -> I(n1 * n2)
+                | Divide when n2 <> 0 -> I(n1 / n2)
+                | Divide when n2 = 0 -> Raise
+                | LessThan -> if n1 < n2 then True else False
+                | LessOrEqual -> if n1 <= n2 then True else False
+                | Equal -> if n1 = n2 then True else False
+                | Different -> if n1 <> n2 then True else False
+                | GreaterThan -> if n1 > n2 then True else False
+                | GreaterOrEqual -> if n1 >= n2 then True else False
+                | _ -> raise (WrongExpression(sprintf "Term %A is not an operator at %A" op t))            
+            | _ -> 
+                raise (WrongExpression(sprintf "Second operand %A is not a number at %A" t2' t))
+        | _ -> 
+            raise (WrongExpression(sprintf "First operand %A is not a number at %A" t1' t))
+    | Cond(t1, t2, t3) ->
+        let t1' = eval t1
+        match t1' with
+        | Raise -> Raise
         | True -> eval t2
         | False -> eval t3
         | _ -> raise (WrongExpression(sprintf "Term %A is not a Boolean value at %A" t1' t))
     | Fn(id, typ, t1) as fn -> fn
     | Let(id, typ, t1, t2) ->
-        let t1' = eval t1 in
-        if V(t1') then
-            eval (replace id t1' t2)
-        else
-            raise (WrongExpression(sprintf "Term %A is not a value at %A" t1' t))
+        let t1' = eval t1
+        match t1' with
+        | Raise -> Raise
+        | v when V(v) -> eval (replace id t1' t2)
+        | _ -> raise (WrongExpression(sprintf "Term %A is not a value at %A" t1' t))
     | LetRec(id1, typ1, typ2, id2, t1, t2) ->
-        let rec2 = LetRec(id1, typ1, typ2, id2, t1, t1) in
-        let fn = Fn(id2, typ1, rec2) in
+        let rec2 = LetRec(id1, typ1, typ2, id2, t1, t1)
+        let fn = Fn(id2, typ1, rec2)
         eval (replace id1 fn t2)
     | Nil -> Nil
     | IsEmpty(t1) ->
@@ -108,11 +136,13 @@ let rec eval t =
         let t1' = eval t1 in
         match t1' with
         | OP(head, Cons, tail) -> head
+        | Nil -> Raise
         | _ -> raise (WrongExpression(sprintf "Term %A is not a list at %A" t1' t))
     | Tail(t1) -> 
         let t1' = eval t1 in
         match t1' with
         | OP(head, Cons, tail) -> tail
+        | Nil -> Raise
         | _ -> raise (WrongExpression(sprintf "Term %A is not a list at %A" t1' t))
     | Raise -> Raise
     | Try(t1, t2) ->

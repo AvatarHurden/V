@@ -2,6 +2,7 @@
 
 open NUnit.Framework
 open FsUnit
+open Sugar
 open Definition
 open Evaluation
 
@@ -65,3 +66,30 @@ type TestEval() =
     member that.faclist() =
         eval facList |> should equal 
             (OP(I(120), Cons, OP(I(24), Cons, OP(I(6), Cons, OP(I(2), Cons, OP(I(1), Cons, Nil))))))
+
+    [<Test>]
+    member that.LCM() =
+        "let modulo(x:Int): Int -> Int {
+    let rec d(y:Int): Int {
+        if x = 0 then  
+            raise
+        else if y<x then
+            y
+        else
+            d(y-x)
+    };
+    (\y:Int => d y)
+};
+let rec gcd(x:Int): Int -> Int {
+    let f(y: Int): Int {
+        try
+            gcd y (modulo y x) 
+        except
+            x    
+    };
+    (\y: Int => f y)
+};
+let lcm(x:Int): Int -> Int {
+    (\y: Int => x*y/(gcd x y))
+};
+lcm 121 11*15" |> parseTerm |> eval |> should equal (I(1815))
