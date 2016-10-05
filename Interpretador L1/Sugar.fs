@@ -470,13 +470,13 @@ and private findTerm (text: string) =
         let s = trimmedText.ToCharArray()
         let t = s |> Seq.takeWhile (fun x -> Char.IsDigit(x))
         (emptyText+String.Concat(t), I(int (String.Concat(t))))
-    elif trimmedText.Equals("true") then
+    elif trimmedText.Split(' ').[0].Equals("true") then
         (emptyText+trimmedText, True)
-    elif trimmedText.Equals("false") then
+    elif trimmedText.Split(' ').[0].Equals("false") then
         (emptyText+trimmedText, False)
-    elif trimmedText.Equals("raise") then
+    elif trimmedText.Split(' ').[0].Equals("raise") then
         (emptyText+trimmedText, Raise)
-    elif trimmedText.Equals("nil") then
+    elif trimmedText.Split(' ').[0].Equals("nil") then
         (emptyText+trimmedText, Nil)
     else
         let text, ident = findIdent trimmedText
@@ -544,6 +544,8 @@ and private findTerms text =
     termList |> Seq.nth 0 |> fst
 
 let rec parseTerm (text: String) =
+    let lines = text.Split('\n') |> Array.toSeq
+    let text = Seq.reduce (fun acc (x: string) -> acc + "\n" + x.Split([|"//"|], StringSplitOptions.None).[0]) lines
     let text = ["\n"; "\t"; "\r"] |> Seq.fold (fun (acc: String) x -> acc.Replace(x, " ")) text
     let pairs = [Parenthesis;Brackets;SquareBrackets;IfThen;
         ThenElse;LetSemicolon;TryExcept]

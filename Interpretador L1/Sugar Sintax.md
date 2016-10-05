@@ -117,6 +117,14 @@ try|except|raise
 if|then|else
 true|false|
 
+### Comentários
+
+Tudo que for escrito após "//" será ignorado até o fim da linha, permitindo assim criar programas com comentários simples.
+
+	// Isto é um comentário
+    let x = 3; // Isto também é um comentário
+    x + 4
+
 ## Associatividade
 
 Existem 2 tipos de associativade. Eles são:
@@ -128,4 +136,3 @@ Existem 2 tipos de associativade. Eles são:
 	- Fazem parte deste grupo a operação **Cons** e o tipo **Function**
 
 É possível alterar a associativade de qualquer termo com o uso de parênteses.
-
