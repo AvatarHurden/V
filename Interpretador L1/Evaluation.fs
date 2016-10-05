@@ -2,6 +2,9 @@
 
 open Definition
 
+let cond (x:bool) (y:int) =
+    if x then y else 0
+
 // Replace identifier x for value in term
 let rec replace x value term = 
     match term with
@@ -44,6 +47,8 @@ let rec eval t =
     | True -> True
     | False -> False
     | I(i) -> I(i)
+    | OP(t1, Pipe, t2) ->
+        OP(t2, Application, t1) |> eval
     | OP(t1, Application, t2) ->
         let t1' = eval t1 in
         let t2' = eval t2 in

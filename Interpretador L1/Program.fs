@@ -36,6 +36,7 @@ let main argv =
         term |> eval |> print |> printfn "Your program resulted in:\n\n%O"
     with
     | InvalidEntryText t -> Console.WriteLine t
+    | WrongExpression t -> Console.WriteLine t
 
     let t2 = System.Console.ReadLine()
     0 // return an integer exit code

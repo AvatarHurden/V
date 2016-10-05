@@ -35,7 +35,10 @@ let rec private stringify term lvl =
         tabs + "false"
     | I(i) -> 
         tabs + (string i)
-     | OP(t1, Application, t2) ->
+    | OP (t1, Pipe, t2) ->
+        let t1' = (stringify t1 0)
+        sprintf "%s%s |> %s" tabs t1' (stringify t2 0)
+    | OP(t1, Application, t2) ->
         let t1' = (stringify t1 0)
         if t1'.EndsWith("\n") then
             sprintf "%s%s%s" tabs t1' (stringify t2 0)
@@ -59,6 +62,7 @@ let rec private stringify term lvl =
                         | Different -> "!="
                         | GreaterOrEqual -> ">="
                         | GreaterThan -> ">"
+                        | _ -> "nao sei o que é"
         sprintf "%s(%s %s %s)" tabs (stringify n1 0) opString (stringify n2 0)
     | Cond(t1, t2, t3) ->
         sprintf "%sif %s then\n%s\n%selse\n%s" 
@@ -141,9 +145,10 @@ let operatorsAtPriority i =
     match i with             
     | 0 -> [Multiply; Divide]  
     | 1 -> [Add; Subtract]   
-    | 2 -> [Cons]                                                      
-    | 3 -> [Application]
-    | 4 -> [LessOrEqual; LessThan; Equal; Different; GreaterThan; GreaterOrEqual]
+    | 2 -> [Cons]                                                 
+    | 3 -> [Application]   
+    | 4 -> [Pipe]  
+    | 5 -> [LessOrEqual; LessThan; Equal; Different; GreaterThan; GreaterOrEqual]
     | _ -> []
 
 let private splitSpaces (term: string) =
@@ -292,6 +297,33 @@ let rec private findIdTypePair (text:string) =
 
     (id, typ)
 
+// Receives a string containing parameters and receives a term
+// Returns a tuple with:
+//  - First parameter id
+//  - First parameter type
+//  - Return term
+//  - Return type
+let private parseParameters (paramText: string) returnTerm (returnType: Definition.Type option)  =
+    let paramArray = paramText.Split(',') |> Array.map findIdTypePair
+
+    if Array.exists (fun pair -> ((snd pair):Definition.Type option).IsSome) paramArray &&
+       Array.forall (fun pair -> ((snd pair):Definition.Type option).IsSome) paramArray |> not then
+            InvalidEntryText "Either specify all types or none" |> raise
+    else
+        if paramArray.Length = 1 then
+            (fst paramArray.[0], snd paramArray.[0], returnTerm, returnType)
+        else
+            let mutable fnTerm = returnTerm
+            let mutable fnType = returnType
+            for pair in Array.rev paramArray.[1..] do
+                fnTerm <- Fn(fst pair, snd pair, fnTerm)
+                if fnType.IsSome then
+                    fnType <- Function((snd pair).Value, fnType.Value) |> Some
+                else
+                    ()
+            (fst paramArray.[0], snd paramArray.[0], fnTerm, fnType)
+            
+
 // Finds an entire Let expression. After the ";", calls findTerms with the remaining text
 let rec private findLet text =
     let total, definition = findClosingPair LetSemicolon text 0
@@ -337,8 +369,7 @@ let rec private findLet text =
 and private findLetRec (text: string) (total: string) (definition: string) =
 
     let s, internalIds = findClosingPair Parenthesis definition 0
-    let id2, typ1 = findIdTypePair internalIds
-
+    
     let s2, id1 = findIdent definition
     
     let mutable remaining = definition.Replace(s.Substring(s2.Length), "")
@@ -349,14 +380,15 @@ and private findLetRec (text: string) (total: string) (definition: string) =
     let s, t1String = findClosingPair Brackets remaining 1
     let t1 = findTerms t1String
 
+    let id2, typ1, t1', typ2' = parseParameters internalIds t1 typ2
+
     let t2 = findTerms (text.Substring(total.Length))
 
     match typ1, typ2 with
     | None, None | Some _, Some _ -> 
-        (text, LetRec(id1, typ1, typ2, id2, t1, t2))
+        (text, LetRec(id1, typ1, typ2', id2, t1', t2))
     | _, _ ->  
         InvalidEntryText "You must either specify all types for a function, or none" |> raise
-        
 
 and private findLetFunction (text: string) (total: string) (definition: string) =
     let _, LetRec(id1, typ1, typ2, id2, t1, t2) = findLetRec text total definition
@@ -372,25 +404,27 @@ and private findFn (text: string) =
     let mutable processed = "fn"
 
     let s, idString = findClosingPair Parenthesis (text.Substring(processed.Length)) 0
-    let id, typ = findIdTypePair idString
     processed <- processed + s
 
     let s, tString = findClosingPair Brackets (text.Substring(processed.Length)) 0
     let t = findTerms tString
     processed <- processed + s
 
-    (processed, Fn(id, typ, t))
+    let id, typ, t1, _ = parseParameters idString t None // Passa qualquer retorno pois não usa
+
+    (processed, Fn(id, typ, t1))
 
 and private findLambda (text: string) =
     let mutable processed = "\\"
 
     let s, idString = findClosingPair (Custom("\\", "=>")) (text.Substring(processed.Length)) 1
-    let id, typ = findIdTypePair idString
     processed <- processed + s
 
     let t = findTerms (text.Substring(processed.Length))
 
-    (text, Fn(id, typ, t))
+    let id, typ, t1, _ = parseParameters idString t None // Passa qualquer retorno pois não usa
+
+    (text, Fn(id, typ, t1))
 
 
 and private findIf (text: string) =
@@ -479,7 +513,7 @@ and private findComprehension (text: string) =
 // Returns a tuple made of (all the processed text, term)
 and private findTerm (text: string) =
 
-    let emptyText, trimmedText = splitSpaces text
+    let mutable emptyText, trimmedText = splitSpaces text
     
     if trimmedText.StartsWith("let ") then
         let s, t = findLet trimmedText
@@ -516,14 +550,18 @@ and private findTerm (text: string) =
         let s = trimmedText.ToCharArray()
         let t = s |> Seq.takeWhile (fun x -> Char.IsDigit(x))
         (emptyText+String.Concat(t), I(int (String.Concat(t))))
-    elif trimmedText.Equals("true") then
-        (emptyText+trimmedText, True)
-    elif trimmedText.Equals("false") then
-        (emptyText+trimmedText, False)
-    elif trimmedText.Equals("raise") then
-        (emptyText+trimmedText, Raise)
-    elif trimmedText.Equals("nil") then
-        (emptyText+trimmedText, Nil)
+    elif trimmedText.StartsWith("true") && 
+        (trimmedText.Length = 4 || trimmedText.Chars(4) |> Char.IsWhiteSpace) then
+        (emptyText+"true", True)
+    elif trimmedText.StartsWith("false") && 
+        (trimmedText.Length = 5 || trimmedText.Chars(5) |> Char.IsWhiteSpace) then
+        (emptyText+"false", False)
+    elif trimmedText.StartsWith("raise") && 
+        (trimmedText.Length = 5 || trimmedText.Chars(5) |> Char.IsWhiteSpace) then
+        (emptyText+"raise", Raise)
+    elif trimmedText.StartsWith("nil") &&
+        (trimmedText.Length = 3 || trimmedText.Chars(3) |> Char.IsWhiteSpace) then
+        (emptyText+"nil", Nil)
     else
         let text, ident = findIdent trimmedText
         (emptyText+text, X(ident))
@@ -552,6 +590,7 @@ and private findTerms text =
             elif opTrimmed.StartsWith ">=" then ">=", GreaterOrEqual
             elif opTrimmed.StartsWith ">"  then ">", GreaterThan
             elif opTrimmed.StartsWith "::" then "::", Cons
+            elif opTrimmed.StartsWith "|>" then "|>", Pipe
             else "", Application
         subText <- subText + (opString |> splitSpaces |> fst) + opChar
 
@@ -590,7 +629,8 @@ and private findTerms text =
     termList |> Seq.nth 0 |> fst
 
 let rec parseTerm (text: String) =
-    let text = ["\n"; "\t"; "\r"] |> Seq.fold (fun (acc: String) x -> acc.Replace(x, " ")) text
+    let mutable text = ["\n"; "\t"; "\r"] |> Seq.fold (fun (acc: String) x -> acc.Replace(x, " ")) text
+    text <- text + " "
     let pairs = [Parenthesis;Brackets;SquareBrackets;IfThen;
         ThenElse;LetSemicolon;TryExcept]
     for pair in pairs do

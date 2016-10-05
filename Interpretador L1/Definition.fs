@@ -20,6 +20,7 @@ type op =
     | GreaterThan
     | Application
     | Cons
+    | Pipe
 
 type Ident = string
     
