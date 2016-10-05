@@ -36,6 +36,7 @@ Multiply|*
 Divide|/
 Cons|::
 Application| (espaço)
+Pipe| &#124;>
 LessThan|<
 LessOrEqual|<=
 Equal|=
@@ -51,6 +52,7 @@ A seguinte ordem de prioridade foi escolhida, baseada no comportamento de F#:
 - Soma, Subtração
 - Cons
 - Aplicação
+- Pipe
 - Testes (<, >, =, etc)
 
 É possível forçar a ordem desejada de avaliação com o uso de parênteses entre operações.
@@ -128,6 +130,71 @@ O resultado dessa expressão é o mesmo que:
         else
         	(f head l)::(map tail l)	
     }; map t2
+
+## Funções com múltiplos parâmetros
+
+É possível especificar mais de um parâmetro para todas as construções que definem funções (**Fn**, **let rec**, **funções lambda** e **funções nomeadas**). São suportadas tanto as versões tipadas explicitamente quanto as implicitamente, mas é preciso que todos os parâmetros tenham a mesma tipagem (ou seja, se um tipo é especificado, todos devem ser).
+
+Cada parâmetro é separado com uma vírgula.
+
+	let rec sum2(x:Int, y:Int): Int {
+		x+y
+    };
+    
+    (\x, y => x + y)
+    
+    let sum3(x: Int, y: Int, z: Int): Int { 
+    	x + y + z 
+    };
+    
+Cada uma dessas construções é transformada em uma cadeia de **Fn** internamente. Os exemplos acima se transformam em:
+
+	let rec sum2(x: Int): Int -> Int {
+        fn(y: Int) {
+        	x + y
+        }
+	};
+    
+    fn(x) {
+        fn(y) {
+        	x + y
+        }
+	}
+    
+    let sum3: Int -> Int -> Int -> Int = fn(x: Int) {
+        fn(y: Int) {
+            fn(z: Int) {
+                x + y + z
+            }
+        }
+	};
+    
+Como é possível ver, a informação de tipo é criada corretamente, e o tipo de tipagem (implícita ou explícita) é mantido.
+
+### Pipe
+
+Passa o valor da esquerda para a função da direita. Seu funcionamento é exatamente como um **Application**, porém com os termos invertidos. Dessa forma,
+
+	e1 |> e2
+    
+É igual a
+
+	e2 e1
+    
+O seu uso permite a eliminação de parênteses e uma leitura mais natural de expressões.
+
+	let soma1(x) {
+    	x+1
+    };
+    let mult2(y) {
+    	y*2
+    };
+    
+    soma1 (mult2 3) // Requer parênteses
+    
+    mult2 3 |> soma1
+    
+    3 |> mult2 |> soma1 // Leitura da esquerda para a direita
 
 ## Variáveis
 
