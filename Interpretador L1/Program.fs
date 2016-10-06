@@ -5,6 +5,7 @@ open System
 open Definition
 open Sugar
 open Evaluation
+open TypeInference
 
 [<EntryPoint>]
 let main argv = 
@@ -34,7 +35,7 @@ let main argv =
         Console.WriteLine()
         Console.WriteLine()
         term |> eval |> print |> printfn "Your program resulted in:\n\n%O\n"
-        term |> type_infer |> printfn "Your program is of type:\n\n%A"
+        collectEqs term [] |> printfn "Your program is of type:\n\n%A\n\n"
     with
     | WrongExpression e -> Console.WriteLine e
     | InvalidEntryText t -> Console.WriteLine t
