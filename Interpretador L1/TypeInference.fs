@@ -7,7 +7,7 @@ let mutable varType = 0
 let getVarType unit =
     let newType = varType in
     varType <- varType + 1
-    sprintf "VarType%d" newType
+    sprintf "VarType%d" newType |> Type.X
 
 let rec findId id e =
     match e with
@@ -31,12 +31,12 @@ let rec collectEqs t e =
     | OP(t1, Application, t2) ->
         let t1', c1 = collectEqs t1 e in
         let t2', c2 = collectEqs t2 e in
-        let x = getVarType () |> Type.X in
+        let x = getVarType () in
         x, c1 @ c2 @ [t1', Function(t2', x)]
     | OP(t1, Cons, t2) ->
         let t1', c1 = collectEqs t1 e in
         let t2', c2 = collectEqs t2 e in
-        t1' |> List, c1 @ c2 @ [t1', t2']
+        t1' |> List, c1 @ c2 @ [t1' |> List, t2']
     | OP(t1, op, t2) ->
         let t1', c1 = collectEqs t1 e in
         let t2', c2 = collectEqs t2 e in
@@ -65,16 +65,16 @@ let rec collectEqs t e =
         let t2', c2 = collectEqs t2 ((id1, Function(typ1, typ2))::e) in
         t2', c1 @ c2 @ [typ2, t1']
     | Nil ->
-        getVarType () |> Type.X |> List, []
+        getVarType () |> List, []
     | Head(t1) | Tail(t1) ->
         let t1', c1 = collectEqs t1 e
-        let x = getVarType () |> Type.X in
+        let x = getVarType () in
         x, c1 @ [t1', x |> List]
     | IsEmpty(t1) ->
         let t1', c1 = collectEqs t1 e
-        Bool, c1 @ [t1', getVarType () |> Type.X |> List]
+        Bool, c1 @ [t1', getVarType () |> List]
     | Raise ->
-        getVarType () |> Type.X, []
+        getVarType (), []
     | Try(t1, t2) ->
         let t1', c1 = collectEqs t1 e in
         let t2', c2 = collectEqs t2 e in
