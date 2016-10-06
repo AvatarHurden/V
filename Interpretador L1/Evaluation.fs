@@ -47,8 +47,6 @@ let rec eval t =
     | True -> True
     | False -> False
     | I(i) -> I(i)
-    | OP(t1, Pipe, t2) ->
-        OP(t2, Application, t1) |> eval
     | OP(t1, Application, t2) ->
         let t1' = eval t1 in
         let t2' = eval t2 in

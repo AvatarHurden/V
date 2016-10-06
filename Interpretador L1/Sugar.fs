@@ -35,9 +35,6 @@ let rec private stringify term lvl =
         tabs + "false"
     | I(i) -> 
         tabs + (string i)
-    | OP (t1, Pipe, t2) ->
-        let t1' = (stringify t1 0)
-        sprintf "%s%s |> %s" tabs t1' (stringify t2 0)
     | OP(t1, Application, t2) ->
         let t1' = (stringify t1 0)
         if t1'.EndsWith("\n") then
@@ -140,15 +137,19 @@ type private DelimiterPairs =
     | TryExcept
     | Custom of string * string
 
+type private extendedOP =
+    | Def of op
+    | Pipe
+
 //#region Utilities
-let operatorsAtPriority i =
+let private operatorsAtPriority i =
     match i with             
-    | 0 -> [Multiply; Divide]  
-    | 1 -> [Add; Subtract]   
-    | 2 -> [Cons]                                                 
-    | 3 -> [Application]   
+    | 0 -> [Def Multiply; Def Divide]  
+    | 1 -> [Def Add; Def Subtract]   
+    | 2 -> [Def Cons]                                                 
+    | 3 -> [Def Application]   
     | 4 -> [Pipe]  
-    | 5 -> [LessOrEqual; LessThan; Equal; Different; GreaterThan; GreaterOrEqual]
+    | 5 -> [Def LessOrEqual; Def LessThan; Def Equal; Def Different; Def GreaterThan; Def GreaterOrEqual]
     | _ -> []
 
 let private splitSpaces (term: string) =
@@ -579,25 +580,25 @@ and private findTerms text =
         let opString = text.Substring(subText.Length)
         let opTrimmed = opString.TrimStart()
         let opChar, op = 
-            if   opTrimmed.StartsWith "+"  then "+", Add
-            elif opTrimmed.StartsWith "-"  then "-", Subtract
-            elif opTrimmed.StartsWith "*"  then "*", Multiply
-            elif opTrimmed.StartsWith "/"  then "/", Divide
-            elif opTrimmed.StartsWith "<=" then "<=", LessOrEqual
-            elif opTrimmed.StartsWith "<"  then "<", LessThan
-            elif opTrimmed.StartsWith "="  then "=", Equal
-            elif opTrimmed.StartsWith "!=" then "!=", Different
-            elif opTrimmed.StartsWith ">=" then ">=", GreaterOrEqual
-            elif opTrimmed.StartsWith ">"  then ">", GreaterThan
-            elif opTrimmed.StartsWith "::" then "::", Cons
+            if   opTrimmed.StartsWith "+"  then "+", Def Add
+            elif opTrimmed.StartsWith "-"  then "-", Def Subtract
+            elif opTrimmed.StartsWith "*"  then "*", Def Multiply
+            elif opTrimmed.StartsWith "/"  then "/", Def Divide
+            elif opTrimmed.StartsWith "<=" then "<=", Def LessOrEqual
+            elif opTrimmed.StartsWith "<"  then "<", Def LessThan
+            elif opTrimmed.StartsWith "="  then "=", Def Equal
+            elif opTrimmed.StartsWith "!=" then "!=", Def Different
+            elif opTrimmed.StartsWith ">=" then ">=", Def GreaterOrEqual
+            elif opTrimmed.StartsWith ">"  then ">", Def GreaterThan
+            elif opTrimmed.StartsWith "::" then "::", Def Cons
             elif opTrimmed.StartsWith "|>" then "|>", Pipe
-            else "", Application
+            else "", Def Application
         subText <- subText + (opString |> splitSpaces |> fst) + opChar
 
         termList <- Seq.append termList [|(term, Some op)|]
 
         let newText, newTerm =
-            if op = Cons then
+            if op = Def Cons then
                 let rest = text.Substring(subText.Length)
                 (rest, findTerms rest)
             else
@@ -617,8 +618,12 @@ and private findTerms text =
                 let t2 = termList |> Seq.nth (index + 1) |> fst
 
                 let nextOp = termList |> Seq.nth (index + 1) |> snd
+                let newTerm =
+                    match op with
+                    | Def op -> OP(t1, op, t2)
+                    | Pipe -> OP(t2, Application, t1)
                 termList <- Seq.append (Seq.take index termList)
-                    (Seq.append [(OP(t1, op, t2), nextOp)] (Seq.skip (index+2) termList))
+                    (Seq.append [(newTerm, nextOp)] (Seq.skip (index+2) termList))
                 index <- if index = 0 then 0 else index - 1
             else
                 index <- index + 1
