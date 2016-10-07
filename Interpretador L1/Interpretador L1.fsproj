@@ -65,6 +65,9 @@
     <None Include="App.config" />
     <Content Include="packages.config" />
     <None Include="Sugar Sintax.md" />
+    <None Include="stdlib.l1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FSharp.Core">

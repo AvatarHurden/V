@@ -4,6 +4,10 @@ open System.Text.RegularExpressions
 open Definition
 open System
 
+module Path =
+    let appDir = AppDomain.CurrentDomain.SetupInformation.ApplicationBase
+    let makeAppRelative fileName = System.IO.Path.Combine(appDir, fileName)
+
 exception InvalidEntryText of string
 
 
@@ -481,14 +485,7 @@ and private findComprehension (text: string) =
     let _, t2 = findTerms t2String None
 
     let f = Fn(id, None, t1)
-    let mapT = 
-        Let("f", None, f, 
-            Cond(IsEmpty(X("l")), 
-                Nil, 
-                OP(OP(X("f"), Application, Head(X("l"))), Cons, OP(X("map"), Application, Tail(X("l"))))
-            ))
-
-    whole, LetRec("map", None, None, "l", mapT, OP(X("map"), Application, t2))
+    whole, OP(OP(X("map"), Application, f), Application, t2)
     
 
 // Finds a single term in the input string
@@ -626,6 +623,17 @@ and private findTerms text (endingString: string option) =
     subText, termList |> Seq.nth 0 |> fst
 
 let rec parseTerm (text: String) =
+    let mutable text = text
+
+    let lib = "stdlib.l1"
+    let libText = 
+        if Path.makeAppRelative lib |> IO.File.Exists then
+            lib |> IO.File.ReadAllText
+        else
+            ""                  
+    
+    text <- libText + text
+
     let mutable text = ["\n"; "\t"; "\r"] |> Seq.fold (fun (acc: String) x -> acc.Replace(x, " ")) text
     text <- text + " "
     let pairs = [Parenthesis;Brackets;SquareBrackets;IfThen;

@@ -8,7 +8,7 @@ open Evaluation
 
 [<EntryPoint>]
 let main argv = 
-    
+
     let file = 
         if argv.Length = 0 then
             let mutable cur = System.Console.ReadLine()

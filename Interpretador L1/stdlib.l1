@@ -1,0 +1,37 @@
+let rec remainder(x, y) {
+    if y = 0 then  
+        raise
+    else if x<y then
+        x
+    else
+        remainder x-y y
+};
+let rec gcd(x, y) {
+    if y = 0 then
+        x
+    else
+        gcd y (remainder x y) 
+};
+let lcm(x, y) {
+    x * y / (gcd x y)
+};
+let rec map(f, ls) {
+    if empty? ls then
+        nil
+    else
+        (f head ls)::(map f tail ls)
+};
+let rec reduce(f, ls) {
+    if empty? ls then
+        raise
+    else if empty? tail ls then
+        head ls
+    else
+        f (head ls) (reduce f tail ls)
+};
+let rec fold(f, acc, ls) {
+    if empty? ls then
+        acc
+    else
+        fold f (f acc head ls) tail ls
+};

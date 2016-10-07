@@ -215,3 +215,20 @@ fn|let|rec|for
 in|head|tail|nil
 try|except|raise|true
 false|if|then|else
+
+# Standard Library
+
+Como em muitas linguagens de programação, o nosso "compilador" de L1 acompanha uma biblioteca com funções comuns a muitos programas.
+
+As funções implementadas são as seguintes:
+
+- remainder(x,y) - Retorna o resto da divisão de x por y
+- gcd(x,y) - Retorna o maior divisor comum de x e y
+- lcm(x,y) - Retorna o menor múltiplo comum de x e y
+
+
+- map(f, ls)
+- reduce(f, ls)
+- fold(f, acc, ls)
+
+Para fazer uso da biblioteca, é necessário colocar o arquivo "stdlib.l1" no mesmo diretório do executável.
