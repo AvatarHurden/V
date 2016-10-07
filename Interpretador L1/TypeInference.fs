@@ -127,6 +127,23 @@ let rec unify c =
     | (Function(s1, s2), Function(t1, t2))::rest -> unify (rest @ [s1, t1; s2, t2])
     | _ -> sprintf "Unsolvable constraints" |> WrongExpression |> raise
 
+let solveType x u =
+    let rec f s c =
+        match c with
+        | [] ->
+            sprintf "Unsolvable type" |> WrongExpression |> raise
+        | (id, t)::rest ->
+            if id = s then
+                g t
+            else
+                f s rest
+    and g t =
+        match t with
+        | Type.X(x) -> f (Type.X(x)) u
+        | List(x) -> List(g x)
+        | _ -> t
+    in f x u
+
 let typeInfer t =
     let typ, c = collectEqs t [] in
-    unify c
+    solveType typ (unify c)
