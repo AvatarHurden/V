@@ -395,3 +395,42 @@ map t2".Replace("\r", "").Replace("    ", "\t"))
         (f head l)::map tail l
 };
 map 1::2::3::nil".Replace("\r", "").Replace("    ", "\t"))
+
+    [<Test>]
+    member that.recComprehension() =
+        parseTerm "[[x*2 for x in [1,2,3]], [1,2,3], [x for x in [y for y in [1,2,3]]]]"
+        |> print |> should equal
+            ("let rec map(l) {
+    let f = fn(x) {
+    (x * 2)
+};
+    if empty? l then
+        nil
+    else
+        (f head l)::map tail l
+};
+map 1::2::3::nil::(1::2::3::nil)::let rec map(l) {
+    let f = fn(x) {
+    x
+};
+    if empty? l then
+        nil
+    else
+        (f head l)::map tail l
+};
+map let rec map(l) {
+    let f = fn(y) {
+    y
+};
+    if empty? l then
+        nil
+    else
+        (f head l)::map tail l
+};
+map 1::2::3::nil::nil".Replace("\r", "").Replace("    ", "\t"))
+
+    [<Test>]
+    member that.listValues() =
+        parseTerm "[true,false,nil,0,1]" 
+            |> print |> should equal
+                "true::false::nil::0::1::nil"
