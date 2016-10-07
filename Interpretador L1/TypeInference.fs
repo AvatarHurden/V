@@ -123,11 +123,7 @@ let rec unify c =
             sprintf "Circular constraints" |> WrongExpression |> raise
         else
             unify (substintconstr x t rest) @ [Type.X(x), t]
-    | (List(Type.X(x)), t)::rest | (t, List(Type.X(x)))::rest ->
-        if occursin x t then
-            sprintf "Circular constraints" |> WrongExpression |> raise
-        else
-            unify (substintconstr x t rest) @ [List(Type.X(x)), t]
+    | (List(s1), List(t1))::rest -> unify (rest @ [s1, t1])
     | (Function(s1, s2), Function(t1, t2))::rest -> unify (rest @ [s1, t1; s2, t2])
     | _ -> sprintf "Unsolvable constraints" |> WrongExpression |> raise
 
