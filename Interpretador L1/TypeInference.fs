@@ -79,3 +79,58 @@ let rec collectEqs t e =
         let t1', c1 = collectEqs t1 e in
         let t2', c2 = collectEqs t2 e in
         t2', c1 @ c2 @ [t1', t2']
+
+let substinty x t s =
+    let rec f s =
+        match s with
+        | Int -> Int
+        | Bool -> Bool
+        | List(Int) -> List(Int)
+        | List(Bool) -> List(Bool)
+        | List(s1) -> List(f s1)
+        | Function(s1, s2) -> Function(f s1, f s2)
+        | Type.X(id) ->
+            if id = x then
+                t
+            else
+                Type.X(id)
+    in f s
+
+let substintconstr x t c =
+    List.map
+        (fun (s1, s2) ->
+            (substinty x t s1, substinty x t s2))
+        c
+
+let occursin x t =
+    let rec o t =
+        match t with
+        | Int
+        | Bool
+        | List(Int)
+        | List(Bool) -> false
+        | List(t1) -> o t1
+        | Function(t1, t2) -> o t1 || o t2
+        | Type.X(id) -> id = x
+    in o t
+
+let rec unify c =
+    match c with
+    | [] -> []
+    | (s, t)::rest when s = t -> unify rest
+    | (Type.X(x), t)::rest | (t, Type.X(x))::rest ->
+        if occursin x t then
+            sprintf "Circular constraints" |> WrongExpression |> raise
+        else
+            unify (substintconstr x t rest) @ [Type.X(x), t]
+    | (List(Type.X(x)), t)::rest | (t, List(Type.X(x)))::rest ->
+        if occursin x t then
+            sprintf "Circular constraints" |> WrongExpression |> raise
+        else
+            unify (substintconstr x t rest) @ [List(Type.X(x)), t]
+    | (Function(s1, s2), Function(t1, t2))::rest -> unify (rest @ [s1, t1; s2, t2])
+    | _ -> sprintf "Unsolvable constraints" |> WrongExpression |> raise
+
+let typeInfer t =
+    let typ, c = collectEqs t [] in
+    unify c

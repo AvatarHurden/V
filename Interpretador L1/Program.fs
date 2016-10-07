@@ -35,7 +35,7 @@ let main argv =
         Console.WriteLine()
         Console.WriteLine()
         term |> eval |> print |> printfn "Your program resulted in:\n\n%O\n"
-        collectEqs term [] |> printfn "Your program is of type:\n\n%A\n\n"
+        typeInfer term |> printfn "Your program is of type:\n\n%A\n\n"
     with
     | WrongExpression e -> Console.WriteLine e
     | InvalidEntryText t -> Console.WriteLine t
