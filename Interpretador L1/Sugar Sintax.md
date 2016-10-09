@@ -222,13 +222,63 @@ Como em muitas linguagens de programação, o nosso "compilador" de L1 acompanha
 
 As funções implementadas são as seguintes:
 
-- remainder(x,y) - Retorna o resto da divisão de x por y
-- gcd(x,y) - Retorna o maior divisor comum de x e y
-- lcm(x,y) - Retorna o menor múltiplo comum de x e y
+- remainder(x,y) 
+ 	- Retorna o resto da divisão de x por y
+- negate(x) 
+	- Retorna o oposto de x (ou seja, -x)
+- abs(x) 
+	- Retorna o valor absoluto de x
 
 
-- map(f, ls)
-- reduce(f, ls)
+- not(x) 
+ 	- Operador lógico de Negação
+- and(x,y) 
+	- Operador lógico E
+- or(x,y)
+	- Operador lógico Ou
+- xor(x,y)
+	- Operador lógico Ou Exclusivo
+
+
+- length(ls) 
+	- Retorna o tamanho da lista
+- reverse(ls) 
+	- Retorna uma nova lista com os elementos de ls em ordem invertida
+
+
+- last(ls) 
+ 	- Retorna o último elemento de uma lista
+- init(ls) 
+	- Retorna toda a lista exceto o último elemento
+- append(x, ls) 
+	- Adiciona o elemento x no final da lista
+- concat(ls1, ls2) 
+	- Retorna uma lista composta pelos elementos de ls1 seguidos pelos elementos de ls2
+
+
+- map(f, ls) 
+	- Retorna uma nova lista com a aplicação da função f a cada elemento de ls
 - fold(f, acc, ls)
+	- Processa cada elemento de ls, da esquerda para a direita, acumulando o valor em acc. Retorna acc
+- reduce(f, ls)
+	- Exatamente igual a fold, porém acc é iniciado com o primeiro elemento de ls e o processamento começa a partir do segundo elemento
+
+
+- take(x, ls) 
+	- Retorna os primeiros x elementos de ls
+- takeWhile(pred, ls)
+	- Retorna todos os elementos de ls que satisfazem *pred* até o primeiro que não satisfaz *pred*
+- filter(pred, ls)
+	- Retorna todos os elementos de ls que satisfazem *pred*
+
+
+- all(pred, ls)
+	- Retorna true se todos os elementos de ls satisfazem *pred*
+- any(pred, ls)
+	- Retorna true se qualquer elemento de ls satisfaz *pred*
+
+
+- range(start, finish, inc)
+	- Retorna uma lista com os elementos [start, start+inc, start+2*inc, ..., n], sendo que n é menor ou igual a finish.
 
 Para fazer uso da biblioteca, é necessário colocar o arquivo "stdlib.l1" no mesmo diretório do executável.

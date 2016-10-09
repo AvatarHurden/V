@@ -6,32 +6,154 @@ let rec remainder(x, y) {
     else
         remainder x-y y
 };
-let rec gcd(x, y) {
-    if y = 0 then
-        x
-    else
-        gcd y (remainder x y) 
+let negate(x) {
+	0-x
 };
-let lcm(x, y) {
-    x * y / (gcd x y)
+let abs(x) {
+	if x < 0 then
+		negate x
+	else
+		x
 };
+
+let not(t) {
+	if t then
+		false
+	else
+		true
+};
+let and(t1, t2) {
+	if t1 then
+		t2
+	else
+		false
+};
+let or(t1, t2) {
+	if t1 then
+		true
+	else
+		t2
+};
+let xor(t1, t2) {
+	if t1 then
+		not t2
+	else
+		t2
+};
+
+let rec length(ls) {
+	if empty? ls then
+		0
+	else
+		1 + length (tail ls)
+};
+let reverse(ls) {
+	if empty? ls then
+		nil
+	else
+		let rec f(lsOld, lsNew) {
+			let new = (head lsOld)::(lsNew);
+			if empty? (tail lsOld) then
+				new
+			else
+				f (tail lsOld) new
+		};
+		f ls nil
+};
+
+let rec last(ls) {
+	if empty? ls then
+		raise
+	else if empty? (tail ls) then
+		head ls
+	else
+		last (tail ls)
+};
+let rec init(ls){
+	if empty? ls then
+		raise
+	else if empty? (tail ls) then
+		nil
+	else
+		(head ls)::(tail ls |> init)
+};
+let rec append(x, ls) {
+	if empty? ls then
+		x::ls
+	else
+		(head ls)::(tail ls |> append x)
+};
+let rec concat(ls1, ls2) {
+	if empty? ls1 then
+		ls2
+	else
+		(head ls1)::(concat (tail ls1) ls2)
+};
+
 let rec map(f, ls) {
     if empty? ls then
         nil
     else
-        (f head ls)::(map f tail ls)
-};
-let rec reduce(f, ls) {
-    if empty? ls then
-        raise
-    else if empty? tail ls then
-        head ls
-    else
-        f (head ls) (reduce f tail ls)
+        (head ls |> f)::(tail ls |> map f)
 };
 let rec fold(f, acc, ls) {
     if empty? ls then
         acc
     else
-        fold f (f acc head ls) tail ls
+        fold f (head ls |> f acc) (tail ls)
+};
+let rec reduce(f, ls) {
+    if empty? ls then
+        raise
+    else if empty? (tail ls) then
+        head ls
+    else
+        f (head ls) (tail ls |> reduce f)
+};
+
+let rec take(x, ls) {
+	if or (x == 0) (empty? ls) then
+		nil
+	else
+		(head ls)::(tail ls |> take x-1)
+};
+let rec takeWhile(pred, ls) {
+	if empty? ls then
+		nil
+	else if head ls |> pred |> not then
+		nil
+	else
+		(head ls)::(tail ls |> takeWhile pred)
+};
+let rec filter(pred, ls) {
+	if empty? ls then
+		nil
+	else if head ls |> pred then
+		(head ls)::(tail ls |> filter pred)
+	else
+		tail ls |> filter pred
+};
+
+let rec all(pred, ls) {
+	if empty? ls then
+		true
+	else if head ls |> pred |> not then
+		false
+	else
+		tail ls |> all pred
+};
+let rec any(pred, ls) {
+	if empty? ls then
+		false
+	else if head ls |> pred then
+		true
+	else
+		tail ls |> any pred
+};
+
+let rec range(start, finish, inc) {
+	if start <= finish then
+		start::(range (start+inc) finish inc)
+	else
+		nil
 };
