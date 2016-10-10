@@ -147,6 +147,8 @@ type private extendedOP =
     | BackwardsPipe
     | Remainder
     | Concat
+    | And
+    | Or
 
 //#region Utilities
 let private operatorsAtPriority i =
@@ -159,6 +161,8 @@ let private operatorsAtPriority i =
     | 5 -> 
         [Def LessOrEqual; Def LessThan; Def Equal; Def Different; 
         Def GreaterThan; Def GreaterOrEqual; Pipe; BackwardsPipe]
+    | 6 -> [And]
+    | 7 -> [Or]
     | _ -> []
 
 let private splitSpaces (term: string) =
@@ -577,6 +581,8 @@ and private findTerms text (endingString: string option) =
                 elif opTrimmed.StartsWith "<|" then "<|", BackwardsPipe
                 elif opTrimmed.StartsWith "%" then "%", Remainder
                 elif opTrimmed.StartsWith "@" then "@", Concat
+                elif opTrimmed.StartsWith "&&" then "&&", And
+                elif opTrimmed.StartsWith "||" then "||", Or
                 elif opTrimmed.StartsWith "+"  then "+", Def Add
                 elif opTrimmed.StartsWith "-"  then "-", Def Subtract
                 elif opTrimmed.StartsWith "*"  then "*", Def Multiply
@@ -623,6 +629,8 @@ and private findTerms text (endingString: string option) =
                     | BackwardsPipe -> OP(t1, Application, t2)
                     | Remainder -> OP(OP(X("remainder"), Application, t1), Application, t2)
                     | Concat -> OP(OP(X("concat"), Application, t1), Application, t2)
+                    | And -> OP(OP(X("and"), Application, t1), Application, t2)
+                    | Or -> OP(OP(X("or"), Application, t1), Application, t2)
                 termList <- Seq.append (Seq.take index termList)
                     (Seq.append [(newTerm, nextOp)] (Seq.skip (index+2) termList))
                 index <- if index = 0 then 0 else index - 1

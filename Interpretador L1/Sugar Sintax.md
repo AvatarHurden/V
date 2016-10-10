@@ -46,6 +46,8 @@ Equal|=
 Different|!=
 GreaterOrEqual|>=
 Greater|>
+And|&&
+Or|&#124;&#124;
 
 ## Prioridade de operadores
 
@@ -57,6 +59,8 @@ A seguinte ordem de prioridade foi escolhida, baseada no comportamento de F#:
 - Cons
 - Concat
 - Testes (<, >, =, etc), Pipe, BackwardsPipe
+- And
+- Or
 
 É possível forçar a ordem desejada de avaliação com o uso de parênteses entre operações.
 
@@ -214,6 +218,10 @@ Requer a presença da stdlib para funcionar.
 Concatena duas listas, retornando uma nova lista composta dos elementos da primeira seguidos pelos elementos da segunda.
 
 Requer a presença da stdlib para funcionar.
+
+## And, Or
+
+Operadores booleanos infixados.
 
 ## Variáveis
 
