@@ -144,16 +144,20 @@ type private DelimiterPairs =
 type private extendedOP =
     | Def of op
     | Pipe
+    | BackwardsPipe
+    | Remainder
+    | Concat
 
 //#region Utilities
 let private operatorsAtPriority i =
     match i with             
-    | 0 -> [Def Multiply; Def Divide]  
+    | 0 -> [Def Multiply; Def Divide; Remainder]  
     | 1 -> [Def Add; Def Subtract]   
-    | 2 -> [Def Cons]                                                 
-    | 3 -> [Def Application]   
-    | 4 -> [Pipe]  
-    | 5 -> [Def LessOrEqual; Def LessThan; Def Equal; Def Different; Def GreaterThan; Def GreaterOrEqual]
+    | 2 -> [Def Cons]
+    | 3 -> [Concat]                                                 
+    | 4 -> [Def Application]   
+    | 5 -> [Pipe; BackwardsPipe]  
+    | 6 -> [Def LessOrEqual; Def LessThan; Def Equal; Def Different; Def GreaterThan; Def GreaterOrEqual]
     | _ -> []
 
 let private splitSpaces (term: string) =
@@ -243,11 +247,12 @@ let private findClosingPair pair (text:string) startingCount =
 // O retorno da função é uma tupla composto de (espaço em branco+ident, ident)
 let private findIdent text = 
     let emptyText, trimmedText = splitSpaces text
-    let prohibited = " .,;:+-/*<=>(){}[]?!\\".ToCharArray()
+    let prohibited = " .,;:+-/*<=>(){}[]%!@\\".ToCharArray()
     let ident = String.Concat (trimmedText |> Seq.takeWhile (fun x -> not (Seq.exists ((=) x) prohibited)))
     match ident with
-    | "let" | "true" | "false" | "if" | "then" | "else" | "fn" | "letrec"
-    | "nil" | "head" | "tail" | "raise" | "try" | "except" | "for" | "in" ->
+    | "let" | "true" | "false" | "if" | "then" | "else" 
+    | "fn" | "letrec"| "nil" | "head" | "tail" | "raise" 
+    | "try" | "except" | "for" | "in" | "empty?" ->
         raise (InvalidEntryText ("A variable cannot be called " + ident))
     | _ ->
         (emptyText+ident, ident)   
@@ -567,7 +572,11 @@ and private findTerms text (endingString: string option) =
             foundEnd <- true
         else
             let opChar, op = 
-                if   opTrimmed.StartsWith "+"  then "+", Def Add
+                if   opTrimmed.StartsWith "|>" then "|>", Pipe
+                elif opTrimmed.StartsWith "<|" then "<|", BackwardsPipe
+                elif opTrimmed.StartsWith "%" then "%", Remainder
+                elif opTrimmed.StartsWith "@" then "@", Concat
+                elif opTrimmed.StartsWith "+"  then "+", Def Add
                 elif opTrimmed.StartsWith "-"  then "-", Def Subtract
                 elif opTrimmed.StartsWith "*"  then "*", Def Multiply
                 elif opTrimmed.StartsWith "/"  then "/", Def Divide
@@ -578,7 +587,6 @@ and private findTerms text (endingString: string option) =
                 elif opTrimmed.StartsWith ">=" then ">=", Def GreaterOrEqual
                 elif opTrimmed.StartsWith ">"  then ">", Def GreaterThan
                 elif opTrimmed.StartsWith "::" then "::", Def Cons
-                elif opTrimmed.StartsWith "|>" then "|>", Pipe
                 else "", Def Application
             subText <- subText + (opString |> splitSpaces |> fst) + opChar
 
@@ -611,6 +619,9 @@ and private findTerms text (endingString: string option) =
                     match op with
                     | Def op -> OP(t1, op, t2)
                     | Pipe -> OP(t2, Application, t1)
+                    | BackwardsPipe -> OP(t1, Application, t2)
+                    | Remainder -> OP(OP(X("remainder"), Application, t1), Application, t2)
+                    | Concat -> OP(OP(X("concat"), Application, t1), Application, t2)
                 termList <- Seq.append (Seq.take index termList)
                     (Seq.append [(newTerm, nextOp)] (Seq.skip (index+2) termList))
                 index <- if index = 0 then 0 else index - 1
@@ -628,7 +639,7 @@ let rec parseTerm (text: String) =
     let lib = "stdlib.l1"
     let libText = 
         if Path.makeAppRelative lib |> IO.File.Exists then
-            lib |> IO.File.ReadAllText
+            Path.makeAppRelative lib |> IO.File.ReadAllText
         else
             ""                  
     

@@ -34,9 +34,12 @@ Add|+
 Subtract|-
 Multiply|*
 Divide|/
+Resto| %
 Cons|::
+Concat|@
 Application| (espaço)
 Pipe| &#124;>
+BackwardsPipe| <&#124;
 LessThan|<
 LessOrEqual|<=
 Equal|=
@@ -49,10 +52,11 @@ Greater|>
 A seguinte ordem de prioridade foi escolhida, baseada no comportamento de F#:
 
 - Multiplicação, Divisão
-- Soma, Subtração
+- Soma, Subtração, Resto
 - Cons
+- Concat
 - Aplicação
-- Pipe
+- Pipe, BackwardsPipe
 - Testes (<, >, =, etc)
 
 É possível forçar a ordem desejada de avaliação com o uso de parênteses entre operações.
@@ -195,6 +199,22 @@ O seu uso permite a eliminação de parênteses e uma leitura mais natural de ex
     mult2 3 |> soma1
     
     3 |> mult2 |> soma1 // Leitura da esquerda para a direita
+    
+### Backwards Pipe
+
+Funciona como a aplicação normal, porém possui uma prioridade menor do que a mesma.
+
+### Resto
+
+Retorna o resto da divisão do primeiro elemento pelo segundo.
+
+Requer a presença da stdlib para funcionar.
+
+### Concat
+
+Concatena duas listas, retornando uma nova lista composta dos elementos da primeira seguidos pelos elementos da segunda.
+
+Requer a presença da stdlib para funcionar.
 
 ## Variáveis
 
@@ -205,7 +225,11 @@ O nome de uma variável é uma string de tamanho arbitrário composto de qualque
 .|,|;|:|\
 +|-|/|*|<
 =|>|!|(|)
-{|}|[|]|?
+{|}|[|]|%
+@||||
+
+* Apesar de ser permitido o uso da interrogação (?) em qualquer posição de um nome, é um padrão colocá-la apenas no final de nomes de funções que retornam um booleano.
+* É permitido colocar dígitos no nome de uma varíavel, porém não é permitido começar o nome de uma variável com um dígito.
 
 Além disso, variáveis não podem ser nomeadas com os seguintes termos reservados:
 
@@ -215,6 +239,7 @@ fn|let|rec|for
 in|head|tail|nil
 try|except|raise|true
 false|if|then|else
+empty?|||
 
 # Standard Library
 
@@ -222,17 +247,17 @@ Como em muitas linguagens de programação, o nosso "compilador" de L1 acompanha
 
 As funções implementadas são as seguintes:
 
-- remainder(x,y) 
+- remainder(x,y)
  	- Retorna o resto da divisão de x por y
-- negate(x) 
+- negate(x)
 	- Retorna o oposto de x (ou seja, -x)
-- abs(x) 
+- abs(x)
 	- Retorna o valor absoluto de x
 
 
-- not(x) 
+- not(x)
  	- Operador lógico de Negação
-- and(x,y) 
+- and(x,y)
 	- Operador lógico E
 - or(x,y)
 	- Operador lógico Ou
