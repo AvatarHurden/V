@@ -52,8 +52,8 @@ Greater|>
 A seguinte ordem de prioridade foi escolhida, baseada no comportamento de F#:
 
 - Aplicação
-- Multiplicação, Divisão
-- Soma, Subtração, Resto
+- Multiplicação, Divisão, Resto
+- Soma, Subtração
 - Cons
 - Concat
 - Testes (<, >, =, etc), Pipe, BackwardsPipe
