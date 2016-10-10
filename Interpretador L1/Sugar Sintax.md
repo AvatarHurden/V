@@ -51,13 +51,12 @@ Greater|>
 
 A seguinte ordem de prioridade foi escolhida, baseada no comportamento de F#:
 
+- Aplicação
 - Multiplicação, Divisão
 - Soma, Subtração, Resto
 - Cons
 - Concat
-- Aplicação
-- Pipe, BackwardsPipe
-- Testes (<, >, =, etc)
+- Testes (<, >, =, etc), Pipe, BackwardsPipe
 
 É possível forçar a ordem desejada de avaliação com o uso de parênteses entre operações.
 

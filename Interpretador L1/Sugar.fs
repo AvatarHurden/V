@@ -150,14 +150,15 @@ type private extendedOP =
 
 //#region Utilities
 let private operatorsAtPriority i =
-    match i with             
-    | 0 -> [Def Multiply; Def Divide; Remainder]  
-    | 1 -> [Def Add; Def Subtract]   
-    | 2 -> [Def Cons]
-    | 3 -> [Concat]                                                 
-    | 4 -> [Def Application]   
-    | 5 -> [Pipe; BackwardsPipe]  
-    | 6 -> [Def LessOrEqual; Def LessThan; Def Equal; Def Different; Def GreaterThan; Def GreaterOrEqual]
+    match i with                                   
+    | 0 -> [Def Application]            
+    | 1 -> [Def Multiply; Def Divide; Remainder]  
+    | 2 -> [Def Add; Def Subtract]   
+    | 3 -> [Def Cons]
+    | 4 -> [Concat]    
+    | 5 -> 
+        [Def LessOrEqual; Def LessThan; Def Equal; Def Different; 
+        Def GreaterThan; Def GreaterOrEqual; Pipe; BackwardsPipe]
     | _ -> []
 
 let private splitSpaces (term: string) =
