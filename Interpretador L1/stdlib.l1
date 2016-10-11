@@ -75,13 +75,13 @@ let rec init(ls){
 	else if empty? (tail ls) then
 		nil
 	else
-		(head ls)::(tail ls |> init)
+		(head ls)::(init (tail ls))
 };
 let rec append(x, ls) {
 	if empty? ls then
 		x::ls
 	else
-		(head ls)::(tail ls |> append x)
+		(head ls)::(append x (tail ls))
 };
 let rec concat(ls1, ls2) {
 	if empty? ls1 then
@@ -94,13 +94,13 @@ let rec map(f, ls) {
     if empty? ls then
         nil
     else
-        (head ls |> f)::(tail ls |> map f)
+        (f (head ls))::(map f (tail ls))
 };
 let rec fold(f, acc, ls) {
     if empty? ls then
         acc
     else
-        fold f (head ls |> f acc) (tail ls)
+        fold f (f acc (head ls)) (tail ls)
 };
 let rec reduce(f, ls) {
     if empty? ls then
@@ -108,19 +108,19 @@ let rec reduce(f, ls) {
     else if empty? (tail ls) then
         head ls
     else
-        f (head ls) (tail ls |> reduce f)
+        f (head ls) (reduce f (tail ls))
 };
 
 let rec take(x, ls) {
-	if or (x == 0) (empty? ls) then
+	if (x = 0) || (empty? ls) then
 		nil
 	else
-		(head ls)::(tail ls |> take x-1)
+		(head ls)::((tail ls) |> take (x-1))
 };
 let rec takeWhile(pred, ls) {
 	if empty? ls then
 		nil
-	else if head ls |> pred |> not then
+	else if (head ls) |> pred |> not then
 		nil
 	else
 		(head ls)::(tail ls |> takeWhile pred)
@@ -129,26 +129,26 @@ let rec filter(pred, ls) {
 	if empty? ls then
 		nil
 	else if head ls |> pred then
-		(head ls)::(tail ls |> filter pred)
+		(head ls)::((tail ls) |> filter pred)
 	else
-		tail ls |> filter pred
+		(tail ls) |> filter pred
 };
 
 let rec all(pred, ls) {
 	if empty? ls then
 		true
-	else if head ls |> pred |> not then
+	else if (head ls) |> pred |> not then
 		false
 	else
-		tail ls |> all pred
+		(tail ls) |> all pred
 };
 let rec any(pred, ls) {
 	if empty? ls then
 		false
-	else if head ls |> pred then
+	else if (head ls) |> pred then
 		true
 	else
-		tail ls |> any pred
+		(tail ls) |> any pred
 };
 
 let rec range(start, finish, inc) {

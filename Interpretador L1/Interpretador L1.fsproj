@@ -65,9 +65,9 @@
     <None Include="App.config" />
     <Content Include="packages.config" />
     <None Include="Sugar Sintax.md" />
-    <None Include="stdlib.l1">
+    <Resource Include="stdlib.l1">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
+    </Resource>
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FSharp.Core">
