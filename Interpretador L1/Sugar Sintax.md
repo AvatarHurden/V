@@ -48,12 +48,15 @@ GreaterOrEqual|>=
 Greater|>
 And|&&
 Or|&#124;&#124;
+Oposto (prefixo numérico)|-
+
 
 ## Prioridade de operadores
 
 A seguinte ordem de prioridade foi escolhida, baseada no comportamento de F#:
 
-- Aplicação
+- Oposto (prefixo numérico)
+- Aplicação, Head, Tail, IsEmpty
 - Multiplicação, Divisão, Resto
 - Soma, Subtração
 - Cons
@@ -72,7 +75,7 @@ Existem 2 tipos de associativade. Eles são:
 	- Fazem parte desse grupo todas as operações, com exceção de **Cons**
 
 - Associatividade à direita, onde "a b c" é o mesmo que "a (b c)"
-	- Fazem parte deste grupo a operação **Cons** e o tipo **Function**, além dos termos **head**, **tail** e **empty?**.
+	- Fazem parte deste grupo a operação **Cons** e o tipo **Function**.
 
 É possível alterar a associativade de qualquer termo com o uso de parênteses.
 

@@ -4,7 +4,7 @@ let rec remainder(x, y) {
     else if x<y then
         x
     else
-        remainder x-y y
+        remainder (x-y) y
 };
 let negate(x) {
 	0-x
@@ -129,9 +129,9 @@ let rec filter(pred, ls) {
 	if empty? ls then
 		nil
 	else if head ls |> pred then
-		(head ls)::((tail ls) |> filter pred)
+		head ls::tail ls |> filter pred
 	else
-		(tail ls) |> filter pred
+		tail ls |> filter pred
 };
 
 let rec all(pred, ls) {

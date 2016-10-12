@@ -142,6 +142,7 @@ type private DelimiterPairs =
     | Custom of string * string
 
 type private extendedOP =
+    // Infix operators
     | Def of op
     | Pipe
     | BackwardsPipe
@@ -149,20 +150,27 @@ type private extendedOP =
     | Concat
     | And
     | Or
+    // Prefix operators
+    | Negate
+
+type private extendedTerm =
+    | Term of term
+    | Prefix of extendedOP
 
 //#region Utilities
 let private operatorsAtPriority i =
-    match i with                                   
-    | 0 -> [Def Application]            
-    | 1 -> [Def Multiply; Def Divide; Remainder]  
-    | 2 -> [Def Add; Def Subtract]   
-    | 3 -> [Def Cons]
-    | 4 -> [Concat]    
-    | 5 -> 
+    match i with         
+    | 0 -> [Negate]                          
+    | 1 -> [Def Application]            
+    | 2 -> [Def Multiply; Def Divide; Remainder]  
+    | 3 -> [Def Add; Def Subtract]   
+    | 4 -> [Def Cons]
+    | 5 -> [Concat]    
+    | 6 -> 
         [Def LessOrEqual; Def LessThan; Def Equal; Def Different; 
         Def GreaterThan; Def GreaterOrEqual; Pipe; BackwardsPipe]
-    | 6 -> [And]
-    | 7 -> [Or]
+    | 7 -> [And]
+    | 8 -> [Or]
     | _ -> []
 
 let private splitSpaces (term: string) =
@@ -508,53 +516,53 @@ and private findTerm (text: string) =
     
     if trimmedText.StartsWith("let ") then
         let s, t = findLet trimmedText
-        (emptyText+s, t)
+        (emptyText+s, Term t)
     elif trimmedText.StartsWith("fn(") || trimmedText.StartsWith("fn ") then
         let s, t = findFn trimmedText
-        (emptyText+s, t)
+        (emptyText+s, Term t)
     elif trimmedText.StartsWith("\\") then
         let s, t = findLambda trimmedText
-        (emptyText+s, t)
+        (emptyText+s, Term t)
     elif trimmedText.StartsWith("if ") then
         let s, t = findIf trimmedText
-        (emptyText+s, t)
+        (emptyText+s, Term t)
     elif trimmedText.StartsWith("try ") then
         let s, t = findTry trimmedText
-        (emptyText+s, t)
-    elif trimmedText.StartsWith("empty? ") then
-        let _, t = trimmedText.Substring("empty? ".Length) |> findTerms <| None
-        (emptyText+trimmedText, IsEmpty(t))
-    elif trimmedText.StartsWith("head ") then
-        let _, t = trimmedText.Substring("head ".Length) |> findTerms <| None
-        (emptyText+trimmedText, Head(t))
-    elif trimmedText.StartsWith("tail ") then
-        let _, t = trimmedText.Substring("tail ".Length) |> findTerms <| None
-        (emptyText+trimmedText, Tail(t))
+        (emptyText+s, Term t)
     elif trimmedText.StartsWith("(") then
         let s, subTerm = findClosingPair Parenthesis trimmedText 0
         let s, t = (s, findTerms subTerm None |> snd)
-        (emptyText + s, t)
+        (emptyText + s, Term t)
     elif trimmedText.StartsWith("[") then
         let s, t = findList trimmedText
-        (emptyText + s, t)
+        (emptyText + s, Term t)
     elif Char.IsDigit(trimmedText.Chars(0)) then
         let s = trimmedText.ToCharArray()
         let t = s |> Seq.takeWhile (fun x -> Char.IsDigit(x))
-        (emptyText+String.Concat(t), I(int (String.Concat(t))))
+        (emptyText+String.Concat(t), Term <| I(int (String.Concat(t))))
+    elif trimmedText.StartsWith("-") then
+        (emptyText+"-", Prefix Negate)
     else
         try
             let text, ident = findIdent trimmedText
-            (emptyText+text, X(ident))
+            (emptyText+text, Term <| X(ident))
         with
         | InvalidEntryText t ->
             if trimmedText.StartsWith("true") then
-                (emptyText+"true", True)
+                (emptyText+"true", Term True)
             elif trimmedText.StartsWith("false") then
-                (emptyText+"false", False)
+                (emptyText+"false", Term False)
             elif trimmedText.StartsWith("raise") then
-                (emptyText+"raise", Raise)
+                (emptyText+"raise", Term Raise)
             elif trimmedText.StartsWith("nil") then
-                (emptyText+"nil", Nil)
+                (emptyText+"nil", Term Nil)
+            elif trimmedText.StartsWith("empty?") then
+                (emptyText+"empty?", Term <| Fn("x", None, IsEmpty(X("x"))))
+            elif trimmedText.StartsWith("head") then
+                (emptyText+"head", Term <| Fn("x", None, Head(X("x"))))
+            elif trimmedText.StartsWith("tail") then
+                (emptyText+"tail", Term <| Fn("x", None, Tail(X("x"))))
+
             else
                 raise <| InvalidEntryText t 
 
@@ -576,25 +584,28 @@ and private findTerms text (endingString: string option) =
             subText <- subText + (opString |> splitSpaces |> fst) + endingString.Value
             foundEnd <- true
         else
-            let opChar, op = 
-                if   opTrimmed.StartsWith "|>" then "|>", Pipe
-                elif opTrimmed.StartsWith "<|" then "<|", BackwardsPipe
-                elif opTrimmed.StartsWith "%" then "%", Remainder
-                elif opTrimmed.StartsWith "@" then "@", Concat
-                elif opTrimmed.StartsWith "&&" then "&&", And
-                elif opTrimmed.StartsWith "||" then "||", Or
-                elif opTrimmed.StartsWith "+"  then "+", Def Add
-                elif opTrimmed.StartsWith "-"  then "-", Def Subtract
-                elif opTrimmed.StartsWith "*"  then "*", Def Multiply
-                elif opTrimmed.StartsWith "/"  then "/", Def Divide
-                elif opTrimmed.StartsWith "<=" then "<=", Def LessOrEqual
-                elif opTrimmed.StartsWith "<"  then "<", Def LessThan
-                elif opTrimmed.StartsWith "="  then "=", Def Equal
-                elif opTrimmed.StartsWith "!=" then "!=", Def Different
-                elif opTrimmed.StartsWith ">=" then ">=", Def GreaterOrEqual
-                elif opTrimmed.StartsWith ">"  then ">", Def GreaterThan
-                elif opTrimmed.StartsWith "::" then "::", Def Cons
-                else "", Def Application
+            let opChar, op =
+                match term with
+                | Prefix op -> "", op
+                | Term _ ->
+                    if   opTrimmed.StartsWith "|>" then "|>", Pipe
+                    elif opTrimmed.StartsWith "<|" then "<|", BackwardsPipe
+                    elif opTrimmed.StartsWith "%" then "%", Remainder
+                    elif opTrimmed.StartsWith "@" then "@", Concat
+                    elif opTrimmed.StartsWith "&&" then "&&", And
+                    elif opTrimmed.StartsWith "||" then "||", Or
+                    elif opTrimmed.StartsWith "+"  then "+", Def Add
+                    elif opTrimmed.StartsWith "-"  then "-", Def Subtract
+                    elif opTrimmed.StartsWith "*"  then "*", Def Multiply
+                    elif opTrimmed.StartsWith "/"  then "/", Def Divide
+                    elif opTrimmed.StartsWith "<=" then "<=", Def LessOrEqual
+                    elif opTrimmed.StartsWith "<"  then "<", Def LessThan
+                    elif opTrimmed.StartsWith "="  then "=", Def Equal
+                    elif opTrimmed.StartsWith "!=" then "!=", Def Different
+                    elif opTrimmed.StartsWith ">=" then ">=", Def GreaterOrEqual
+                    elif opTrimmed.StartsWith ">"  then ">", Def GreaterThan
+                    elif opTrimmed.StartsWith "::" then "::", Def Cons
+                    else "", Def Application
             subText <- subText + (opString |> splitSpaces |> fst) + opChar
 
             termList <- Seq.append termList [|(term, Some op)|]
@@ -602,7 +613,7 @@ and private findTerms text (endingString: string option) =
             let newText, newTerm =
                 if op = Def Cons then
                     let rest = text.Substring(subText.Length)
-                    (rest, findTerms rest None |> snd)
+                    (rest, Term <| (snd <| findTerms rest None))
                 else
                     findTerm (text.Substring(subText.Length).TrimEnd())
             subText <- subText + newText
@@ -623,16 +634,21 @@ and private findTerms text (endingString: string option) =
 
                 let nextOp = termList |> Seq.nth (index + 1) |> snd
                 let newTerm =
-                    match op with
-                    | Def op -> OP(t1, op, t2)
-                    | Pipe -> OP(t2, Application, t1)
-                    | BackwardsPipe -> OP(t1, Application, t2)
-                    | Remainder -> OP(OP(X("remainder"), Application, t1), Application, t2)
-                    | Concat -> OP(OP(X("concat"), Application, t1), Application, t2)
-                    | And -> OP(OP(X("and"), Application, t1), Application, t2)
-                    | Or -> OP(OP(X("or"), Application, t1), Application, t2)
+                    match t1, t2 with
+                    | Prefix pre, Term t2 ->
+                        match pre with
+                        | Negate -> OP(X("negate"), Application, t2)
+                    | Term t1, Term t2 ->
+                        match op with
+                        | Def op -> OP(t1, op, t2)
+                        | Pipe -> OP(t2, Application, t1)
+                        | BackwardsPipe -> OP(t1, Application, t2)
+                        | Remainder -> OP(OP(X("remainder"), Application, t1), Application, t2)
+                        | Concat -> OP(OP(X("concat"), Application, t1), Application, t2)
+                        | And -> OP(OP(X("and"), Application, t1), Application, t2)
+                        | Or -> OP(OP(X("or"), Application, t1), Application, t2)
                 termList <- Seq.append (Seq.take index termList)
-                    (Seq.append [(newTerm, nextOp)] (Seq.skip (index+2) termList))
+                    (Seq.append [(Term newTerm, nextOp)] (Seq.skip (index+2) termList))
                 index <- if index = 0 then 0 else index - 1
             else
                 index <- index + 1
@@ -640,7 +656,10 @@ and private findTerms text (endingString: string option) =
             ()
         priority <- priority + 1
 
-    subText, termList |> Seq.nth 0 |> fst
+    match termList |> Seq.nth 0 |> fst with
+    | Term t ->
+        subText, t
+    | _ -> raise <| InvalidEntryText "Prefix operator needs a term afterwards"
 
 let rec parseTerm (text: String) =
     let mutable text = text
