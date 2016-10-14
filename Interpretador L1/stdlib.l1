@@ -152,7 +152,9 @@ let rec any(pred, ls) {
 };
 
 let rec range(start, finish, inc) {
-	if start <= finish then
+	if ((start >= finish && inc > 0) || (start <= finish && inc < 0)) then
+		nil
+	else if (inc > 0 && start <= finish) || (inc < 0 && start >= finish) then
 		start::(range (start+inc) finish inc)
 	else
 		nil

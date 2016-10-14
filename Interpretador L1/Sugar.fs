@@ -346,6 +346,28 @@ let private parseParameters (paramText: string) returnTerm (returnType: Definiti
                     ()
             (fst paramArray.[0], snd paramArray.[0], fnTerm, fnType)
             
+let private parseImport (text: string) =
+    let spaces, libText = splitSpaces <| text.Substring("import ".Length)
+
+    let mutable whole, libname = 
+        if libText.StartsWith("\"") then
+            findClosingPair (Custom("\"", "\"")) (libText.Substring(1)) 1
+        else
+            libText.Split(' ').[0], libText.Split(' ').[0]
+
+    if libname.EndsWith(".l1") |> not then
+        libname <- libname + ".l1"
+
+    let libContent =
+        if Path.makeAppRelative libname |> IO.File.Exists then
+            Path.makeAppRelative libname |> IO.File.ReadAllText
+        else
+            raise <| (InvalidEntryText <| sprintf "Could not find library file at %A" libname)
+        
+    let libContent = ["\n"; "\t"; "\r"] |> Seq.fold (fun (acc: String) x -> acc.Replace(x, " ")) libContent
+
+    "import "+spaces+"\""+whole, libContent + " " + libText.Substring(1 + spaces.Length + whole.Length)
+
 
 // Finds an entire Let expression. After the ";", calls findTerms with the remaining text
 let rec private findLet text =
@@ -514,7 +536,11 @@ and private findTerm (text: string) =
 
     let mutable emptyText, trimmedText = splitSpaces text
     
-    if trimmedText.StartsWith("let ") then
+    if trimmedText.StartsWith("import ") then
+        let original, newText = parseImport trimmedText
+        let s, t = findTerm <| newText
+        emptyText+trimmedText, t
+    elif trimmedText.StartsWith("let ") then
         let s, t = findLet trimmedText
         (emptyText+s, Term t)
     elif trimmedText.StartsWith("fn(") || trimmedText.StartsWith("fn ") then
@@ -664,16 +690,9 @@ and private findTerms text (endingString: string option) =
 let rec parseTerm (text: String) =
     let mutable text = text
 
-    let lib = "stdlib.l1"
-    let libText = 
-        if Path.makeAppRelative lib |> IO.File.Exists then
-            Path.makeAppRelative lib |> IO.File.ReadAllText
-        else
-            ""                  
-    
-    text <- libText + text
+    text <- "import stdlib " + text
 
-    let mutable text = ["\n"; "\t"; "\r"] |> Seq.fold (fun (acc: String) x -> acc.Replace(x, " ")) text
+    text <- ["\n"; "\t"; "\r"] |> Seq.fold (fun (acc: String) x -> acc.Replace(x, " ")) text
     text <- text + " "
     let pairs = [Parenthesis;Brackets;SquareBrackets;IfThen;
         ThenElse;LetSemicolon;TryExcept]

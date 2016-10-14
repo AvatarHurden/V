@@ -68,6 +68,7 @@
     <Resource Include="stdlib.l1">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
+    <None Include="math.l1" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FSharp.Core">

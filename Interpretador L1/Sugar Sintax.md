@@ -251,9 +251,27 @@ try|except|raise|true
 false|if|then|else
 empty?|||
 
-# Standard Library
+# Bibliotecas
 
-Como em muitas linguagens de programação, o nosso "compilador" de L1 acompanha uma biblioteca com funções comuns a muitos programas.
+É possível criar "bibliotecas" em L1, utilizando-as em outros programas e permitindo o reuso de código. Essas bibliotecas são compostas de definições de identificadores, funções e funções recursivas, sem nenhuma verdadeira computação nas mesmas.
+
+Para fazer uso de uma biblioteca, é necessário incluí-la no programa, e para isso deve-se escrever
+
+	import biblioteca[.l1]
+    
+onde *biblioteca* é o nome do arquivo a ser importado. É permitida a omissão da extensão *l1* nas importações. Caso a biblioteca não esteja na mesma pasta que o executável, será necessário indicar o caminho da mesma. Um exemplo seria
+
+	import lib\math
+    
+Caso o caminho da biblioteca contenha espaços, é necessário o uso de aspas.
+
+	import "lib/minha biblioteca"
+    
+Quando uma biblioteca é importada, todos os seus identificadores ficam disponíveis para uso no escopo de importação. Assim, é possível importar uma biblioteca dentro de uma condicional ou função e evitar a sobrescrita de identificadores do programa.
+
+## Standard Library
+
+Como em muitas linguagens de programação, o nosso "compilador" de L1 acompanha uma biblioteca com funções comuns a muitos programas. 
 
 As funções implementadas são as seguintes:
 
