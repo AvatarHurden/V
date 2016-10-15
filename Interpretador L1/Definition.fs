@@ -40,10 +40,16 @@ type term =
     | Raise
     | Try of term * term
 
+    | Closure of Ident * term * env
+    | RecClosure of Ident * Ident * term * env
+and
+    env = Map<Ident, term>
+
 let V(term) =
     match term with
     | True | False | I(_) | Fn(_, _, _) 
-    | Nil | OP(_, Cons, _) -> true
+    | Nil | OP(_, Cons, _) 
+    | Closure(_, _, _) | RecClosure(_, _, _, _) -> true
     | _ -> false
 
 exception WrongExpression of string

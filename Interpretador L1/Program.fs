@@ -34,7 +34,7 @@ let main argv =
         term |> print |> printfn "Your input was interpreted as:\n\n%O"
         Console.WriteLine()
         Console.WriteLine()
-        term |> eval |> print |> printfn "Your program resulted in:\n\n%O\n"
+        term |> evaluate |> print |> printfn "Your program resulted in:\n\n%O\n"
         typeInfer term |> printfn "Your program is of type:\n\n%A\n\n"
     with
     | WrongExpression e -> Console.WriteLine e
