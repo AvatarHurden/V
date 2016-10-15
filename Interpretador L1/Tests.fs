@@ -5,6 +5,7 @@ open FsUnit
 open Sugar
 open Definition
 open Evaluation
+open TypeInference
 
 [<TestFixture>]
 type TestReplace() = 
@@ -93,3 +94,16 @@ let lcm(x:Int): Int -> Int {
     (\y: Int => x*y/(gcd x y))
 };
 lcm 121 11*15" |> parseTerm |> eval |> should equal (I(1815))
+
+[<TestFixture>]
+type TestTypeInfer() =
+
+    [<Test>]
+    member that.letAndCond () =
+        "let x: Int = 3;
+        let y: Int = 4;
+        let b: Bool = false;
+        if b then
+	        (x + y)
+        else
+	        (x - y)" |> parseTerm |> typeInfer |> should equal (Int)

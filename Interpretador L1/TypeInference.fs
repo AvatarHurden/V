@@ -85,8 +85,6 @@ let substinty x t s =
         match s with
         | Int -> Int
         | Bool -> Bool
-        | List(Int) -> List(Int)
-        | List(Bool) -> List(Bool)
         | List(s1) -> List(f s1)
         | Function(s1, s2) -> Function(f s1, f s2)
         | Type.X(id) ->
@@ -106,9 +104,7 @@ let occursin x t =
     let rec o t =
         match t with
         | Int
-        | Bool
-        | List(Int)
-        | List(Bool) -> false
+        | Bool -> false
         | List(t1) -> o t1
         | Function(t1, t2) -> o t1 || o t2
         | Type.X(id) -> id = x
@@ -127,23 +123,25 @@ let rec unify c =
     | (Function(s1, s2), Function(t1, t2))::rest -> unify (rest @ [s1, t1; s2, t2])
     | _ -> sprintf "Unsolvable constraints" |> WrongExpression |> raise
 
-let solveType x u =
-    let rec f s c =
+let applyType t c =
+    let rec substitute x c =
         match c with
         | [] ->
             sprintf "Unsolvable type" |> WrongExpression |> raise
-        | (id, t)::rest ->
-            if id = s then
-                g t
+        | (s, t)::rest ->
+            if s = x then
+                t
             else
-                f s rest
-    and g t =
+                substitute x rest
+    let rec findX t =
         match t with
-        | Type.X(x) -> f (Type.X(x)) u
-        | List(x) -> List(g x)
-        | _ -> t
-    in f x u
+        | Int -> Int
+        | Bool -> Bool
+        | List(t1) -> List(substitute t1 c)
+        | Function(t1, t2) -> Function(substitute t1 c, substitute t2 c)
+        | Type.X(x) -> substitute (Type.X(x)) c
+    in findX t
 
 let typeInfer t =
     let typ, c = collectEqs t [] in
-    solveType typ (unify c)
+    applyType typ (unify c)
