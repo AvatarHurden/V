@@ -7,24 +7,6 @@ open Definition
 open Evaluation
 open TypeInference
 
-[<TestFixture>]
-type TestReplace() = 
-
-    [<Test>]
-    [<Category("Let")>]
-    [<Category("Fn")>]
-    [<Category("OP")>]
-    [<Category("Value")>]
-    [<Category("X")>]
-    member that.``let``() =
-        let app = OP(Fn("x", Int, OP(X("x"), Add, I(1))), Application, OP(X("x"), Add, X("y")))
-        let defy = Let("y", Int, I(40), app)
-        let defx = Let("x", Int, OP(I(10), Add, X("y")), defy)
-
-        let shouldBe = Let("x", Int, OP(I(10), Add, I(4)), defy) in
-        (replace "y" (I(4)) defx) |> should equal shouldBe
-
-
 let facList =
     LetRec("faclist", Int, List(Int), "x", 
         LetRec("fac", Int, Int, "y", 
@@ -54,7 +36,7 @@ type TestEval() =
         let fnTerm =  Cond(OP(X("x"), Equal, I(0)), I(1), fatMult)
         let fat = LetRec("fat", Int, Int, "x", fnTerm, OP(X("fat"), Application, I(5))) in
 
-        eval fat |> should equal (I(120))
+        evaluate fat |> should equal (I(120))
 
     [<Test>]
     [<Category("LetRec")>]
@@ -65,7 +47,7 @@ type TestEval() =
     [<Category("Value")>]
     [<Category("X")>]
     member that.faclist() =
-        eval facList |> should equal 
+        evaluate facList |> should equal 
             (OP(I(120), Cons, OP(I(24), Cons, OP(I(6), Cons, OP(I(2), Cons, OP(I(1), Cons, Nil))))))
 
     [<Test>]
@@ -93,7 +75,7 @@ let rec gcd(x:Int): Int -> Int {
 let lcm(x:Int): Int -> Int {
     (\y: Int => x*y/(gcd x y))
 };
-lcm 121 11*15" |> parseTerm |> eval |> should equal (I(1815))
+lcm 121 11*15" |> parseTerm |> evaluate |> should equal (I(1815))
 
 [<TestFixture>]
 type TestTypeInfer() =
