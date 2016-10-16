@@ -154,8 +154,8 @@ let applyType t c =
         match t with
         | Int -> Int
         | Bool -> Bool
-        | List(t1) -> List(substitute t1 c)
-        | Function(t1, t2) -> Function(substitute t1 c, substitute t2 c)
+        | List(t1) -> List(findX t1)
+        | Function(t1, t2) -> Function(findX t1, findX t2)
         | Type.X(x) -> substitute (Type.X(x)) c
     in findX t
 
