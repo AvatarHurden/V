@@ -125,7 +125,7 @@ reverse <| faclist 5",
 )
 
 let compare (text, term) =
-    let evaluated = evaluate <| parseTerm text
+    let evaluated = evaluate <| parseTerm text (List.empty)
     evaluated |> should equal term
 
 
@@ -184,11 +184,11 @@ type TestParsePrint() =
 
     [<Test>]
     member that.``wrong type let``() =
-        (fun () -> parseTerm "let x: = 3; x+3" |> ignore) |> should throw typeof<InvalidEntryText>
+        (fun () -> parseTermPure "let x: = 3; x+3" (List.empty) |> ignore) |> should throw typeof<InvalidEntryText>
 
     [<Test>]
     member that.``wrong type named function``() =
-        (fun () -> parseTerm "let x(y:Int) { y+2} ; x 3" |> ignore) |> should throw typeof<InvalidEntryText>
+        (fun () -> parseTermPure "let x(y:Int) { y+2} ; x 3" (List.empty) |> ignore) |> should throw typeof<InvalidEntryText>
 
     [<Test>]
     member that.``named function``() =

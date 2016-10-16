@@ -687,11 +687,16 @@ and private findTerms text (endingString: string option) =
         subText, t
     | _ -> raise <| InvalidEntryText "Prefix operator needs a term afterwards"
 
-let private parseText (text: String) addLib =
+let rec private parseText (text: String) (args: string list) addLib =
     let mutable text = text
 
     if addLib then
         text <- "import stdlib " + text
+
+    let mutable argCount = args.Length;
+    for arg in List.rev args do
+        text <- (sprintf "let arg%A = %O;\n" argCount <| (print <| parseText arg (List.empty) addLib)) + text
+        argCount <- argCount - 1
 
     let lines = text.Split('\n') |> Array.toSeq
     text <- Seq.reduce (fun acc (x: string) -> acc + "\n" + x.Split([|"//"|], StringSplitOptions.None).[0]) lines
@@ -711,7 +716,7 @@ let private parseText (text: String) addLib =
             ()
     findTerms text None |> snd
 
-let parseTermPure text = parseText text false
-let parseTerm text = parseText text true
+let parseTermPure text args = parseText text args false
+let parseTerm text args = parseText text args true
 
 //#endregion Parsing

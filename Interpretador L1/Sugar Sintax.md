@@ -88,6 +88,18 @@ Tudo que for escrito após "//" será ignorado até o fim da linha, permitindo a
     let x = 3; // Isto também é um comentário
     x + 4
 
+## Argumentos de linha de comando
+
+É possível passar argumentos para programas ao executá-los no "compilador". Ao chamar o executável, o primeiro argumento é o nome do arquivo a ser executado, e todos os argumentos seguintes são considerados argumentos para serem passados ao programa.
+
+Dessa forma,
+
+    Interpretador_L1.exe program.l1 1 2 3 "(\x => x + 1)"
+
+Executa o programa "program.txt" com os argumentos 1,2,3 e (\x => x + 1). Cada argumento é incluído no programa como um identificador no padrão *argN*, onde *N* é o número do argumento. Um exemplo de "program.l1" que faria uso desses argumentos seria
+
+    arg4 (arg1 + arg2 * arg3)
+
 ## Açúcar Sintático
 
 ### Listas

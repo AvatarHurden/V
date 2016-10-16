@@ -6,10 +6,19 @@ open Definition
 open Sugar
 open Evaluation
 open TypeInference
+open System.Text.RegularExpressions
 
 [<EntryPoint>]
 let main argv = 
 
+    
+    // Para permitir debug (não permite espaços entre parâmetros)
+    let argv = 
+        if argv.Length = 0 then
+            System.Console.ReadLine().Split ' '
+        else
+            argv
+            
     let file = 
         if argv.Length = 0 then
             printfn "Missing argument"
@@ -25,7 +34,7 @@ let main argv =
             exit(0)
 
     try
-        let term = parseTermPure text
+        let term = parseTermPure text <| Array.toList argv.[1..]
 
         typeInfer term |> printfn "Your program is of type:\n\n%A\n\n"
             
@@ -35,6 +44,7 @@ let main argv =
     | InvalidEntryText t -> Console.WriteLine t
     | InvalidType e ->
         printfn "Your program has invalid type information"
+        Console.WriteLine e
 
     System.Console.ReadLine()
     0 // return an integer exit code

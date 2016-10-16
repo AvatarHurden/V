@@ -52,7 +52,7 @@ type TestEval() =
 
     [<Test>]
     member that.LCM() =
-        "let modulo(x:Int): Int -> Int {
+        ("let modulo(x:Int): Int -> Int {
     let rec d(y:Int): Int {
         if x = 0 then  
             raise
@@ -75,17 +75,21 @@ let rec gcd(x:Int): Int -> Int {
 let lcm(x:Int): Int -> Int {
     (\y: Int => x*y/(gcd x y))
 };
-lcm 121 11*15" |> parseTermPure |> evaluate |> should equal (I(1815))
+lcm 121 11*15" |> parseTermPure <| List.empty) |> evaluate |> should equal (I(1815))
 
 [<TestFixture>]
 type TestTypeInfer() =
 
     [<Test>]
     member that.letAndCond () =
-        "let x: Int = 3;
+        ("let x: Int = 3;
         let y: Int = 4;
         let b: Bool = false;
         if b then
 	        (x + y)
         else
-	        (x - y)" |> parseTermPure |> typeInfer |> should equal (Int)
+	        (x - y)" |> parseTermPure <| List.empty) |> typeInfer |> should equal <| Int
+
+    [<Test>]
+    member that.IntList() =
+         ("[(let x = 3; x*2), 8, (\x => x+1) 4]" |> parseTermPure <| List.empty) |> typeInfer |> should equal <| List Int
