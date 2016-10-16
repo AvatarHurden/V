@@ -12,13 +12,8 @@ let main argv =
 
     let file = 
         if argv.Length = 0 then
-            let mutable cur = System.Console.ReadLine()
-            let mutable acc = cur
-            while cur.Length > 0 do
-                cur <- System.Console.ReadLine()
-                if cur.Length > 0 then
-                    acc <- acc + "\n" + cur
-            acc
+            printfn "Missing argument"
+            exit(0)
         else
             argv.[0]
 
@@ -26,22 +21,22 @@ let main argv =
         if IO.File.Exists(file) then
             file |> IO.File.ReadAllText
         else
-            file
+            printfn "Provided path is invalid"
+            exit(0)
 
     try
-        let term = parseTerm text
-            
-        term |> print |> printfn "Your input was interpreted as:\n\n%O"
-        Console.WriteLine()
-        Console.WriteLine()
-        term |> evaluate |> print |> printfn "Your program resulted in:\n\n%O\n"
+        let term = parseTermPure text
+
         typeInfer term |> printfn "Your program is of type:\n\n%A\n\n"
+            
+        term |> evaluate |> print |> printfn "Your program resulted in:\n\n%O\n"
     with
     | WrongExpression e -> Console.WriteLine e
     | InvalidEntryText t -> Console.WriteLine t
-    | WrongExpression t -> Console.WriteLine t
+    | InvalidType e ->
+        printfn "Your program has invalid type information"
 
-    let t2 = System.Console.ReadLine()
+    System.Console.ReadLine()
     0 // return an integer exit code
 
     

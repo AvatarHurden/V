@@ -2,6 +2,8 @@
 
 open Definition
 
+exception InvalidType of string
+
 let mutable varType = 0
 
 let getVarType unit =
@@ -12,7 +14,7 @@ let getVarType unit =
 let rec findId id e =
     match e with
     | [] ->
-        sprintf "Identifier %A undefined" id |> WrongExpression |> raise
+        sprintf "Identifier %A undefined" id |> InvalidType |> raise
     | (x, typ)::tl ->
         if x = id then
             typ, []
@@ -45,7 +47,7 @@ let rec collectEqs t e =
             Int, c1 @ c2 @ [t1', Int; t2', Int]
         | LessThan | LessOrEqual | Equal | Different | GreaterOrEqual | GreaterThan ->
             Bool, c1 @ c2 @ [t1', Int; t2', Int]
-        | _ -> sprintf "Unknown operator at %A" t |> WrongExpression |> raise
+        | _ -> sprintf "Unknown operator at %A" t |> InvalidType |> raise
     | Cond(t1, t2, t3) ->
         let t1', c1 = collectEqs t1 e in
         let t2', c2 = collectEqs t2 e in
@@ -131,18 +133,18 @@ let rec unify c =
     | (s, t)::rest when s = t -> unify rest
     | (Type.X(x), t)::rest | (t, Type.X(x))::rest ->
         if occursin x t then
-            sprintf "Circular constraints" |> WrongExpression |> raise
+            sprintf "Circular constraints" |> InvalidType |> raise
         else
             unify (substintconstr x t rest) @ [Type.X(x), t]
     | (List(s1), List(t1))::rest -> unify (rest @ [s1, t1])
     | (Function(s1, s2), Function(t1, t2))::rest -> unify (rest @ [s1, t1; s2, t2])
-    | _ -> sprintf "Unsolvable constraints" |> WrongExpression |> raise
+    | _ -> sprintf "Unsolvable constraints" |> InvalidType |> raise
 
 let applyType t c =
     let rec substitute x c =
         match c with
         | [] ->
-            sprintf "Unsolvable type" |> WrongExpression |> raise
+            sprintf "Unsolvable type" |> InvalidType |> raise
         | (s, t)::rest ->
             if s = x then
                 t
