@@ -8,8 +8,8 @@ open Evaluation
 open TypeInference
 
 let facList =
-    LetRec("faclist", Int, List(Int), "x", 
-        LetRec("fac", Int, Int, "y", 
+    LetRec("faclist", Some Int, List(Int) |> Some, "x", 
+        LetRec("fac", Some Int, Some Int, "y", 
             Cond(
                 OP(X("y"), Equal, I(0)),
                  I(1),
@@ -34,7 +34,7 @@ type TestEval() =
     member that.``factorial``() =
         let fatMult = OP(X("x"), Multiply, OP(X("fat"), Application, OP(X("x"), Subtract, I(1))))
         let fnTerm =  Cond(OP(X("x"), Equal, I(0)), I(1), fatMult)
-        let fat = LetRec("fat", Int, Int, "x", fnTerm, OP(X("fat"), Application, I(5))) in
+        let fat = LetRec("fat", Some Int, Some Int, "x", fnTerm, OP(X("fat"), Application, I(5))) in
 
         evaluate fat |> should equal (I(120))
 
@@ -75,7 +75,7 @@ let rec gcd(x:Int): Int -> Int {
 let lcm(x:Int): Int -> Int {
     (\y: Int => x*y/(gcd x y))
 };
-lcm 121 11*15" |> parseTerm |> evaluate |> should equal (I(1815))
+lcm 121 11*15" |> parseTermPure |> evaluate |> should equal (I(1815))
 
 [<TestFixture>]
 type TestTypeInfer() =
@@ -88,4 +88,4 @@ type TestTypeInfer() =
         if b then
 	        (x + y)
         else
-	        (x - y)" |> parseTerm |> typeInfer |> should equal (Int)
+	        (x - y)" |> parseTermPure |> typeInfer |> should equal (Int)

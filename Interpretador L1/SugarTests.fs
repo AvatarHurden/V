@@ -3,6 +3,7 @@
 open NUnit.Framework
 open FsUnit
 open Definition
+open Evaluation
 open Sugar
 
 let simpleLetAndCond = (
@@ -15,31 +16,26 @@ if b then
 else
 	(x - y)".Replace("\r", "").Replace("    ", "\t"), 
 
-    Let("x", Int, I(3), 
-        Let("y", Int, I(4), 
-            Let("b", Bool, False, 
-                Cond(X("b"), 
-                    OP(X("x"), Add, X("y")), 
-                    OP(X("x"), Subtract, X("y"))))))
+    (I -1)
 
 )
 
 let opRight = (
-    "(1 + (2 + 3))",
+    "(1 * (2 + 3))",
     
-    OP(I(1), Add, OP(I(2), Add, I(3)))
+    (I 5)
 )
 
 let opLeft = (
-    "((1 + 2) + 3)",
+    "((1 + 2) * 3)",
     
-    OP(OP(I(1), Add, I(2)), Add, I(3))
+    (I 9)
 )
 
 let opCenter = (
-    "((1 + 2) + (3 + 4))",
+    "((1 + 2) * (3 + 4))",
     
-    OP(OP(I(1), Add, I(2)), Add, OP(I(3), Add, I(4)))
+    (I 21)
 )
 
 let nestedIf = (
@@ -51,7 +47,7 @@ let nestedIf = (
 else
     3".Replace("\r", "").Replace("    ", "\t"),
         
-    Cond(True, Cond(False, I(1), I(2)), I(3))
+    (I 2)
 )
 
 let nestedFn = (
@@ -59,9 +55,9 @@ let nestedFn = (
     fn(y: Int) {
         (x + y)
     }
-}".Replace("\r", "").Replace("    ", "\t"),
+} 3 4",
      
-     Fn("x", Int, Fn("y", Int, OP(X("x"), Add, X("y"))))
+     (I 7)
 )
 
 let app3 = (
@@ -70,11 +66,9 @@ let app3 = (
 };
 app3 fn(x: Int) {
     (x + 1)
-}".Replace("\r", "").Replace("    ", "\t"),
+}",
     
-    Let("app3", Function(Function(Int, Int), Int), 
-        Fn("f", Function(Int, Int), OP(X("f"), Application, I(3))),
-            OP(X("app3"), Application, Fn("x", Int, OP(X("x"), Add, I(1)))))
+    (I 4)
 )
 
 let nestedLet = (
@@ -84,11 +78,7 @@ let nestedLet = (
     x+banana+y    
     ",
     
-    Let("banana", Function(Function(Bool, Int), Int),
-        Let("x", Int, I(4), OP(X("x"), Add, I(4))),
-        Let("x", Int, OP(I(2), Multiply, I(2)),
-            Let("y", Int, OP(I(6), Subtract, OP(OP(I(1), Add, I(1)), Add, I(1))),
-                OP(OP(X("x"), Add, X("banana")), Add, X("y")))))
+    (I 15)
 )
 
 let factorial = (
@@ -97,10 +87,7 @@ let factorial = (
      };
      fat 5",
     
-    LetRec("fat", Int, Int, "x", 
-        Cond(OP(X("x"), Equal, I(0)), I(1), 
-            OP(X("x"), Multiply, OP(X("fat"), Application, OP(X("x"), Subtract, I(1))))), 
-        OP(X("fat"), Application, I(5)))
+    (I 120)
 )
 
 let simpleTry = (
@@ -109,10 +96,7 @@ let simpleTry = (
      except
         fn(x: Int) { x+3 } 4",
         
-     Try(
-        Cond(True, Raise, I(1)),
-        OP(Fn("x", Int, OP(X("x"), Add, I(3))), Application, I(4))
-        )
+     (I 7)
 )
 
 let letRecList = (
@@ -121,13 +105,7 @@ let letRecList = (
     };
     sum(4::3::2::1::nil)", 
     
-    LetRec("sum", List(Int), Int, "x",
-        Cond(IsEmpty(X("x")), 
-            I(0), 
-            OP(Head(X("x")), Add, OP(X("sum"), Application, Tail(X("x"))))),
-            
-            OP(X("sum"), Application, 
-                OP(I(4), Cons, OP(I(3), Cons, OP(I(2), Cons, OP(I(1), Cons, Nil))))))
+    (I 10)
 )
 
 let facList = (
@@ -140,192 +118,112 @@ let facList = (
     else
         (fac x) :: (faclist (x-1))
 };
-faclist 5",
+reverse <| faclist 5",
 
-    LetRec("faclist", Int, List(Int), "x", 
-        LetRec("fac", Int, Int, "y", 
-            Cond(
-                OP(X("y"), Equal, I(0)),
-                 I(1),
-                 OP(X("y"), Multiply, OP(X("fac"), Application, OP(X("y"), Subtract, I(1))))),
-        Cond(
-            OP(X("x"), Equal, I(0)),
-                 Nil,
-                 OP(OP(X("fac"), Application, X("x")), 
-                    Cons, 
-                 OP(X("faclist"), Application, OP(X("x"), Subtract, I(1)))))),
-    OP(X("faclist"), Application, I(5)))
+    OP(I 1, Cons, OP(I 2, Cons, OP(I 6, Cons, OP(I 24, Cons, OP(I 120, Cons, Nil)))))
     
 )
 
-[<TestFixture>]
-type TestStringify() =
+let compare (text, term) =
+    let evaluated = evaluate <| parseTerm text
+    evaluated |> should equal term
 
-    [<Test>]
-    [<Category("Let")>]
-    [<Category("Cond")>]
-    [<Category("OP")>]
-    [<Category("Value")>]
-    [<Category("Type")>]
-    [<Category("X")>]
-    member that.``simple let and cond``() =
-        print (snd simpleLetAndCond) |> should equal (fst simpleLetAndCond)
-        
-    [<Test>]
-    [<Category("OP")>]
-    [<Category("Value")>]
-    member that.opRight() =
-        print (snd opRight) |> should equal (fst opRight)
-        
-    [<Test>]
-    [<Category("OP")>]
-    [<Category("Value")>]
-    member that.opLeft() =
-        print (snd opLeft) |> should equal (fst opLeft)
-        
-    [<Test>]
-    [<Category("OP")>]
-    [<Category("Value")>]
-     member that.opCenter() =
-        print (snd opCenter) |> should equal (fst opCenter)
 
-    [<Test>]
-    [<Category("Cond")>]
-    [<Category("Value")>]
-     member that.nestedIf() =
-        print (snd nestedIf) |> should equal (fst nestedIf)
-
-    [<Test>]
-    [<Category("Fn")>]
-    [<Category("OP")>]
-    [<Category("X")>]
-    [<Category("Value")>]
-     member that.nestedFn() =
-        print (snd nestedFn) |> should equal (fst nestedFn)
-
-    [<Test>]
-    [<Category("Let")>]
-    [<Category("Fn")>]
-    [<Category("App")>]
-    [<Category("OP")>]
-    [<Category("X")>]
-    [<Category("Type")>]
-    [<Category("Value")>]
-     member that.app3() =
-        print (snd app3) |> should equal (fst app3)
-
-let compare text term =
-    parseTerm text |> should equal term
-
-[<TestFixture>]
 type TestParse() =
 
     [<Test>]
-    [<Category("Let")>]
-    [<Category("Cond")>]
-    [<Category("OP")>]
-    [<Category("Value")>]
-    [<Category("Type")>]
-    [<Category("X")>]
     member that.``simple let and cond``() =
-        compare (fst simpleLetAndCond) (snd simpleLetAndCond)
+        compare simpleLetAndCond
 
     [<Test>]
-    [<Category("OP")>]
-    [<Category("Value")>]
     member that.opRight() =
-        parseTerm (fst opRight) |> should equal (snd opRight)
+        compare opRight
         
     [<Test>]
-    [<Category("OP")>]
-    [<Category("Value")>]
     member that.opLeft() =
-        parseTerm (fst opLeft) |> should equal (snd opLeft)
+        compare opLeft
         
     [<Test>]
-    [<Category("OP")>]
-    [<Category("Value")>]
      member that.opCenter() =
-        parseTerm (fst opCenter) |> should equal (snd opCenter)
+        compare opCenter
 
     [<Test>]
-    [<Category("Cond")>]
-    [<Category("Value")>]
      member that.nestedIf() =
-        parseTerm (fst nestedIf) |> should equal (snd nestedIf)
+        compare nestedIf
 
     [<Test>]
-    [<Category("Fn")>]
-    [<Category("OP")>]
-    [<Category("Type")>]
-    [<Category("X")>]
-    [<Category("Value")>]
      member that.nestedFn() =
-        parseTerm (fst nestedFn) |> should equal (snd nestedFn)
+        compare nestedFn
 
     [<Test>]
-    [<Category("Let")>]
-    [<Category("OP")>]
-    [<Category("Type")>]
-    [<Category("X")>]
-    [<Category("Value")>]
      member that.nestedLet() =
-        parseTerm (fst nestedLet) |> should equal (snd nestedLet)
+        compare nestedLet
 
     [<Test>]
-    [<Category("Let")>]
-    [<Category("Fn")>]
-    [<Category("App")>]
-    [<Category("OP")>]
-    [<Category("X")>]
-    [<Category("Type")>]
-    [<Category("Value")>]
      member that.app3() =
-        parseTerm (fst app3) |> should equal (snd app3)
-
+        compare app3
+    
     [<Test>]
-    [<Category("LetRec")>]
-    [<Category("Cond")>]
-    [<Category("OP")>]
-    [<Category("Type")>]
-    [<Category("Value")>]
-    [<Category("X")>]
      member that.factorial() =
-        parseTerm (fst factorial) |> should equal (snd factorial)
+        compare factorial  
 
     [<Test>]
-    [<Category("Try")>]
-    [<Category("Raise")>]
-    [<Category("Fn")>]
-    [<Category("Cond")>]
-    [<Category("OP")>]
-    [<Category("Type")>]
-    [<Category("Value")>]
-    [<Category("X")>]
      member that.simpleTry() =
-        parseTerm (fst simpleTry) |> should equal (snd simpleTry)
+        compare simpleTry
 
     [<Test>]
-    [<Category("LetRec")>]
-    [<Category("Raise")>]
-    [<Category("IsEmpty")>]
-    [<Category("Head")>]
-    [<Category("Tail")>]
-    [<Category("Cond")>]
-    [<Category("OP")>]
-    [<Category("Type")>]
-    [<Category("Value")>]
-    [<Category("X")>]
      member that.list() =
-        parseTerm (fst letRecList) |> should equal (snd letRecList)
+        compare letRecList
         
     [<Test>]
-    [<Category("LetRec")>]
-    [<Category("Raise")>]
-    [<Category("Cond")>]
-    [<Category("OP")>]
-    [<Category("Type")>]
-    [<Category("Value")>]
-    [<Category("X")>]
      member that.facList() =
-        parseTerm (fst facList) |> should equal (snd facList)
+        compare facList
+
+[<TestFixture>]
+type TestParsePrint() =
+
+    [<Test>]
+    member that.``wrong type let``() =
+        (fun () -> parseTerm "let x: = 3; x+3" |> ignore) |> should throw typeof<InvalidEntryText>
+
+    [<Test>]
+    member that.``wrong type named function``() =
+        (fun () -> parseTerm "let x(y:Int) { y+2} ; x 3" |> ignore) |> should throw typeof<InvalidEntryText>
+
+    [<Test>]
+    member that.``named function``() =
+        compare ("let x(y:Int): Int { y+2} ; x 3", I 5)
+
+    [<Test>]
+    member that.``let``() =
+        compare ("let x = 4; x+4", I 8)
+
+    [<Test>]
+    member that.map() =
+        compare ("let t2 = 1::2::3::nil;
+                    let f = fn(x) {
+                        (x * 2)
+                    };
+                    map f t2",
+            OP(I 2, Cons, OP(I 4, Cons, OP(I 6, Cons, Nil))))
+
+    [<Test>]
+    member that.comprehension() =
+        compare ("[x*2 for x in [1,2,3]]",
+            OP(I 2, Cons, OP(I 4, Cons, OP(I 6, Cons, Nil))))
+
+    [<Test>]
+    member that.recComprehension() =
+        compare ("[[x*2 for x in [1,2,3]], [1,2,3], [x for x in [y for y in [1,2,3]]]]",
+            OP( OP(I 2, Cons, OP(I 4, Cons, OP(I 6, Cons, Nil))),
+                Cons,
+                OP( OP(I 1, Cons, OP(I 2, Cons, OP(I 3, Cons, Nil))),
+                    Cons,
+                    OP( OP(I 1, Cons, OP(I 2, Cons, OP(I 3, Cons, Nil))),
+                        Cons,
+                        Nil))))
+
+    [<Test>]
+    member that.listValues() =
+        compare ("[true,false,nil,0,1]",
+            OP(True, Cons, OP(False, Cons, OP(Nil, Cons, OP(I 0, Cons, OP(I 1, Cons, Nil))))))

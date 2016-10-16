@@ -74,7 +74,7 @@ let rec private eval t env =
                 | Different -> if n1 <> n2 then True else False
                 | GreaterThan -> if n1 > n2 then True else False
                 | GreaterOrEqual -> if n1 >= n2 then True else False
-                | _ -> raise (WrongExpression(sprintf "Term %A is not an operator at %A" op t))            
+                | _ -> raise (WrongExpression(sprintf "Term %A is not an operator at %A" op t))
             | _ -> 
                 raise (WrongExpression(sprintf "Second operand %A is not a number at %A" t2' t))
         | _ -> 

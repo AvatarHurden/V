@@ -9,7 +9,7 @@ open TypeInference
 
 [<EntryPoint>]
 let main argv = 
-    
+
     let file = 
         if argv.Length = 0 then
             let mutable cur = System.Console.ReadLine()
@@ -39,6 +39,7 @@ let main argv =
     with
     | WrongExpression e -> Console.WriteLine e
     | InvalidEntryText t -> Console.WriteLine t
+    | WrongExpression t -> Console.WriteLine t
 
     let t2 = System.Console.ReadLine()
     0 // return an integer exit code

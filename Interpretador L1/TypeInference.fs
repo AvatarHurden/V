@@ -53,17 +53,32 @@ let rec collectEqs t e =
         t2', c1 @ c2 @ c3 @ [t1', Bool; t2', t3']
     | X(id) ->
         findId id e
-    | Fn(id, typ, t1) ->
+    | Fn(id, Some typ, t1) ->
         let t1', c1 = collectEqs t1 ((id, typ)::e) in
         Function(typ, t1'), c1
-    | Let(id, typ, t1, t2) ->
+    | Fn(id, None, t1) ->
+        let paramTyp = getVarType ()
+        let t1', c1 = collectEqs t1 ((id, paramTyp)::e) in
+        Function(paramTyp, t1'), c1
+    | Let(id, Some typ, t1, t2) ->
         let t1', c1 = collectEqs t1 e in
         let t2', c2 = collectEqs t2 ((id, typ)::e) in
         t2', c1 @ c2 @ [typ, t1']
-    | LetRec(id1, typ1, typ2, id2, t1, t2) ->
+    | Let(id, None, t1, t2) ->
+        let varTyp = getVarType ()
+        let t1', c1 = collectEqs t1 e in
+        let t2', c2 = collectEqs t2 ((id, varTyp)::e) in
+        t2', c1 @ c2 @ [varTyp, t1']
+    | LetRec(id1, Some typ1, Some typ2, id2, t1, t2) ->
         let t1', c1 = collectEqs t1 ((id1, Function(typ1, typ2))::(id2, typ1)::e) in
         let t2', c2 = collectEqs t2 ((id1, Function(typ1, typ2))::e) in
         t2', c1 @ c2 @ [typ2, t1']
+    | LetRec(id1, None, None, id2, t1, t2) ->
+        let fType = getVarType ()
+        let paramTyp = getVarType ()
+        let t1', c1 = collectEqs t1 ((id1, fType)::(id2, paramTyp)::e) in
+        let t2', c2 = collectEqs t2 ((id1, fType)::e) in
+        t2', c1 @ c2 @ [fType, Function(paramTyp, t1')]
     | Nil ->
         getVarType () |> List, []
     | Head(t1) | Tail(t1) ->

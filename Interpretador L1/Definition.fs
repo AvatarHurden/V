@@ -30,9 +30,9 @@ type term =
     | OP of term * op * term
     | Cond of term * term * term
     | X of Ident
-    | Fn of Ident * Type * term
-    | Let of Ident * Type * term * term
-    | LetRec of Ident * Type * Type * Ident * term * term
+    | Fn of Ident * (Type option) * term
+    | Let of Ident * (Type option) * term * term
+    | LetRec of Ident * (Type option) * (Type option) * Ident * term * term
     | Nil
     | IsEmpty of term
     | Head of term
