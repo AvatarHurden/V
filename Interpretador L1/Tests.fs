@@ -93,3 +93,13 @@ type TestTypeInfer() =
     [<Test>]
     member that.IntList() =
          ("[(let x = 3; x*2), 8, (\x => x+1) 4]" |> parseTermPure <| List.empty) |> typeInfer |> should equal <| List Int
+
+    [<Test>]
+    member that.IntMap() =
+        ("let rec map(f: Int -> Int, ls: [Int]): [Int] {
+    if empty? ls then
+        nil
+    else
+        (f (head ls))::(map f (tail ls))
+};
+map (\x => x + 1) [1,2,3,4]"  |> parseTermPure <| List.empty) |> typeInfer |> should equal <| List Int
