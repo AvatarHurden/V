@@ -83,10 +83,14 @@ let rec collectEqs t e =
         t2', c1 @ c2 @ [fType, Function(paramTyp, t1')]
     | Nil ->
         getVarType () |> List, []
-    | Head(t1) | Tail(t1) ->
+    | Head(t1) ->
         let t1', c1 = collectEqs t1 e
         let x = getVarType () in
         x, c1 @ [t1', x |> List]
+    | Tail(t1) ->
+        let t1', c1 = collectEqs t1 e
+        let x = getVarType () in
+        x |> List, c1 @ [t1', x |> List]
     | IsEmpty(t1) ->
         let t1', c1 = collectEqs t1 e
         Bool, c1 @ [t1', getVarType () |> List]
