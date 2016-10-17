@@ -351,7 +351,8 @@ let private parseImport (text: string) =
 
     let mutable whole, libname = 
         if libText.StartsWith("\"") then
-            findClosingPair (Custom("\"", "\"")) (libText.Substring(1)) 1
+            let s, t = findClosingPair (Custom("\"", "\"")) (libText.Substring(1)) 1
+            "\"" + s, t
         else
             libText.Split(' ').[0], libText.Split(' ').[0]
 
@@ -366,7 +367,7 @@ let private parseImport (text: string) =
         
     let libContent = ["\n"; "\t"; "\r"] |> Seq.fold (fun (acc: String) x -> acc.Replace(x, " ")) libContent
 
-    "import "+spaces+"\""+whole, libContent + " " + libText.Substring(1 + spaces.Length + whole.Length)
+    "import "+spaces+whole, libContent + " " + libText.Substring(1 + spaces.Length + whole.Length)
 
 
 // Finds an entire Let expression. After the ";", calls findTerms with the remaining text
@@ -690,13 +691,13 @@ and private findTerms text (endingString: string option) =
 let rec private parseText (text: String) (args: string list) addLib =
     let mutable text = text
 
-    if addLib then
-        text <- "import stdlib " + text
-
     let mutable argCount = args.Length;
     for arg in List.rev args do
-        text <- (sprintf "let arg%A = %O;\n" argCount <| (print <| parseText arg (List.empty) addLib)) + text
+        text <- (sprintf "let arg%A = %O;\n" argCount arg) + text
         argCount <- argCount - 1
+        
+    if addLib then
+        text <- "import stdlib\n" + text
 
     let lines = text.Split('\n') |> Array.toSeq
     text <- Seq.reduce (fun acc (x: string) -> acc + "\n" + x.Split([|"//"|], StringSplitOptions.None).[0]) lines
