@@ -122,7 +122,11 @@ let rec private eval t env =
         match t1' with
         | Raise -> eval t2 env
         | _ -> t1'
-    | X(id) -> env.[id]
+    | X(id) -> 
+        if env.ContainsKey id then
+            env.[id]
+        else
+            sprintf "Could not find identifier %A" id |> WrongExpression |> raise
     | _ -> raise (WrongExpression(sprintf "%A is not a Term" t))
 
 

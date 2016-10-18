@@ -364,13 +364,15 @@ let private parseImport (text: string) =
     if libname.EndsWith(".l1") |> not then
         libname <- libname + ".l1"
 
-    let libContent =
+    let mutable libContent =
         if Path.makeAppRelative libname |> IO.File.Exists then
             Path.makeAppRelative libname |> IO.File.ReadAllText
         else
             raise <| (InvalidEntryText <| sprintf "Could not find library file at %A" libname)
         
-    let libContent = ["\n"; "\t"; "\r"] |> Seq.fold (fun (acc: String) x -> acc.Replace(x, " ")) libContent
+    let lines = libContent.Split('\n') |> Array.toSeq
+    libContent <- Seq.reduce (fun acc (x: string) -> acc + "\n" + x.Split([|"//"|], StringSplitOptions.None).[0]) lines
+    libContent <- ["\n"; "\t"; "\r"] |> Seq.fold (fun (acc: String) x -> acc.Replace(x, " ")) libContent
 
     "import "+spaces+whole, libContent + " " + libText.Substring(1 + spaces.Length + whole.Length)
 
