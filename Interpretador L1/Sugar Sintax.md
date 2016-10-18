@@ -160,7 +160,27 @@ O resultado dessa expressão é o mesmo que:
         	(f head l)::(map tail l)	
     }; map t2
 
-## Funções com múltiplos parâmetros
+### Range
+
+Existem duas formas de especificar ranges
+
+    [first..last]
+    [first..second..last]
+
+A primeira cria uma lista com todos os números inteiros de *first* até *last*, incrementando por 1. 
+
+A segunda cria uma lista da mesma forma, porém o incremento é calculado como sendo *second* - *first*. Dessa forma é possível criar ranges decrescentes, além de especificar passos arbitrários.
+
+Exemplos de ranges:
+
+    [1..10] // [1,2,3,4,5,6,7,8,9,10]
+    [1..3..10] // [1,3,5,7,9]
+    [5..4..0] // [5,4,3,2,1,0]
+    [-10..-5..10] // [-10,-5,0,5,10]
+
+Para fazer uso de ranges é preciso possuir a stdlib no programa.
+
+### Funções com múltiplos parâmetros
 
 É possível especificar mais de um parâmetro para todas as construções que definem funções (**Fn**, **let rec**, **funções lambda** e **funções nomeadas**). São suportadas tanto as versões tipadas explicitamente quanto as implicitamente, mas é preciso que todos os parâmetros tenham a mesma tipagem (ou seja, se um tipo é especificado, todos devem ser).
 

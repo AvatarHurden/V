@@ -227,3 +227,19 @@ type TestParsePrint() =
     member that.listValues() =
         compare ("[true,false,nil,0,1]",
             OP(True, Cons, OP(False, Cons, OP(Nil, Cons, OP(I 0, Cons, OP(I 1, Cons, Nil))))))
+
+    [<Test>]
+    member that.simpleRange() =
+        compare ("[1..10]", (parseTermPure "[1,2,3,4,5,6,7,8,9,10]" <| List.empty))
+
+    [<Test>]
+    member that.range() =
+        compare ("[1..3..10]", (parseTermPure "[1,3,5,7,9]" <| List.empty))
+
+    [<Test>]
+    member that.negativeRange() =
+        compare ("[-30..-20..20]", (evaluate (parseTerm "[-30,-20,-10,0,10,20]" <| List.empty)))
+        
+    [<Test>]
+    member that.subtractiveRange() =
+        compare ("[5..4..0]", (parseTermPure "[5,4,3,2,1,0]" <| List.empty))

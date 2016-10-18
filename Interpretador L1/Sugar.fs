@@ -104,6 +104,10 @@ let rec private stringify term lvl =
         let t2' = stringify t2 lvl
         sprintf "%slet rec %s(%s) {\n%s\n%s};\n%s" 
             tabs id id2 t1' tabs t2'
+    | Closure(id, t, env) ->
+        stringify t lvl
+    | RecClosure(id1, id2, t, env) ->
+        stringify t lvl
     | Nil -> 
         sprintf "%snil" tabs
     | IsEmpty(t) ->
@@ -501,18 +505,43 @@ and private findList (text: string) =
     
     let mutable processed = ""
     let mutable terms = []
-   
-    try
-        while processed.Equals(inside) |> not do
-            let s, t = inside.Substring(processed.Length) |> findTerms <| Some ","
-            processed <- processed + s
-            terms <- t::terms
 
-        let term = terms |> List.fold (fun acc x -> OP(x, Cons, acc)) Nil
-        whole, term
-    with
-    | InvalidEntryText _ ->
-        findComprehension text
+    if inside.Contains ".." then
+        findRange text
+    else
+        try
+            while processed.Equals(inside) |> not do
+                let s, t = inside.Substring(processed.Length) |> findTerms <| Some ","
+                processed <- processed + s
+                terms <- t::terms
+
+            let term = terms |> List.fold (fun acc x -> OP(x, Cons, acc)) Nil
+            whole, term
+        with
+        | InvalidEntryText _ ->
+            findComprehension text
+
+and private findRange (text: string) =
+
+    let whole, inside = findClosingPair SquareBrackets text 0
+
+    let processed, first = findTerms inside <| Some ".."
+
+    let s, rest = inside.Substring(processed.Length) |> findTerms <| Some ".."
+
+    let second, last =
+        if processed+s = inside then
+            OP(first, Add, I 1), rest
+        else
+            let _, last = (inside.Substring((s+processed).Length) |> findTerms <| Some "..")
+            rest, last
+
+    let start = first
+    let finish = last
+    let increment = OP(second, Subtract, start)
+   
+    whole, OP(OP(OP(X "range", Application, start), Application, finish), Application, increment)
+
 
 and private findComprehension (text: string) =
     let whole, inside = findClosingPair SquareBrackets text 0
