@@ -13,6 +13,8 @@
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
     <Name>Interpretador L1</Name>
+    <ReferencePath>
+    </ReferencePath>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -55,20 +57,20 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="Definition.fs" />
-    <Compile Include="Evaluation.fs" />
-    <Compile Include="TypeInference.fs" />
-    <Compile Include="Sugar.fs" />
-    <Compile Include="Tests.fs" />
-    <Compile Include="SugarTests.fs" />
-    <Compile Include="Program.fs" />
     <None Include="App.config" />
     <Content Include="packages.config" />
-    <None Include="Sugar Sintax.md" />
-    <Resource Include="stdlib.l1">
+    <Compile Include="src\Definition.fs" />
+    <Compile Include="src\Evaluation.fs" />
+    <Compile Include="src\TypeInference.fs" />
+    <Compile Include="src\Parser.fs" />
+    <Compile Include="tests\EvaluationTests.fs" />
+    <Compile Include="tests\ParserTests.fs" />
+    <Compile Include="tests\TypeInferenceTests.fs" />
+    <Compile Include="Program.fs" />
+    <None Include="libs\math.l1" />
+    <None Include="libs\stdlib.l1">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Resource>
-    <None Include="math.l1" />
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FSharp.Core">

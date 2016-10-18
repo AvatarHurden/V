@@ -3,7 +3,7 @@
 
 open System
 open Definition
-open Sugar
+open Parser
 open Evaluation
 open TypeInference
 open System.Text.RegularExpressions

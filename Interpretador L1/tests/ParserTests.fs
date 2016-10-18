@@ -1,10 +1,10 @@
-﻿module SugarTests
+﻿module ParserTests
 
 open NUnit.Framework
 open FsUnit
 open Definition
 open Evaluation
-open Sugar
+open Parser
 
 let simpleLetAndCond = (
 
@@ -14,7 +14,7 @@ let b: Bool = false;
 if b then
 	(x + y)
 else
-	(x - y)".Replace("\r", "").Replace("    ", "\t"), 
+	(x - y)", 
 
     (I -1)
 
@@ -45,7 +45,7 @@ let nestedIf = (
     else
         2
 else
-    3".Replace("\r", "").Replace("    ", "\t"),
+    3",
         
     (I 2)
 )

@@ -1,4 +1,4 @@
-﻿module Sugar
+﻿module Parser
 
 open System.Text.RegularExpressions
 open Definition
