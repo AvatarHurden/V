@@ -121,6 +121,7 @@ let rec private stringify term lvl =
     | Try(t1, t2) ->
         sprintf "%stry\n%s\nexcept\n%s" 
             tabs (stringify t1 (lvl+1)) (stringify t2 (lvl+1))
+    | _ as t -> sprintf "Could not print term %A" t
 
 let print term = stringify term 0
 
@@ -395,14 +396,14 @@ let rec private findLet text =
         else
             let typ = 
                 if trimmedText.StartsWith(":") then
-                try 
+                    try 
                         let s, typeString = findClosingPair (Custom(":", "=")) (definition.Substring(processedText.Length)) 0
                         let _, typ = findType typeString
                         processedText <- processedText + s
                         Some typ
-                with
-                | InvalidEntryText _ -> 
-                    InvalidEntryText(sprintf "Must set a type at %A" definition) |> raise
+                    with
+                    | InvalidEntryText _ -> 
+                        InvalidEntryText(sprintf "Must set a type at %A" definition) |> raise
                 elif trimmedText.StartsWith("=") then
                     processedText <- processedText + "="
                     None
@@ -441,13 +442,19 @@ and private findLetRec (text: string) (total: string) (definition: string) =
         InvalidEntryText "You must either specify all types for a function, or none" |> raise
 
 and private findLetFunction (text: string) (total: string) (definition: string) =
-    let _, LetRec(id1, typ1, typ2, id2, t1, t2) = findLetRec text total definition
+    let _, t = findLetRec text total definition
     
-    match typ1, typ2 with
-    | None, None ->    
-        (text, Let(id1, None, Fn(id2, None, t1), t2))    
-    | Some typ1, Some typ2 ->
-        (text, Let(id1, Function(typ1, typ2) |> Some, Fn(id2, Some typ1, t1), t2))
+    match t with
+    | LetRec(id1, typ1, typ2, id2, t1, t2) ->
+        match typ1, typ2 with
+        | None, None ->    
+            (text, Let(id1, None, Fn(id2, None, t1), t2))    
+        | Some typ1, Some typ2 ->
+            (text, Let(id1, Function(typ1, typ2) |> Some, Fn(id2, Some typ1, t1), t2))
+        | _, _ ->
+            raise <| InvalidEntryText "You must either specify all types for a function, or none"
+    | _ ->
+        raise <| InvalidEntryText "Wrong definition for a named function. (This will never print)"  
 
 
 and private findFn (text: string) = 
@@ -694,6 +701,7 @@ and private findTerms text (endingString: string option) =
                     | Prefix pre, Term t2 ->
                         match pre with
                         | Negate -> OP(X("negate"), Application, t2)
+                        | pre -> sprintf "The operator %A is not a prefix" pre |> InvalidEntryText |> raise
                     | Term t1, Term t2 ->
                         match op with
                         | Def op -> OP(t1, op, t2)
@@ -703,6 +711,11 @@ and private findTerms text (endingString: string option) =
                         | Concat -> OP(OP(X("concat"), Application, t1), Application, t2)
                         | And -> OP(OP(X("and"), Application, t1), Application, t2)
                         | Or -> OP(OP(X("or"), Application, t1), Application, t2)
+                        | Negate -> raise <| InvalidEntryText "Two terms cannot have a \"negate\" prefix between them"
+                    | Prefix pre, Prefix pre2 ->
+                        sprintf "The prefix %A cannot be followed by the prefix %A" pre pre2 |> InvalidEntryText |> raise
+                    | Term t, Prefix pre ->
+                        sprintf "The term %A cannot be followed by the prefix %A" t pre |> InvalidEntryText |> raise
                 termList <- Seq.append (Seq.take index termList)
                     (Seq.append [(Term newTerm, nextOp)] (Seq.skip (index+2) termList))
                 index <- if index = 0 then 0 else index - 1

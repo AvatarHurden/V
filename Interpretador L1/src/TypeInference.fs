@@ -81,6 +81,8 @@ let rec collectEqs t e =
         let t1', c1 = collectEqs t1 ((id1, fType)::(id2, paramTyp)::e) in
         let t2', c2 = collectEqs t2 ((id1, fType)::e) in
         t2', c1 @ c2 @ [fType, Function(paramTyp, t1')]
+    | LetRec(id1, _, _, id2, t1, t2) as t ->
+        sprintf "Invalid recursive let defintion at %A" t |> InvalidType |> raise
     | Nil ->
         getVarType () |> List, []
     | Head(t1) ->
@@ -100,6 +102,8 @@ let rec collectEqs t e =
         let t1', c1 = collectEqs t1 e in
         let t2', c2 = collectEqs t2 e in
         t2', c1 @ c2 @ [t1', t2']
+    | Closure(_, _, _) | RecClosure(_, _, _, _) as t->
+        sprintf "Cannot collect constraints for a closure at %A" t |> InvalidType |> raise
 
 let substinty x t s =
     let rec f s =

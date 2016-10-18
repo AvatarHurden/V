@@ -13,13 +13,13 @@ let facList =
                 OP(X("y"), Equal, I(0)),
                  I(1),
                  OP(X("y"), Multiply, OP(X("fac"), Application, OP(X("y"), Subtract, I(1))))),
-        Cond(
-            OP(X("x"), Equal, I(0)),
-                 Nil,
-                 OP(OP(X("fac"), Application, X("x")), 
-                    Cons, 
-                 OP(X("faclist"), Application, OP(X("x"), Subtract, I(1)))))),
-    OP(X("faclist"), Application, I(5)))
+            Cond(
+                OP(X("x"), Equal, I(0)),
+                     Nil,
+                     OP(OP(X("fac"), Application, X("x")), 
+                        Cons, 
+                        OP(X("faclist"), Application, OP(X("x"), Subtract, I(1)))))),
+            OP(X("faclist"), Application, I(5)))
 
 [<TestFixture>]
 type TestEval() =

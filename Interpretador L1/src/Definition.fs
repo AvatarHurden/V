@@ -47,8 +47,7 @@ and
 
 let V(term) =
     match term with
-    | True | False | I(_) | Fn(_, _, _) 
-    | Nil | OP(_, Cons, _) 
+    | True | False | I(_) | Nil | OP(_, Cons, _) 
     | Closure(_, _, _) | RecClosure(_, _, _, _) -> true
     | _ -> false
 

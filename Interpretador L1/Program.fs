@@ -46,7 +46,7 @@ let main argv =
         printfn "Your program has invalid type information"
         Console.WriteLine e
 
-    System.Console.ReadLine()
+    ignore <| System.Console.ReadLine()
     0 // return an integer exit code
 
     
