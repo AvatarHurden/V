@@ -358,11 +358,21 @@ As funções implementadas são as seguintes:
 
 - take(x, ls) 
 	- Retorna os primeiros x elementos de ls
+- drop(x, ls)
+	- Pula os primeiros x elementos de ls, retornando o resto da lista
 - takeWhile(pred, ls)
 	- Retorna todos os elementos de ls que satisfazem *pred* até o primeiro que não satisfaz *pred*
+- dropWhile(pred, ls)
+	- Pula ls que satisfazem *pred* até o primeiro que não satisfaz *pred*, retornando o restante de *ls*
 - filter(pred, ls)
 	- Retorna todos os elementos de ls que satisfazem *pred*
 
+- nth(index, ls)
+	- Retorna o elemento no índice *index* de ls
+	- Caso *index* > length *ls*, avalia para raise
+- subList(start, end, ls)
+	- Retorna uma sublista de *ls* que começa no índice *start* (inclusivo) e termina no índice *end* (exclusivo)
+	- Caso *start* < 0, *end* < 0, *end* < *start* ou *end* > length *ls*, avalia para raise
 
 - all(pred, ls)
 	- Retorna true se todos os elementos de ls satisfazem *pred*
