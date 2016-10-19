@@ -1,3 +1,6 @@
+﻿module stdlib
+
+let content = """
 let rec remainder(x, y) {
     if y = 0 then  
         raise
@@ -183,10 +186,11 @@ let rec any(pred, ls) {
 };
 
 let rec range(start, finish, inc) {
-	if ((start >= finish && inc > 0) || (start <= finish && inc < 0)) then
+	if ((start > finish && inc > 0) || (start < finish && inc < 0)) then
 		nil
 	else if (inc > 0 && start <= finish) || (inc < 0 && start >= finish) then
 		start::(range (start+inc) finish inc)
 	else
 		nil
 };
+"""

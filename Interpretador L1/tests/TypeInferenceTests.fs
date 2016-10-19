@@ -9,7 +9,7 @@ open TypeInference
 
 
 let compare (text, typ) =
-    let evaluated = typeInfer <| parseTerm text (List.empty)
+    let evaluated = typeInfer <| parseTermPure text (List.empty)
     evaluated |> should equal typ
 
 

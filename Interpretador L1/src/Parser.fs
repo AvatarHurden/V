@@ -3,6 +3,7 @@
 open System.Text.RegularExpressions
 open Definition
 open System
+open stdlib
 
 module Path =
     let appDir = AppDomain.CurrentDomain.SetupInformation.ApplicationBase
@@ -741,7 +742,7 @@ let rec private parseText (text: String) (args: string list) addLib =
         argCount <- argCount - 1
         
     if addLib then
-        text <- "import stdlib\n" + text
+        text <- stdlib.content + text
 
     let lines = text.Split('\n') |> Array.toSeq
     text <- Seq.reduce (fun acc (x: string) -> acc + "\n" + x.Split([|"//"|], StringSplitOptions.None).[0]) lines
