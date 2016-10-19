@@ -162,7 +162,7 @@ let rec nth(index, ls) {
         nth (index - 1) (tail ls)
 };
 let subList(start, end, ls) {
-    if start < 0 || end < 0 || end < start || end > lenght ls then
+    if start < 0 || end < 0 || end < start || end > length ls then
         raise
     else
         take (end-start) <| drop start ls 
