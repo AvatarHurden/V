@@ -67,6 +67,7 @@
     <Compile Include="tests\EvaluationTests.fs" />
     <Compile Include="tests\ParserTests.fs" />
     <Compile Include="tests\TypeInferenceTests.fs" />
+    <Compile Include="tests\stdlibTests.fs" />
     <Compile Include="Program.fs" />
     <None Include="libs\math.l1" />
   </ItemGroup>
