@@ -51,6 +51,47 @@ let rec private eval t env =
                 raise (WrongExpression(sprintf "Term %A is not a list at %A" t2' t))
         | _ ->
             raise (WrongExpression(sprintf "Term %A is not a value at %A" t1' t))
+    | OP(t1, Equal, t2) ->
+        let t1' = eval t1 env
+        match t1' with
+        | Raise ->
+            Raise
+        | v when V(v) ->
+            let t2' = eval t2 env
+            match t2' with
+            | Raise ->
+                Raise
+            | v2 when V(v2) ->
+                match v, v2 with
+                | I i1, I i2 when i1 = i2 -> True
+                | True, True -> True
+                | False, False -> True
+                | Nil, Nil -> True
+                | OP (hd1, Cons, tl1), OP (hd2, Cons, tl2) ->
+                    let hds = eval (OP(hd1, Equal, hd2)) env
+                    match hds with
+                        | Raise -> Raise
+                        | True -> 
+                            let tls = eval (OP(tl1, Equal, tl2)) env
+                            match tls with
+                                | Raise -> Raise
+                                | True -> True
+                                | False -> False
+                                | _ -> raise <| WrongExpression "Equal returned a non-expected value"
+                        | False -> False
+                        | _ -> raise <| WrongExpression "Equal returned a non-expected value"    
+                | _ -> False
+            | _ -> 
+                raise (WrongExpression(sprintf "Second operand %A is not a value at %A" t2' t))
+        | _ -> 
+            raise (WrongExpression(sprintf "First operand %A is not a value at %A" t1' t))
+    | OP(t1, Different, t2) ->
+        let equals = eval (OP(t1, Equal, t2)) env
+        match equals with
+        | Raise -> Raise
+        | True -> False
+        | False -> True
+        | _ -> raise <| WrongExpression "Equal returned a non-expected value"
     | OP(t1, op, t2) ->
         let t1' = eval t1 env
         match t1' with
@@ -70,8 +111,6 @@ let rec private eval t env =
                 | Divide when n2 = 0 -> Raise
                 | LessThan -> if n1 < n2 then True else False
                 | LessOrEqual -> if n1 <= n2 then True else False
-                | Equal -> if n1 = n2 then True else False
-                | Different -> if n1 <> n2 then True else False
                 | GreaterThan -> if n1 > n2 then True else False
                 | GreaterOrEqual -> if n1 >= n2 then True else False
                 | _ -> raise (WrongExpression(sprintf "Term %A is not an operator at %A" op t))
