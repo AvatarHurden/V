@@ -157,7 +157,7 @@ let rec expandTraitConstraint (Trait (typ, trait') as constraint') list =
     | first::rest ->
         match first with
         | Equals (s, t) | Equals (t, s) when s = typ ->
-            expandTraitConstraint constraint' <| rest @ [Trait (t, trait')]
+            (expandTraitConstraint constraint' <| rest) @ [Trait (t, trait')]
         | _ -> 
             expandTraitConstraint constraint' rest
 
