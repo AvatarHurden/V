@@ -156,8 +156,8 @@ let rec expandTraitConstraint (Trait (typ, trait') as constraint') list =
     | [] -> []
     | first::rest ->
         match first with
-        | Equals (s, _) | Equals (_, s) when s = typ ->
-            expandTraitConstraint constraint' <| rest @ [Trait (s, trait')]
+        | Equals (s, t) | Equals (t, s) when s = typ ->
+            expandTraitConstraint constraint' <| rest @ [Trait (t, trait')]
         | _ -> 
             expandTraitConstraint constraint' rest
 
@@ -168,7 +168,8 @@ let rec getTraitRequirements typ trait' =
         | Int | Bool -> []
         | Type.X x as typ' -> [Trait (typ', Equatable)]
         | List typ' -> getTraitRequirements typ' trait'
-        | Function (_, _) -> raise <| InvalidType "Did not meet equatable trait requirement" 
+        | Function (_, _) -> 
+            raise <| InvalidType "Did not meet equatable trait requirement" 
 
 // Main Unify Functions
 
