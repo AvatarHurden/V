@@ -113,7 +113,16 @@ let rec collectConstraints term env =
     | Closure(_, _, _) | RecClosure(_, _, _, _) as t->
         sprintf "Cannot collect constraints for a closure at %A" t |> InvalidType |> raise
 
-// General Unify functions
+// Equals Unify Functions
+
+let rec occursIn x typ =
+    match typ with
+    | Int
+    | Bool -> false
+    | List(t1) -> occursIn x t1
+    | Function(t1, t2) -> occursIn x t1 || occursIn x t2
+    | Type.X(id) -> id = x
+    
 
 let substituteInType subs typ' =
     let x, typ = subs
@@ -140,16 +149,6 @@ let substituteInConstraints subs constraints =
             Trait (substituteInType subs typ, trait')
     List.map f constraints
 
-// Equals Unify Functions
-
-let rec occursIn x typ =
-    match typ with
-    | Int
-    | Bool -> false
-    | List(t1) -> occursIn x t1
-    | Function(t1, t2) -> occursIn x t1 || occursIn x t2
-    | Type.X(id) -> id = x
-
 // Trait Unify Functions
 
 let rec expandTraitConstraint (Trait (typ, trait') as constraint') list =
@@ -158,25 +157,20 @@ let rec expandTraitConstraint (Trait (typ, trait') as constraint') list =
     | first::rest ->
         match first with
         | Equals (s, _) | Equals (_, s) when s = typ ->
-            (expandTraitConstraint constraint' <| rest @ [Trait (s, trait')])
+            expandTraitConstraint constraint' <| rest @ [Trait (s, trait')]
         | _ -> 
             expandTraitConstraint constraint' rest
 
-let rec unifyEquatableTrait typ =
-    match typ with
-    | Int | Bool -> []
-    | Type.X x as typ' -> [Trait (typ', Equatable)]
-    | List typ' -> unifyEquatableTrait typ'
-    | Function (_, _) -> raise <| InvalidType "Did not meet equatable trait requirement" 
+let rec getTraitRequirements typ trait' =
+    match trait' with
+    | Equatable ->
+        match typ with
+        | Int | Bool -> []
+        | Type.X x as typ' -> [Trait (typ', Equatable)]
+        | List typ' -> getTraitRequirements typ' trait'
+        | Function (_, _) -> raise <| InvalidType "Did not meet equatable trait requirement" 
 
-let unifyTrait (Trait (typ, trait')) =
-    match typ with
-    | Type.X _ -> 
-        []
-    | _ ->
-        match trait' with
-        | Equatable -> unifyEquatableTrait typ
-            
+// Main Unify Functions
 
 let rec unify constraints =
     match constraints with
@@ -188,7 +182,7 @@ let rec unify constraints =
             | Type.X _ ->
                 unify <| rest @ (expandTraitConstraint c rest)
             | _ ->
-                unify <| rest @ (unifyTrait c)
+                unify <| rest @ (getTraitRequirements typ trait')
         | Equals (s, t) ->
             match s, t with
             | s, t when s = t -> unify rest
