@@ -6,6 +6,7 @@ exception InvalidType of string
 
 type Constraint =
     | Equals of Type * Type
+    | Trait of Type * Trait
 
 let mutable varType = 0
 let getVarType unit =
@@ -41,13 +42,18 @@ let rec collectConstraints term env =
         let typ1, c1 = collectConstraints t1 env
         let typ2, c2 = collectConstraints t2 env
         typ1 |> List, c1 @ c2 @ [Equals (List typ1, typ2)]
+    | OP(t1, Equal, t2) 
+    | OP(t1, Different, t2) ->
+        let typ1, c1 = collectConstraints t1 env
+        let typ2, c2 = collectConstraints t2 env
+        Bool, c1 @ c2 @ [Equals (typ1, typ2); Trait (typ1, Equatable)]
     | OP(t1, op, t2) ->
         let typ1, c1 = collectConstraints t1 env
         let typ2, c2 = collectConstraints t2 env
         match op with
         | Add | Subtract | Multiply | Divide ->
             Int, c1 @ c2 @ [Equals (typ1, Int); Equals (typ2, Int)]
-        | LessThan | LessOrEqual | Equal | Different | GreaterOrEqual | GreaterThan ->
+        | LessThan | LessOrEqual | GreaterOrEqual | GreaterThan ->
             Bool, c1 @ c2 @ [Equals (typ1, Int); Equals (typ2, Int)]
         | _ -> sprintf "Unknown operator at %A" term |> InvalidType |> raise
     | Cond(t1, t2, t3) ->
@@ -107,6 +113,8 @@ let rec collectConstraints term env =
     | Closure(_, _, _) | RecClosure(_, _, _, _) as t->
         sprintf "Cannot collect constraints for a closure at %A" t |> InvalidType |> raise
 
+// General Unify functions
+
 let substituteInType subs typ' =
     let x, typ = subs
     let rec f s =
@@ -128,7 +136,11 @@ let substituteInConstraints subs constraints =
         match cons with
         | Equals (s, t) ->
             Equals (substituteInType subs s, substituteInType subs t)
+        | Trait (typ, trait') ->
+            Trait (substituteInType subs typ, trait')
     List.map f constraints
+
+// Equals Unify Functions
 
 let rec occursIn x typ =
     match typ with
@@ -138,11 +150,45 @@ let rec occursIn x typ =
     | Function(t1, t2) -> occursIn x t1 || occursIn x t2
     | Type.X(id) -> id = x
 
+// Trait Unify Functions
+
+let rec expandTraitConstraint (Trait (typ, trait') as constraint') list =
+    match list with
+    | [] -> []
+    | first::rest ->
+        match first with
+        | Equals (s, _) | Equals (_, s) when s = typ ->
+            (expandTraitConstraint constraint' <| rest @ [Trait (s, trait')])
+        | _ -> 
+            expandTraitConstraint constraint' rest
+
+let rec unifyEquatableTrait typ =
+    match typ with
+    | Int | Bool -> []
+    | Type.X x as typ' -> [Trait (typ', Equatable)]
+    | List typ' -> unifyEquatableTrait typ'
+    | Function (_, _) -> raise <| InvalidType "Did not meet equatable trait requirement" 
+
+let unifyTrait (Trait (typ, trait')) =
+    match typ with
+    | Type.X _ -> 
+        []
+    | _ ->
+        match trait' with
+        | Equatable -> unifyEquatableTrait typ
+            
+
 let rec unify constraints =
     match constraints with
     | [] -> Map.empty
     | first::rest ->
         match first with
+        | Trait (typ, trait') as c ->
+            match typ with
+            | Type.X _ ->
+                unify <| rest @ (expandTraitConstraint c rest)
+            | _ ->
+                unify <| rest @ (unifyTrait c)
         | Equals (s, t) ->
             match s, t with
             | s, t when s = t -> unify rest

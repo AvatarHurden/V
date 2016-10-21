@@ -7,6 +7,9 @@ type Type =
     | Function of Type * Type
     | List of Type
 
+type Trait =
+    | Equatable
+
 type op =
     | Add
     | Subtract
