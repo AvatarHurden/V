@@ -47,15 +47,20 @@ let rec collectConstraints term env =
         let typ1, c1 = collectConstraints t1 env
         let typ2, c2 = collectConstraints t2 env
         Bool, c1 @ c2 @ [Equals (typ1, typ2); Trait (typ1, Equatable)]
-    | OP(t1, op, t2) ->
+    | OP(t1, LessThan, t2)
+    | OP(t1, LessOrEqual, t2)
+    | OP(t1, GreaterOrEqual, t2)
+    | OP(t1, GreaterThan, t2) ->
         let typ1, c1 = collectConstraints t1 env
         let typ2, c2 = collectConstraints t2 env
-        match op with
-        | Add | Subtract | Multiply | Divide ->
-            Int, c1 @ c2 @ [Equals (typ1, Int); Equals (typ2, Int)]
-        | LessThan | LessOrEqual | GreaterOrEqual | GreaterThan ->
-            Bool, c1 @ c2 @ [Equals (typ1, Int); Equals (typ2, Int)]
-        | _ -> sprintf "Unknown operator at %A" term |> InvalidType |> raise
+        Bool, c1 @ c2 @ [Equals (typ1, typ2); Trait (typ1, Orderable)]
+    | OP(t1, Add, t2)
+    | OP(t1, Subtract, t2)
+    | OP(t1, Multiply, t2)
+    | OP(t1, Divide, t2) ->
+        let typ1, c1 = collectConstraints t1 env
+        let typ2, c2 = collectConstraints t2 env
+        Int, c1 @ c2 @ [Equals (typ1, Int); Equals (typ2, Int)]
     | Cond(t1, t2, t3) ->
         let typ1, c1 = collectConstraints t1 env
         let typ2, c2 = collectConstraints t2 env
@@ -170,6 +175,13 @@ let rec getTraitRequirements typ trait' =
         | List typ' -> getTraitRequirements typ' trait'
         | Function (_, _) -> 
             raise <| InvalidType "Did not meet equatable trait requirement" 
+    | Orderable ->
+        match typ with
+        | Int -> []
+        | Type.X x as typ' -> [Trait (typ', Orderable)]
+        | List typ' -> getTraitRequirements typ' trait'
+        | Bool | Function (_, _) -> 
+            raise <| InvalidType "Did not meet orderable trait requirement"
 
 // Main Unify Functions
 

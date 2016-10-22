@@ -35,13 +35,13 @@ and private eval t env =
         | Raise -> Definition.Raise
         | NonValue t' -> sprintf "Term %A is not a value at %A" t' t |> WrongExpression |> raise
         | Values [t1'; t2'] ->
-            match t1' with
-            | RecClosure(id1, id2, e, env') ->
+        match t1' with
+        | RecClosure(id1, id2, e, env') ->
                 eval e <| env'.Add(id2, t2').Add(id1, t1')
-            | Closure(id, e, env') ->
+        | Closure(id, e, env') ->
                 eval e <| env'.Add(id, t2')
-            | _ ->
-                raise (WrongExpression(sprintf "First operand %A is not a function at %A" t1' t))
+        | _ ->
+            raise (WrongExpression(sprintf "First operand %A is not a function at %A" t1' t))
     | OP(t1, Cons, t2) ->
         match evalSubterms [t1;t2] env with
         | Raise -> Definition.Raise
@@ -58,20 +58,20 @@ and private eval t env =
         | NonValue t' -> sprintf "Term %A is not a value at %A" t' t |> WrongExpression |> raise
         | Values [t1'; t2'] ->
             match t1', t2' with
-            | I i1, I i2 when i1 = i2 -> True
-            | True, True -> True
-            | False, False -> True
-            | Nil, Nil -> True
-            | OP (hd1, Cons, tl1), OP (hd2, Cons, tl2) ->
-                match evalSubterms [OP (hd1, Equal, hd2); OP (tl1, Equal, tl2)] env with
-                | Raise -> Definition.Raise
-                | NonValue t' -> sprintf "Term %A is not a value at %A" t' t |> WrongExpression |> raise
-                | Values [t1'; t2'] ->
-                    match t1' with
-                    | False -> False
-                    | True -> t2'
-                    | _ -> raise <| WrongExpression "Equal returned a non-expected value"
-            | _ -> False
+                | I i1, I i2 when i1 = i2 -> True
+                | True, True -> True
+                | False, False -> True
+                | Nil, Nil -> True
+                | OP (hd1, Cons, tl1), OP (hd2, Cons, tl2) ->
+                    match evalSubterms [OP (hd1, Equal, hd2); OP (tl1, Equal, tl2)] env with
+                    | Raise -> Definition.Raise
+                    | NonValue t' -> sprintf "Term %A is not a value at %A" t' t |> WrongExpression |> raise
+                    | Values [t1'; t2'] ->
+                        match t1' with
+                        | False -> False
+                        | True -> t2'
+                        | _ -> raise <| WrongExpression "Equal returned a non-expected value"    
+                | _ -> False
     | OP(t1, Different, t2) ->
         let equals = eval (OP(t1, Equal, t2)) env
         match equals with
@@ -79,6 +79,34 @@ and private eval t env =
         | True -> False
         | False -> True
         | _ -> raise <| WrongExpression "Equal returned a non-expected value"
+    | OP(t1, (LessThan as op), t2)
+    | OP(t1, (LessOrEqual as op), t2)
+    | OP(t1, (GreaterOrEqual as op), t2)
+    | OP(t1, (GreaterThan as op), t2) ->
+        match evalSubterms [t1;t2] env with
+        | Raise -> Definition.Raise
+        | NonValue t' -> sprintf "Term %A is not a value at %A" t' t |> WrongExpression |> raise
+        | Values [t1'; t2'] ->
+            match t1', t2' with
+            | I i1, I i2 ->
+                match op with
+                | LessThan -> if i1 < i2 then True else False
+                | LessOrEqual -> if i1 <= i2 then True else False
+                | GreaterOrEqual -> if i1 >= i2 then True else False
+                | GreaterThan -> if i1 > i2 then True else False
+            | Nil, Nil when op = LessOrEqual || op = GreaterOrEqual -> True
+            | OP (hd1, Cons, tl1), OP (hd2, Cons, tl2) ->
+                match evalSubterms [OP (hd1, Equal, hd2); OP (tl1, op, tl2)] env with
+                | Raise -> Definition.Raise
+                | NonValue t' -> sprintf "Term %A is not a value at %A" t' t |> WrongExpression |> raise
+                | Values [t1'; t2'] ->
+                    match t1' with
+                    | False -> eval (OP(hd1, op, hd2)) env
+                    | True -> t2'
+                    | _ -> raise <| WrongExpression "Equal returned a non-expected value"    
+            | OP _, Nil when op = GreaterThan || op = GreaterOrEqual -> True
+            | Nil, OP _ when op = LessThan || op = LessOrEqual -> True
+            | _ -> False
     | OP(t1, op, t2) ->
         match evalSubterms [t1;t2] env with
         | Raise -> Definition.Raise
@@ -92,12 +120,8 @@ and private eval t env =
                 | Multiply -> I(n1 * n2)
                 | Divide when n2 <> 0 -> I(n1 / n2)
                 | Divide when n2 = 0 -> Definition.Raise
-                | LessThan -> if n1 < n2 then True else False
-                | LessOrEqual -> if n1 <= n2 then True else False
-                | GreaterThan -> if n1 > n2 then True else False
-                | GreaterOrEqual -> if n1 >= n2 then True else False
                 | _ -> sprintf "Term %A is not an operator at %A" op t |> WrongExpression |> raise
-            | _ -> 
+        | _ -> 
                 sprintf "Operation %A requires numbers at %A" op t |> WrongExpression |> raise
     | Cond(t1, t2, t3) ->
         let t1' = eval t1 env

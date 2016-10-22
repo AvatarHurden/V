@@ -177,6 +177,14 @@ let rec any(pred, ls) {
 		(tail ls) |> any pred
 };
 
+let maximum(ls) {
+    reduce (\acc, x => if acc < x then x else acc) ls
+};
+
+let minimum(ls) {
+    reduce (\acc, x => if acc > x then x else acc) ls
+};
+
 // =================
 // Sublist functions
 // =================
@@ -267,6 +275,20 @@ let rec nth(index, ls) {
         head ls
     else
         nth (index - 1) (tail ls)
+};
+
+// ======================
+// List sorting functions
+// ======================
+
+let rec sort(ls) {
+    if empty? ls then
+        []
+    else
+        let min = minimum ls;
+        let index = indexOf min ls;
+        let rest = take index ls @ (drop (index+1) ls);
+        min::(sort rest)
 };
 
 
