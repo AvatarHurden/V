@@ -41,3 +41,14 @@ type Teststdlib() =
     member that.indexOfWrong() =
         (fun () -> compare ("indexOf 4 [true]", Bool) |> ignore)
              |> should throw typeof<InvalidType>
+
+    [<Test>]
+    member that.maximumAndminimum() =
+        compare ("minimum [[1],[2,4],[5]]", OP (I 1, Cons, Nil))
+        compare ("maximum []", Raise)
+        compare ("minimum [5, -3, 2, -56, 0, 10]", I -56)
+
+    [<Test>]
+    member that.sort() =
+        compare ("sort [[1],[2,4],[],[5]]", evaluate <| parseTermPure "[[], [1], [2,4], [5]]" (List.empty))
+        compare ("sort [5, -3, 2, -56, 0, 10]", evaluate <| parseTerm "[-56,-3,0,2,5,10]" (List.empty))
