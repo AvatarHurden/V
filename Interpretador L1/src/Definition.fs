@@ -9,6 +9,7 @@ type Type =
 
 type Trait =
     | Equatable
+    | Orderable
 
 type op =
     | Add

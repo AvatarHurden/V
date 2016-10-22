@@ -46,8 +46,20 @@ map (\x => x + 1) [1,2,3,4]", List Int)
 
     [<Test>]
     member that.invalidEquate() =
-        (fun () -> compare("[1,2,3] = [True]", Bool) |> ignore) |> should throw typeof<InvalidType>
+        (fun () -> compare("[1,2,3] = [true]", Bool) |> ignore) |> should throw typeof<InvalidType>
 
     [<Test>]
     member that.equateFunctions() =
         (fun () -> compare("(\x => 1) != (\x => x)", Bool) |> ignore) |> should throw typeof<InvalidType>
+
+    [<Test>]
+    member that.orderIntList() =
+        compare("[1,2,3] < [4,5,6]", Bool)
+
+    [<Test>]
+    member that.invalidOrder() =
+        (fun () -> compare("1 < [1]", Bool) |> ignore) |> should throw typeof<InvalidType>
+
+    [<Test>]
+    member that.orderBools() =
+        (fun () -> compare("true < false", Bool) |> ignore) |> should throw typeof<InvalidType>

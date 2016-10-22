@@ -92,6 +92,48 @@ let rec private eval t env =
         | True -> False
         | False -> True
         | _ -> raise <| WrongExpression "Equal returned a non-expected value"
+    | OP(t1, (LessThan as op), t2)
+    | OP(t1, (LessOrEqual as op), t2)
+    | OP(t1, (GreaterOrEqual as op), t2)
+    | OP(t1, (GreaterThan as op), t2) ->
+        let t1' = eval t1 env
+        match t1' with
+        | Raise ->
+            Raise
+        | v when V(v) ->
+            let t2' = eval t2 env
+            match t2' with
+            | Raise ->
+                Raise
+            | v2 when V(v2) ->
+                match v, v2 with
+                | I i1, I i2 ->
+                    match op with
+                    | LessThan -> if i1 < i2 then True else False
+                    | LessOrEqual -> if i1 <= i2 then True else False
+                    | GreaterOrEqual -> if i1 >= i2 then True else False
+                    | GreaterThan -> if i1 > i2 then True else False
+                | Nil, Nil when op = LessOrEqual || op = GreaterOrEqual -> True
+                | OP (hd1, Cons, tl1), OP (hd2, Cons, tl2) ->
+                    let hds = eval (OP(hd1, Equal, hd2)) env
+                    match hds with
+                        | Raise -> Raise
+                        | True -> 
+                            let tls = eval (OP(tl1, op, tl2)) env
+                            match tls with
+                                | Raise -> Raise
+                                | True -> True
+                                | False -> False
+                                | _ -> raise <| WrongExpression "Equal returned a non-expected value"
+                        | False -> eval (OP(hd1, op, hd2)) env
+                        | _ -> raise <| WrongExpression "Equal returned a non-expected value"    
+                | OP _, Nil when op = GreaterThan || op = GreaterOrEqual -> True
+                | Nil, OP _ when op = LessThan || op = LessOrEqual -> True
+                | _ -> False
+            | _ -> 
+                raise (WrongExpression(sprintf "Second operand %A is not a value at %A" t2' t))
+        | _ -> 
+            raise (WrongExpression(sprintf "First operand %A is not a value at %A" t1' t))
     | OP(t1, op, t2) ->
         let t1' = eval t1 env
         match t1' with
@@ -109,10 +151,6 @@ let rec private eval t env =
                 | Multiply -> I(n1 * n2)
                 | Divide when n2 <> 0 -> I(n1 / n2)
                 | Divide when n2 = 0 -> Raise
-                | LessThan -> if n1 < n2 then True else False
-                | LessOrEqual -> if n1 <= n2 then True else False
-                | GreaterThan -> if n1 > n2 then True else False
-                | GreaterOrEqual -> if n1 >= n2 then True else False
                 | _ -> raise (WrongExpression(sprintf "Term %A is not an operator at %A" op t))
             | _ -> 
                 raise (WrongExpression(sprintf "Second operand %A is not a number at %A" t2' t))

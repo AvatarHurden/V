@@ -21,6 +21,10 @@ let facList =
                         OP(X("faclist"), Application, OP(X("x"), Subtract, I(1)))))),
             OP(X("faclist"), Application, I(5)))
 
+let compare (text, term) =
+    let evaluated = evaluate <| parseTerm text (List.empty)
+    evaluated |> should equal term
+
 [<TestFixture>]
 type TestEval() =
 
@@ -63,3 +67,18 @@ let lcm(x:Int): Int -> Int {
     (\y: Int => x*y/(gcd x y))
 };
 lcm 121 11*15" |> parseTermPure <| List.empty) |> evaluate |> should equal (I(1815))
+
+    [<Test>]
+    member that.orderLists() =
+        compare ("[1,2,3] <= [3,4,5]", True)
+        compare ("[1,2,3] > [1,2]", True)
+        compare ("[5,2,3] < [3,4,5]", False)
+        compare ("[] <= [3,4,5]", True)
+
+    [<Test>]
+    member that.equateLists() =
+        compare ("[1,2,3] = [3,4,5]", False)
+        compare ("[1,2,3] != [1,2]", True)
+        compare ("[1,2,3] = [1]", False)
+        compare ("[3,4,5] = [3,4,5]", True)
+        compare ("[true, false, true] = [true, false, true]", True)
