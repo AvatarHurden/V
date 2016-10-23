@@ -154,8 +154,6 @@ type private extendedOP =
     | BackwardsPipe
     | Remainder
     | Concat
-    | And
-    | Or
     // Prefix operators
     | Negate
 
@@ -175,8 +173,8 @@ let private operatorsAtPriority i =
     | 6 -> 
         [Def LessOrEqual; Def LessThan; Def Equal; Def Different; 
         Def GreaterThan; Def GreaterOrEqual; Pipe; BackwardsPipe]
-    | 7 -> [And]
-    | 8 -> [Or]
+    | 7 -> [Def And]
+    | 8 -> [Def Or]
     | _ -> []
 
 let private splitSpaces (term: string) =
@@ -658,8 +656,8 @@ and private findTerms text (endingString: string option) =
                     elif opTrimmed.StartsWith "<|" then "<|", BackwardsPipe
                     elif opTrimmed.StartsWith "%" then "%", Remainder
                     elif opTrimmed.StartsWith "@" then "@", Concat
-                    elif opTrimmed.StartsWith "&&" then "&&", And
-                    elif opTrimmed.StartsWith "||" then "||", Or
+                    elif opTrimmed.StartsWith "&&" then "&&", Def And
+                    elif opTrimmed.StartsWith "||" then "||", Def Or
                     elif opTrimmed.StartsWith "+"  then "+", Def Add
                     elif opTrimmed.StartsWith "-"  then "-", Def Subtract
                     elif opTrimmed.StartsWith "*"  then "*", Def Multiply
@@ -712,8 +710,6 @@ and private findTerms text (endingString: string option) =
                         | BackwardsPipe -> OP(t1, Application, t2)
                         | Remainder -> OP(OP(X("remainder"), Application, t1), Application, t2)
                         | Concat -> OP(OP(X("concat"), Application, t1), Application, t2)
-                        | And -> OP(OP(X("and"), Application, t1), Application, t2)
-                        | Or -> OP(OP(X("or"), Application, t1), Application, t2)
                         | Negate -> raise <| InvalidEntryText "Two terms cannot have a \"negate\" prefix between them"
                     | Prefix pre, Prefix pre2 ->
                         sprintf "The prefix %A cannot be followed by the prefix %A" pre pre2 |> InvalidEntryText |> raise

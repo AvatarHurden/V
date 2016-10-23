@@ -61,6 +61,11 @@ let rec collectConstraints term env =
         let typ1, c1 = collectConstraints t1 env
         let typ2, c2 = collectConstraints t2 env
         Int, c1 @ c2 @ [Equals (typ1, Int); Equals (typ2, Int)]
+    | OP(t1, And, t2)
+    | OP(t1, Or, t2) ->
+        let typ1, c1 = collectConstraints t1 env
+        let typ2, c2 = collectConstraints t2 env
+        Bool, c1 @ c2 @ [Equals (typ1, Bool); Equals (typ2, Bool)]
     | Cond(t1, t2, t3) ->
         let typ1, c1 = collectConstraints t1 env
         let typ2, c2 = collectConstraints t2 env

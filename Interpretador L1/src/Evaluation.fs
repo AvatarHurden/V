@@ -107,7 +107,10 @@ and private eval t env =
             | OP _, Nil when op = GreaterThan || op = GreaterOrEqual -> True
             | Nil, OP _ when op = LessThan || op = LessOrEqual -> True
             | _ -> False
-    | OP(t1, op, t2) ->
+    | OP(t1, (Add as op), t2)
+    | OP(t1, (Subtract as op), t2)
+    | OP(t1, (Multiply as op), t2)
+    | OP(t1, (Divide as op), t2) ->
         match evalSubterms [t1;t2] env with
         | Raise -> Definition.Raise
         | NonValue t' -> sprintf "Term %A is not a value at %A" t' t |> WrongExpression |> raise
@@ -121,8 +124,20 @@ and private eval t env =
                 | Divide when n2 <> 0 -> I(n1 / n2)
                 | Divide when n2 = 0 -> Definition.Raise
                 | _ -> sprintf "Term %A is not an operator at %A" op t |> WrongExpression |> raise
-        | _ -> 
+            | _ -> 
                 sprintf "Operation %A requires numbers at %A" op t |> WrongExpression |> raise
+    | OP(t1, (And as op), t2)
+    | OP(t1, (Or as op), t2) ->
+        let t1' = eval t1 env
+        match t1' with
+        | Definition.Raise -> 
+            Definition.Raise
+        | True ->
+            if op = Or then True else eval t2 env
+        | False ->
+            if op = And then False else eval t2 env 
+        | _ -> 
+            sprintf "Term %A is not a Boolean value at %A" t1' t |> WrongExpression |> raise
     | Cond(t1, t2, t3) ->
         let t1' = eval t1 env
         match t1' with
