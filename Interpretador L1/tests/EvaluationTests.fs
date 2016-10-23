@@ -82,3 +82,10 @@ lcm 121 11*15" |> parseTermPure <| List.empty) |> evaluate |> should equal (I(18
         compare ("[1,2,3] = [1]", False)
         compare ("[3,4,5] = [3,4,5]", True)
         compare ("[true, false, true] = [true, false, true]", True)
+
+    [<Test>]
+    member that.shortCircuit() =
+        compare ("true || raise", True)
+        compare ("false && true", False)
+        compare ("false && raise", False)
+        compare ("let t = []; (empty? t) || (head t) = 0", True)

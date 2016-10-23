@@ -37,20 +37,6 @@ let not(t) {
 		true
 };
 
-let and(t1, t2) {
-	if t1 then
-		t2
-	else
-		false
-};
-
-let or(t1, t2) {
-	if t1 then
-		true
-	else
-		t2
-};
-
 let xor(t1, t2) {
 	if t1 then
 		not t2
