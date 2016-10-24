@@ -126,18 +126,28 @@ and private eval t env =
                 | _ -> sprintf "Term %A is not an operator at %A" op t |> WrongExpression |> raise
             | _ -> 
                 sprintf "Operation %A requires numbers at %A" op t |> WrongExpression |> raise
-    | OP(t1, (And as op), t2)
-    | OP(t1, (Or as op), t2) ->
-        let t1' = eval t1 env
-        match t1' with
-        | Definition.Raise -> 
-            Definition.Raise
+    | OP(t1, And, t2) ->
+        match eval t1 env with
+        | Definition.Raise -> Definition.Raise
+        | False -> False
         | True ->
-            if op = Or then True else eval t2 env
+            match eval t2 env with
+            | True -> True
+            | False -> False
+            | Definition.Raise -> Definition.Raise
+            | t2' -> sprintf "Term %A is not a Boolean value at %A" t2' t |> WrongExpression |> raise
+        | t1' ->  sprintf "Term %A is not a Boolean value at %A" t1' t |> WrongExpression |> raise
+    | OP(t1, Or, t2) ->
+        match eval t1 env with
+        | Definition.Raise -> Definition.Raise
+        | True -> True
         | False ->
-            if op = And then False else eval t2 env 
-        | _ -> 
-            sprintf "Term %A is not a Boolean value at %A" t1' t |> WrongExpression |> raise
+            match eval t2 env with
+            | True -> True
+            | False -> False
+            | Definition.Raise -> Definition.Raise
+            | t2' -> sprintf "Term %A is not a Boolean value at %A" t2' t |> WrongExpression |> raise
+        | t1' ->  sprintf "Term %A is not a Boolean value at %A" t1' t |> WrongExpression |> raise
     | Cond(t1, t2, t3) ->
         let t1' = eval t1 env
         match t1' with
