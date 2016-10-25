@@ -61,9 +61,9 @@
     <Content Include="packages.config" />
     <Compile Include="src\Definition.fs" />
     <Compile Include="src\Evaluation.fs" />
-    <Compile Include="src\TypeInference.fs" />
     <Compile Include="src\stdlib.fs" />
     <Compile Include="src\Parser.fs" />
+    <Compile Include="src\TypeInference.fs" />
     <Compile Include="tests\EvaluationTests.fs" />
     <Compile Include="tests\ParserTests.fs" />
     <Compile Include="tests\TypeInferenceTests.fs" />

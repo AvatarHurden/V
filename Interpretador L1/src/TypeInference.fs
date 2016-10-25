@@ -1,111 +1,22 @@
 ﻿module TypeInference
 
 open Definition
+open Parser
 
 exception InvalidType of string
 
 type Constraint =
     | Equals of Type * Type
 
+type EnvAssociation =
+    | Simple of Type
+    | Universal of Ident list * Type
+
 let mutable varType = 0
 let getVarType unit =
     let newType = varType
     varType <- varType + 1
     sprintf "VarType%d" newType |> Type.X
-
-let rec findId id e =
-    match e with
-    | [] ->
-        sprintf "Identifier %A undefined" id |> InvalidType |> raise
-    | (x, typ)::tl ->
-        if x = id then
-            typ, []
-        else
-            findId id tl
-
-// collectConstraints term environment constraints
-let rec collectConstraints term env =
-    match term with
-    | True ->
-        Bool, []
-    | False ->
-        Bool, []
-    | I(i) ->
-        Int, []
-    | OP(t1, Application, t2) ->
-        let typ1, c1 = collectConstraints t1 env
-        let typ2, c2 = collectConstraints t2 env
-        let x = getVarType ()
-        x, c1 @ c2 @ [Equals (typ1, Function (typ2, x))]
-    | OP(t1, Cons, t2) ->
-        let typ1, c1 = collectConstraints t1 env
-        let typ2, c2 = collectConstraints t2 env
-        typ1 |> List, c1 @ c2 @ [Equals (List typ1, typ2)]
-    | OP(t1, op, t2) ->
-        let typ1, c1 = collectConstraints t1 env
-        let typ2, c2 = collectConstraints t2 env
-        match op with
-        | Add | Subtract | Multiply | Divide ->
-            Int, c1 @ c2 @ [Equals (typ1, Int); Equals (typ2, Int)]
-        | LessThan | LessOrEqual | Equal | Different | GreaterOrEqual | GreaterThan ->
-            Bool, c1 @ c2 @ [Equals (typ1, Int); Equals (typ2, Int)]
-        | _ -> sprintf "Unknown operator at %A" term |> InvalidType |> raise
-    | Cond(t1, t2, t3) ->
-        let typ1, c1 = collectConstraints t1 env
-        let typ2, c2 = collectConstraints t2 env
-        let typ3, c3 = collectConstraints t3 env
-        typ2, c1 @ c2 @ c3 @ [Equals (typ1, Bool); Equals (typ2, typ3)]
-    | X(id) ->
-        findId id env
-    | Fn(id, Some typ, t1) ->
-        let typ1, c1 = collectConstraints t1 ((id, typ)::env)
-        Function(typ, typ1), c1
-    | Fn(id, None, t1) ->
-        let paramTyp = getVarType ()
-        let typ1, c1 = collectConstraints t1 ((id, paramTyp)::env)
-        Function(paramTyp, typ1), c1
-    | Let(id, Some typ, t1, t2) ->
-        let typ1, c1 = collectConstraints t1 env
-        let typ2, c2 = collectConstraints t2 ((id, typ)::env)
-        typ2, c1 @ c2 @ [Equals (typ, typ1)]
-    | Let(id, None, t1, t2) ->
-        let varTyp = getVarType ()
-        let typ1, c1 = collectConstraints t1 env
-        let typ2, c2 = collectConstraints t2 ((id, varTyp)::env)
-        typ2, c1 @ c2 @ [Equals (varTyp, typ1)]
-    | LetRec(id1, Some typ1, Some typ2, id2, t1, t2) ->
-        let typ1', c1 = collectConstraints t1 ((id1, Function(typ1, typ2))::(id2, typ1)::env)
-        let typ2', c2 = collectConstraints t2 ((id1, Function(typ1, typ2))::env)
-        typ2', c1 @ c2 @ [Equals (typ2, typ1')]
-    | LetRec(id1, None, None, id2, t1, t2) ->
-        let fType = getVarType ()
-        let paramTyp = getVarType ()
-        let typ1, c1 = collectConstraints t1 ((id1, fType)::(id2, paramTyp)::env)
-        let typ2, c2 = collectConstraints t2 ((id1, fType)::env)
-        typ2, c1 @ c2 @ [Equals (fType, Function (paramTyp, typ1))]
-    | LetRec(id1, _, _, id2, t1, t2) as t ->
-        sprintf "Invalid recursive let defintion at %A" t |> InvalidType |> raise
-    | Nil ->
-        getVarType () |> List, []
-    | Head(t1) ->
-        let typ1, c1 = collectConstraints t1 env
-        let x = getVarType () in
-        x, c1 @ [Equals (typ1, List x)]
-    | Tail(t1) ->
-        let typ1, c1 = collectConstraints t1 env
-        let x = getVarType () in
-        x |> List, c1 @ [Equals (typ1, List x)]
-    | IsEmpty(t1) ->
-        let typ1, c1 = collectConstraints t1 env
-        Bool, c1 @ [Equals (typ1, List <| getVarType ())]
-    | Raise ->
-        getVarType (), []
-    | Try(t1, t2) ->
-        let typ1, c1 = collectConstraints t1 env
-        let typ2, c2 = collectConstraints t2 env
-        typ2, c1 @ c2 @ [Equals (typ1, typ2)]
-    | Closure(_, _, _) | RecClosure(_, _, _, _) as t->
-        sprintf "Cannot collect constraints for a closure at %A" t |> InvalidType |> raise
 
 let substituteInType subs typ' =
     let x, typ = subs
@@ -139,6 +50,11 @@ let rec occursIn x typ =
     | Type.X(id) -> id = x
 
 let rec unify constraints =
+//    for c in constraints do
+//        match c with
+//        | Equals (s,t) ->
+//            printfn "%A = %A" (typeString s) (typeString t)
+//    printfn ""
     match constraints with
     | [] -> Map.empty
     | first::rest ->
@@ -171,9 +87,145 @@ let rec applyType typ substitutions =
         if Map.containsKey x substitutions then
             substitutions.[x]
         else
-            raise <| InvalidType "Unsolvable type"
+            typ
+
+let findId id (e: Map<string, EnvAssociation>) =
+    if e.ContainsKey id then
+        match e.[id] with
+        | Simple typ ->
+            typ, []
+        | Universal (freeVars, typ) ->
+            List.fold 
+                (fun acc x -> substituteInType (x, getVarType ()) acc)
+                typ freeVars, []
+    else
+        sprintf "Identifier %A undefined" id |> InvalidType |> raise
+
+let rec getFreeVars typ (env: Map<string, EnvAssociation>) =
+    match typ with
+    | Int -> []
+    | Bool -> []
+    | List(t1) -> getFreeVars t1 env
+    | Function(t1, t2) -> getFreeVars t1 env @ getFreeVars t2 env
+    | Type.X x -> 
+        let isFree = Map.exists (fun x' assoc -> 
+            match assoc with
+            | Simple (Type.X x1) -> x1 = x
+            | _ -> false) env
+        if isFree then
+            []
+        else
+            [x]
+         
+// collectConstraints term environment constraints
+let rec collectConstraints term (env: Map<string, EnvAssociation>) =
+    match term with
+    | True ->
+        Bool, []
+    | False ->
+        Bool, []
+    | I(i) ->
+        Int, []
+    | OP(t1, Application, t2) ->
+        let typ1, c1 = collectConstraints t1 env
+        let typ2, c2 = collectConstraints t2 env
+        let x = getVarType ()
+        x, c1 @ c2 @ [Equals (typ1, Function (typ2, x))]
+    | OP(t1, Cons, t2) ->
+        let typ1, c1 = collectConstraints t1 env
+        let typ2, c2 = collectConstraints t2 env
+        typ1 |> List, c1 @ c2 @ [Equals (List typ1, typ2)]
+    | OP(t1, op, t2) ->
+        let typ1, c1 = collectConstraints t1 env
+        let typ2, c2 = collectConstraints t2 env
+        match op with
+        | Add | Subtract | Multiply | Divide ->
+            Int, c1 @ c2 @ [Equals (typ1, Int); Equals (typ2, Int)]
+        | LessThan | LessOrEqual | Equal | Different | GreaterOrEqual | GreaterThan ->
+            Bool, c1 @ c2 @ [Equals (typ1, Int); Equals (typ2, Int)]
+        | _ -> sprintf "Unknown operator at %A" term |> InvalidType |> raise
+    | Cond(t1, t2, t3) ->
+        let typ1, c1 = collectConstraints t1 env
+        let typ2, c2 = collectConstraints t2 env
+        let typ3, c3 = collectConstraints t3 env
+        typ2, c1 @ c2 @ c3 @ [Equals (typ1, Bool); Equals (typ2, typ3)]
+    | X(id) ->
+        findId id env
+    | Fn(id, Some typ, t1) ->
+        let typ1, c1 = collectConstraints t1 <| env.Add(id, Simple typ)
+        Function(typ, typ1), c1
+    | Fn(id, None, t1) ->
+        let paramTyp = getVarType ()
+        let typ1, c1 = collectConstraints t1 <| env.Add(id, Simple paramTyp)
+        Function(paramTyp, typ1), c1
+    | Let(id, Some typ, t1, t2) ->
+        let typ1, c1 = collectConstraints t1 env
+        let typ2, c2 = collectConstraints t2 <| env.Add(id, Simple typ)
+        typ2, c1 @ c2 @ [Equals (typ, typ1)]
+    | Let(id, None, t1, t2) ->
+        let typ1, c1 = collectConstraints t1 env
+        let x = unify c1
+        let y = applyType typ1 x
+        let freeVars = getFreeVars y env
+        let assoc, cons = 
+            if freeVars.IsEmpty then
+                let varTyp = getVarType ()
+                Simple varTyp, [Equals (varTyp, typ1)]
+            else
+                Universal (freeVars, y), []
+        let typ2, c2 = collectConstraints t2  <| env.Add(id, assoc)
+        typ2, c1 @ c2 @ cons
+    | LetRec(id1, Some typ1, Some typ2, id2, t1, t2) ->
+        let env1 = env.Add(id1, Simple <| Function(typ1, typ2)).Add(id2, Simple typ1)
+        let typ1', c1 = collectConstraints t1 env1
+        let env2 = env.Add(id1, Simple <| Function(typ1, typ2))
+        let typ2', c2 = collectConstraints t2 env2
+        typ2', c1 @ c2 @ [Equals (typ2, typ1')]
+    | LetRec(id1, None, None, id2, t1, t2) ->
+        let fType = getVarType ()
+        let paramTyp = getVarType ()
+        let typ1, c1 = collectConstraints t1 <| env.Add(id1, Simple fType).Add(id2, Simple paramTyp)
+//        let x = unify c1
+//        let y = applyType typ1 x
+//        let freeVars = getFreeVars y env
+//        let assoc, cons = 
+//            if freeVars.IsEmpty then
+//                Simple fTyp, [Equals (fType, Function (paramTyp, typ1))]
+//            else
+//                Universal (freeVars, y), []
+        let assoc =
+            match typ1 with
+            //| Function (Type.X x, _) -> Universal (x, typ1)
+            | _ -> Simple fType
+        let typ2, c2 = collectConstraints t2 <| env.Add(id1, assoc)
+        typ2, c1 @ c2 @ [Equals (fType, Function (paramTyp, typ1))]
+    | LetRec(id1, _, _, id2, t1, t2) as t ->
+        sprintf "Invalid recursive let defintion at %A" t |> InvalidType |> raise
+    | Nil ->
+        getVarType () |> List, []
+    | Head(t1) ->
+        let typ1, c1 = collectConstraints t1 env
+        let x = getVarType () in
+        x, c1 @ [Equals (typ1, List x)]
+    | Tail(t1) ->
+        let typ1, c1 = collectConstraints t1 env
+        let x = getVarType () in
+        x |> List, c1 @ [Equals (typ1, List x)]
+    | IsEmpty(t1) ->
+        let typ1, c1 = collectConstraints t1 env
+        Bool, c1 @ [Equals (typ1, List <| getVarType ())]
+    | Raise ->
+        getVarType (), []
+    | Try(t1, t2) ->
+        let typ1, c1 = collectConstraints t1 env
+        let typ2, c2 = collectConstraints t2 env
+        typ2, c1 @ c2 @ [Equals (typ1, typ2)]
+    | Closure(_, _, _) | RecClosure(_, _, _, _) as t->
+        sprintf "Cannot collect constraints for a closure at %A" t |> InvalidType |> raise
+
+
 
 let typeInfer t =
-    let typ, c = collectConstraints t []
+    let typ, c = collectConstraints t Map.empty
     let substitutions = unify c
     applyType typ substitutions

@@ -17,7 +17,7 @@ exception InvalidEntryText of string
 ////////////////
 //#region Printing
 
-let rec private typeString typ =
+let rec typeString typ =
     match typ with
     | Type.X(s) -> s
     | Int -> "Int"
