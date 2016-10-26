@@ -85,7 +85,7 @@ let rec applyType typ substitutions =
         Function(applyType t1 substitutions, applyType t2 substitutions)
     | Type.X(x) -> 
         if Map.containsKey x substitutions then
-            substitutions.[x]
+            applyType substitutions.[x] substitutions
         else
             typ
 
