@@ -45,10 +45,11 @@ type term =
 and
     env = Map<Ident, term>
 
-let V(term) =
+let rec V(term) =
     match term with
-    | True | False | I(_) | Nil | OP(_, Cons, _) 
+    | True | False | I(_) | Nil 
     | Closure(_, _, _) | RecClosure(_, _, _, _) -> true
+    | OP(t1, Cons, t2) -> V(t1) && V(t2)
     | _ -> false
 
 exception WrongExpression of string
