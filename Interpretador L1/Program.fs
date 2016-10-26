@@ -3,6 +3,7 @@
 
 open System
 open Definition
+open StringConversion
 open Parser
 open Evaluation
 open TypeInference
@@ -34,7 +35,9 @@ let main argv =
             exit(0)
 
     try
-        let term = parseTerm text <| Array.toList argv.[1..]
+        let term = parseTermPure text <| Array.toList argv.[1..]
+
+        printfn "%A" <| toString term
 
         typeInfer term |> printfn "Your program is of type:\n\n%A\n\n"
             
