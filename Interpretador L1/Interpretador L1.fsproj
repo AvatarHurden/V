@@ -60,6 +60,7 @@
     <None Include="App.config" />
     <Content Include="packages.config" />
     <Compile Include="src\Definition.fs" />
+    <Compile Include="src\StringConversion.fs" />
     <Compile Include="src\Evaluation.fs" />
     <Compile Include="src\TypeInference.fs" />
     <Compile Include="src\stdlib.fs" />
