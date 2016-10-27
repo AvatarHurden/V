@@ -4,6 +4,7 @@ type Type =
     | X of string
     | Int
     | Bool
+    | Char
     | Function of Type * Type
     | List of Type
 
@@ -31,6 +32,7 @@ type term =
     | True
     | False
     | I of int
+    | C of char
     | OP of term * op * term
     | Cond of term * term * term
     | X of Ident
@@ -52,6 +54,7 @@ and
 let V(term) =
     match term with
     | True | False | I(_) | Nil | OP(_, Cons, _) 
+    | C _
     | Closure(_, _, _) | RecClosure(_, _, _, _) -> true
     | _ -> false
 

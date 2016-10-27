@@ -22,6 +22,8 @@ let rec private typeString typ =
     | Type.X(s) -> s
     | Int -> "Int"
     | Bool -> "Bool"
+    | Char -> "Char"
+    | String -> "String"
     | Function(t1, t2) ->  
         match t1 with
         | Function(_,_) -> 
@@ -40,7 +42,9 @@ let rec private stringify term lvl =
         tabs + "false"
     | I(i) -> 
         tabs + (string i)
-     | OP(t1, Application, t2) ->
+    | C c ->
+        tabs + (string c)
+    | OP(t1, Application, t2) ->
         let t1' = (stringify t1 0)
         if t1'.EndsWith("\n") then
             sprintf "%s%s%s" tabs t1' (stringify t2 0)
@@ -608,6 +612,14 @@ and private findTerm (text: string) =
         (emptyText+String.Concat(t), Term <| I(int (String.Concat(t))))
     elif trimmedText.StartsWith("-") then
         (emptyText+"-", Prefix Negate)
+    elif trimmedText.StartsWith("'") then
+        let m = Regex.Match(trimmedText, "^'(\\\\.|[^\\'])+'")
+        if m.Success then
+            let matched = m.Groups.[1].Value
+            let rpls = matched.Replace("\\\\","\\")
+            (emptyText + m.Groups.[0].Value, Term <| C (Char.Parse <| rpls))        
+        else
+            sprintf "Could not parse char at %A" trimmedText |> InvalidEntryText |> raise
     else
         try
             let text, ident = findIdent trimmedText

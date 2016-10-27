@@ -30,6 +30,8 @@ and private eval t env =
         False
     | I(i) -> 
         I(i)
+    | C(c) ->
+        C(c)
     | OP(t1, Application, t2) ->
         match evalSubterms [t1;t2] env with
         | Raise -> Definition.Raise
@@ -59,6 +61,7 @@ and private eval t env =
         | Values [t1'; t2'] ->
             match t1', t2' with
                 | I i1, I i2 when i1 = i2 -> True
+                | C c1, C c2 when c1 = c2 -> True
                 | True, True -> True
                 | False, False -> True
                 | Nil, Nil -> True
@@ -94,6 +97,12 @@ and private eval t env =
                 | LessOrEqual -> if i1 <= i2 then True else False
                 | GreaterOrEqual -> if i1 >= i2 then True else False
                 | GreaterThan -> if i1 > i2 then True else False
+            | C c1, C c2 ->
+                match op with
+                | LessThan -> if c1 < c2 then True else False
+                | LessOrEqual -> if c1 <= c2 then True else False
+                | GreaterOrEqual -> if c1 >= c2 then True else False
+                | GreaterThan -> if c1 > c2 then True else False
             | Nil, Nil when op = LessOrEqual || op = GreaterOrEqual -> True
             | OP (hd1, Cons, tl1), OP (hd2, Cons, tl2) ->
                 match evalSubterms [OP (hd1, Equal, hd2); OP (tl1, op, tl2)] env with
@@ -121,7 +130,7 @@ and private eval t env =
                 | Divide when n2 <> 0 -> I(n1 / n2)
                 | Divide when n2 = 0 -> Definition.Raise
                 | _ -> sprintf "Term %A is not an operator at %A" op t |> WrongExpression |> raise
-        | _ -> 
+            | _ -> 
                 sprintf "Operation %A requires numbers at %A" op t |> WrongExpression |> raise
     | Cond(t1, t2, t3) ->
         let t1' = eval t1 env
@@ -171,8 +180,8 @@ and private eval t env =
             env.[id]
         else
             sprintf "Could not find identifier %A" id |> WrongExpression |> raise
-    | _ -> sprintf "%A is not a Term" t |> WrongExpression |> raise
-
+    | Closure _ | RecClosure _ ->
+        raise <| WrongExpression "Closures can not be evaluated as expressions"
 
 let evaluate t =
     eval t Map.empty

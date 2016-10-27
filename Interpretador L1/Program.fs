@@ -11,7 +11,6 @@ open System.Text.RegularExpressions
 [<EntryPoint>]
 let main argv = 
 
-    
     // Para permitir debug (não permite espaços entre parâmetros)
     let argv = 
         if argv.Length = 0 then
