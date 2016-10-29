@@ -23,7 +23,7 @@ let rec private typeString typ =
     | Int -> "Int"
     | Bool -> "Bool"
     | Char -> "Char"
-    | String -> "String"
+    | List Char -> "String"
     | Function(t1, t2) ->  
         match t1 with
         | Function(_,_) -> 
@@ -270,7 +270,7 @@ let private findClosingPair pair (text:string) startingCount =
 // O retorno da função é uma tupla composto de (espaço em branco+ident, ident)
 let private findIdent text = 
     let emptyText, trimmedText = splitSpaces text
-    let prohibited = " .,;:+-/*<=>(){}[]%!@\\".ToCharArray()
+    let prohibited = " .,;:+-/*<=>(){}[]%!@\\'\"".ToCharArray()
     let ident = String.Concat (trimmedText |> Seq.takeWhile (fun x -> not (Seq.exists ((=) x) prohibited)))
     match ident with
     | "let" | "true" | "false" | "if" | "then" | "else" 
@@ -381,6 +381,71 @@ let private parseImport (text: string) =
 
     "import "+spaces+whole, libContent + " " + libText.Substring(1 + spaces.Length + whole.Length)
 
+//#region String parsing
+
+let private parseSingleChar (text: string) =
+    if text.[0] = '\\' then
+        match text.[1] with
+        | 'n' -> '\n', 2
+        | 'b' -> '\b', 2
+        | 'r' -> '\r', 2
+        | 't' -> '\t', 2
+        | '\\' -> '\\', 2
+        | '"' -> '\"', 2
+        | '\'' -> '\'', 2
+        | _ -> sprintf "Invalid escaped char at %A" text |> InvalidEntryText |> raise
+    else
+        text.[0], 1
+
+let private parseChar (text: string) = 
+    if text.[0] <> '\'' then
+        sprintf "Error parsing char value at %A" text |> InvalidEntryText |> raise
+
+    let char, length = parseSingleChar <| text.Substring(1)
+
+    if char = '\'' && length = 1 || text.[length+1] <> '\'' then
+        sprintf "Error parsing char value at %A" text |> InvalidEntryText |> raise
+
+    text.Substring(0, 2 + length), C char
+
+let private parseString (text: string) = 
+    if text.[0] <> '"' then
+        sprintf "Error parsing string value at %A" text |> InvalidEntryText |> raise
+
+    if text.Length = 1 then
+        sprintf "Missing closing quotes for string at %A" text |> InvalidEntryText |> raise
+
+    let mutable curChar, totalLength = parseSingleChar <| text.Substring(1)
+    let mutable chars = [curChar]
+    let mutable curLength = totalLength
+
+    let c = '\"'
+    let g = '"'
+
+    while totalLength < text.Length && (curChar <> '"' || curLength = 2) do 
+        let char, length = parseSingleChar <| text.Substring(totalLength + 1)
+        curChar <- char
+        curLength <- length
+        if curChar = '"' then
+            totalLength <- totalLength + length
+        else
+            totalLength <- totalLength + length
+        chars <- chars @ [curChar]
+    
+    if totalLength = text.Length then
+        sprintf "Missing closing quotes for string at %A" text |> InvalidEntryText |> raise
+
+    chars <- List.rev chars |> List.tail
+    totalLength <- totalLength - 1
+
+    if text.[totalLength+1] <> '"' then
+        sprintf "Error parsing string value at %A" text |> InvalidEntryText |> raise
+
+    let ret = List.fold (fun acc x -> OP(C x, Cons, acc)) Nil chars
+
+    text.Substring(0, 2 + totalLength), ret
+
+//#endregion
 
 // Finds an entire Let expression. After the ";", calls findTerms with the remaining text
 let rec private findLet text =
@@ -613,13 +678,11 @@ and private findTerm (text: string) =
     elif trimmedText.StartsWith("-") then
         (emptyText+"-", Prefix Negate)
     elif trimmedText.StartsWith("'") then
-        let m = Regex.Match(trimmedText, "^'(\\\\.|[^\\'])+'")
-        if m.Success then
-            let matched = m.Groups.[1].Value
-            let rpls = matched.Replace("\\\\","\\")
-            (emptyText + m.Groups.[0].Value, Term <| C (Char.Parse <| rpls))        
-        else
-            sprintf "Could not parse char at %A" trimmedText |> InvalidEntryText |> raise
+        let s, t = parseChar trimmedText
+        (emptyText + s, Term t)
+    elif trimmedText.StartsWith("\"") then
+        let s, t = parseString trimmedText
+        (emptyText + s, Term t)
     else
         try
             let text, ident = findIdent trimmedText

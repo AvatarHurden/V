@@ -243,3 +243,18 @@ type TestParsePrint() =
     [<Test>]
     member that.subtractiveRange() =
         compare ("[5..4..0]", (parseTermPure "[5,4,3,2,1,0]" <| List.empty))
+
+    [<Test>]
+    member that.parseChar() =
+        (fun () -> compare ("'''", C '\'') |> ignore) |> should throw typeof<InvalidEntryText>
+        (fun () -> compare ("'\\d'", C '\'') |> ignore) |> should throw typeof<InvalidEntryText>
+        compare ("'\\''", C '\'')
+        compare ("'\\n'", C '\n')
+        compare ("'a'", C 'a')
+        compare ("' '", C ' ')
+
+    [<Test>]
+    member that.parseString() =
+        (fun () -> compare ("\"\"\"", OP(C '"', Cons, Nil)) |> ignore) |> should throw typeof<InvalidEntryText>
+        compare ("\"\"", Nil)
+        compare ("\"\\\"he\\\"\"", OP(C '"', Cons, OP(C 'h', Cons, OP(C 'e', Cons, OP(C '"', Cons, Nil)))))
