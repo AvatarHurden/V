@@ -187,31 +187,6 @@ let private splitSpaces (term: string) =
     let empty = String.Concat (term |> Seq.takeWhile Char.IsWhiteSpace)
     empty, term.Substring(empty.Length)
   
-let private countPairs pair (text: string) =
-    let adder, subtractor = 
-        match pair with
-        | Parenthesis -> "(", ")"
-        | Brackets -> "{", "}"
-        | SquareBrackets -> "[", "]"
-        | IfThen -> "if ", " then "
-        | ThenElse -> " then ", " else "
-        | LetSemicolon -> "let ", ";"
-        | TryExcept -> "try ", "except "
-        | Custom(t1, t2) -> t1, t2
-
-    let mutable count = 0
-    let mutable iterator = 0
-    while (iterator < text.Length) do
-        if text.Substring(iterator).StartsWith(subtractor) then
-            count <- count - 1
-        elif text.Substring(iterator).StartsWith(adder) then
-            count <- count + 1
-        else
-            ()
-        iterator <- iterator + 1
-
-    adder, subtractor, count
-
 // Finds a string between the first level of the delimiter pairs specified.
 // Identifies matching pairs (that is, the string "(())" will match the first opening
 // parenthesis with the final closing one)
@@ -276,55 +251,65 @@ let private findIdent text =
     | "let" | "true" | "false" | "if" | "then" | "else" 
     | "fn" | "letrec"| "nil" | "head" | "tail" | "raise" 
     | "try" | "except" | "for" | "in" | "empty?" ->
-        raise (InvalidEntryText ("A variable cannot be called " + ident))
+        "A variable cannot be called " + ident |> InvalidEntryText |> raise
+    | "" ->
+        raise <| InvalidEntryText "Cannot declare an empty identifier"
     | _ ->
         (emptyText+ident, ident)   
 
 // Recursively find the type information in the input string.
 // The string must contain only a type definition (that is, it must end without any
 // other characters except for empty spaces)
-let rec private findType (text:string) =
-    let mutable processed, trimmedText = splitSpaces text
-    trimmedText <- trimmedText.TrimEnd()
-    let endingSpaces = text.Substring(processed.Length+trimmedText.Length)
-
+let rec private findType (text: string) (closing: string) =
+    let mutable empty1, trimmedText = splitSpaces text
+    
     let typ1Text, typ1 = 
         if trimmedText.StartsWith("[") then
-            let s, inside = findClosingPair SquareBrackets trimmedText 0
-            let _, t = findType inside
-            (processed+s+endingSpaces, List(t))
+            let s, t = findType (trimmedText.Substring(1)) "]"
+            (empty1+"["+s, List(t))
         elif trimmedText.StartsWith("(") then
-            let s, inside = findClosingPair Parenthesis trimmedText 0
-            let _, t = findType inside
-            (processed+s, t)
+            let s, t = findType (trimmedText.Substring(1)) ")"
+            (empty1+"("+s, t)
         elif trimmedText.StartsWith("Int") then
-            (processed+"Int"+endingSpaces, Int)
+            (empty1+"Int", Int)
         elif trimmedText.StartsWith("Bool") then
-            (processed+"Bool"+endingSpaces, Bool)
+            (empty1+"Bool", Bool)
         else
             raise (InvalidEntryText "Invalid Type information")
     
-    if typ1Text.Equals(processed+trimmedText+endingSpaces) then
-        (typ1Text, typ1)
+    let empty2, nextToken = splitSpaces (text.Substring(typ1Text.Length))
+
+    if nextToken.Length = 0 then
+        (typ1Text+empty2, typ1)
+    elif nextToken.StartsWith(closing) then
+        (typ1Text+empty2+closing, typ1)
+    elif nextToken.StartsWith("->") then
+        let typ2Text, typ2 = findType  (nextToken.Substring("->".Length)) closing
+        (typ1Text+empty2+"->"+typ2Text, Function(typ1, typ2))
     else
-        processed <- typ1Text
-        let emptyText, _ = splitSpaces (text.Substring(processed.Length))
-        processed <- processed + emptyText
-        if text.Substring(processed.Length).StartsWith("->") then
-            processed <- processed + "->"
-            let typ2Text, typ2 = text.Substring(processed.Length) |> findType 
-            (processed+typ2Text, Function(typ1, typ2))
-        else
-            raise (InvalidEntryText "Invalid Type information")
+        raise <| InvalidEntryText "Invalid Type information"
+
+//    if typ1Text.Equals(processed+trimmedText+endingSpaces) then
+//        (typ1Text, typ1)
+//    else
+//        processed <- typ1Text
+//        let emptyText, _ = splitSpaces (text.Substring(processed.Length))
+//        processed <- processed + emptyText
+//        if text.Substring(processed.Length).StartsWith("->") then
+//            processed <- processed + "->"
+//            let typ2Text, typ2 = text.Substring(processed.Length) |> findType 
+//            (processed+typ2Text, Function(typ1, typ2))
+//        else
+//            raise (InvalidEntryText "Invalid Type information")
         
-let rec private findIdTypePair (text:string) =
+let rec private findIdTypePair (text:string) (closing: string) =
     let s, id = findIdent text
     
     let emptyText, trimmedText = text.Substring(s.Length) |> splitSpaces
     
     let typ =
         if trimmedText.StartsWith(":") then
-            trimmedText.Substring(1) |> findType |> snd |> Some
+            findType (trimmedText.Substring(1)) closing |> snd |> Some
         else
             None
 
@@ -336,8 +321,8 @@ let rec private findIdTypePair (text:string) =
 //  - First parameter type
 //  - Return term
 //  - Return type
-let private parseParameters (paramText: string) returnTerm (returnType: Definition.Type option)  =
-    let paramArray = paramText.Split(',') |> Array.map findIdTypePair
+let private parseParameters (paramText: string) returnTerm (returnType: Definition.Type option) (closing: string) =
+    let paramArray =  paramText.Split(',') |> Array.map (fun x -> findIdTypePair x closing)
 
     if Array.exists (fun pair -> ((snd pair):Definition.Type option).IsSome) paramArray &&
        Array.forall (fun pair -> ((snd pair):Definition.Type option).IsSome) paramArray |> not then
@@ -356,34 +341,14 @@ let private parseParameters (paramText: string) returnTerm (returnType: Definiti
                     ()
             (fst paramArray.[0], snd paramArray.[0], fnTerm, fnType)
             
-let private parseImport (text: string) =
-    let spaces, libText = splitSpaces <| text.Substring("import ".Length)
-
-    let mutable whole, libname = 
-        if libText.StartsWith("\"") then
-            let s, t = findClosingPair (Custom("\"", "\"")) (libText.Substring(1)) 1
-            "\"" + s, t
-        else
-            libText.Split(' ').[0], libText.Split(' ').[0]
-
-    if libname.EndsWith(".l1") |> not then
-        libname <- libname + ".l1"
-
-    let mutable libContent =
-        if Path.makeAppRelative libname |> IO.File.Exists then
-            Path.makeAppRelative libname |> IO.File.ReadAllText
-        else
-            raise <| (InvalidEntryText <| sprintf "Could not find library file at %A" libname)
-        
-    let lines = libContent.Split('\n') |> Array.toSeq
-    libContent <- Seq.reduce (fun acc (x: string) -> acc + "\n" + x.Split([|"//"|], StringSplitOptions.None).[0]) lines
-    libContent <- ["\n"; "\t"; "\r"] |> Seq.fold (fun (acc: String) x -> acc.Replace(x, " ")) libContent
-
-    "import "+spaces+whole, libContent + " " + libText.Substring(1 + spaces.Length + whole.Length)
 
 //#region String parsing
 
 let private parseSingleChar (text: string) =
+
+    if text.Length = 0 then
+        raise <| InvalidEntryText "Can not parse an empty character"
+
     if text.[0] = '\\' then
         match text.[1] with
         | 'n' -> '\n', 2
@@ -412,17 +377,11 @@ let private parseString (text: string) =
     if text.[0] <> '"' then
         sprintf "Error parsing string value at %A" text |> InvalidEntryText |> raise
 
-    if text.Length = 1 then
-        sprintf "Missing closing quotes for string at %A" text |> InvalidEntryText |> raise
-
     let mutable curChar, totalLength = parseSingleChar <| text.Substring(1)
     let mutable chars = [curChar]
     let mutable curLength = totalLength
 
-    let c = '\"'
-    let g = '"'
-
-    while totalLength < text.Length && (curChar <> '"' || curLength = 2) do 
+    while totalLength+1 < text.Length && (curChar <> '"' || curLength = 2) do 
         let char, length = parseSingleChar <| text.Substring(totalLength + 1)
         curChar <- char
         curLength <- length
@@ -447,8 +406,92 @@ let private parseString (text: string) =
 
 //#endregion
 
+let private parseImport (text: string) =
+    let spaces, libText = splitSpaces <| text.Substring("import ".Length)
+
+    let mutable whole, libname = 
+        if libText.StartsWith("\"") then
+            let s, _ = parseString libText
+            s, s.Substring(1, s.Length-2)
+        else
+            libText.Split(' ').[0], libText.Split(' ').[0]
+
+    if libname.EndsWith(".l1") |> not then
+        libname <- libname + ".l1"
+
+    let mutable libContent =
+        if Path.makeAppRelative libname |> IO.File.Exists then
+            Path.makeAppRelative libname |> IO.File.ReadAllText
+        else
+            raise <| (InvalidEntryText <| sprintf "Could not find library file at %A" libname)
+        
+    let lines = libContent.Split('\n') |> Array.toSeq
+    libContent <- Seq.reduce (fun acc (x: string) -> acc + "\n" + x.Split([|"//"|], StringSplitOptions.None).[0]) lines
+    libContent <- ["\n"; "\t"; "\r"] |> Seq.fold (fun (acc: String) x -> acc.Replace(x, " ")) libContent
+
+    "import "+spaces+whole, libContent + " " + libText.Substring(spaces.Length + whole.Length)
+
 // Finds an entire Let expression. After the ";", calls findTerms with the remaining text
-let rec private findLet text =
+let rec private newFindLet (text: string) =
+    let spaces, definition = splitSpaces <| text.Substring("let ".Length)
+
+    if definition.StartsWith("rec ") then
+        newfindLetRec text
+    else
+        let s, id = findIdent definition
+
+        let spaces, rest = splitSpaces <| definition.Substring(s.Length)
+
+        if rest.StartsWith("(") then
+            findLetFunction text text text
+        else
+            findLetFunction text text text //findLetDeclaration text
+
+//and private newFindSimpleLet (text: string) =
+//    let spaces, definition = splitSpaces <| text.Substring("let ".Length)
+//    let id, typ = findIdTypePair definition
+//
+//    let typ = 
+//        if trimmedText.StartsWith(":") then
+//            try 
+//                let s, typeString = findClosingPair (Custom(":", "=")) (definition.Substring(processedText.Length)) 0
+//                let _, typ = findType typeString
+//                processedText <- processedText + s
+//                Some typ
+//            with
+//            | InvalidEntryText _ -> 
+//                InvalidEntryText(sprintf "Must set a type at %A" definition) |> raise
+//        elif trimmedText.StartsWith("=") then
+//            processedText <- processedText + "="
+//            None
+//        else
+//            definition |> sprintf "Expected a \"=\" at %A" |> InvalidEntryText |> raise
+//        
+//    let _, t1 = findTerms (definition.Substring(processedText.Length)) None
+//    processedText <- total
+//
+//    let _, t2 = findTerms (text.Substring(processedText.Length)) None
+//
+//    (text, Let(id, typ, t1, t2))
+
+and private newfindLetRec (text: string) =
+    let spaces, definition = splitSpaces <| text.Substring("let ".Length)
+    
+    let spaces2, rest = splitSpaces <| definition.Substring("rec ".Length)
+
+    let idString, id = findIdent rest
+    
+    let spaces, rest = splitSpaces <| rest.Substring(idString.Length)
+
+    if not <| rest.StartsWith("(") then
+        sprintf "Missing parameters for recursive let at %A" text |>
+            InvalidEntryText |> raise
+
+    let id2, typ1, t1', typ2' = parseParameters (rest.Substring(1)) Nil None ")"
+    "", Nil
+
+
+and private findLet text =
     let total, definition = findClosingPair LetSemicolon text 0
 
     let emptyText, trimmedDefinition = splitSpaces definition
@@ -469,9 +512,9 @@ let rec private findLet text =
             let typ = 
                 if trimmedText.StartsWith(":") then
                     try 
-                        let s, typeString = findClosingPair (Custom(":", "=")) (definition.Substring(processedText.Length)) 0
-                        let _, typ = findType typeString
-                        processedText <- processedText + s
+                        let typeString = definition.Substring(1+processedText.Length)
+                        let s, typ = findType typeString "="
+                        processedText <- ":" + processedText + s
                         Some typ
                     with
                     | InvalidEntryText _ -> 
@@ -497,13 +540,13 @@ and private findLetRec (text: string) (total: string) (definition: string) =
 
     let mutable remaining = definition.Replace(s.Substring(s2.Length), "")
     let s, externalIds = findClosingPair (Custom("}", "{")) remaining 1
-    let id1, typ2 = findIdTypePair externalIds
+    let id1, typ2 = findIdTypePair remaining "{"
 
     remaining <- remaining.Replace(s, "")
     let s, t1String = findClosingPair Brackets remaining 1
     let _, t1 = findTerms t1String None
 
-    let id2, typ1, t1', typ2' = parseParameters internalIds t1 typ2
+    let id2, typ1, t1', typ2' = parseParameters internalIds t1 typ2 ")"
 
     let _, t2 = findTerms (text.Substring(total.Length)) None
 
@@ -539,7 +582,7 @@ and private findFn (text: string) =
     let _, t = findTerms tString None
     processed <- processed + s
 
-    let id, typ, t1, _ = parseParameters idString t None // Passa qualquer retorno pois não usa
+    let id, typ, t1, _ = parseParameters idString t None ")" // Passa qualquer retorno pois não usa
 
     (processed, Fn(id, typ, t1))
 
@@ -551,7 +594,7 @@ and private findLambda (text: string) =
 
     let _, t = findTerms (text.Substring(processed.Length)) None
 
-    let id, typ, t1, _ = parseParameters idString t None // Passa qualquer retorno pois não usa
+    let id, typ, t1, _ = parseParameters idString t None ")" // Passa qualquer retorno pois não usa
 
     (text, Fn(id, typ, t1))
 
@@ -645,6 +688,9 @@ and private findTerm (text: string) =
 
     let mutable emptyText, trimmedText = splitSpaces text
     
+    if trimmedText.Length = 0 then
+        raise <| InvalidEntryText "Missing a term"
+
     if trimmedText.StartsWith("import ") then
         let original, newText = parseImport trimmedText
         let s, t = findTerm <| newText
@@ -825,16 +871,6 @@ let rec private parseText (text: String) (args: string list) addLib =
    
     text <- text + " "
 
-    let pairs = [Parenthesis;Brackets;SquareBrackets;IfThen;
-        ThenElse;LetSemicolon;TryExcept]
-    for pair in pairs do
-        let opening, closing, count = countPairs pair text
-        if count < 0 then
-            raise (InvalidEntryText ("There is an extra " + closing))
-        elif count > 1 then
-            raise (InvalidEntryText ("There is an extra " + opening))
-        else
-            ()
     findTerms text None |> snd
 
 let parseTermPure text args = parseText text args false

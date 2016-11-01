@@ -9,8 +9,14 @@ open Evaluation
 open TypeInference
 open System.Text.RegularExpressions
 
+let private splitSpaces (term: string) =
+    let empty = String.Concat (term |> Seq.takeWhile Char.IsWhiteSpace)
+    empty, term.Substring(empty.Length)
+
 [<EntryPoint>]
 let main argv = 
+
+    let t = splitSpaces "    \n \r  \t  teste"
 
     // Para permitir debug (não permite espaços entre parâmetros)
     let argv = 
