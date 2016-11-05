@@ -129,7 +129,7 @@ let parseIdent text =
                         Seq.takeWhile (fun x -> not <| Seq.exists ((=) x) prohibited))
         match ident with
         | "let" | "true" | "false" | "if" | "then" | "else" 
-        | "fn" | "letrec"| "nil" | "head" | "tail" | "raise" 
+        | "fn" | "rec"| "nil" | "head" | "tail" | "raise" 
         | "try" | "except" | "for" | "in" | "empty?" | "import" ->
             raiseExp <| sprintf "A variable cannot be called %A at %A" ident text
         | "" ->
