@@ -22,7 +22,7 @@ let facList =
             OP(X("faclist"), Application, I(5)))
 
 let compare (text, term) =
-    let evaluated = evaluate <| parseTerm text (List.empty)
+    let evaluated = evaluate <| parse text
     evaluated |> should equal term
 
 [<TestFixture>]
@@ -43,7 +43,7 @@ type TestEval() =
 
     [<Test>]
     member that.LCM() =
-        ("let modulo(x:Int): Int -> Int {
+        "let modulo(x:Int): Int -> Int {
     let rec d(y:Int): Int {
         if x = 0 then  
             raise
@@ -66,7 +66,7 @@ let rec gcd(x:Int): Int -> Int {
 let lcm(x:Int): Int -> Int {
     (\y: Int => x*y/(gcd x y))
 };
-lcm 121 11*15" |> parseTermPure <| List.empty) |> evaluate |> should equal (I(1815))
+lcm 121 11*15" |> parse |> evaluate |> should equal (I(1815))
 
     [<Test>]
     member that.orderLists() =

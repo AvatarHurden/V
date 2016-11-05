@@ -5,18 +5,16 @@ open System
 open Definition
 open StringConversion
 open Parser
+open Printer
 open Evaluation
 open TypeInference
 open System.Text.RegularExpressions
 
-let private splitSpaces (term: string) =
-    let empty = String.Concat (term |> Seq.takeWhile Char.IsWhiteSpace)
-    empty, term.Substring(empty.Length)
+let private splitSpaces term =
+    term |> Seq.skipWhile Char.IsWhiteSpace |> String.Concat
 
 [<EntryPoint>]
 let main argv = 
-
-    let t = splitSpaces "    \n \r  \t  teste"
 
     // Para permitir debug (não permite espaços entre parâmetros)
     let argv = 
@@ -40,11 +38,11 @@ let main argv =
             exit(0)
 
     try
-        let term = parseTermPure text <| Array.toList argv.[1..]
+        let term = parse text
 
-        printfn "%O" <| toString term
+        //printfn "%O" <| toString term
 
-        typeInfer term |> printfn "Your program is of type:\n\n%A\n\n"
+        //typeInfer term |> printfn "Your program is of type:\n\n%A\n\n"
             
         term |> evaluate |> print |> printfn "Your program resulted in:\n\n%O\n"
     with

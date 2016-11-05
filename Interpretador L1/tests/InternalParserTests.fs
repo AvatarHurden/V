@@ -4,7 +4,7 @@ open NUnit.Framework
 open FsUnit
 open Definition
 open Evaluation
-open Parser2
+open Parser
 
 
 [<TestFixture>]
@@ -33,37 +33,37 @@ type TestTypeParsing() =
 
     [<Test>]
     member that.emptyType() =
-        (fun () -> parseType "" [""] |> ignore) |>   
+        (fun () -> parseType "" (true, [""]) |> ignore) |>   
             should throw typeof<InvalidEntryText> 
 
     [<Test>]
     member that.unclosedType() =
-        (fun () -> parseType "[Int" [""] |> ignore) |> 
+        (fun () -> parseType "[Int" (true, [""]) |> ignore) |> 
             should throw typeof<InvalidEntryText> 
 
     [<Test>]
     member that.invalidType() =
-        (fun () -> parseType "Inta" [")"] |> ignore) |> 
+        (fun () -> parseType "Inta" (true, [")"]) |> ignore) |> 
             should throw typeof<InvalidEntryText> 
 
     [<Test>]
     member that.complexType() =
-        parseType "([Int]->[Bool])->Int  =  3;" ["="] |> 
-            should equal ("=  3;", Function(Function(List Int, List Bool), Int))
+        parseType "([Int]->[Bool])->Int  =  3;" (true, ["="]) |> 
+            should equal ("  3;", Function(Function(List Int, List Bool), Int))
 
     [<Test>]
     member that.spacedType() =
-        parseType "  Int   ->   String  ) 4" [")"] |> 
-            should equal (") 4", Function(Int, List Char))
+        parseType "  Int   ->   String  ) 4" (true, [")"]) |> 
+            should equal (" 4", Function(Int, List Char))
 
     [<Test>]
     member that.emptyClosing() =
-        parseType "  Int   ->   String  ) 4" [""] |> 
+        parseType "  Int   ->   String  ) 4" (true, [""]) |> 
             should equal ("->   String  ) 4", Int)
 
     [<Test>]
     member that.emptyClosingParenthesis() =
-        parseType " ( Int   ->   String  ) 4" [""] |> 
+        parseType " ( Int   ->   String  ) 4" (true, [""]) |> 
             should equal ("4", Function(Int, List Char))
 
 
@@ -72,28 +72,34 @@ type TestIdentTypeParsing() =
 
     [<Test>]
     member that.emptyString() =
-        (fun () -> parseIdentTypePair "" [] |> ignore) |>   
+        (fun () -> parseIdentTypePair "" (true, []) |> ignore) |>   
             should throw typeof<InvalidEntryText> 
 
     [<Test>]
     member that.wrongSeparator() =
-        (fun () -> parseIdentTypePair "x;" ["="] |> ignore) |> 
+        (fun () -> parseIdentTypePair "x;" (true, ["="]) |> ignore) |> 
             should throw typeof<InvalidEntryText> 
 
     [<Test>]
     member that.invalidType() =
-        (fun () -> parseIdentTypePair "x:Doble, " [","] |> ignore) |> 
+        (fun () -> parseIdentTypePair "x:Doble, " (true, [","]) |> ignore) |> 
             should throw typeof<InvalidEntryText> 
 
     [<Test>]
     member that.noType() =
-        parseIdentTypePair "x = 3" ["="] |> 
-            should equal ("= 3", ("x", (None: Type option)))
+        parseIdentTypePair "x = 3" (true, ["="]) |> 
+            should equal (" 3", ("x", (None: Type option)))
 
     [<Test>]
     member that.simpleType() =
-        parseIdentTypePair "x:Int = 3" ["="] |> 
-            should equal ("= 3", ("x", Some Int))
+        parseIdentTypePair "x:Int = 3" (true, ["="]) |> 
+            should equal (" 3", ("x", Some Int))
+
+    [<Test>]
+    member that.complexType() =
+        parseIdentTypePair "x:[[Int]->[(Bool->String)]] = 3" (true, ["="]) |> 
+            should equal (" 3", ("x", Some <| 
+                List (Function (List Int, List (Function (Bool, List Char))))))
 
 
 [<TestFixture>]
@@ -101,23 +107,98 @@ type TestParameterParsing() =
 
     [<Test>]
     member that.emptyString() =
-        (fun () -> parseParameters "" [] |> ignore) |>   
+        (fun () -> parseParameters "" (true, []) |> ignore) |>   
             should throw typeof<InvalidEntryText> 
 
     [<Test>]
     member that.noTypes() =
-        parseParameters "x,y,z => x+y+z" ["=>"] |> 
-            should equal ("=> x+y+z", ["x", (None: Type option); 
+        parseParameters "x,y,z => x+y+z" (true, ["=>"]) |> 
+            should equal (" x+y+z", ["x", (None: Type option); 
                 "y", (None: Type option); "z", (None: Type option)])
 
     [<Test>]
     member that.simpleTypes() =
-        parseParameters "x:Int,y:Bool,z:String => x+y+z" ["=>"] |> 
-            should equal ("=> x+y+z", ["x", Some Int; 
+        parseParameters "x:Int,y:Bool,z:String => x+y+z" (true, ["=>"]) |> 
+            should equal (" x+y+z", ["x", Some Int; 
                 "y", Some Bool; "z", Some <| List Char])
 
     [<Test>]
     member that.complexTypes() =
-        parseParameters "x:[[Int]],y:(Bool->Int),z:String => x+y+z" ["=>"] |> 
-            should equal ("=> x+y+z", ["x", List Int |> List |> Some; 
+        parseParameters "x:[[Int]],y:(Bool->Int),z:String => x+y+z" (true, ["=>"]) |> 
+            should equal (" x+y+z", ["x", List Int |> List |> Some; 
                 "y", Some <| Function (Bool, Int); "z", Some <| List Char])
+
+
+[<TestFixture>]
+type TestStringLiteralParsing() =
+
+    [<Test>]
+    member that.emptyString() =
+        (fun () -> parseStringLiteral "" '"' |> ignore) |>   
+            should throw typeof<InvalidEntryText> 
+
+    [<Test>]
+    member that.simple() =
+        parseStringLiteral "hello governor\" said mary" '"' |> 
+            should equal ("\" said mary", "hello governor")
+
+    [<Test>]
+    member that.escapedClosing() =
+        parseStringLiteral "hello \\\"governor\\\"\" said mary" '"' |> 
+            should equal ("\" said mary", "hello \"governor\"")
+
+    [<Test>]
+    member that.noClosing() =
+        (fun () -> parseStringLiteral "hello governor' said mary" '"' |> ignore) |>   
+            should throw typeof<InvalidEntryText> 
+
+
+[<TestFixture>]
+type TestCharParsing() =
+
+    [<Test>]
+    member that.emptyChar() =
+        (fun () -> parseChar "'" |> ignore) |> 
+            should throw typeof<InvalidEntryText> 
+            
+    [<Test>]
+    member that.longChar() =
+        (fun () -> parseChar "sd'" |> ignore) |> 
+            should throw typeof<InvalidEntryText> 
+
+    [<Test>]
+    member that.unclosedChar() =
+        (fun () -> parseChar "a" |> ignore) |> 
+            should throw typeof<InvalidEntryText> 
+            
+    [<Test>]
+    member that.simpleChar() =
+        parseChar "a'; let..." |> should equal ("; let...", C 'a') 
+            
+    [<Test>]
+    member that.escapedChar() =
+        parseChar "\\\'' :: \\\"hello\\\"" |> 
+            should equal (" :: \\\"hello\\\"", C '\'') 
+
+[<TestFixture>]
+type TestStringParsing() =
+
+    [<Test>]
+    member that.emptyString() =
+        parseString "\" @ \\\"test\\\"" |> 
+            should equal (" @ \\\"test\\\"", Nil)
+            
+    [<Test>]
+    member that.unclosedString() =
+        (fun () -> parseString "aafte" |> ignore) |> 
+            should throw typeof<InvalidEntryText> 
+            
+    [<Test>]
+    member that.longString() =
+        parseString "thx\" @ \\\"test\\\"" |> should equal 
+            (" @ \\\"test\\\"", OP(C 't', Cons, OP(C 'h', Cons, OP(C 'x', Cons, Nil))))
+
+    [<Test>]
+    member that.escapedString() =
+        parseString "\\\"h\\\"\" @ \\\"hello\\\"" |> should equal 
+            (" @ \\\"hello\\\"", OP(C '"', Cons, OP(C 'h', Cons, OP(C '"', Cons, Nil))))

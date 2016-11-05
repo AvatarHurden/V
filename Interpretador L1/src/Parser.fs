@@ -5,153 +5,15 @@ open Definition
 open System
 open stdlib
 
+//#region Helper Types, Modules and Functions
+
 module Path =
     let appDir = AppDomain.CurrentDomain.SetupInformation.ApplicationBase
     let makeAppRelative fileName = System.IO.Path.Combine(appDir, fileName)
 
 exception InvalidEntryText of string
 
-
-  ////////////////
- //  Printing  //
-////////////////
-//#region Printing
-
-let rec private typeString typ =
-    match typ with
-    | Type.X(s) -> s
-    | Int -> "Int"
-    | Bool -> "Bool"
-    | Char -> "Char"
-    | List Char -> "String"
-    | Function(t1, t2) ->  
-        match t1 with
-        | Function(_,_) -> 
-            sprintf "(%s) -> %s" (typeString t1) (typeString t2)
-        | _ ->
-            sprintf "%s -> %s" (typeString t1) (typeString t2)
-    | List(t) ->
-        sprintf "[%s]" (typeString t)
-
-let rec private stringify term lvl =
-    let tabs = String.replicate(lvl) "\t"
-    match term with
-    | True -> 
-        tabs + "true"
-    | False -> 
-        tabs + "false"
-    | I(i) -> 
-        tabs + (string i)
-    | C c ->
-        tabs + (string c)
-    | OP(t1, Application, t2) ->
-        let t1' = (stringify t1 0)
-        if t1'.EndsWith("\n") then
-            sprintf "%s%s%s" tabs t1' (stringify t2 0)
-        else
-            sprintf "%s%s %s" tabs t1' (stringify t2 0)
-    | OP(t1, Cons, t2) ->
-        match t1 with
-        | OP(_, cons, _) ->
-            sprintf "%s(%s)::%s" tabs (stringify t1 0) (stringify t2 0)
-        | _ ->
-            sprintf "%s%s::%s" tabs (stringify t1 0) (stringify t2 0)
-    | OP(n1, op, n2) ->
-        let opString = match op with
-                        | Add -> "+"
-                        | Subtract -> "-"
-                        | Multiply -> "*"
-                        | Divide -> "/"
-                        | LessThan -> "<"
-                        | LessOrEqual -> "<="
-                        | Equal -> "="
-                        | Different -> "!="
-                        | GreaterOrEqual -> ">="
-                        | GreaterThan -> ">"
-                        | _ -> "nao sei o que é"
-        sprintf "%s(%s %s %s)" tabs (stringify n1 0) opString (stringify n2 0)
-    | Cond(t1, t2, t3) ->
-        sprintf "%sif %s then\n%s\n%selse\n%s" 
-            tabs (stringify t1 0) (stringify t2 (lvl+1)) tabs (stringify t3 (lvl+1))
-    | X(id) -> 
-        tabs + id
-    | Fn(id, Some typ, t) -> 
-        let term = (stringify t (lvl+1))
-        if term.EndsWith("\n") then
-            sprintf "%sfn(%s: %s) {\n%s%s}\n" 
-                tabs id (typeString typ) (stringify t (lvl+1)) tabs
-        else
-            sprintf "%sfn(%s: %s) {\n%s\n%s}" 
-                tabs id (typeString typ) (stringify t (lvl+1)) tabs
-    | Fn(id, None, t) -> 
-        let term = (stringify t (lvl+1))
-        if term.EndsWith("\n") then
-            sprintf "%sfn(%s) {\n%s%s}\n" 
-                tabs id (stringify t (lvl+1)) tabs
-        else
-            sprintf "%sfn(%s) {\n%s\n%s}" 
-                tabs id (stringify t (lvl+1)) tabs
-    | Let(id, Some typ, t1, t2) ->
-        sprintf "%slet %s: %s = %s;\n%s" 
-            tabs id (typeString typ) (stringify t1 0) (stringify t2 lvl)
-    | Let(id, None, t1, t2) ->
-        sprintf "%slet %s = %s;\n%s" 
-            tabs id (stringify t1 0) (stringify t2 lvl)
-    | LetRec(id, Some typ1, Some typ2, id2, t1, t2) ->
-        let typ1' = typeString typ1
-        let typ2' = typeString typ2
-        let t1' = stringify t1 (lvl+1)
-        let t2' = stringify t2 lvl
-        sprintf "%slet rec %s(%s: %s): %s {\n%s\n%s};\n%s" 
-            tabs id id2 typ1' typ2' t1' tabs t2'
-    | LetRec(id, None, None, id2, t1, t2) ->
-        let t1' = stringify t1 (lvl+1)
-        let t2' = stringify t2 lvl
-        sprintf "%slet rec %s(%s) {\n%s\n%s};\n%s" 
-            tabs id id2 t1' tabs t2'
-    | Closure(id, t, env) ->
-        stringify t lvl
-    | RecClosure(id1, id2, t, env) ->
-        stringify t lvl
-    | Nil -> 
-        sprintf "%snil" tabs
-    | IsEmpty(t) ->
-        sprintf "%sempty? %s" tabs (stringify t 0)
-    | Head(t) ->
-        sprintf "%shead %s" tabs (stringify t 0)
-    | Tail(t) ->
-        sprintf "%stail %s" tabs (stringify t 0)
-    | Raise ->
-        tabs + "raise"
-    | Try(t1, t2) ->
-        sprintf "%stry\n%s\nexcept\n%s" 
-            tabs (stringify t1 (lvl+1)) (stringify t2 (lvl+1))
-    | _ as t -> sprintf "Could not print term %A" t
-
-let print term = stringify term 0
-
-type term with
-    member public this.DisplayValue = stringify this 0
-
-//#endregion Printing
-
-
-  ///////////////
- //  Parsing  //
-///////////////
-//#region Parsing
-
-type private DelimiterPairs =
-    | Parenthesis
-    | Brackets
-    | SquareBrackets
-    | IfThen
-    | ThenElse
-    | LetSemicolon
-    | TryExcept
-    | Custom of string * string
-
-type private extendedOP =
+type infixOP =
     // Infix operators
     | Def of op
     | Pipe
@@ -160,720 +22,631 @@ type private extendedOP =
     | Concat
     | And
     | Or
-    // Prefix operators
+
+type prefixOP =
     | Negate
-
-type private extendedTerm =
+    | Head
+    | Tail
+    | IsEmpty
+    
+type extendedTerm =
     | Term of term
-    | Prefix of extendedOP
+    | Infix of infixOP
+    | Prefix of prefixOP
 
-//#region Utilities
-let private operatorsAtPriority i =
-    match i with             
-    | 0 -> [Negate]                          
-    | 1 -> [Def Application]            
-    | 2 -> [Def Multiply; Def Divide; Remainder]  
-    | 3 -> [Def Add; Def Subtract]   
-    | 4 -> [Def Cons]
-    | 5 -> [Concat]    
-    | 6 -> 
-        [Def LessOrEqual; Def LessThan; Def Equal; Def Different; 
-        Def GreaterThan; Def GreaterOrEqual; Pipe; BackwardsPipe]
-    | 7 -> [And]
-    | 8 -> [Or]
-    | _ -> []
+let private priorityOf op =
+    match op with             
+    | Prefix Negate -> 
+        0
+    | Infix (Def Application)
+    | Prefix IsEmpty
+    | Prefix Head
+    | Prefix Tail ->
+        1
+    | Infix (Def Multiply)
+    | Infix (Def Divide) 
+    | Infix Remainder ->
+        2
+    | Infix (Def Add)
+    | Infix (Def Subtract) ->
+        3
+    | Infix (Def Cons) ->
+        4
+    | Infix Concat ->
+        5
+    | Infix (Def LessOrEqual)
+    | Infix (Def LessThan)
+    | Infix (Def Equal)
+    | Infix (Def Different)
+    | Infix (Def GreaterThan)
+    | Infix (Def GreaterOrEqual)
+    | Infix Pipe
+    | Infix BackwardsPipe ->
+        6
+    | Infix And ->
+        7
+    | Infix Or ->
+        8
 
-let private splitSpaces (term: string) =
-    let empty = String.Concat (term |> Seq.takeWhile Char.IsWhiteSpace)
-    empty, term.Substring(empty.Length)
+
+let private splitSpaces term =
+    term |> Seq.skipWhile Char.IsWhiteSpace |> String.Concat
   
-// Finds a string between the first level of the delimiter pairs specified.
-// Identifies matching pairs (that is, the string "(())" will match the first opening
-// parenthesis with the final closing one)
-// If you wish to specify a starting "level" for the search, set startingCount to
-// the number of "openings" you want to simulate already having processed
-// Returns a tuple composed of:
-//      all text until and including the closing delimiter
-//      the text inside the opening and closing delimiter
-let private findClosingPair pair (text:string) startingCount =
-    let adder, subtractor = 
-        match pair with
-        | Parenthesis -> "(", ")"
-        | Brackets -> "{", "}"
-        | SquareBrackets -> "[", "]"
-        | IfThen -> "if ", " then "
-        | ThenElse -> " then ", " else "
-        | LetSemicolon -> "let ", ";"
-        | TryExcept -> "try ", " except "
-        | Custom(t1, t2) -> t1, t2
+let rec private matchStart (text: string) matches =
+    match matches with
+    | [] -> 
+        false, ""
+    | x::rest when text.StartsWith(x) ->
+        true, x
+    | x::rest ->
+        matchStart text rest
 
-    let mutable processed, trimmedText = splitSpaces text
-    
-    let mutable count = startingCount
-    let mutable fresh = count = 0
-    let mutable inside = ""
-
-    while (fresh || count <> 0) && not (processed.Equals(text)) do
-        let chars =
-            if text.Substring(processed.Length).StartsWith(subtractor) then
-                count <- count - 1
-                subtractor.Length
-            elif text.Substring(processed.Length).StartsWith(adder) then
-                count <- count + 1
-                adder.Length
-            else
-                1
-
-        if not fresh && count > 0 then
-            inside <- inside + text.Substring(processed.Length, chars)
-        processed <- processed + text.Substring(processed.Length, chars)
-        if count <> 0 then
-            fresh <- false
-
-    if (count = 0) then
-        processed, inside
-    elif count < 0 then
-        raise (InvalidEntryText ("Missing an opening " + adder))
+let private (|Number|_|) text =
+    let trimmed = splitSpaces text
+    if trimmed.Length > 0 && Char.IsDigit(trimmed.[0]) then
+        Some trimmed
     else
-        raise (InvalidEntryText ("Missing a closing " + subtractor))
+        None
 
-//#endregion Utilities
+type closings = bool * string list
 
-// Avança em text até encontrar algum caractere inválido para nome de variáveis
-// Se o nome encontrado for algum texto reservado, lança uma exceção.
-// Permite espaços brancos no começo da string
-// O retorno da função é uma tupla composto de (espaço em branco+ident, ident)
-let private findIdent text = 
-    let emptyText, trimmedText = splitSpaces text
-    let prohibited = " .,;:+-/*<=>(){}[]%!@\\'\"".ToCharArray()
-    let ident = String.Concat (trimmedText |> Seq.takeWhile (fun x -> not (Seq.exists ((=) x) prohibited)))
-    match ident with
-    | "let" | "true" | "false" | "if" | "then" | "else" 
-    | "fn" | "letrec"| "nil" | "head" | "tail" | "raise" 
-    | "try" | "except" | "for" | "in" | "empty?" ->
-        "A variable cannot be called " + ident |> InvalidEntryText |> raise
-    | "" ->
-        raise <| InvalidEntryText "Cannot declare an empty identifier"
-    | _ ->
-        (emptyText+ident, ident)   
-
-// Recursively find the type information in the input string.
-// The string must contain only a type definition (that is, it must end without any
-// other characters except for empty spaces)
-let rec private findType (text: string) (closing: string) =
-    let mutable empty1, trimmedText = splitSpaces text
-    
-    let typ1Text, typ1 = 
-        if trimmedText.StartsWith("[") then
-            let s, t = findType (trimmedText.Substring(1)) "]"
-            (empty1+"["+s, List(t))
-        elif trimmedText.StartsWith("(") then
-            let s, t = findType (trimmedText.Substring(1)) ")"
-            (empty1+"("+s, t)
-        elif trimmedText.StartsWith("Int") then
-            (empty1+"Int", Int)
-        elif trimmedText.StartsWith("Bool") then
-            (empty1+"Bool", Bool)
+let private (|AnyStart|_|) starts text =
+    let trimmed = splitSpaces text
+    let doesStart, start = matchStart trimmed <| snd starts
+    if doesStart then
+        if fst starts then
+            Some (trimmed.Substring start.Length, start)
         else
-            raise (InvalidEntryText "Invalid Type information")
-    
-    let empty2, nextToken = splitSpaces (text.Substring(typ1Text.Length))
-
-    if nextToken.Length = 0 then
-        (typ1Text+empty2, typ1)
-    elif nextToken.StartsWith(closing) then
-        (typ1Text+empty2+closing, typ1)
-    elif nextToken.StartsWith("->") then
-        let typ2Text, typ2 = findType  (nextToken.Substring("->".Length)) closing
-        (typ1Text+empty2+"->"+typ2Text, Function(typ1, typ2))
+            Some (trimmed, start)
     else
-        raise <| InvalidEntryText "Invalid Type information"
+        None
 
-//    if typ1Text.Equals(processed+trimmedText+endingSpaces) then
-//        (typ1Text, typ1)
-//    else
-//        processed <- typ1Text
-//        let emptyText, _ = splitSpaces (text.Substring(processed.Length))
-//        processed <- processed + emptyText
-//        if text.Substring(processed.Length).StartsWith("->") then
-//            processed <- processed + "->"
-//            let typ2Text, typ2 = text.Substring(processed.Length) |> findType 
-//            (processed+typ2Text, Function(typ1, typ2))
-//        else
-//            raise (InvalidEntryText "Invalid Type information")
-        
-let rec private findIdTypePair (text:string) (closing: string) =
-    let s, id = findIdent text
-    
-    let emptyText, trimmedText = text.Substring(s.Length) |> splitSpaces
-    
-    let typ =
-        if trimmedText.StartsWith(":") then
-            findType (trimmedText.Substring(1)) closing |> snd |> Some
-        else
-            None
-
-    (id, typ)
-
-// Receives a string containing parameters and receives a term
-// Returns a tuple with:
-//  - First parameter id
-//  - First parameter type
-//  - Return term
-//  - Return type
-let private parseParameters (paramText: string) returnTerm (returnType: Definition.Type option) (closing: string) =
-    let paramArray =  paramText.Split(',') |> Array.map (fun x -> findIdTypePair x closing)
-
-    if Array.exists (fun pair -> ((snd pair):Definition.Type option).IsSome) paramArray &&
-       Array.forall (fun pair -> ((snd pair):Definition.Type option).IsSome) paramArray |> not then
-            InvalidEntryText "Either specify all types or none" |> raise
+// If string starts with 'start' (after removing any leading whitespace),
+// returns the remaining string after removing 'start' (and whitespace)
+let private (|Start|_|) start text =
+    let trimmed = splitSpaces text
+    if trimmed.StartsWith start then
+        Some <| trimmed.Substring start.Length
     else
-        if paramArray.Length = 1 then
-            (fst paramArray.[0], snd paramArray.[0], returnTerm, returnType)
-        else
-            let mutable fnTerm = returnTerm
-            let mutable fnType = returnType
-            for pair in Array.rev paramArray.[1..] do
-                fnTerm <- Fn(fst pair, snd pair, fnTerm)
-                if fnType.IsSome then
-                    fnType <- Function((snd pair).Value, fnType.Value) |> Some
-                else
-                    ()
-            (fst paramArray.[0], snd paramArray.[0], fnTerm, fnType)
-            
+        None
 
-//#region String parsing
+let private (|Trimmed|) text =
+    splitSpaces text
 
-let private parseSingleChar (text: string) =
-
-    if text.Length = 0 then
-        raise <| InvalidEntryText "Can not parse an empty character"
-
-    if text.[0] = '\\' then
-        match text.[1] with
-        | 'n' -> '\n', 2
-        | 'b' -> '\b', 2
-        | 'r' -> '\r', 2
-        | 't' -> '\t', 2
-        | '\\' -> '\\', 2
-        | '"' -> '\"', 2
-        | '\'' -> '\'', 2
-        | _ -> sprintf "Invalid escaped char at %A" text |> InvalidEntryText |> raise
-    else
-        text.[0], 1
-
-let private parseChar (text: string) = 
-    if text.[0] <> '\'' then
-        sprintf "Error parsing char value at %A" text |> InvalidEntryText |> raise
-
-    let char, length = parseSingleChar <| text.Substring(1)
-
-    if char = '\'' && length = 1 || text.[length+1] <> '\'' then
-        sprintf "Error parsing char value at %A" text |> InvalidEntryText |> raise
-
-    text.Substring(0, 2 + length), C char
-
-let private parseString (text: string) = 
-    if text.[0] <> '"' then
-        sprintf "Error parsing string value at %A" text |> InvalidEntryText |> raise
-
-    let mutable curChar, totalLength = parseSingleChar <| text.Substring(1)
-    let mutable chars = [curChar]
-    let mutable curLength = totalLength
-
-    while totalLength+1 < text.Length && (curChar <> '"' || curLength = 2) do 
-        let char, length = parseSingleChar <| text.Substring(totalLength + 1)
-        curChar <- char
-        curLength <- length
-        if curChar = '"' then
-            totalLength <- totalLength + length
-        else
-            totalLength <- totalLength + length
-        chars <- chars @ [curChar]
-    
-    if totalLength = text.Length then
-        sprintf "Missing closing quotes for string at %A" text |> InvalidEntryText |> raise
-
-    chars <- List.rev chars |> List.tail
-    totalLength <- totalLength - 1
-
-    if text.[totalLength+1] <> '"' then
-        sprintf "Error parsing string value at %A" text |> InvalidEntryText |> raise
-
-    let ret = List.fold (fun acc x -> OP(C x, Cons, acc)) Nil chars
-
-    text.Substring(0, 2 + totalLength), ret
+let private raiseExp x = raise <| InvalidEntryText x
 
 //#endregion
 
-let private parseImport (text: string) =
-    let spaces, libText = splitSpaces <| text.Substring("import ".Length)
+//#region Identifier and Type Functions
 
-    let mutable whole, libname = 
-        if libText.StartsWith("\"") then
-            let s, _ = parseString libText
-            s, s.Substring(1, s.Length-2)
-        else
-            libText.Split(' ').[0], libText.Split(' ').[0]
+let parseIdent text = 
+    match text with
+    | Number rest ->
+        raiseExp "An identifier cannot begin with a digit"
+    | Trimmed rest ->
+        let prohibited = " .,;:+-/*<=>(){}[]%&|!@\\'\"\n\r\t".ToCharArray()
+        let ident = String.Concat (rest |> 
+                        Seq.takeWhile (fun x -> not <| Seq.exists ((=) x) prohibited))
+        match ident with
+        | "let" | "true" | "false" | "if" | "then" | "else" 
+        | "fn" | "letrec"| "nil" | "head" | "tail" | "raise" 
+        | "try" | "except" | "for" | "in" | "empty?" | "import" ->
+            raiseExp <| sprintf "A variable cannot be called %A at %A" ident text
+        | "" ->
+            raiseExp <| sprintf "Cannot declare an empty identifier at %A" text
+        | _ ->
+            rest.Substring(ident.Length), ident
 
-    if libname.EndsWith(".l1") |> not then
-        libname <- libname + ".l1"
+let rec parseType text closings =
+    let remainingText, typ1 = 
+        match text with
+        | Start "(" rest ->
+            parseType rest (true, [")"])
+        | Start "[" rest ->
+            let remaining, t = parseType rest (true, ["]"])
+            remaining, List t
+        | Start "Int" rest ->
+            rest, Int
+        | Start "Bool" rest ->
+            rest, Bool
+        | Start "Char" rest ->
+            rest, Definition.Char
+        | Start "String" rest ->
+            rest, List Definition.Char
+        | Trimmed rest ->
+            raiseExp <| sprintf "Could not parse type at %A" rest
+    
+    match remainingText with
+    | AnyStart closings (t, start) ->
+        t, typ1
+    | Start "->" rest ->
+        let remaining, typ2 = parseType rest closings
+        remaining, Function (typ1, typ2)
+    | _ -> 
+        raiseExp <| sprintf "Could not parse type at %A" remainingText
 
-    let mutable libContent =
+let parseSomeType text closings =
+    let rest, typ = parseType text closings
+    rest, Some typ
+
+let rec parseIdentTypePair text closings =
+    let typeString, id = parseIdent text
+    
+    let rest, typ =
+        match typeString with
+        | AnyStart closings (t, start) -> t, None
+        | Start ":" rest -> parseSomeType rest closings
+        | _ -> raiseExp <| sprintf "Expected %A, but found %A" closings typeString
+
+    rest, (id, typ)
+            
+let rec parseParameters text closings =
+    match text with
+    | AnyStart closings (t, start) ->
+        t, []
+    | Trimmed rest -> 
+        let removedFirst, (id, typ) = parseIdentTypePair rest (false, snd closings @ [","])
+
+        let nextParameterText =
+            match removedFirst with
+            | Start "," rest -> rest
+            | _ -> removedFirst
+
+        let removedRest, restPairs = parseParameters nextParameterText closings
+        removedRest, [id, typ] @ restPairs 
+      
+// Returns a tuple of ((id, type1), (term, type2), where
+// id: Ident of first parameter
+// type1: Type of first parameter
+// term: return term of function
+// type2: return type of function
+let rec joinMultiParameters parameters returnTerm returnType =
+    match parameters with
+    | [] ->
+        raiseExp "Must pass at least one parameter"
+    | (id, typ)::[] -> 
+        match typ, returnType with
+        | None, None
+        | Some _, Some _ ->
+            (id, typ), (returnTerm, returnType)
+        | _ ->
+            raiseExp "Either specify all types or none"
+    | _ ->
+        let seq = parameters |> List.toSeq
+        let id, typ = Seq.last seq
+        let newParams = seq |> Seq.take (parameters.Length - 1) |> Seq.toList
+        let newType = 
+            match typ, returnType with
+            | None, None ->
+                None
+            | Some t1, Some t2 ->
+                Some <| Function (t1, t2)
+            | _ ->
+                raiseExp "Either specify all types or none"
+        joinMultiParameters newParams (Fn (id, typ, returnTerm)) newType
+
+let rec parseStringLiteral (text: string) closing =
+    match text.ToCharArray() |> Array.toList with
+    | [] ->
+        raiseExp <| sprintf "Could not find closing %A" closing
+    | '\\'::tail ->
+        let current = 
+            match tail with
+            | 'n'::rest -> "\n"
+            | 'b'::rest -> "\b"
+            | 'r'::rest  -> "\r"
+            | 't'::rest -> "\t"
+            | '\\'::rest -> "\\"
+            | '"'::rest -> "\""
+            | '\''::rest -> "'"
+            | _ ->
+                raiseExp <| sprintf "Invalid escaped char at %A" text
+        let remaining, parsed = parseStringLiteral (String.Concat tail.Tail) closing
+        remaining, current + parsed
+    | t::tail when t = closing -> 
+        text, ""
+    | t::tail ->
+        let remaining, parsed = parseStringLiteral (String.Concat tail) closing
+        remaining, t.ToString() + parsed
+        
+//#endregion
+
+//#region Unifying
+
+let rec condenseTerms prev current nexts priority =
+    match current with
+    | Term x ->
+        match nexts with
+        | [] -> [Term x]
+        | Term y :: rest -> 
+            condenseTerms prev (Term <| OP (x, Application, y)) rest priority
+        | t :: rest ->
+            condenseTerms (Some current) t rest priority
+    | Prefix op when priorityOf current = priority ->
+        match prev, nexts with
+        | None, Term y :: rest ->
+            let term = 
+                match op with
+                | Negate -> OP (X "negate", Application, y)
+                | IsEmpty -> Definition.IsEmpty y
+                | Head -> Definition.Head y
+                | Tail -> Definition.Tail y
+            condenseTerms prev (Term term) rest priority
+        | Some _, _ ->
+            raise (InvalidEntryText <| sprintf "Prefix %A cannot be preceded by a term" op)
+        | _ ->
+            raiseExp <| sprintf "Prefix %A must be followed by a term" op
+    | Prefix op ->
+        match prev with
+        | Some _ ->
+            raise (InvalidEntryText <| sprintf "Prefix %A cannot be preceded by a term" op)
+        | None ->
+            [current] @ condenseTerms None nexts.Head nexts.Tail priority
+    | Infix op when priorityOf current = priority ->
+        match prev, nexts with
+        | Some (Term x), Term y :: rest ->
+            let term = 
+                match op with
+                | Def op -> OP (x, op, y)
+                | Pipe -> OP(y, Application, x)
+                | BackwardsPipe -> OP(x, Application, y)
+                | And -> OP (OP (X "and", Application, x), Application, y)
+                | Or -> OP (OP (X "or", Application, x), Application, y)
+                | Remainder -> OP (OP (X "remainder", Application, x), Application, y)
+                | Concat -> OP (OP (X "concat", Application, x), Application, y)
+            condenseTerms None (Term <| term) rest priority
+        | _ ->
+            raiseExp <| sprintf "Infix %A must be surrounded by terms" op
+    | Infix op ->
+        match prev with
+        | Some (Term x) ->
+            [Term x; current] @ condenseTerms None nexts.Head nexts.Tail priority
+        | _ ->
+            raiseExp <| sprintf "Infix %A must be preceded by a term" op
+
+// Iterate through list of (Term, Operator), joining into one Term
+let rec unifyTerms (terms: extendedTerm list) priority = 
+    if terms.Length = 1 then
+        match terms.Head with
+        | Term t -> t
+        | Prefix _ -> raiseExp "Cannot unify to a prefix"
+        | Infix _ -> raiseExp "Cannot unify to an infix"
+    else
+        unifyTerms (condenseTerms None terms.Head terms.Tail priority) (priority + 1)
+      
+//#endregion
+
+//#region Value Parsing
+
+let parseChar text =
+    let remaining, c = parseStringLiteral text '\''
+    
+    if not <| remaining.StartsWith "'" then
+        raiseExp <| sprintf "Missing closing ' for char literal at %A" text
+
+    if c.Length = 0 then
+        raiseExp <| sprintf "A char literal cannot be empty at %A" text
+    elif c.Length > 1 then
+        raiseExp <| sprintf "A char literal must have length 1 at %A" text
+
+    remaining.Substring 1, C c.[0]
+
+let parseString text =
+    let remaining, s = parseStringLiteral text '"'
+
+    if not <| remaining.StartsWith "\"" then
+        raiseExp <| sprintf "Missing closing \" for string literal at %A" text
+
+    let revArray = s.ToCharArray() |> Array.rev
+    let ret = Array.fold (fun acc x -> OP (C x, Cons, acc)) Nil revArray
+
+    remaining.Substring 1, ret
+
+//#endregion
+
+//#region Extensions Parsing
+
+let removeComments (text: string) =
+    let lines = text.Split('\n') |> Array.toSeq
+    let lines = Seq.map (fun (x:string) -> x.Split([|"//"|], StringSplitOptions.None).[0]) lines
+    Seq.reduce (fun acc x -> acc + "\n" + x) lines
+
+let rec parseImport text closings =
+    let remaining, libname = 
+        match text with
+        | Start "\"" rest ->
+            let rem, name = parseStringLiteral rest '"'
+            rem.Substring 1, name
+        | _ ->
+            raiseExp <| sprintf "Must have a string literal at %A" text
+        
+    let libContent =
+        let pathName = 
+            if not <| libname.EndsWith ".l1" then
+                libname + ".l1"
+            else
+                libname        
         if Path.makeAppRelative libname |> IO.File.Exists then
             Path.makeAppRelative libname |> IO.File.ReadAllText
         else
-            raise <| (InvalidEntryText <| sprintf "Could not find library file at %A" libname)
-        
-    let lines = libContent.Split('\n') |> Array.toSeq
-    libContent <- Seq.reduce (fun acc (x: string) -> acc + "\n" + x.Split([|"//"|], StringSplitOptions.None).[0]) lines
-    libContent <- ["\n"; "\t"; "\r"] |> Seq.fold (fun (acc: String) x -> acc.Replace(x, " ")) libContent
+            raiseExp <| sprintf "Could not find library file at %A" libname
 
-    "import "+spaces+whole, libContent + " " + libText.Substring(spaces.Length + whole.Length)
-
-// Finds an entire Let expression. After the ";", calls findTerms with the remaining text
-let rec private newFindLet (text: string) =
-    let spaces, definition = splitSpaces <| text.Substring("let ".Length)
-
-    if definition.StartsWith("rec ") then
-        newfindLetRec text
-    else
-        let s, id = findIdent definition
-
-        let spaces, rest = splitSpaces <| definition.Substring(s.Length)
-
-        if rest.StartsWith("(") then
-            findLetFunction text text text
-        else
-            findLetFunction text text text //findLetDeclaration text
-
-//and private newFindSimpleLet (text: string) =
-//    let spaces, definition = splitSpaces <| text.Substring("let ".Length)
-//    let id, typ = findIdTypePair definition
-//
-//    let typ = 
-//        if trimmedText.StartsWith(":") then
-//            try 
-//                let s, typeString = findClosingPair (Custom(":", "=")) (definition.Substring(processedText.Length)) 0
-//                let _, typ = findType typeString
-//                processedText <- processedText + s
-//                Some typ
-//            with
-//            | InvalidEntryText _ -> 
-//                InvalidEntryText(sprintf "Must set a type at %A" definition) |> raise
-//        elif trimmedText.StartsWith("=") then
-//            processedText <- processedText + "="
-//            None
-//        else
-//            definition |> sprintf "Expected a \"=\" at %A" |> InvalidEntryText |> raise
-//        
-//    let _, t1 = findTerms (definition.Substring(processedText.Length)) None
-//    processedText <- total
-//
-//    let _, t2 = findTerms (text.Substring(processedText.Length)) None
-//
-//    (text, Let(id, typ, t1, t2))
-
-and private newfindLetRec (text: string) =
-    let spaces, definition = splitSpaces <| text.Substring("let ".Length)
+    parseTerm (removeComments libContent + " " + remaining) (false, snd closings)
     
-    let spaces2, rest = splitSpaces <| definition.Substring("rec ".Length)
+//#endregion
 
-    let idString, id = findIdent rest
-    
-    let spaces, rest = splitSpaces <| rest.Substring(idString.Length)
+//#region Term parsing        
 
-    if not <| rest.StartsWith("(") then
-        sprintf "Missing parameters for recursive let at %A" text |>
-            InvalidEntryText |> raise
-
-    let id2, typ1, t1', typ2' = parseParameters (rest.Substring(1)) Nil None ")"
-    "", Nil
-
-
-and private findLet text =
-    let total, definition = findClosingPair LetSemicolon text 0
-
-    let emptyText, trimmedDefinition = splitSpaces definition
-    if trimmedDefinition.StartsWith("rec ") then
-        findLetRec text total (trimmedDefinition.Substring("rec ".Length))
-    else
-
-        let s, id = findIdent definition
-        let mutable processedText = s
-
-        let emptyText, _ = definition.Substring(processedText.Length) |> splitSpaces 
-        processedText <- processedText + emptyText
-        let trimmedText = definition.Substring(processedText.Length)
-
-        if trimmedText.StartsWith("(") then
-            findLetFunction text total trimmedDefinition
-        else
-            let typ = 
-                if trimmedText.StartsWith(":") then
-                    try 
-                        let typeString = definition.Substring(1+processedText.Length)
-                        let s, typ = findType typeString "="
-                        processedText <- ":" + processedText + s
-                        Some typ
-                    with
-                    | InvalidEntryText _ -> 
-                        InvalidEntryText(sprintf "Must set a type at %A" definition) |> raise
-                elif trimmedText.StartsWith("=") then
-                    processedText <- processedText + "="
-                    None
-                else
-                    definition |> sprintf "Expected a \"=\" at %A" |> InvalidEntryText |> raise
-        
-            let _, t1 = findTerms (definition.Substring(processedText.Length)) None
-            processedText <- total
-
-            let _, t2 = findTerms (text.Substring(processedText.Length)) None
-
-            (text, Let(id, typ, t1, t2))
-
-and private findLetRec (text: string) (total: string) (definition: string) =
-
-    let s, internalIds = findClosingPair Parenthesis definition 0
-
-    let s2, id1 = findIdent definition
-
-    let mutable remaining = definition.Replace(s.Substring(s2.Length), "")
-    let s, externalIds = findClosingPair (Custom("}", "{")) remaining 1
-    let id1, typ2 = findIdTypePair remaining "{"
-
-    remaining <- remaining.Replace(s, "")
-    let s, t1String = findClosingPair Brackets remaining 1
-    let _, t1 = findTerms t1String None
-
-    let id2, typ1, t1', typ2' = parseParameters internalIds t1 typ2 ")"
-
-    let _, t2 = findTerms (text.Substring(total.Length)) None
-
-    match typ1, typ2 with
-    | None, None | Some _, Some _ -> 
-        (text, LetRec(id1, typ1, typ2', id2, t1', t2))
-    | _, _ ->  
-        InvalidEntryText "You must either specify all types for a function, or none" |> raise
-
-and private findLetFunction (text: string) (total: string) (definition: string) =
-    let _, t = findLetRec text total definition
-    
-    match t with
-    | LetRec(id1, typ1, typ2, id2, t1, t2) ->
-        match typ1, typ2 with
-        | None, None ->    
-            (text, Let(id1, None, Fn(id2, None, t1), t2))    
-        | Some typ1, Some typ2 ->
-            (text, Let(id1, Function(typ1, typ2) |> Some, Fn(id2, Some typ1, t1), t2))
-        | _, _ ->
-            raise <| InvalidEntryText "You must either specify all types for a function, or none"
+and parseLet text closings =
+    match text with
+    | Start "rec" rest ->
+        parseLetRec rest closings
     | _ ->
-        raise <| InvalidEntryText "Wrong definition for a named function. (This will never print)"  
+        let rest, id = parseIdent text
+        match rest with
+        | Start "(" rest ->
+            parseNamedFunction text closings
+        | _ ->
+            parseLetDefinition text closings
 
+and parseLetDefinition text closings =
+    let rest, id = parseIdent text
+    let rest, typ =
+        match rest with
+        | Start ":" rest -> parseSomeType rest (true, ["="])
+        | Start "=" rest -> rest, None
+        | _ -> raiseExp <| sprintf "Expected a \"=\" at %A" text
+    let rest, t1 = parseTerm rest (true, [";"])
+    let rest, t2 = parseTerm rest (false, snd closings)
+    rest, Let(id, typ, t1, t2)
 
-and private findFn (text: string) = 
-    let mutable processed = "fn"
+and parseLetRec text closings =
+    let rest, id = parseIdent text
+    let rest, parameters =
+        match rest with
+        | Start "(" rest -> parseParameters rest (true, [")"])
+        | _ -> raiseExp <| sprintf "Expected a \"(\" at %A" text
+    let rest, retType =
+        match rest with
+        | Start ":" rest -> parseSomeType rest (true, ["{"])
+        | Start "{" rest -> rest, None
+        | _ -> raiseExp "Expected a \"{\" at %A" text
+    let rest, retTerm = parseTerm rest (true, ["}"])
+    let rest =
+        match rest with
+        | Start ";" rest -> rest
+        | _ -> raiseExp <| sprintf "Expected a \";\" at %A" text
+    let rest, t2 = parseTerm rest (false, snd closings)
 
-    let s, idString = findClosingPair Parenthesis (text.Substring(processed.Length)) 0
-    processed <- processed + s
+    let (id2, typ1), (retTerm, retType) = joinMultiParameters parameters retTerm retType
 
-    let s, tString = findClosingPair Brackets (text.Substring(processed.Length)) 0
-    let _, t = findTerms tString None
-    processed <- processed + s
+    rest, LetRec(id, typ1, retType, id2, retTerm, t2)
+        
+and parseNamedFunction text closings =
+    let rest, t = parseLetRec text closings
 
-    let id, typ, t1, _ = parseParameters idString t None ")" // Passa qualquer retorno pois não usa
+    match t with
+    | LetRec (id1, None, None, id2, t1, t2) ->
+        rest, Let (id1, None, Fn (id2, None, t1), t2)
+    | LetRec (id1, Some typ1, Some typ2, id2, t1, t2) ->
+        rest, Let (id1, Some <| Function (typ1, typ2), Fn (id2, Some typ1, t1), t2)
+    | _ ->
+        raiseExp <| sprintf "Wrong named function declaration at %A" text
 
-    (processed, Fn(id, typ, t1))
+and parseFunction text closings =
+    let rest, parameters =
+        match text with
+        | Start "(" rest -> parseParameters rest (true, [")"])
+        | _ -> raiseExp <| sprintf "Expected a \"(\" at %A" text
+    let rest, retTerm =
+        match rest with
+        | Start "{" rest -> parseTerm rest (true, ["}"])
+        | _ -> raiseExp <| sprintf "Expected a \"{\" at %A" text
+        
+    // A function does not need a return type, but I must know if the
+    // parameters have a type so that joining them will not cause an error
+    let (paramId, paramTyp), (retTerm, _) = 
+        joinMultiParameters parameters retTerm <| snd parameters.Head
 
-and private findLambda (text: string) =
-    let mutable processed = "\\"
-
-    let s, idString = findClosingPair (Custom("\\", "=>")) (text.Substring(processed.Length)) 1
-    processed <- processed + s
-
-    let _, t = findTerms (text.Substring(processed.Length)) None
-
-    let id, typ, t1, _ = parseParameters idString t None ")" // Passa qualquer retorno pois não usa
-
-    (text, Fn(id, typ, t1))
-
-
-and private findIf (text: string) =
-    let total, t1String = findClosingPair IfThen text 0
-    let _, t1 = findTerms t1String <| None
-    let mutable processed = total
-
-    let total, t2String = findClosingPair ThenElse (text.Substring(processed.Length)) 1
-    let _, t2 = findTerms t2String <| None
-    processed <- processed + total
-
-    let _, t3 = text.Substring(processed.Length) |> findTerms <| None
-
-    (text, Cond(t1, t2, t3))
-
-and private findTry (text: string) =
-    let total, t1String = findClosingPair TryExcept text 0
-    let _, t1 = findTerms t1String None
-
-    let _, t2 = text.Substring(total.Length) |> findTerms <| None
-
-    (text, Try(t1, t2))
-
-
-and private findList (text: string) =
-
-    let whole, inside = findClosingPair SquareBrackets text 0
+    rest, Fn(paramId, paramTyp, retTerm)
     
-    let mutable processed = ""
-    let mutable terms = []
+and parseLambda text closings =
+    let rest, parameters = parseParameters text (true, ["=>"])
+    let rest, retTerm = parseTerm rest (false, snd closings)
+        
+    // A function does not need a return type, but I must know if the
+    // parameters have a type so that joining them will not cause an error
+    let (paramId, paramTyp), (retTerm, _) = 
+        joinMultiParameters parameters retTerm <| snd parameters.Head
 
-    if inside.Contains ".." then
-        findRange text
-    else
-        try
-            while processed.Equals(inside) |> not do
-                let s, t = inside.Substring(processed.Length) |> findTerms <| Some ","
-                processed <- processed + s
-                terms <- t::terms
+    rest, Fn(paramId, paramTyp, retTerm)
+    
 
-            let term = terms |> List.fold (fun acc x -> OP(x, Cons, acc)) Nil
-            whole, term
-        with
-        | InvalidEntryText _ ->
-            findComprehension text
+and parseIf text closings =
+    let rest, t1 = parseTerm text (true, ["then"])
+    let rest, t2 = parseTerm rest (true, ["else"])
+    let rest, t3 = parseTerm rest (false, snd closings)
 
-and private findRange (text: string) =
+    rest, Cond(t1, t2, t3)
 
-    let whole, inside = findClosingPair SquareBrackets text 0
+and parseTry text closings =
+    let rest, t1 = parseTerm text (true, ["except"])
+    let rest, t2 = parseTerm rest (false, snd closings)
 
-    let processed, first = findTerms inside <| Some ".."
+    rest, Try(t1, t2)
 
-    let s, rest = inside.Substring(processed.Length) |> findTerms <| Some ".."
+and parseList text closings =
+    match text with
+    | Start "]" rest -> rest, Nil
+    | Trimmed rest ->
+        let rest, t = parseTerm text (false, [",";"..";"for";"]"])
+        match rest with
+        | Start "," rest -> parseMultiList text closings
+        | Start ".." rest -> parseRange text closings
+        | Start "for" rest -> parseComprehension text closings
+        | Start "]" rest -> rest, OP(t, Cons, Nil) 
+        | Trimmed rest -> raiseExp <| sprintf "Expected \",\" at %A" rest
 
-    let second, last =
-        if processed+s = inside then
-            OP(first, Add, I 1), rest
-        else
-            let _, last = (inside.Substring((s+processed).Length) |> findTerms <| Some "..")
-            rest, last
+and parseMultiList text closings =
+    let rest, t = parseTerm text (false, [",";"]"])
+    match rest with
+    | Start "," rest -> 
+        let rest, t2 = parseMultiList rest closings
+        rest, OP(t, Cons, t2) 
+    | Start "]" rest -> 
+        rest, OP(t, Cons, Nil) 
+    | Trimmed rest ->
+        raiseExp <| sprintf "Expected \"]\" at %A" rest
 
-    let start = first
-    let finish = last
-    let increment = OP(second, Subtract, start)
-   
-    whole, OP(OP(OP(X "range", Application, start), Application, finish), Application, increment)
-
-
-and private findComprehension (text: string) =
-    let whole, inside = findClosingPair SquareBrackets text 0
-
-    let s, t1 = inside |> findTerms <|Some "for "
-
-    let s, idString = findClosingPair (Custom("for ", " in ")) inside 0
-    let _, id = findIdent idString
-
-    let t2String = inside.Substring(s.Length)
-    let _, t2 = findTerms t2String None
+and parseComprehension text closings =
+    let rest, t1 = parseTerm text (true, ["for"])
+    let rest, id = parseIdent rest
+    let rest, t2 = 
+        match rest with
+        | Start "in" rest -> parseTerm rest (true, ["]"])
+        | _ -> raiseExp <| sprintf "Expected \"in\" at %A" rest
 
     let f = Fn(id, None, t1)
-    whole, OP(OP(X("map"), Application, f), Application, t2)
-    
+    rest, OP (OP (X "map", Application, f), Application, t2)
 
-// Finds a single term in the input string
-// If this function finds a "subterm" (that is, an opening parenthesis), it calls
-// findTerms resursively
-// Returns a tuple made of (all the processed text, term)
-and private findTerm (text: string) =
+and parseRange text closings = 
+    let rest, first = parseTerm text (true, [".."])
+    let rest, second = parseTerm rest (false, ["..";"]"])
+    let rest, increment, last =
+        match rest with
+        | Start ".." rest -> 
+            let rest, last = parseTerm rest (true, ["]"])
+            rest, OP(second, Subtract, first), last
+        | Start "]" rest -> 
+            rest, I 1, second
+        | _ -> raiseExp <| sprintf "Expected \"]\" at %A" rest
 
-    let mutable emptyText, trimmedText = splitSpaces text
-    
-    if trimmedText.Length = 0 then
-        raise <| InvalidEntryText "Missing a term"
+    rest, OP (OP (OP (X "range", Application, first), Application, last), Application, increment)
 
-    if trimmedText.StartsWith("import ") then
-        let original, newText = parseImport trimmedText
-        let s, t = findTerm <| newText
-        emptyText+trimmedText, t
-    elif trimmedText.StartsWith("let ") then
-        let s, t = findLet trimmedText
-        (emptyText+s, Term t)
-    elif trimmedText.StartsWith("fn(") || trimmedText.StartsWith("fn ") then
-        let s, t = findFn trimmedText
-        (emptyText+s, Term t)
-    elif trimmedText.StartsWith("\\") then
-        let s, t = findLambda trimmedText
-        (emptyText+s, Term t)
-    elif trimmedText.StartsWith("if ") then
-        let s, t = findIf trimmedText
-        (emptyText+s, Term t)
-    elif trimmedText.StartsWith("try ") then
-        let s, t = findTry trimmedText
-        (emptyText+s, Term t)
-    elif trimmedText.StartsWith("(") then
-        let s, subTerm = findClosingPair Parenthesis trimmedText 0
-        let s, t = (s, findTerms subTerm None |> snd)
-        (emptyText + s, Term t)
-    elif trimmedText.StartsWith("[") then
-        let s, t = findList trimmedText
-        (emptyText + s, Term t)
-    elif Char.IsDigit(trimmedText.Chars(0)) then
-        let s = trimmedText.ToCharArray()
-        let t = s |> Seq.takeWhile (fun x -> Char.IsDigit(x))
-        (emptyText+String.Concat(t), Term <| I(int (String.Concat(t))))
-    elif trimmedText.StartsWith("-") then
-        (emptyText+"-", Prefix Negate)
-    elif trimmedText.StartsWith("'") then
-        let s, t = parseChar trimmedText
-        (emptyText + s, Term t)
-    elif trimmedText.StartsWith("\"") then
-        let s, t = parseString trimmedText
-        (emptyText + s, Term t)
+and leftAssociate string extendedTerm closings =
+    let isTerm =
+        match extendedTerm with
+        | Term t -> true
+        | _ -> false
+    let rem, rest = collectTerms string closings isTerm
+    rem, extendedTerm :: rest
+
+// Iterate through the string, collecting single terms and operators
+and collectTerms text closings isAfterTerm = 
+    try
+        let rem, id = parseIdent text
+        leftAssociate rem (Term <| X id) closings
+    with
+    | InvalidEntryText t ->
+        match text with
+        | AnyStart closings (t, start) ->
+            t, []
+        | Start "(" rest ->
+            let rem, term = parseTerm rest (true, [")"])
+            leftAssociate rem (Term term) closings
+        // Matching value terms
+        | Number rest ->
+            let s = rest.ToCharArray()
+            let num = s |> Seq.takeWhile (fun x -> Char.IsDigit(x)) |> String.Concat
+            leftAssociate (rest.Substring num.Length) (Term <| I (int num)) closings
+        | Start "true" rest ->
+            leftAssociate rest (Term True) closings
+        | Start "false" rest ->
+            leftAssociate rest (Term False) closings
+        | Start "raise" rest ->
+            leftAssociate rest (Term Raise) closings
+        | Start "nil" rest ->
+            leftAssociate rest (Term Nil) closings
+        | Start "\"" rest ->
+            let rem, term = parseString rest
+            leftAssociate rem (Term term) closings
+        | Start "'" rest ->
+            let rem, term = parseChar rest
+            leftAssociate rem (Term term) closings
+        // Matching normal terms
+        | Start "import" rest ->
+            let rem, term = parseImport rest closings
+            leftAssociate rem (Term term) closings
+        | Start "let" rest ->
+            let rem, term = parseLet rest closings
+            leftAssociate rem (Term term) closings
+        | Start "fn" rest ->
+            let rem, term = parseFunction rest closings
+            leftAssociate rem (Term term) closings
+        | Start "\\" rest ->
+            let rem, term = parseLambda rest closings
+            leftAssociate rem (Term term) closings
+        | Start "if" rest ->
+            let rem, term = parseIf rest closings
+            leftAssociate rem (Term term) closings
+        | Start "try" rest ->
+            let rem, term = parseTry rest closings
+            leftAssociate rem (Term term) closings
+        | Start "[" rest ->
+            let rem, term = parseList rest closings
+            leftAssociate rem (Term term) closings
+        // Matching prefix operators
+        | Start "-" rest when not isAfterTerm ->
+            leftAssociate rest (Prefix Negate) closings
+        | Start "empty?" rest ->
+            leftAssociate rest (Prefix IsEmpty) closings
+        | Start "head" rest ->
+            leftAssociate rest (Prefix Head) closings
+        | Start "tail" rest ->
+            leftAssociate rest (Prefix Tail) closings
+        // Matching infix operators
+        | Start "|>" rest ->
+            leftAssociate rest (Infix Pipe) closings
+        | Start "<|" rest ->
+            leftAssociate rest (Infix BackwardsPipe) closings
+        | Start "%" rest ->
+            leftAssociate rest (Infix Remainder) closings        
+        | Start "@" rest ->
+            leftAssociate rest (Infix Concat) closings
+        | Start "&&" rest ->
+            leftAssociate rest (Infix And) closings
+        | Start "||" rest ->
+            leftAssociate rest (Infix Or) closings
+        | Start "+" rest ->
+            leftAssociate rest (Infix <| Def Add) closings
+        | Start "-" rest when isAfterTerm ->
+            leftAssociate rest (Infix <| Def Subtract) closings
+        | Start "*" rest ->
+            leftAssociate rest (Infix <| Def Multiply) closings
+        | Start "/" rest ->
+            leftAssociate rest (Infix <| Def Divide) closings
+        | Start "<=" rest ->
+            leftAssociate rest (Infix <| Def LessOrEqual) closings
+        | Start "<" rest ->
+            leftAssociate rest (Infix <| Def LessThan) closings
+        | Start "=" rest ->
+            leftAssociate rest (Infix <| Def Equal) closings
+        | Start "!=" rest ->
+            leftAssociate rest (Infix <| Def Different) closings
+        | Start ">=" rest ->
+            leftAssociate rest (Infix <| Def GreaterOrEqual) closings
+        | Start ">" rest ->
+            leftAssociate rest (Infix <| Def GreaterThan) closings
+        // Right associative operators
+        | Start "::" rest ->
+            let rem, term = parseTerm rest closings
+            rem, Infix (Def Cons) :: [Term term]
+        | _ when (snd closings).IsEmpty ->
+            "", []
+        | _ -> 
+            raiseExp <| sprintf "Expected \"%A\" at %A" closings text
+
+
+// Calls collectTerms and unify, testing if the return is a term
+and parseTerm text closings = 
+    let rem, collected = collectTerms text closings false
+    if collected.Length = 0 then
+        raiseExp <| sprintf "Must have at least one term to process at %A" text
+    rem, unifyTerms collected 0
+
+let parse text =
+    let rem, t = parseTerm (removeComments <| stdlib.content + text) (true, [])
+    if rem.Length > 0 then
+        raiseExp "Something went very wrong with parsing"
     else
-        try
-            let text, ident = findIdent trimmedText
-            (emptyText+text, Term <| X(ident))
-        with
-        | InvalidEntryText t ->
-            if trimmedText.StartsWith("true") then
-                (emptyText+"true", Term True)
-            elif trimmedText.StartsWith("false") then
-                (emptyText+"false", Term False)
-            elif trimmedText.StartsWith("raise") then
-                (emptyText+"raise", Term Raise)
-            elif trimmedText.StartsWith("nil") then
-                (emptyText+"nil", Term Nil)
-            elif trimmedText.StartsWith("empty?") then
-                (emptyText+"empty?", Term <| Fn("x", None, IsEmpty(X("x"))))
-            elif trimmedText.StartsWith("head") then
-                (emptyText+"head", Term <| Fn("x", None, Head(X("x"))))
-            elif trimmedText.StartsWith("tail") then
-                (emptyText+"tail", Term <| Fn("x", None, Tail(X("x"))))
-
-            else
-                raise <| InvalidEntryText t 
-
-// Repeatedly calls findTerm to find all terms defined in the input string
-// This is needed to deal with the left-associativity of operations
-// Returns the finished term (when more than one subterm exists, this is always an OP)
-and private findTerms text (endingString: string option) =
-    let text = text.TrimEnd()
-    let mutable subText, term = findTerm text
-    let mutable foundEnd = subText.Equals(text)
-
-    let mutable termList = [] |> List.toSeq
-    while not foundEnd  do
-
-        let opString = text.Substring(subText.Length)
-        let opTrimmed = opString.TrimStart()
-
-        if endingString.IsSome && opTrimmed.StartsWith(endingString.Value) then
-            subText <- subText + (opString |> splitSpaces |> fst) + endingString.Value
-            foundEnd <- true
-        else
-        let opChar, op = 
-                match term with
-                | Prefix op -> "", op
-                | Term _ ->
-                    if   opTrimmed.StartsWith "|>" then "|>", Pipe
-                    elif opTrimmed.StartsWith "<|" then "<|", BackwardsPipe
-                    elif opTrimmed.StartsWith "%" then "%", Remainder
-                    elif opTrimmed.StartsWith "@" then "@", Concat
-                    elif opTrimmed.StartsWith "&&" then "&&", And
-                    elif opTrimmed.StartsWith "||" then "||", Or
-                    elif opTrimmed.StartsWith "+"  then "+", Def Add
-                    elif opTrimmed.StartsWith "-"  then "-", Def Subtract
-                    elif opTrimmed.StartsWith "*"  then "*", Def Multiply
-                    elif opTrimmed.StartsWith "/"  then "/", Def Divide
-                    elif opTrimmed.StartsWith "<=" then "<=", Def LessOrEqual
-                    elif opTrimmed.StartsWith "<"  then "<", Def LessThan
-                    elif opTrimmed.StartsWith "="  then "=", Def Equal
-                    elif opTrimmed.StartsWith "!=" then "!=", Def Different
-                    elif opTrimmed.StartsWith ">=" then ">=", Def GreaterOrEqual
-                    elif opTrimmed.StartsWith ">"  then ">", Def GreaterThan
-                    elif opTrimmed.StartsWith "::" then "::", Def Cons
-                    else "", Def Application
-        subText <- subText + (opString |> splitSpaces |> fst) + opChar
-
-        termList <- Seq.append termList [|(term, Some op)|]
-
-        let newText, newTerm =
-            if op = Def Cons then
-                let rest = text.Substring(subText.Length)
-                (rest, Term <| (snd <| findTerms rest None))
-            else
-                findTerm (text.Substring(subText.Length).TrimEnd())
-        subText <- subText + newText
-        
-        foundEnd <- subText.Equals(text)
-        
-        term <- newTerm
-    termList <- Seq.append termList [|(term, None)|]
-
-    let mutable priority = 0;
-    while (operatorsAtPriority priority).Length > 0 do
-        let mutable index = 0;
-        while termList |> Seq.nth index |> snd |> (=) None |> not do
-            let op = (termList |> Seq.nth index |> snd).Value
-            if (operatorsAtPriority priority) |> Seq.exists ((=) op) then
-                let t1 = termList |> Seq.nth index |> fst
-                let t2 = termList |> Seq.nth (index + 1) |> fst
-
-                let nextOp = termList |> Seq.nth (index + 1) |> snd
-                let newTerm =
-                    match t1, t2 with
-                    | Prefix pre, Term t2 ->
-                        match pre with
-                        | Negate -> OP(X("negate"), Application, t2)
-                        | pre -> sprintf "The operator %A is not a prefix" pre |> InvalidEntryText |> raise
-                    | Term t1, Term t2 ->
-                        match op with
-                        | Def op -> OP(t1, op, t2)
-                        | Pipe -> OP(t2, Application, t1)
-                        | BackwardsPipe -> OP(t1, Application, t2)
-                        | Remainder -> OP(OP(X("remainder"), Application, t1), Application, t2)
-                        | Concat -> OP(OP(X("concat"), Application, t1), Application, t2)
-                        | And -> OP(OP(X("and"), Application, t1), Application, t2)
-                        | Or -> OP(OP(X("or"), Application, t1), Application, t2)
-                        | Negate -> raise <| InvalidEntryText "Two terms cannot have a \"negate\" prefix between them"
-                    | Prefix pre, Prefix pre2 ->
-                        sprintf "The prefix %A cannot be followed by the prefix %A" pre pre2 |> InvalidEntryText |> raise
-                    | Term t, Prefix pre ->
-                        sprintf "The term %A cannot be followed by the prefix %A" t pre |> InvalidEntryText |> raise
-                termList <- Seq.append (Seq.take index termList)
-                    (Seq.append [(Term newTerm, nextOp)] (Seq.skip (index+2) termList))
-                index <- if index = 0 then 0 else index - 1
-            else
-                index <- index + 1
-            let t = termList |> Seq.toArray
-            ()
-        priority <- priority + 1
-
-    match termList |> Seq.nth 0 |> fst with
-    | Term t ->
-        subText, t
-    | _ -> raise <| InvalidEntryText "Prefix operator needs a term afterwards"
-
-let rec private parseText (text: String) (args: string list) addLib =
-    let mutable text = text
-
-    let mutable argCount = args.Length;
-    for arg in List.rev args do
-        text <- (sprintf "let arg%A = %O;\n" argCount arg) + text
-        argCount <- argCount - 1
-        
-    if addLib then
-        text <- stdlib.content + text
-
-    let lines = text.Split('\n') |> Array.toSeq
-    text <- Seq.reduce (fun acc (x: string) -> acc + "\n" + x.Split([|"//"|], StringSplitOptions.None).[0]) lines
-    text <- ["\n"; "\t"; "\r"] |> Seq.fold (fun (acc: String) x -> acc.Replace(x, " ")) text
-   
-    text <- text + " "
-
-    findTerms text None |> snd
-
-let parseTermPure text args = parseText text args false
-let parseTerm text args = parseText text args true
-
-//#endregion Parsing
+        t
