@@ -230,17 +230,17 @@ type TestLists() =
 
     [<Test>]
     member that.range() =
-        compare "[1..3..10]" <|
+        compare "[1,3..10]" <|
             OP(I 1, Cons, OP(I 3, Cons, OP(I 5, Cons, OP(I 7, Cons, OP(I 9, Cons, Nil)))))
 
     [<Test>]
     member that.negativeRange() =
-        compare "[-30..-20..10]" <|
+        compare "[-30,-20..10]" <|
             OP(I -30, Cons, OP(I -20, Cons, OP(I -10, Cons, OP(I 0, Cons, OP(I 10, Cons, Nil)))))
         
     [<Test>]
     member that.subtractiveRange() =
-        compare "[5..4..1]" <|
+        compare "[5,4..1]" <|
             OP(I 5, Cons, OP(I 4, Cons, OP(I 3, Cons, OP(I 2, Cons, OP(I 1, Cons, Nil)))))
 
 [<TestFixture>]

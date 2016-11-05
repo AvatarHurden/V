@@ -67,8 +67,9 @@ let private priorityOf op =
         7
     | Infix Or ->
         8
-
-
+        
+type closings = bool * string list
+ 
 let private splitSpaces term =
     term |> Seq.skipWhile Char.IsWhiteSpace |> String.Concat
   
@@ -87,8 +88,6 @@ let private (|Number|_|) text =
         Some trimmed
     else
         None
-
-type closings = bool * string list
 
 let private (|AnyStart|_|) starts text =
     let trimmed = splitSpaces text
@@ -479,9 +478,13 @@ and parseList text closings =
     match text with
     | Start "]" rest -> rest, Nil
     | Trimmed rest ->
-        let rest, t = parseTerm text (false, [",";"..";"for";"]"])
+        let rest, t = parseTerm rest (false, [",";"..";"for";"]"])
         match rest with
-        | Start "," rest -> parseMultiList text closings
+        | Start "," rest -> 
+            let rest, t2 = parseTerm rest (false, [",";"..";"]"])
+            match rest with
+            | Start ".." rest -> parseRange text closings
+            | Trimmed rest -> parseMultiList text closings
         | Start ".." rest -> parseRange text closings
         | Start "for" rest -> parseComprehension text closings
         | Start "]" rest -> rest, OP(t, Cons, Nil) 
@@ -510,17 +513,16 @@ and parseComprehension text closings =
     rest, OP (OP (X "map", Application, f), Application, t2)
 
 and parseRange text closings = 
-    let rest, first = parseTerm text (true, [".."])
-    let rest, second = parseTerm rest (false, ["..";"]"])
-    let rest, increment, last =
+    let rest, first = parseTerm text (false, [",";".."])
+    let rest, increment =
         match rest with
-        | Start ".." rest -> 
-            let rest, last = parseTerm rest (true, ["]"])
-            rest, OP(second, Subtract, first), last
-        | Start "]" rest -> 
-            rest, I 1, second
-        | _ -> raiseExp <| sprintf "Expected \"]\" at %A" rest
-
+        | Start "," rest -> 
+            let rest, second = parseTerm rest (true, [".."])
+            rest, OP(second, Subtract, first)
+        | Start ".." rest -> rest, I 1
+        | Trimmed rest -> raiseExp <| sprintf "Expected \"..\" at %A" rest
+    let rest, last = parseTerm rest (true, ["]"])
+    
     rest, OP (OP (OP (X "range", Application, first), Application, last), Application, increment)
 
 and leftAssociate string extendedTerm closings =
@@ -530,6 +532,10 @@ and leftAssociate string extendedTerm closings =
         | _ -> false
     let rem, rest = collectTerms string closings isTerm
     rem, extendedTerm :: rest
+
+and rightAssociate string extendedTerm closings =
+    let rem, term = parseTerm string closings
+    rem, extendedTerm :: [Term term]
 
 // Iterate through the string, collecting single terms and operators
 and collectTerms text closings isAfterTerm = 
@@ -603,10 +609,6 @@ and collectTerms text closings isAfterTerm =
             leftAssociate rest (Infix Remainder) closings        
         | Start "@" rest ->
             leftAssociate rest (Infix Concat) closings
-        | Start "&&" rest ->
-            leftAssociate rest (Infix And) closings
-        | Start "||" rest ->
-            leftAssociate rest (Infix Or) closings
         | Start "+" rest ->
             leftAssociate rest (Infix <| Def Add) closings
         | Start "-" rest when isAfterTerm ->
@@ -629,11 +631,14 @@ and collectTerms text closings isAfterTerm =
             leftAssociate rest (Infix <| Def GreaterThan) closings
         // Right associative operators
         | Start "::" rest ->
-            let rem, term = parseTerm rest closings
-            rem, Infix (Def Cons) :: [Term term]
+            rightAssociate rest (Infix <| Def Cons) closings
+        | Start "&&" rest ->
+            rightAssociate rest (Infix And) closings
+        | Start "||" rest ->
+            rightAssociate rest (Infix Or) closings
         | _ when (snd closings).IsEmpty ->
             "", []
-        | _ -> 
+        | _ ->
             raiseExp <| sprintf "Expected \"%A\" at %A" closings text
 
 
