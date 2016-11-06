@@ -261,8 +261,15 @@ type TestSequence() =
                     f \"hello\" \"world\"" <| (evaluate <| parse "\"hello world\"")
 
     [<Test>]
+    member that.passUnit() =
+        compare    "let f(x: Unit, y: Unit): Unit {
+	                    x;y
+                    };
+                    f (output \"hello\") (output \"world\")" <| Skip
+
+    [<Test>]
     member that.printInLet() =
-        compare    "let x = output \"hi\";
+        compare    "let x: Unit = output \"hi\";
                     x" <| Skip
                     
     [<Test>]

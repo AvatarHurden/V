@@ -292,4 +292,70 @@ let rec sort(ls) {
 };
 
 
+// ===========================
+// String conversion functions
+// ===========================
+
+let parseInt(s: String): Int {
+    if empty? s then
+        raise
+    else
+        let rec f(s) {
+            if empty? s then
+                0
+            else 
+                let x = 
+                    if head s = '0' then 0
+                    else if head s = '1' then 1
+                    else if head s = '2' then 2
+                    else if head s = '3' then 3
+                    else if head s = '4' then 4
+                    else if head s = '5' then 5
+                    else if head s = '6' then 6
+                    else if head s = '7' then 7
+                    else if head s = '8' then 8
+                    else if head s = '9' then 9
+                    else raise;
+            x + 10 * f (tail s)
+        };
+        f (reverse s)
+};
+
+let rec printInt(i: Int): String {
+    let parseDigit(d) {
+        if d = 0 then "0"
+        else if d = 1 then "1"
+        else if d = 2 then "2"
+        else if d = 3 then "3"
+        else if d = 4 then "4"
+        else if d = 5 then "5"
+        else if d = 6 then "6"
+        else if d = 7 then "7"
+        else if d = 8 then "8"
+        else "9"
+    };
+    if i < 10 then
+        parseDigit i
+    else 
+        let c = parseDigit (i % 10);     
+        (f (s/10)) @ c
+};
+
+let parseBool(s: String): Bool {
+    if s = "true" then
+        true
+    else if s = "false" then
+        false
+    else 
+        raise
+};
+
+
+let printBool(b: Bool): String {
+    if b then
+        "true"
+    else
+        "false"
+};
+
 """
