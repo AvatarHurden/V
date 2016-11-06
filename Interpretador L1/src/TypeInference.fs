@@ -35,6 +35,8 @@ let rec collectConstraints term env =
         Int, []
     | C(c) ->
         Char, []
+    | Skip ->
+        Unit, []
     | OP(t1, Application, t2) ->
         let typ1, c1 = collectConstraints t1 env
         let typ2, c2 = collectConstraints t2 env
@@ -44,6 +46,10 @@ let rec collectConstraints term env =
         let typ1, c1 = collectConstraints t1 env
         let typ2, c2 = collectConstraints t2 env
         typ1 |> List, c1 @ c2 @ [Equals (List typ1, typ2)]
+    | OP(t1, Sequence, t2) ->
+        let typ1, c1 = collectConstraints t1 env
+        let typ2, c2 = collectConstraints t2 env
+        typ2, c1 @ c2 @ [Equals (typ1, Unit)]
     | OP(t1, Equal, t2) 
     | OP(t1, Different, t2) ->
         let typ1, c1 = collectConstraints t1 env
@@ -117,6 +123,11 @@ let rec collectConstraints term env =
         let typ1, c1 = collectConstraints t1 env
         let typ2, c2 = collectConstraints t2 env
         typ2, c1 @ c2 @ [Equals (typ1, typ2)]
+    | Input ->
+        List Char, []
+    | Output(t1) ->
+        let typ1, c1 = collectConstraints t1 env
+        Unit, c1 @ [Equals (typ1, List Char)]
     | Closure(_, _, _) | RecClosure(_, _, _, _) as t->
         sprintf "Cannot collect constraints for a closure at %A" t |> InvalidType |> raise
 
@@ -126,7 +137,8 @@ let rec occursIn x typ =
     match typ with
     | Int
     | Bool
-    | Char -> false
+    | Char
+    | Unit -> false
     | List(t1) -> occursIn x t1
     | Function(t1, t2) -> occursIn x t1 || occursIn x t2
     | Type.X(id) -> id = x
@@ -139,7 +151,7 @@ let substituteInType subs typ' =
         | Int -> Int
         | Bool -> Bool
         | Char -> Char
-        | String -> String
+        | Unit -> Unit
         | List(s1) -> List(f s1)
         | Function(s1, s2) -> Function(f s1, f s2)
         | Type.X(id) ->
@@ -178,14 +190,14 @@ let rec getTraitRequirements typ trait' =
         | Int | Bool | Char -> []
         | Type.X x as typ' -> [Trait (typ', Equatable)]
         | List typ' -> getTraitRequirements typ' trait'
-        | Function (_, _) -> 
+        | Function (_, _) | Unit -> 
             raise <| InvalidType "Did not meet equatable trait requirement" 
     | Orderable ->
         match typ with
         | Int | Char -> []
         | Type.X x as typ' -> [Trait (typ', Orderable)]
         | List typ' -> getTraitRequirements typ' trait'
-        | Bool | Function (_, _) -> 
+        | Bool | Unit | Function (_, _) -> 
             raise <| InvalidType "Did not meet orderable trait requirement"
 
 // Main Unify Functions
@@ -222,6 +234,7 @@ let rec applyType typ substitutions =
     | Int -> Int
     | Bool -> Bool
     | Char -> Char
+    | Unit -> Unit
     | List(t1) -> 
         List(applyType t1 substitutions)
     | Function(t1, t2) -> 

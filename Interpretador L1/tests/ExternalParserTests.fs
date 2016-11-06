@@ -243,6 +243,34 @@ type TestLists() =
         compare "[5,4..1]" <|
             OP(I 5, Cons, OP(I 4, Cons, OP(I 3, Cons, OP(I 2, Cons, OP(I 1, Cons, Nil)))))
 
+
+[<TestFixture>]
+type TestSequence() =
+
+    [<Test>]
+    member that.skipOutput() =
+        compare    "skip;output \"hi\";3" <| I 3
+
+    [<Test>]
+    member that.printConcat() =
+        compare    "let f(x, y) {
+	                    output \"the first argument is \"@x;
+	                    output \"the second argument is \"@y;
+	                    x @ \" \" @ y
+                    };
+                    f \"hello\" \"world\"" <| (evaluate <| parse "\"hello world\"")
+
+    [<Test>]
+    member that.printInLet() =
+        compare    "let x = output \"hi\";
+                    x" <| Skip
+                    
+    [<Test>]
+    member that.printInLetEscaped() =
+        compare    "let x = ((output \"hi\");3);
+                    x" <| I 3
+
+           
 [<TestFixture>]
 type TestInteractions() =
 

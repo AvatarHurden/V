@@ -67,6 +67,8 @@ let private priorityOf op =
         7
     | Infix Or ->
         8
+    | Infix (Def Sequence) ->
+        9
         
 type closings = bool * string list
  
@@ -129,6 +131,7 @@ let parseIdent text =
         match ident with
         | "let" | "true" | "false" | "if" | "then" | "else" 
         | "fn" | "rec"| "nil" | "head" | "tail" | "raise" 
+        | "skip" | "output" | "input"
         | "try" | "except" | "for" | "in" | "empty?" | "import" ->
             raiseExp <| sprintf "A variable cannot be called %A at %A" ident text
         | "" ->
@@ -150,6 +153,8 @@ let rec parseType text closings =
             rest, Bool
         | Start "Char" rest ->
             rest, Definition.Char
+        | Start "Unit" rest ->
+            rest, Unit
         | Start "String" rest ->
             rest, List Definition.Char
         | Trimmed rest ->
@@ -525,6 +530,11 @@ and parseRange text closings =
     
     rest, OP (OP (OP (X "range", Application, first), Application, last), Application, increment)
 
+and parseOutput text closings =
+    let rest, t = parseTerm text (false, [";"] @ (snd closings))
+
+    rest, Output(t)
+
 and leftAssociate string extendedTerm closings =
     let isTerm =
         match extendedTerm with
@@ -563,6 +573,8 @@ and collectTerms text closings isAfterTerm =
             leftAssociate rest (Term Raise) closings
         | Start "nil" rest ->
             leftAssociate rest (Term Nil) closings
+        | Start "skip" rest ->
+            leftAssociate rest (Term Skip) closings
         | Start "\"" rest ->
             let rem, term = parseString rest
             leftAssociate rem (Term term) closings
@@ -590,6 +602,11 @@ and collectTerms text closings isAfterTerm =
             leftAssociate rem (Term term) closings
         | Start "[" rest ->
             let rem, term = parseList rest closings
+            leftAssociate rem (Term term) closings
+        | Start "input" rest ->
+            leftAssociate rest (Term Input) closings
+        | Start "output" rest ->
+            let rem, term = parseOutput rest closings
             leftAssociate rem (Term term) closings
         // Matching prefix operators
         | Start "-" rest when not isAfterTerm ->
@@ -629,6 +646,8 @@ and collectTerms text closings isAfterTerm =
             leftAssociate rest (Infix <| Def GreaterOrEqual) closings
         | Start ">" rest ->
             leftAssociate rest (Infix <| Def GreaterThan) closings
+        | Start ";" rest ->
+            leftAssociate rest (Infix <| Def Sequence) closings
         // Right associative operators
         | Start "::" rest ->
             rightAssociate rest (Infix <| Def Cons) closings
