@@ -28,6 +28,7 @@ type prefixOP =
     | Head
     | Tail
     | IsEmpty
+    | Output
     
 type extendedTerm =
     | Term of term
@@ -41,7 +42,8 @@ let private priorityOf op =
     | Infix (Def Application)
     | Prefix IsEmpty
     | Prefix Head
-    | Prefix Tail ->
+    | Prefix Tail 
+    | Prefix Output ->
         1
     | Infix (Def Multiply)
     | Infix (Def Divide) 
@@ -275,6 +277,7 @@ let rec condenseTerms prev current nexts priority =
                 | IsEmpty -> Definition.IsEmpty y
                 | Head -> Definition.Head y
                 | Tail -> Definition.Tail y
+                | Output -> Definition.Output y
             condenseTerms prev (Term term) rest priority
         | Some _, _ ->
             raise (InvalidEntryText <| sprintf "Prefix %A cannot be preceded by a term" op)
@@ -530,11 +533,6 @@ and parseRange text closings =
     
     rest, OP (OP (OP (X "range", Application, first), Application, last), Application, increment)
 
-and parseOutput text closings =
-    let rest, t = parseTerm text (false, [";"] @ (snd closings))
-
-    rest, Output(t)
-
 and leftAssociate string extendedTerm closings =
     let isTerm =
         match extendedTerm with
@@ -605,9 +603,6 @@ and collectTerms text closings isAfterTerm =
             leftAssociate rem (Term term) closings
         | Start "input" rest ->
             leftAssociate rest (Term Input) closings
-        | Start "output" rest ->
-            let rem, term = parseOutput rest closings
-            leftAssociate rem (Term term) closings
         // Matching prefix operators
         | Start "-" rest when not isAfterTerm ->
             leftAssociate rest (Prefix Negate) closings
@@ -617,6 +612,8 @@ and collectTerms text closings isAfterTerm =
             leftAssociate rest (Prefix Head) closings
         | Start "tail" rest ->
             leftAssociate rest (Prefix Tail) closings
+        | Start "output" rest ->
+            leftAssociate rest (Prefix Output) closings
         // Matching infix operators
         | Start "|>" rest ->
             leftAssociate rest (Infix Pipe) closings

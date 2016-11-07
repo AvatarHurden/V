@@ -254,8 +254,8 @@ type TestSequence() =
     [<Test>]
     member that.printConcat() =
         compare    "let f(x, y) {
-	                    output \"the first argument is \"@x;
-	                    output \"the second argument is \"@y;
+	                    output (\"the first argument is \"@x);
+	                    output (\"the second argument is \"@y);
 	                    x @ \" \" @ y
                     };
                     f \"hello\" \"world\"" <| (evaluate <| parse "\"hello world\"")
