@@ -19,7 +19,7 @@ exception InvalidEntryText of string
 
 let rec private typeString typ =
     match typ with
-    | Type.X(s) -> s
+    | VarType(s) -> s
     | Int -> "Int"
     | Bool -> "Bool"
     | Function(t1, t2) ->  
@@ -105,10 +105,6 @@ let rec private stringify term lvl =
         let t2' = stringify t2 lvl
         sprintf "%slet rec %s(%s) {\n%s\n%s};\n%s" 
             tabs id id2 t1' tabs t2'
-    | Closure(id, t, env) ->
-        stringify t lvl
-    | RecClosure(id1, id2, t, env) ->
-        stringify t lvl
     | Nil -> 
         sprintf "%snil" tabs
     | IsEmpty(t) ->

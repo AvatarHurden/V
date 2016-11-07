@@ -34,7 +34,7 @@ type TestEval() =
 
     [<Test>]
     member that.faclist() =
-        evaluate facList |> should equal 
+        evaluate facList |> should equal
             (OP(I(120), Cons, OP(I(24), Cons, OP(I(6), Cons, OP(I(2), Cons, OP(I(1), Cons, Nil))))))
 
     [<Test>]

@@ -11,7 +11,7 @@ let mutable varType = 0
 let getVarType unit =
     let newType = varType
     varType <- varType + 1
-    sprintf "VarType%d" newType |> Type.X
+    VarType <| sprintf "VarType%d" newType
 
 let rec findId id e =
     match e with
@@ -40,7 +40,7 @@ let rec collectConstraints term env =
     | OP(t1, Cons, t2) ->
         let typ1, c1 = collectConstraints t1 env
         let typ2, c2 = collectConstraints t2 env
-        typ1 |> List, c1 @ c2 @ [Equals (List typ1, typ2)]
+        List typ1, c1 @ c2 @ [Equals (List typ1, typ2)]
     | OP(t1, op, t2) ->
         let typ1, c1 = collectConstraints t1 env
         let typ2, c2 = collectConstraints t2 env
@@ -86,7 +86,7 @@ let rec collectConstraints term env =
     | LetRec(id1, _, _, id2, t1, t2) as t ->
         sprintf "Invalid recursive let defintion at %A" t |> InvalidType |> raise
     | Nil ->
-        getVarType () |> List, []
+        List <| getVarType (), []
     | Head(t1) ->
         let typ1, c1 = collectConstraints t1 env
         let x = getVarType () in
@@ -94,7 +94,7 @@ let rec collectConstraints term env =
     | Tail(t1) ->
         let typ1, c1 = collectConstraints t1 env
         let x = getVarType () in
-        x |> List, c1 @ [Equals (typ1, List x)]
+        List x, c1 @ [Equals (typ1, List x)]
     | IsEmpty(t1) ->
         let typ1, c1 = collectConstraints t1 env
         Bool, c1 @ [Equals (typ1, List <| getVarType ())]
@@ -104,8 +104,6 @@ let rec collectConstraints term env =
         let typ1, c1 = collectConstraints t1 env
         let typ2, c2 = collectConstraints t2 env
         typ2, c1 @ c2 @ [Equals (typ1, typ2)]
-    | Closure(_, _, _) | RecClosure(_, _, _, _) as t->
-        sprintf "Cannot collect constraints for a closure at %A" t |> InvalidType |> raise
 
 let substituteInType subs typ' =
     let x, typ = subs
@@ -115,11 +113,11 @@ let substituteInType subs typ' =
         | Bool -> Bool
         | List(s1) -> List(f s1)
         | Function(s1, s2) -> Function(f s1, f s2)
-        | Type.X(id) ->
+        | VarType(id) ->
             if id = x then
                 typ
             else
-                Type.X(id)
+                VarType(id)
     in f typ'
 
 let substituteInConstraints subs constraints =
@@ -136,7 +134,7 @@ let rec occursIn x typ =
     | Bool -> false
     | List(t1) -> occursIn x t1
     | Function(t1, t2) -> occursIn x t1 || occursIn x t2
-    | Type.X(id) -> id = x
+    | VarType(id) -> id = x
 
 let rec unify constraints =
     match constraints with
@@ -146,7 +144,7 @@ let rec unify constraints =
         | Equals (s, t) ->
             match s, t with
             | s, t when s = t -> unify rest
-            | Type.X x, t | t, Type.X x ->
+            | VarType x, t | t, VarType x ->
                 if occursIn x t then
                     sprintf "Circular constraints" |> InvalidType |> raise
                 else
@@ -167,7 +165,7 @@ let rec applyType typ substitutions =
         List(applyType t1 substitutions)
     | Function(t1, t2) -> 
         Function(applyType t1 substitutions, applyType t2 substitutions)
-    | Type.X(x) -> 
+    | VarType(x) -> 
         if Map.containsKey x substitutions then
             substitutions.[x]
         else

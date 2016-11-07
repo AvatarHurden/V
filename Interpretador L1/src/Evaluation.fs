@@ -8,8 +8,8 @@ let rec private eval t env =
         True
     | False -> 
         False
-    | I(i) -> 
-        I(i)
+    | I i -> 
+         I i
     | OP(t1, Application, t2) ->
         let t1' = eval t1 env
         match t1' with
@@ -20,7 +20,7 @@ let rec private eval t env =
             match t2' with
             | Raise -> 
                 Raise
-            | v when V(v) -> 
+            | v when V v -> 
                 eval e <| env'.Add(id2, t2').Add(id1, t1')
             |  _ -> 
                 raise (WrongExpression(sprintf "Second operand %A is not a value at %A" t2' t))
@@ -29,7 +29,7 @@ let rec private eval t env =
             match t2' with
             | Raise -> 
                 Raise
-            | v when V(v) -> 
+            | v when V v -> 
                 eval e <| env'.Add(id, t2')
             |  _ -> 
                 raise (WrongExpression(sprintf "Second operand %A is not a value at %A" t2' t))
@@ -40,13 +40,13 @@ let rec private eval t env =
         match t1' with
         | Raise -> 
             Raise
-        | v when V(v) ->
+        | v when V v ->
             let t2' = eval t2 env
             match t2' with
-            | OP(_, Cons, _) when V(v) -> 
-                OP(t1', Cons, t2')
-            | Nil when V(v) -> 
-                OP(t1', Cons, Nil)
+            | OP(_, Cons, _) as v2 -> 
+                OP(v, Cons, v2)
+            | Nil -> 
+                 OP(v, Cons, Nil)
             | _ -> 
                 raise (WrongExpression(sprintf "Term %A is not a list at %A" t2' t))
         | _ ->
@@ -56,12 +56,12 @@ let rec private eval t env =
         match t1' with
         | Raise ->
             Raise
-        | I(n1) ->
+        | I n1 ->
             let t2' = eval t2 env
             match t2' with
             | Raise ->
                 Raise
-            | I(n2) ->
+            | I n2 ->
                 match op with
                 | Add -> I(n1 + n2)
                 | Subtract -> I(n1 - n2)
@@ -91,28 +91,29 @@ let rec private eval t env =
         let t1' = eval t1 env
         match t1' with
         | Raise -> Raise
-        | v when V(v) -> eval t2 <| env.Add(id, t1')
+        | v when V v -> eval t2 <| env.Add(id, t1')
         | _ -> raise (WrongExpression(sprintf "Term %A is not a value at %A" t1' t))
     | LetRec(id1, typ1, typ2, id2, t1, t2) ->
-        let rec2 = LetRec(id1, typ1, typ2, id2, t1, t1)
-        let fn = Fn(id2, typ1, rec2)
         eval t2 <| env.Add(id1, RecClosure(id1, id2, t1, env))
     | Nil -> Nil
     | IsEmpty(t1) ->
         let t1' = eval t1 env
         match t1' with
+        | Raise -> Raise
         | Nil -> True
         | OP(_, Cons, _) -> False
         | _ -> raise (WrongExpression(sprintf "Term %A is not a list at %A" t1' t))
     | Head(t1) -> 
         let t1' = eval t1 env
         match t1' with
+        | Raise -> Raise
         | OP(head, Cons, tail) -> head
         | Nil -> Raise
         | _ -> raise (WrongExpression(sprintf "Term %A is not a list at %A" t1' t))
     | Tail(t1) -> 
         let t1' = eval t1 env
         match t1' with
+        | Raise -> Raise
         | OP(head, Cons, tail) -> tail
         | Nil -> Raise
         | _ -> raise (WrongExpression(sprintf "Term %A is not a list at %A" t1' t))

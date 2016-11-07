@@ -1,7 +1,7 @@
 ﻿module Definition
 
 type Type =
-    | X of string
+    | VarType of string
     | Int
     | Bool
     | Function of Type * Type
@@ -39,7 +39,7 @@ type term =
     | Tail of term
     | Raise
     | Try of term * term
-
+    
     | Closure of Ident * term * env
     | RecClosure of Ident * Ident * term * env
 and
@@ -47,8 +47,8 @@ and
 
 let rec V(term) =
     match term with
-    | True | False | I(_) | Nil 
-    | Closure(_, _, _) | RecClosure(_, _, _, _) -> true
+    | True | False |  I _ | Nil | Raise 
+    | Closure (_, _, _) | RecClosure (_, _, _, _) -> true
     | OP(t1, Cons, t2) -> V(t1) && V(t2)
     | _ -> false
 
