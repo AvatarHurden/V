@@ -39,3 +39,27 @@ type TestTypeInfer() =
         (f (head ls))::(map f (tail ls))
 };
 map (\x => x + 1) [1,2,3,4]", List Int)
+
+    [<Test>]
+    member that.polymorphicIdentity() =
+        compare ("let f(x) { x };
+                if (f true) then
+                    f 1
+                else
+                    f 4", Int)
+
+    [<Test>]
+    member that.wrongPolymorphism() =
+        (fun () -> compare ("let f(x) { head x };
+                if (f [true]) then
+                    f 1
+                else
+                    f 4", Int) |> ignore) |> should throw typeof<InvalidType>
+
+    [<Test>]
+    member that.polymorphicHead() =
+        compare ("let f(x) { head x };
+                if (f [true]) then
+                    f [1]
+                else
+                    f [4]", Int)

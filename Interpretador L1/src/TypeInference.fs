@@ -164,15 +164,14 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         typ2, c1 @ c2 @ [Equals (typ, typ1)]
     | Let(id, None, t1, t2) ->
         let typ1, c1 = collectConstraints t1 env
-        let x = unify c1
-        let y = applyType typ1 x
-        let freeVars = getFreeVars y env
+        let typ1' = unify c1 |> applyType typ1
+        let freeVars = getFreeVars typ1' env
         let assoc, cons = 
             if freeVars.IsEmpty then
                 let varTyp = getVarType ()
                 Simple varTyp, [Equals (varTyp, typ1)]
             else
-                Universal (freeVars, y), []
+                Universal (freeVars, typ1'), []
         let typ2, c2 = collectConstraints t2  <| env.Add(id, assoc)
         typ2, c1 @ c2 @ cons
     | LetRec(id1, Some typ1, Some typ2, id2, t1, t2) ->
@@ -185,19 +184,7 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         let fType = getVarType ()
         let paramTyp = getVarType ()
         let typ1, c1 = collectConstraints t1 <| env.Add(id1, Simple fType).Add(id2, Simple paramTyp)
-//        let x = unify c1
-//        let y = applyType typ1 x
-//        let freeVars = getFreeVars y env
-//        let assoc, cons = 
-//            if freeVars.IsEmpty then
-//                Simple fTyp, [Equals (fType, Function (paramTyp, typ1))]
-//            else
-//                Universal (freeVars, y), []
-        let assoc =
-            match typ1 with
-            //| Function (Type.X x, _) -> Universal (x, typ1)
-            | _ -> Simple fType
-        let typ2, c2 = collectConstraints t2 <| env.Add(id1, assoc)
+        let typ2, c2 = collectConstraints t2 <| env.Add(id1, Simple fType)
         typ2, c1 @ c2 @ [Equals (fType, Function (paramTyp, typ1))]
     | LetRec(id1, _, _, id2, t1, t2) as t ->
         sprintf "Invalid recursive let defintion at %A" t |> InvalidType |> raise
