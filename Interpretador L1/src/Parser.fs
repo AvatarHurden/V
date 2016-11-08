@@ -438,7 +438,11 @@ and private findLetRec (text: string) (total: string) (definition: string) =
 
     let _, t2 = findTerms (text.Substring(total.Length)) None
 
-    match typ1, typ2 with
+    match typ1, typ2' with
+    | Some typ1, Some typ2 ->
+        (text, Let(id1, Some <| Function(typ1, typ2), RecFn(id1, typ2', id2, Some typ1, t1'), t2))
+    | None, None ->
+        (text, Let(id1, None, RecFn(id1, None, id2, None, t1'), t2))
     | None, None | Some _, Some _ -> 
         (text, LetRec(id1, typ1, typ2', id2, t1', t2))
     | _, _ ->  
@@ -448,7 +452,7 @@ and private findLetFunction (text: string) (total: string) (definition: string) 
     let _, t = findLetRec text total definition
     
     match t with
-    | LetRec(id1, typ1, typ2, id2, t1, t2) ->
+    | Let(_, _, RecFn(id1, typ2, id2, typ1, t1), t2) ->
         match typ1, typ2 with
         | None, None ->    
             (text, Let(id1, None, Fn(id2, None, t1), t2))    

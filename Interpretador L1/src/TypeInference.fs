@@ -158,6 +158,17 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         let paramTyp = getVarType ()
         let typ1, c1 = collectConstraints t1 <| env.Add(id, Simple paramTyp)
         Function(paramTyp, typ1), c1
+    | RecFn(id1, Some typ1, id2, Some typ2, t1) ->
+        let env1 = env.Add(id1, Simple <| Function(typ2, typ1)).Add(id2, Simple typ2)
+        let typ1', c1 = collectConstraints t1 env1
+        Function (typ2, typ1), c1 @ [Equals (typ1', typ1)]
+    | RecFn(id1, None, id2, None, t1) ->
+        let fType = getVarType ()
+        let paramTyp = getVarType ()
+        let typ1, c1 = collectConstraints t1 <| env.Add(id1, Simple fType).Add(id2, Simple paramTyp)
+        Function (paramTyp, typ1), c1 @ [Equals (fType, Function (paramTyp, typ1))]
+    | RecFn(id1, _, id2, _, t1) as t ->
+        sprintf "Invalid recursive function defintion at %A" t |> InvalidType |> raise
     | Let(id, Some typ, t1, t2) ->
         let typ1, c1 = collectConstraints t1 env
         let typ2, c2 = collectConstraints t2 <| env.Add(id, Simple typ)

@@ -7,19 +7,21 @@ open Definition
 open Evaluation
 
 let facList =
-    LetRec("faclist", Some Int, List(Int) |> Some, "x", 
-        LetRec("fac", Some Int, Some Int, "y", 
-            Cond(
-                OP(X("y"), Equal, I(0)),
-                 I(1),
-                 OP(X("y"), Multiply, OP(X("fac"), Application, OP(X("y"), Subtract, I(1))))),
-            Cond(
-                OP(X("x"), Equal, I(0)),
-                     Nil,
-                     OP(OP(X("fac"), Application, X("x")), 
-                        Cons, 
-                        OP(X("faclist"), Application, OP(X("x"), Subtract, I(1)))))),
-            OP(X("faclist"), Application, I(5)))
+    Let("faclist", Some <| Function(Int, List Int), 
+        RecFn("faclist", Some <| List Int, "x", Some Int, 
+            Let ("fac", Some <| Function(Int, Int),
+                RecFn("fac", Some Int, "y", Some Int, 
+                    Cond(
+                        OP(X("y"), Equal, I(0)),
+                        I(1),
+                        OP(X("y"), Multiply, OP(X("fac"), Application, OP(X("y"), Subtract, I(1)))))),
+                Cond(
+                    OP(X("x"), Equal, I(0)),
+                        Nil,
+                        OP(OP(X("fac"), Application, X("x")), 
+                            Cons, 
+                            OP(X("faclist"), Application, OP(X("x"), Subtract, I(1))))))),
+        OP(X("faclist"), Application, I(5)))
 
 [<TestFixture>]
 type TestEval() =
@@ -28,7 +30,8 @@ type TestEval() =
     member that.``factorial``() =
         let fatMult = OP(X("x"), Multiply, OP(X("fat"), Application, OP(X("x"), Subtract, I(1))))
         let fnTerm =  Cond(OP(X("x"), Equal, I(0)), I(1), fatMult)
-        let fat = LetRec("fat", Some Int, Some Int, "x", fnTerm, OP(X("fat"), Application, I(5))) in
+        let fat = Let("fat", Some <| Function (Int, Int), 
+            RecFn("fat", Some Int, "x", Some Int, fnTerm), OP(X("fat"), Application, I(5)))
 
         evaluate fat |> should equal (I(120))
 

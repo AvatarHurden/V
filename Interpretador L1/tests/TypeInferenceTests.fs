@@ -49,6 +49,11 @@ map (\x => x + 1) [1,2,3,4]", List Int)
                     f 4", Int)
 
     [<Test>]
+    member that.polymorphicRec() =
+        compare ("let rec count(ls) { if empty? ls then 0 else 1 + count (tail ls) };
+                count [1,2,3] + count [true,false]", Int)
+
+    [<Test>]
     member that.wrongPolymorphism() =
         (fun () -> compare ("let f(x) { head x };
                 if (f [true]) then
