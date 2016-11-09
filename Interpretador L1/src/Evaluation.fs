@@ -87,14 +87,13 @@ let rec private eval t env =
         | False -> eval t3 env
         | _ -> raise (WrongExpression(sprintf "Term %A is not a Boolean value at %A" t1' t))
     | Fn(id, typ, t1) -> Closure(id, t1, env)
+    | RecFn(id1, typ1, id2, typ2, t) -> RecClosure(id1, id2, t, env)
     | Let(id, typ, t1, t2) ->
         let t1' = eval t1 env
         match t1' with
         | Raise -> Raise
         | v when V v -> eval t2 <| env.Add(id, t1')
         | _ -> raise (WrongExpression(sprintf "Term %A is not a value at %A" t1' t))
-    | LetRec(id1, typ1, typ2, id2, t1, t2) ->
-        eval t2 <| env.Add(id1, RecClosure(id1, id2, t1, env))
     | Nil -> Nil
     | IsEmpty(t1) ->
         let t1' = eval t1 env
