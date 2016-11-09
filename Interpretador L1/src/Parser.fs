@@ -93,18 +93,6 @@ let rec private stringify term lvl =
     | Let(id, None, t1, t2) ->
         sprintf "%slet %s = %s;\n%s" 
             tabs id (stringify t1 0) (stringify t2 lvl)
-    | LetRec(id, Some typ1, Some typ2, id2, t1, t2) ->
-        let typ1' = typeString typ1
-        let typ2' = typeString typ2
-        let t1' = stringify t1 (lvl+1)
-        let t2' = stringify t2 lvl
-        sprintf "%slet rec %s(%s: %s): %s {\n%s\n%s};\n%s" 
-            tabs id id2 typ1' typ2' t1' tabs t2'
-    | LetRec(id, None, None, id2, t1, t2) ->
-        let t1' = stringify t1 (lvl+1)
-        let t2' = stringify t2 lvl
-        sprintf "%slet rec %s(%s) {\n%s\n%s};\n%s" 
-            tabs id id2 t1' tabs t2'
     | Closure(id, t, env) ->
         stringify t lvl
     | RecClosure(id1, id2, t, env) ->
@@ -443,8 +431,6 @@ and private findLetRec (text: string) (total: string) (definition: string) =
         (text, Let(id1, Some <| Function(typ1, typ2), RecFn(id1, typ2', id2, Some typ1, t1'), t2))
     | None, None ->
         (text, Let(id1, None, RecFn(id1, None, id2, None, t1'), t2))
-    | None, None | Some _, Some _ -> 
-        (text, LetRec(id1, typ1, typ2', id2, t1', t2))
     | _, _ ->  
         InvalidEntryText "You must either specify all types for a function, or none" |> raise
 
@@ -462,6 +448,31 @@ and private findLetFunction (text: string) (total: string) (definition: string) 
             raise <| InvalidEntryText "You must either specify all types for a function, or none"
     | _ ->
         raise <| InvalidEntryText "Wrong definition for a named function. (This will never print)"  
+
+and private findRecFn (text: string) = 
+    let mutable processed = "rec"
+
+    let s, internalIds = findClosingPair Parenthesis (text.Substring(processed.Length)) 0
+
+    let s2, id1 = findIdent (text.Substring(processed.Length))
+
+    let mutable remaining = (text.Substring(processed.Length)).Replace(s.Substring(s2.Length), "")
+    let s, externalIds = findClosingPair (Custom("}", "{")) remaining 1
+    let id1, typ2 = findIdTypePair externalIds
+
+    remaining <- remaining.Replace(s, "")
+    let s, t1String = findClosingPair Brackets remaining 1
+    let _, t1 = findTerms t1String None
+
+    let id2, typ1, t1', typ2' = parseParameters internalIds t1 typ2
+
+    match typ1, typ2' with
+    | Some typ1, Some typ2 ->
+        (text, RecFn(id1, typ2', id2, Some typ1, t1'))
+    | None, None ->
+        (text, RecFn(id1, None, id2, None, t1'))
+    | _ ->
+        raise <| InvalidEntryText "You must either specify all types for a function, or none"
 
 
 and private findFn (text: string) = 
@@ -589,6 +600,9 @@ and private findTerm (text: string) =
         (emptyText+s, Term t)
     elif trimmedText.StartsWith("fn(") || trimmedText.StartsWith("fn ") then
         let s, t = findFn trimmedText
+        (emptyText+s, Term t)
+    elif trimmedText.StartsWith("rec") then
+        let s, t = findRecFn trimmedText
         (emptyText+s, Term t)
     elif trimmedText.StartsWith("\\") then
         let s, t = findLambda trimmedText

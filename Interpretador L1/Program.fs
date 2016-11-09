@@ -34,7 +34,7 @@ let main argv =
             exit(0)
 
     try
-        let term = parseTermPure text <| Array.toList argv.[1..]
+        let term = parseTerm text <| Array.toList argv.[1..]
 
         typeInfer term |> printfn "Your program is of type:\n\n%A\n\n"
             

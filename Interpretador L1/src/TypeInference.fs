@@ -185,20 +185,6 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
                 Universal (freeVars, typ1'), []
         let typ2, c2 = collectConstraints t2  <| env.Add(id, assoc)
         typ2, c1 @ c2 @ cons
-    | LetRec(id1, Some typ1, Some typ2, id2, t1, t2) ->
-        let env1 = env.Add(id1, Simple <| Function(typ1, typ2)).Add(id2, Simple typ1)
-        let typ1', c1 = collectConstraints t1 env1
-        let env2 = env.Add(id1, Simple <| Function(typ1, typ2))
-        let typ2', c2 = collectConstraints t2 env2
-        typ2', c1 @ c2 @ [Equals (typ2, typ1')]
-    | LetRec(id1, None, None, id2, t1, t2) ->
-        let fType = getVarType ()
-        let paramTyp = getVarType ()
-        let typ1, c1 = collectConstraints t1 <| env.Add(id1, Simple fType).Add(id2, Simple paramTyp)
-        let typ2, c2 = collectConstraints t2 <| env.Add(id1, Simple fType)
-        typ2, c1 @ c2 @ [Equals (fType, Function (paramTyp, typ1))]
-    | LetRec(id1, _, _, id2, t1, t2) as t ->
-        sprintf "Invalid recursive let defintion at %A" t |> InvalidType |> raise
     | Nil ->
         getVarType () |> List, []
     | Head(t1) ->

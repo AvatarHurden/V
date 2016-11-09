@@ -33,7 +33,6 @@ type term =
     | Fn of Ident * (Type option) * term
     | RecFn of Ident * (Type option) * Ident * (Type option) * term
     | Let of Ident * (Type option) * term * term
-    | LetRec of Ident * (Type option) * (Type option) * Ident * term * term
     | Nil
     | IsEmpty of term
     | Head of term

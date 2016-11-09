@@ -9,7 +9,7 @@ open TypeInference
 
 
 let compare (text, typ) =
-    let evaluated = typeInfer <| parseTermPure text (List.empty)
+    let evaluated = typeInfer <| parseTerm text (List.empty)
     evaluated |> should equal typ
 
 
@@ -68,3 +68,19 @@ map (\x => x + 1) [1,2,3,4]", List Int)
                     f [1]
                 else
                     f [4]", Int)
+
+    [<Test>]
+    member that.multipleFolds() =
+        compare ("if (fold (\\acc, x => if x then acc else false) true [true,true,false]) then
+	fold (\\acc, x => acc + x) 0 [1,2,3]
+else
+	fold (\\acc, x => if x then acc+1 else acc) 0 [true,false,true]", Int)
+
+    [<Test>]
+    member that.wrongReduces() =
+        (fun () -> compare (
+        "if (reduce (\\acc, x => x && acc) [true,true,false]) then
+	reduce (\\acc, x => acc + x) [1,2,3]
+else
+	reduce (\\acc, x => x || acc) [true,false,true]", Int) |> ignore) |> 
+        should throw typeof<InvalidType>
