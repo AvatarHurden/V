@@ -16,26 +16,26 @@ if b then
 else
 	(x - y)", 
 
-    (I -1)
+    (ResI -1)
 
 )
 
 let opRight = (
     "(1 * (2 + 3))",
     
-    (I 5)
+    (ResI 5)
 )
 
 let opLeft = (
     "((1 + 2) * 3)",
     
-    (I 9)
+    (ResI 9)
 )
 
 let opCenter = (
     "((1 + 2) * (3 + 4))",
     
-    (I 21)
+    (ResI 21)
 )
 
 let nestedIf = (
@@ -47,7 +47,7 @@ let nestedIf = (
 else
     3",
         
-    (I 2)
+    (ResI 2)
 )
 
 let nestedFn = (
@@ -57,7 +57,7 @@ let nestedFn = (
     }
 } 3 4",
      
-    (I 7)
+    (ResI 7)
 )
 
 let app3 = (
@@ -68,7 +68,7 @@ app3 fn(x: Int) {
     (x + 1)
 }",
     
-    (I 4)
+    (ResI 4)
 )
 
 let nestedLet = (
@@ -78,7 +78,7 @@ let nestedLet = (
     x+banana+y    
     ",
     
-    (I 15)
+    (ResI 15)
 )
 
 let factorial = (
@@ -87,7 +87,7 @@ let factorial = (
      };
      fat 5",
     
-    (I 120)
+    (ResI 120)
 )
 
 let simpleTry = (
@@ -96,7 +96,7 @@ let simpleTry = (
      except
         fn(x: Int) { x+3 } 4",
         
-     (I 7)
+     (ResI 7)
 )
 
 let letRecList = (
@@ -105,7 +105,7 @@ let letRecList = (
     };
     sum(4::3::2::1::nil)", 
     
-    (I 10)
+    (ResI 10)
 )
 
 let facList = (
@@ -120,7 +120,7 @@ let facList = (
 };
 reverse <| faclist 5",
 
-    OP(I 1, Cons, OP(I 2, Cons, OP(I 6, Cons, OP(I 24, Cons, OP(I 120, Cons, Nil)))))
+    ResCons(ResI 1, ResCons(ResI 2, ResCons(ResI 6, ResCons(ResI 24, ResCons(ResI 120, ResNil)))))
     
 )
 
@@ -192,11 +192,11 @@ type TestParsePrint() =
 
     [<Test>]
     member that.``named function``() =
-        compare ("let x(y:Int): Int { y+2} ; x 3", I 5)
+        compare ("let x(y:Int): Int { y+2} ; x 3", ResI 5)
 
     [<Test>]
     member that.``let``() =
-        compare ("let x = 4; x+4", I 8)
+        compare ("let x = 4; x+4", ResI 8)
 
     [<Test>]
     member that.map() =
@@ -205,36 +205,36 @@ type TestParsePrint() =
                         (x * 2)
                     };
                     map f t2",
-            OP(I 2, Cons, OP(I 4, Cons, OP(I 6, Cons, Nil))))
+            ResCons(ResI 2, ResCons(ResI 4, ResCons(ResI 6, ResNil))))
 
     [<Test>]
     member that.comprehension() =
         compare ("[x*2 for x in [1,2,3]]",
-            OP(I 2, Cons, OP(I 4, Cons, OP(I 6, Cons, Nil))))
+            ResCons(ResI 2, ResCons(ResI 4, ResCons(ResI 6, ResNil))))
 
     [<Test>]
     member that.recComprehension() =
         compare ("[[x*2 for x in [1,2,3]], [1,2,3], [x for x in [y for y in [1,2,3]]]]",
-            OP( OP(I 2, Cons, OP(I 4, Cons, OP(I 6, Cons, Nil))),
+            evaluate (OP( OP(I 2, Cons, OP(I 4, Cons, OP(I 6, Cons, Nil))),
                 Cons,
                 OP( OP(I 1, Cons, OP(I 2, Cons, OP(I 3, Cons, Nil))),
                     Cons,
                     OP( OP(I 1, Cons, OP(I 2, Cons, OP(I 3, Cons, Nil))),
                         Cons,
-                        Nil))))
+                        Nil)))))
 
     [<Test>]
     member that.listValues() =
         compare ("[true,false,nil,0,1]",
-            OP(True, Cons, OP(False, Cons, OP(Nil, Cons, OP(I 0, Cons, OP(I 1, Cons, Nil))))))
+            ResCons(ResTrue, ResCons(ResFalse, ResCons(ResNil, ResCons(ResI 0, ResCons(ResI 1, ResNil))))))
 
     [<Test>]
     member that.simpleRange() =
-        compare ("[1..10]", (parseTermPure "[1,2,3,4,5,6,7,8,9,10]" <| List.empty))
+        compare ("[1..10]", (evaluate (parseTermPure "[1,2,3,4,5,6,7,8,9,10]" <| List.empty)))
 
     [<Test>]
     member that.range() =
-        compare ("[1..3..10]", (parseTermPure "[1,3,5,7,9]" <| List.empty))
+        compare ("[1..3..10]", (evaluate (parseTermPure "[1,3,5,7,9]" <| List.empty)))
 
     [<Test>]
     member that.negativeRange() =
@@ -242,4 +242,4 @@ type TestParsePrint() =
         
     [<Test>]
     member that.subtractiveRange() =
-        compare ("[5..4..0]", (parseTermPure "[5,4,3,2,1,0]" <| List.empty))
+        compare ("[5..4..0]", (evaluate (parseTermPure "[5,4,3,2,1,0]" <| List.empty)))

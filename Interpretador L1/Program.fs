@@ -38,7 +38,7 @@ let main argv =
 
         typeInfer term |> printfn "Your program is of type:\n\n%A\n\n"
             
-        term |> evaluate |> print |> printfn "Your program resulted in:\n\n%O\n"
+        term |> evaluate |> printResult |> printfn "Your program resulted in:\n\n%O\n"
     with
     | WrongExpression e -> Console.WriteLine e
     | InvalidEntryText t -> Console.WriteLine t

@@ -39,17 +39,17 @@ type term =
     | Tail of term
     | Raise
     | Try of term * term
-    
-    | Closure of Ident * term * env
-    | RecClosure of Ident * Ident * term * env
-and
-    env = Map<Ident, term>
 
-let rec V(term) =
-    match term with
-    | True | False |  I _ | Nil | Raise 
-    | Closure (_, _, _) | RecClosure (_, _, _, _) -> true
-    | OP(t1, Cons, t2) -> V(t1) && V(t2)
-    | _ -> false
+type result =
+    | ResTrue
+    | ResFalse
+    | ResI of int
+    | ResRaise
+    | ResNil
+    | ResCons of result * result
+    | ResClosure of Ident * term * env
+    | ResRecClosure of Ident * Ident * term * env
+and
+    env = Map<Ident, result>
 
 exception WrongExpression of string

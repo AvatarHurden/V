@@ -33,12 +33,13 @@ type TestEval() =
         let fat = Let("fat", Some <| Function (Int, Int), 
             RecFn("fat", Some Int, "x", Some Int, fnTerm), OP(X("fat"), Application, I(5)))
 
-        evaluate fat |> should equal (I(120))
+        evaluate fat |> should equal (ResI(120))
 
     [<Test>]
     member that.faclist() =
-        evaluate facList |> should equal
-            (OP(I(120), Cons, OP(I(24), Cons, OP(I(6), Cons, OP(I(2), Cons, OP(I(1), Cons, Nil))))))
+        evaluate facList |> should equal <|
+            ResCons(ResI 120, ResCons(ResI 24, ResCons(ResI 6, ResCons(ResI 2, ResCons(ResI 1, ResNil)))))
+           
 
     [<Test>]
     member that.LCM() =
@@ -65,4 +66,4 @@ let rec gcd(x:Int): Int -> Int {
 let lcm(x:Int): Int -> Int {
     (\y: Int => x*y/(gcd x y))
 };
-lcm 121 11*15" |> parseTermPure <| List.empty) |> evaluate |> should equal (I(1815))
+lcm 121 11*15" |> parseTermPure <| List.empty) |> evaluate |> should equal (ResI(1815))

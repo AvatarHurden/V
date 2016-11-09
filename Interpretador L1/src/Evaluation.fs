@@ -5,75 +5,69 @@ open Definition
 let rec private eval t env =
     match t with
     | True -> 
-        True
+        ResTrue
     | False -> 
-        False
+        ResFalse
     | I i -> 
-         I i
+         ResI i
     | OP(t1, Application, t2) ->
         let t1' = eval t1 env
         match t1' with
-        | Raise -> 
-            Raise
-        | RecClosure(id1, id2, e, env') ->
+        | ResRaise -> 
+            ResRaise
+        | ResRecClosure(id1, id2, e, env') ->
             let t2' = eval t2 env
             match t2' with
-            | Raise -> 
-                Raise
-            | v when V v -> 
+            | ResRaise -> 
+                ResRaise
+            | v -> 
                 eval e <| env'.Add(id2, t2').Add(id1, t1')
-            |  _ -> 
-                raise (WrongExpression(sprintf "Second operand %A is not a value at %A" t2' t))
-        | Closure(id, e, env') ->
+        | ResClosure(id, e, env') ->
             let t2' = eval t2 env
             match t2' with
-            | Raise -> 
-                Raise
-            | v when V v -> 
+            | ResRaise -> 
+                ResRaise
+            | v -> 
                 eval e <| env'.Add(id, t2')
-            |  _ -> 
-                raise (WrongExpression(sprintf "Second operand %A is not a value at %A" t2' t))
         | _ ->
             raise (WrongExpression(sprintf "First operand %A is not a function at %A" t1' t))
     | OP(t1, Cons, t2) ->
         let t1' = eval t1 env
         match t1' with
-        | Raise -> 
-            Raise
-        | v when V v ->
+        | ResRaise -> 
+            ResRaise
+        | v ->
             let t2' = eval t2 env
             match t2' with
-            | OP(_, Cons, _) as v2 -> 
-                OP(v, Cons, v2)
-            | Nil -> 
-                 OP(v, Cons, Nil)
+            | ResCons(_, _) as v2 -> 
+                ResCons(v, v2)
+            | ResNil -> 
+                 ResCons(v, ResNil)
             | _ -> 
                 raise (WrongExpression(sprintf "Term %A is not a list at %A" t2' t))
-        | _ ->
-            raise (WrongExpression(sprintf "Term %A is not a value at %A" t1' t))
     | OP(t1, op, t2) ->
         let t1' = eval t1 env
         match t1' with
-        | Raise ->
-            Raise
-        | I n1 ->
+        | ResRaise ->
+            ResRaise
+        | ResI n1 ->
             let t2' = eval t2 env
             match t2' with
-            | Raise ->
-                Raise
-            | I n2 ->
+            | ResRaise ->
+                ResRaise
+            | ResI n2 ->
                 match op with
-                | Add -> I(n1 + n2)
-                | Subtract -> I(n1 - n2)
-                | Multiply -> I(n1 * n2)
-                | Divide when n2 <> 0 -> I(n1 / n2)
-                | Divide when n2 = 0 -> Raise
-                | LessThan -> if n1 < n2 then True else False
-                | LessOrEqual -> if n1 <= n2 then True else False
-                | Equal -> if n1 = n2 then True else False
-                | Different -> if n1 <> n2 then True else False
-                | GreaterThan -> if n1 > n2 then True else False
-                | GreaterOrEqual -> if n1 >= n2 then True else False
+                | Add -> ResI(n1 + n2)
+                | Subtract -> ResI(n1 - n2)
+                | Multiply -> ResI(n1 * n2)
+                | Divide when n2 <> 0 -> ResI(n1 / n2)
+                | Divide when n2 = 0 -> ResRaise
+                | LessThan -> if n1 < n2 then ResTrue else ResFalse
+                | LessOrEqual -> if n1 <= n2 then ResTrue else ResFalse
+                | Equal -> if n1 = n2 then ResTrue else ResFalse
+                | Different -> if n1 <> n2 then ResTrue else ResFalse
+                | GreaterThan -> if n1 > n2 then ResTrue else ResFalse
+                | GreaterOrEqual -> if n1 >= n2 then ResTrue else ResFalse
                 | _ -> raise (WrongExpression(sprintf "Term %A is not an operator at %A" op t))
             | _ -> 
                 raise (WrongExpression(sprintf "Second operand %A is not a number at %A" t2' t))
@@ -82,52 +76,50 @@ let rec private eval t env =
     | Cond(t1, t2, t3) ->
         let t1' = eval t1 env
         match t1' with
-        | Raise -> Raise
-        | True -> eval t2 env
-        | False -> eval t3 env
+        | ResRaise -> ResRaise
+        | ResTrue -> eval t2 env
+        | ResFalse -> eval t3 env
         | _ -> raise (WrongExpression(sprintf "Term %A is not a Boolean value at %A" t1' t))
-    | Fn(id, typ, t1) -> Closure(id, t1, env)
-    | RecFn(id1, typ1, id2, typ2, t) -> RecClosure(id1, id2, t, env)
+    | Fn(id, typ, t1) -> ResClosure(id, t1, env)
+    | RecFn(id1, typ1, id2, typ2, t) -> ResRecClosure(id1, id2, t, env)
     | Let(id, typ, t1, t2) ->
         let t1' = eval t1 env
         match t1' with
-        | Raise -> Raise
-        | v when V v -> eval t2 <| env.Add(id, t1')
-        | _ -> raise (WrongExpression(sprintf "Term %A is not a value at %A" t1' t))
-    | Nil -> Nil
+        | ResRaise -> ResRaise
+        | v -> eval t2 <| env.Add(id, t1')
+    | Nil -> ResNil
     | IsEmpty(t1) ->
         let t1' = eval t1 env
         match t1' with
-        | Raise -> Raise
-        | Nil -> True
-        | OP(_, Cons, _) -> False
+        | ResRaise -> ResRaise
+        | ResNil -> ResTrue
+        | ResCons(_, _) -> ResFalse
         | _ -> raise (WrongExpression(sprintf "Term %A is not a list at %A" t1' t))
     | Head(t1) -> 
         let t1' = eval t1 env
         match t1' with
-        | Raise -> Raise
-        | OP(head, Cons, tail) -> head
-        | Nil -> Raise
+        | ResRaise -> ResRaise
+        | ResCons(head, tail) -> head
+        | ResNil -> ResRaise
         | _ -> raise (WrongExpression(sprintf "Term %A is not a list at %A" t1' t))
     | Tail(t1) -> 
         let t1' = eval t1 env
         match t1' with
-        | Raise -> Raise
-        | OP(head, Cons, tail) -> tail
-        | Nil -> Raise
+        | ResRaise -> ResRaise
+        | ResCons(head, tail) -> tail
+        | ResNil -> ResRaise
         | _ -> raise (WrongExpression(sprintf "Term %A is not a list at %A" t1' t))
-    | Raise -> Raise
+    | Raise -> ResRaise
     | Try(t1, t2) ->
         let t1' = eval t1 env
         match t1' with
-        | Raise -> eval t2 env
+        | ResRaise -> eval t2 env
         | _ -> t1'
     | X(id) -> 
         if env.ContainsKey id then
             env.[id]
         else
             sprintf "Could not find identifier %A" id |> WrongExpression |> raise
-    | _ -> raise (WrongExpression(sprintf "%A is not a Term" t))
 
 
 let evaluate t =

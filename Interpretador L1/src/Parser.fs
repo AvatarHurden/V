@@ -93,10 +93,6 @@ let rec private stringify term lvl =
     | Let(id, None, t1, t2) ->
         sprintf "%slet %s = %s;\n%s" 
             tabs id (stringify t1 0) (stringify t2 lvl)
-    | Closure(id, t, env) ->
-        stringify t lvl
-    | RecClosure(id1, id2, t, env) ->
-        stringify t lvl
     | Nil -> 
         sprintf "%snil" tabs
     | IsEmpty(t) ->
@@ -113,6 +109,23 @@ let rec private stringify term lvl =
     | _ as t -> sprintf "Could not print term %A" t
 
 let print term = stringify term 0
+
+let rec printResultList result =
+    match result with
+    | ResCons (head, ResNil) -> printResult head
+    | ResCons (head, tail) -> printResult head + ", " + printResultList tail
+
+and printResult result =
+    match result with
+    | ResTrue -> "true"
+    | ResFalse -> "false"
+    | ResI i -> string i
+    | ResRaise -> "raise"
+    | ResNil -> "[]"
+    | ResCons (head, tail) -> "[" + printResultList result + "]"
+    | ResClosure (id, t, env) -> sprintf "Function with parameter %A" id
+    | ResRecClosure (id, id2, t, env) -> 
+        sprintf "Recursive function with name %A and parameter %A" id id2
 
 type term with
     member public this.DisplayValue = stringify this 0
