@@ -8,7 +8,7 @@ open TypeInference
 open Parser
 
 let compare (text, term) =
-    let parsed = parseTerm text (List.empty)
+    let parsed = parse text
     let typ = typeInfer <| parsed
     let evaluated = evaluate <| parsed
     evaluated |> should equal term
@@ -50,5 +50,5 @@ type Teststdlib() =
 
     [<Test>]
     member that.sort() =
-        compare ("sort [[1],[2,4],[],[5]]", evaluate <| parseTermPure "[[], [1], [2,4], [5]]" (List.empty))
-        compare ("sort [5, -3, 2, -56, 0, 10]", evaluate <| parseTerm "[-56,-3,0,2,5,10]" (List.empty))
+        compare ("sort [[1],[2,4],[],[5]]", evaluate <| parse "[[], [1], [2,4], [5]]")
+        compare ("sort [5, -3, 2, -56, 0, 10]", evaluate <| parse "[-56,-3,0,2,5,10]")

@@ -1,11 +1,22 @@
 ﻿module Evaluation
 
 open Definition
+open System
 
 type private valueOption =
     | Values of term list
     | Raise
     | NonValue of term
+
+let rec private toString term =
+    match term with
+    | OP(C c, Cons, t2) -> (string c) + (toString t2)
+    | t -> "" 
+
+let rec private fromString string =
+    match string with
+    | c::rest -> OP(C c, Cons, fromString rest)
+    | [] -> Nil
 
 let rec private evalSubterms terms env =
     let f acc x =
@@ -21,15 +32,18 @@ let rec private evalSubterms terms env =
         | acc -> acc
     List.fold f (Values []) terms
 
-
 and private eval t env =
     match t with
     | True -> 
         True
     | False -> 
         False
+    | Skip ->
+        Skip
     | I(i) -> 
         I(i)
+    | C(c) ->
+        C(c)
     | OP(t1, Application, t2) ->
         match evalSubterms [t1;t2] env with
         | Raise -> Definition.Raise
@@ -52,6 +66,12 @@ and private eval t env =
                 OP(t1', Cons, t2')
             | _ -> 
                 raise (WrongExpression(sprintf "Term %A is not a list at %A" t2' t))
+    | OP(t1, Sequence, t2) ->
+        let t1' = eval t1 env
+        match t1' with
+        | Definition.Raise -> Definition.Raise
+        | Skip -> eval t2 env
+        | _ -> raise (WrongExpression(sprintf "First operand %A is not skip at %A" t1' t))
     | OP(t1, Equal, t2) ->
         match evalSubterms [t1;t2] env with
         | Raise -> Definition.Raise
@@ -59,6 +79,7 @@ and private eval t env =
         | Values [t1'; t2'] ->
             match t1', t2' with
                 | I i1, I i2 when i1 = i2 -> True
+                | C c1, C c2 when c1 = c2 -> True
                 | True, True -> True
                 | False, False -> True
                 | Nil, Nil -> True
@@ -94,6 +115,12 @@ and private eval t env =
                 | LessOrEqual -> if i1 <= i2 then True else False
                 | GreaterOrEqual -> if i1 >= i2 then True else False
                 | GreaterThan -> if i1 > i2 then True else False
+            | C c1, C c2 ->
+                match op with
+                | LessThan -> if c1 < c2 then True else False
+                | LessOrEqual -> if c1 <= c2 then True else False
+                | GreaterOrEqual -> if c1 >= c2 then True else False
+                | GreaterThan -> if c1 > c2 then True else False
             | Nil, Nil when op = LessOrEqual || op = GreaterOrEqual -> True
             | OP (hd1, Cons, tl1), OP (hd2, Cons, tl2) ->
                 match evalSubterms [OP (hd1, Equal, hd2); OP (tl1, op, tl2)] env with
@@ -181,13 +208,22 @@ and private eval t env =
         match t1' with
         | Definition.Raise -> eval t2 env
         | _ -> t1'
+    | Input ->
+        Console.ReadLine().ToCharArray() |> Array.toList |> fromString
+    | Output(t1) ->
+        let t1' = eval t1 env
+        match t1' with
+        | Definition.Raise -> Definition.Raise
+        | OP(C c, Cons, t) as v -> printf "%s" <| toString v; Skip
+        | Nil -> printfn ""; Skip
+        | _ -> sprintf "Term %A is not a string at %A" t1' t |> WrongExpression |> raise
     | X(id) -> 
         if env.ContainsKey id then
             env.[id]
         else
             sprintf "Could not find identifier %A" id |> WrongExpression |> raise
-    | _ -> sprintf "%A is not a Term" t |> WrongExpression |> raise
-
+    | Closure _ | RecClosure _ ->
+        raise <| WrongExpression "Closures can not be evaluated as expressions"
 
 let evaluate t =
     eval t Map.empty

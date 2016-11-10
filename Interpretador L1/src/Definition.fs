@@ -4,6 +4,8 @@ type Type =
     | X of string
     | Int
     | Bool
+    | Char
+    | Unit
     | Function of Type * Type
     | List of Type
 
@@ -24,6 +26,7 @@ type op =
     | GreaterThan
     | Application
     | Cons
+    | Sequence
     | And
     | Or
 
@@ -32,7 +35,9 @@ type Ident = string
 type term =
     | True
     | False
+    | Skip
     | I of int
+    | C of char
     | OP of term * op * term
     | Cond of term * term * term
     | X of Ident
@@ -45,6 +50,8 @@ type term =
     | Tail of term
     | Raise
     | Try of term * term
+    | Output of term
+    | Input
 
     | Closure of Ident * term * env
     | RecClosure of Ident * Ident * term * env
@@ -53,7 +60,8 @@ and
 
 let V(term) =
     match term with
-    | True | False | I(_) | Nil | OP(_, Cons, _) 
+    | Skip | True | False | I(_) | Nil | OP(_, Cons, _) 
+    | C _
     | Closure(_, _, _) | RecClosure(_, _, _, _) -> true
     | _ -> false
 
