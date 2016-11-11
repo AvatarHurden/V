@@ -70,6 +70,7 @@ let negate(x) {
 	// else
 		// last (tail ls)
 // };
+
 // let rec init(ls){
 	// if empty? ls then
 		// raise
@@ -78,6 +79,7 @@ let negate(x) {
 	// else
 		// (head ls)::(init (tail ls))
 // };
+
 // let rec length(ls) {
 	// if empty? ls then
 		// 0

@@ -283,8 +283,7 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         let c1' = getConstraintsForFreeVars c1 freeVars
         let assoc, cons = 
             if freeVars.IsEmpty then
-                let varTyp = getVarType ()
-                Simple varTyp, [Equals (varTyp, typ1)]
+                Simple typ1', []
             else
                 Universal (freeVars, typ1', c1'), []
         let typ2, c2 = collectConstraints t2  <| env.Add(id, assoc)

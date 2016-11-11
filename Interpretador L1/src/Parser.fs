@@ -677,5 +677,12 @@ let parse text =
     let rem, t = parseTerm (removeComments <| stdlib.content + text) (true, [])
     if rem.Length > 0 then
         raiseExp "Something went very wrong with parsing"
-        else
+    else
+        t
+
+let parsePure text =
+    let rem, t = parseTerm (removeComments <| text) (true, [])
+    if rem.Length > 0 then
+        raiseExp "Something went very wrong with parsing"
+    else
         t
