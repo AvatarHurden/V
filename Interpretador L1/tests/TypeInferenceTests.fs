@@ -9,7 +9,7 @@ open TypeInference
 
 
 let compare (text, typ) =
-    let evaluated = typeInfer <| parseTerm text (List.empty)
+    let evaluated = typeInfer <| parse text
     evaluated |> should equal typ
 
 
@@ -42,7 +42,7 @@ map (\x => x + 1) [1,2,3,4]", List Int)
 
     [<Test>]
     member that.polymorphicIdentity() =
-        compare ("let f(x) { x };
+        compare ("let f(x) { if x = x then x else x };
                 if (f true) then
                     f 1
                 else
