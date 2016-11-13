@@ -313,6 +313,246 @@ let rec concat(ls1, ls2) {
     member that.goesToEnd2() =
         equalsParsed (Concat.func + "concat [34] [12,3,4,4]") "[34,12,3,4,4]"
 
+
+[<TestFixture>]
+type Last() =
+
+    static member func = """
+let rec last(ls) {
+	if empty? ls then
+		raise
+	else if empty? (tail ls) then
+		head ls
+	else
+		last (tail ls)
+};
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x1 = VarType "x"
+        matchesType (Last.func + "last") <| Function (List x1, x1)
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (Last.func + "last 4")
+        throwsWrongType (Last.func + "last skip")
+
+    [<Test>]
+    member that.empty() =
+        equalsParsed (Last.func + "last []") "raise"
+        
+    [<Test>]
+    member that.oneItem() =
+        equalsParsed (Last.func + "last [true]") "true"
+
+    [<Test>]
+    member that.multipleItems() =
+        equalsParsed (Last.func + "last \"hfei\"") "'i'"
+        
+
+[<TestFixture>]
+type Init() =
+
+    static member func = """
+let rec init(ls){
+	if empty? ls then
+		raise
+	else if empty? (tail ls) then
+		nil
+	else
+		(head ls)::(init (tail ls))
+};
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x1 = VarType "x"
+        matchesType (Init.func + "init") <| Function (List x1, List x1)
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (Init.func + "init 4")
+
+    [<Test>]
+    member that.empty() =
+        equalsParsed (Init.func + "init []") "raise"
+        
+    [<Test>]
+    member that.oneItem() =
+        equalsParsed (Init.func + "init [true]") "[]"
+
+    [<Test>]
+    member that.multipleItems() =
+        equalsParsed (Init.func + "init \"hfei\"") "\"hfe\""
+        
+
+[<TestFixture>]
+type Length() =
+
+    static member func = """
+let rec length(ls) {
+	if empty? ls then
+		0
+	else
+		1 + length (tail ls)
+};
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x1 = VarType "x"
+        matchesType (Length.func + "length") <| Function (List x1, Int)
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (Length.func + "length 4")
+
+    [<Test>]
+    member that.empty() =
+        equalsParsed (Length.func + "length []") "0"
+        
+    [<Test>]
+    member that.oneItem() =
+        equalsParsed (Length.func + "length [true]") "1"
+
+    [<Test>]
+    member that.multipleItems() =
+        equalsParsed (Length.func + "length \"hfei\"") "4"
+       
+
+[<TestFixture>]
+type Range() =
+
+    static member func = """
+let rec range(start, finish, inc) {
+    if (inc > 0 && start <= finish) || (inc < 0 && start >= finish) then
+		start::(range (start+inc) finish inc)
+    else
+        nil
+};
+"""
+
+    [<Test>]
+    member that.testType() =
+        hasType (Range.func + "range") <| 
+            Function (Int, Function (Int, Function (Int, List Int)))
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (Range.func + "range 'c'")
+        throwsWrongType (Range.func + "range 4 true")
+        throwsWrongType (Range.func + "range 4 3 []")
+        throwsWrongType (Range.func + "range [4] 3 []")
+
+    [<Test>]
+    member that.emptyGenerator() =
+        equalsParsed (Range.func + "range 0 1 (0-1)") "[]"
+        
+    [<Test>]
+    member that.sameStartAndEnd() =
+        equalsParsed (Range.func + "range 1 1 1") "[1]"
+
+    [<Test>]
+    member that.postiveInc() =
+        equalsParsed (Range.func + "range 0 5 2") "[0, 2, 4]"
+       
+    [<Test>]
+    member that.negativeInc() =
+        equalsParsed (Range.func + "range 5 0 (0-2)") "[5, 3, 1]"
+        
+    [<Test>]
+    member that.negativeEnd() =
+        equalsParsed (Range.func + "range 0 (0-5) (0-2)") "[0, (0-2), (0-4)]"
+       
+
+[<TestFixture>]
+type Reverse() =
+
+    static member func = """
+let reverse(ls) {
+    let rec f(lsOld, lsNew) {
+        if empty? lsOld then
+            lsNew
+        else
+            f (tail lsOld) ((head lsOld)::lsNew)
+	};
+    f ls []
+};
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x1 = VarType "x"
+        matchesType (Reverse.func + "reverse") <| 
+            Function (List x1, List x1)
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (Reverse.func + "reverse 'c'")
+        throwsWrongType (Reverse.func + "reverse 4")
+
+    [<Test>]
+    member that.emptyList() =
+        equalsParsed (Reverse.func + "reverse []") "[]"
+        
+    [<Test>]
+    member that.oneItem() =
+        equalsParsed (Reverse.func + "reverse [1]") "[1]"
+
+    [<Test>]
+    member that.multipleItems() =
+        equalsParsed (Reverse.func + "reverse [1,2,3]") "[3,2,1]"
+       
+    [<Test>]
+    member that.reverseString() =
+        equalsParsed (Reverse.func + "reverse \"hello\"") "\"olleh\""
+        
+
+[<TestFixture>]
+type Map() =
+
+    static member func = """
+let rec map(f, ls) {
+    if empty? ls then
+        nil
+    else
+        (f (head ls))::(map f (tail ls))
+};
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x1 = VarType "x"
+        let x2 = VarType "y"
+        matchesType (Map.func + "map") <| 
+            Function (Function (x1, x2), Function (List x1, List x2))
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (Map.func + "map [1,2,3]")
+        throwsWrongType (Map.func + "map (\x => x = true) [1,2,3]")
+        throwsWrongType (Map.func + "map (\x => x = true) true")
+
+    [<Test>]
+    member that.emptyList() =
+        equalsParsed (Map.func + "map (\x => x) []") "[]"
+        
+    [<Test>]
+    member that.mapIdentity() =
+        equalsParsed (Map.func + "map (\x => x) [1,2]") "[1,2]"
+
+    [<Test>]
+    member that.mapReverse() =
+        equalsParsed (Map.func + Reverse.func + 
+            "map reverse [[1,2],[3,4]]") "[[2,1],[4,3]]"
+       
+    [<Test>]
+    member that.mapOtherType() =
+        equalsParsed (Map.func + "map (\x => x > 3) [2,5,3,6]") 
+            "[false, true, false, true]"
+        
+
 [<TestFixture>]
 type Teststdlib() =
 

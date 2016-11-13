@@ -2,129 +2,123 @@
 
 let content = """
 
-// // ====================
-// // Arithmetic functions
-// // ====================
+// ====================
+// Arithmetic functions
+// ====================
 
-// let rec remainder(x, y) {
-    // if y = 0 then  
-        // raise
-    // else if x<y then
-        // x
-    // else
-        // remainder (x-y) y
-// };
+let rec remainder(x, y) {
+    if y = 0 then  
+        raise
+    else if x<y then
+        x
+    else
+        remainder (x-y) y
+};
 
 let negate(x) {
 	0-x
 };
 
-// let abs(x) {
-	// if x < 0 then
-		// negate x
-	// else
-		// x
-// };
+let abs(x) {
+	if x < 0 then
+		negate x
+	else
+		x
+};
 
-// // =================
-// // Logical functions
-// // =================
+// =================
+// Logical functions
+// =================
 
-// let not(t) {
-	// if t then
-		// false
-	// else
-		// true
-// };
+let not(t) {
+	if t then
+		false
+	else
+		true
+};
 
-// let xor(t1, t2) {
-	// if t1 then
-		// not t2
-	// else
-		// t2
-// };
+let xor(t1, t2) {
+	if t1 then
+		not t2
+	else
+		t2
+};
 
-// // ====================
-// // Basic List functions
-// // ====================
+// ====================
+// Basic List functions
+// ====================
 
-// let rec append(x, ls) {
-	// if empty? ls then
-		// x::ls
-	// else
-		// (head ls)::(append x (tail ls))
-// };
+let rec append(x, ls) {
+	if empty? ls then
+		x::ls
+	else
+		(head ls)::(append x (tail ls))
+};
 
-// let rec concat(ls1, ls2) {
-	// if empty? ls1 then
-		// ls2
-	// else
-		// (head ls1)::(concat (tail ls1) ls2)
-// };
+let rec concat(ls1, ls2) {
+	if empty? ls1 then
+		ls2
+	else
+		(head ls1)::(concat (tail ls1) ls2)
+};
 
-// let rec last(ls) {
-	// if empty? ls then
-		// raise
-	// else if empty? (tail ls) then
-		// head ls
-	// else
-		// last (tail ls)
-// };
+let rec last(ls) {
+	if empty? ls then
+		raise
+	else if empty? (tail ls) then
+		head ls
+	else
+		last (tail ls)
+};
 
-// let rec init(ls){
-	// if empty? ls then
-		// raise
-	// else if empty? (tail ls) then
-		// nil
-	// else
-		// (head ls)::(init (tail ls))
-// };
+let rec init(ls){
+	if empty? ls then
+		raise
+	else if empty? (tail ls) then
+		nil
+	else
+		(head ls)::(init (tail ls))
+};
 
-// let rec length(ls) {
-	// if empty? ls then
-		// 0
-	// else
-		// 1 + length (tail ls)
-// };
+let rec length(ls) {
+	if empty? ls then
+		0
+	else
+		1 + length (tail ls)
+};
 
 
-// // =========================
-// // List generation functions
-// // =========================
+// =========================
+// List generation functions
+// =========================
 
-// let rec range(start, finish, inc) {
-	// if ((start > finish && inc > 0) || (start < finish && inc < 0)) then
-		// nil
-	// else if (inc > 0 && start <= finish) || (inc < 0 && start >= finish) then
-		// start::(range (start+inc) finish inc)
-	// else
-		// nil
-// };
+let rec range(start, finish, inc) {
+    if (inc > 0 && start <= finish) || (inc < 0 && start >= finish) then
+		start::(range (start+inc) finish inc)
+    else
+        nil
+};
 
-// // =============================
-// // List transformation functions
-// // =============================
+// =============================
+// List transformation functions
+// =============================
 
-// let reverse(ls) {
-	// if empty? ls then
-		// nil
-	// else
-		// let rec f(lsOld, lsNew) {
-			// let new = (head lsOld)::(lsNew);
-			// if empty? (tail lsOld) then
-				// new
-			// else
-				// f (tail lsOld) new
-		// };
-		// f ls nil
-// };
+let reverse(ls) {
+    let rec f(lsOld, lsNew) {
+        if empty? lsOld then
+            lsNew
+        else
+            f (tail lsOld) ((head lsOld)::lsNew)
+	};
+    f ls []
+};
 
-// let rec map(f, ls) {
-    // if empty? ls then
-        // nil
-    // else
-        // (f (head ls))::(map f (tail ls))
-// };
+let rec map(f, ls) {
+    if empty? ls then
+        nil
+    else
+        (f (head ls))::(map f (tail ls))
+};
 
 
 // // ========================
