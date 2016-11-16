@@ -2,9 +2,20 @@
 
 open Definition
 
-let rec private printType typ =
+let printTrait trt =
+    match trt with
+    | Orderable -> "Orderable"
+    | Equatable -> "Equatable"
+
+let rec printTraits traits =
+    match traits with
+    | [] -> ""
+    | trt :: [] -> printTrait trt
+    | trt :: rest -> printTrait trt + ", " + printTraits rest
+
+let rec printType typ =
     match typ with
-    | VarType(s) -> s
+    | VarType(s, traits) -> s + " (" + printTraits traits + ")"
     | Int -> "Int"
     | Bool -> "Bool"
     | Char -> "Char"

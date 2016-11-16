@@ -1,7 +1,11 @@
 ﻿module Definition
 
+type Trait =
+    | Equatable
+    | Orderable
+
 type Type =
-    | VarType of string
+    | VarType of string * Trait list
     | Int
     | Bool
     | Char
@@ -9,9 +13,36 @@ type Type =
     | Function of Type * Type
     | List of Type
 
-type Trait =
-    | Equatable
-    | Orderable
+
+let rec validateTrait trt typ =
+    match typ with
+    | Int ->
+        match trt with
+        | Orderable | Equatable -> Some Int
+    | Bool ->
+        match trt with
+        | Equatable -> Some Bool
+        | Orderable -> None
+    | Char ->
+        match trt with
+        | Orderable | Equatable -> Some Char
+    | Unit ->
+        match trt with
+        | Orderable | Equatable -> None
+    | Function (typ1, typ2) ->
+        match trt with
+        | Orderable | Equatable -> None
+    | List typ1 ->
+        match trt with
+        | Orderable | Equatable ->
+            match validateTrait trt typ1 with
+            | None -> None
+            | Some typ1 -> Some <| List typ1
+    | VarType (x, traits) ->
+        if List.exists ((=) trt) traits then
+            Some typ
+        else
+            Some <| VarType (x, trt::traits)
 
 type op =
     | Add

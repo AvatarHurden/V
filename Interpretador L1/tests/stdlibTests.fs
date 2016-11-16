@@ -19,7 +19,7 @@ let matchesType text typ =
     let freeVars = getFreeVars typ Map.empty
     let freeVars' = getFreeVars typ' Map.empty
     let freePairs = List.zip freeVars freeVars'
-    let replaced = List.fold (fun acc (x, x') -> substituteInType (x', VarType x) acc)
+    let replaced = List.fold (fun acc ((x, traits), (x', traits')) -> substituteInType (x', VarType (x, traits')) acc)
                         typ' freePairs
     typ |> should equal replaced
 
@@ -241,8 +241,9 @@ let rec append(x, ls) {
 
     [<Test>]
     member that.testType() =
+        let x1 = VarType ("x", [])
         matchesType (Append.func + "append") <| 
-            Function (VarType "x", Function (List <| VarType "x", List <| VarType "x"))
+            Function (x1, Function (List x1, List x1))
      
     [<Test>]
     member that.testType2() =
@@ -282,7 +283,7 @@ let rec concat(ls1, ls2) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType "x"
+        let x1 = VarType ("x", [])
         matchesType (Concat.func + "concat") <| 
             Function (List x1, Function (List x1, List x1))
      
@@ -330,7 +331,7 @@ let rec last(ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType "x"
+        let x1 = VarType ("x", [])
         matchesType (Last.func + "last") <| Function (List x1, x1)
      
     [<Test>]
@@ -367,7 +368,7 @@ let rec init(ls){
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType "x"
+        let x1 = VarType ("x", [])
         matchesType (Init.func + "init") <| Function (List x1, List x1)
      
     [<Test>]
@@ -401,7 +402,7 @@ let rec length(ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType "x"
+        let x1 = VarType ("x", [])
         matchesType (Length.func + "length") <| Function (List x1, Int)
      
     [<Test>]
@@ -483,7 +484,7 @@ let reverse(ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType "x"
+        let x1 = VarType ("x", [])
         matchesType (Reverse.func + "reverse") <| 
             Function (List x1, List x1)
      
@@ -523,8 +524,8 @@ let rec map(f, ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType "x"
-        let x2 = VarType "y"
+        let x1 = VarType ("x", [])
+        let x2 = VarType ("y", [])
         matchesType (Map.func + "map") <| 
             Function (Function (x2, x1), Function (List x2, List x1))
      
@@ -567,8 +568,8 @@ let rec fold(f, acc, ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType "x"
-        let x2 = VarType "y"
+        let x1 = VarType ("x", [])
+        let x2 = VarType ("y", [])
         matchesType (Fold.func + "fold") <| 
             Function (Function (x2, Function (x1, x2)), Function (x2, Function (List x1, x2)))
      
@@ -613,7 +614,7 @@ let reduce(f, ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType "x"
+        let x1 = VarType ("x", [])
         matchesType (Reduce.func + "reduce") <| 
             Function (Function (x1, Function (x1, x1)), Function (List x1, x1))
      
@@ -628,23 +629,19 @@ let reduce(f, ls) {
         
     [<Test>]
     member that.reduceSum() =
-        equalsParsed (Reduce.func + "fold (\\acc, x => acc + x) [1,2,3]") "6"
+        equalsParsed (Reduce.func + "reduce (\\acc, x => acc + x) [1,2,3]") "6"
 
     [<Test>]
     member that.reduceXor() =
         equalsParsed (Reduce.func + Xor.func + 
-            "fold xor [true,false,true]") "false"
+            "reduce xor [true,false,true]") "false"
        
-    [<Test>]
-    member that.foldChangeType() =
-        equalsParsed (Reduce.func + 
-            "fold (\\acc, x => if x then acc+1 else acc) 0 [true,false,true]") 
-            "2"
 
 [<TestFixture>]
 type All() =
 
-    static member func = """
+    static member func = 
+        Not.func + """
 let rec all(pred, ls) {
 	if empty? ls then
 		true
@@ -657,7 +654,7 @@ let rec all(pred, ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType "x"
+        let x1 = VarType ("x", [])
         matchesType (All.func + "all") <| 
             Function (Function (x1, Bool), Function (List x1, Bool))
      
@@ -695,7 +692,7 @@ let rec any(pred, ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType "x"
+        let x1 = VarType ("x", [])
         matchesType (Any.func + "any") <| 
             Function (Function (x1, Bool), Function (List x1, Bool))
      
@@ -728,7 +725,7 @@ let maximum(ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType "x"
+        let x1 = VarType ("x", [Orderable])
         matchesType (Maximum.func + "maximum") <| 
             Function (List x1, x1)
      
@@ -763,7 +760,7 @@ let minimum(ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType "x"
+        let x1 = VarType ("x", [Orderable])
         matchesType (Minimum.func + "minimum") <| 
             Function (List x1, x1)
      
