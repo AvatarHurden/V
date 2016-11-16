@@ -526,21 +526,21 @@ let rec map(f, ls) {
         let x1 = VarType "x"
         let x2 = VarType "y"
         matchesType (Map.func + "map") <| 
-            Function (Function (x1, x2), Function (List x1, List x2))
+            Function (Function (x2, x1), Function (List x2, List x1))
      
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (Map.func + "map [1,2,3]")
-        throwsWrongType (Map.func + "map (\x => x = true) [1,2,3]")
-        throwsWrongType (Map.func + "map (\x => x = true) true")
+        throwsWrongType (Map.func + "map (\\x => x = true) [1,2,3]")
+        throwsWrongType (Map.func + "map (\\x => x = true) true")
 
     [<Test>]
     member that.emptyList() =
-        equalsParsed (Map.func + "map (\x => x) []") "[]"
+        equalsParsed (Map.func + "map (\\x => x) []") "[]"
         
     [<Test>]
     member that.mapIdentity() =
-        equalsParsed (Map.func + "map (\x => x) [1,2]") "[1,2]"
+        equalsParsed (Map.func + "map (\\x => x) [1,2]") "[1,2]"
 
     [<Test>]
     member that.mapReverse() =
@@ -549,10 +549,243 @@ let rec map(f, ls) {
        
     [<Test>]
     member that.mapOtherType() =
-        equalsParsed (Map.func + "map (\x => x > 3) [2,5,3,6]") 
+        equalsParsed (Map.func + "map (\\x => x > 3) [2,5,3,6]") 
             "[false, true, false, true]"
         
 
+[<TestFixture>]
+type Fold() =
+
+    static member func = """
+let rec fold(f, acc, ls) {
+    if empty? ls then
+        acc
+    else
+        fold f (f acc (head ls)) (tail ls)
+};
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x1 = VarType "x"
+        let x2 = VarType "y"
+        matchesType (Fold.func + "fold") <| 
+            Function (Function (x2, Function (x1, x2)), Function (x2, Function (List x1, x2)))
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (Fold.func + "fold [1,2,3]")
+        throwsWrongType (Fold.func + "fold (\\x => x = true) true [1,2,3]")
+        throwsWrongType (Fold.func + "fold (\\acc, x => acc && x % 4 = 0) true \"hi\"")
+
+    [<Test>]
+    member that.emptyList() =
+        equalsParsed (Fold.func + "fold (\\acc, x => acc + x) 0 []") "0"
+        
+    [<Test>]
+    member that.foldSum() =
+        equalsParsed (Fold.func + "fold (\\acc, x => acc + x) 0 [1,2,3]") "6"
+
+    [<Test>]
+    member that.foldXor() =
+        equalsParsed (Fold.func + Xor.func + 
+            "fold xor true [true,false,true]") "true"
+       
+    [<Test>]
+    member that.foldChangeType() =
+        equalsParsed (Fold.func + 
+            "fold (\\acc, x => if x then acc+1 else acc) 0 [true,false,true]") 
+            "2"
+   
+
+[<TestFixture>]
+type Reduce() =
+
+    static member func = 
+        Fold.func + """
+let reduce(f, ls) {
+    if empty? ls then
+        raise
+    else
+        fold f (head ls) (tail ls)
+};
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x1 = VarType "x"
+        matchesType (Reduce.func + "reduce") <| 
+            Function (Function (x1, Function (x1, x1)), Function (List x1, x1))
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (Reduce.func + "reduce [1,2,3]")
+        throwsWrongType (Reduce.func + "reduce (\\x => x = true) [1,2,3]")
+
+    [<Test>]
+    member that.emptyList() =
+        equalsParsed (Reduce.func + "reduce (\\acc, x => acc + x) []") "raise"
+        
+    [<Test>]
+    member that.reduceSum() =
+        equalsParsed (Reduce.func + "fold (\\acc, x => acc + x) [1,2,3]") "6"
+
+    [<Test>]
+    member that.reduceXor() =
+        equalsParsed (Reduce.func + Xor.func + 
+            "fold xor [true,false,true]") "false"
+       
+    [<Test>]
+    member that.foldChangeType() =
+        equalsParsed (Reduce.func + 
+            "fold (\\acc, x => if x then acc+1 else acc) 0 [true,false,true]") 
+            "2"
+
+[<TestFixture>]
+type All() =
+
+    static member func = """
+let rec all(pred, ls) {
+	if empty? ls then
+		true
+	else if (head ls) |> pred |> not then
+        false
+	else
+		(tail ls) |> all pred
+};
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x1 = VarType "x"
+        matchesType (All.func + "all") <| 
+            Function (Function (x1, Bool), Function (List x1, Bool))
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (All.func + "all [1,2,3]")
+        throwsWrongType (All.func + "all (\\x => x = true) [1,2,3]")
+
+    [<Test>]
+    member that.emptyList() =
+        equalsParsed (All.func + "all (\\x => x > 2) []") "true"
+        
+    [<Test>]
+    member that.allMatch() =
+        equalsParsed (All.func + "all (\\x => x > 3) [4,5,6]") "true"
+        
+    [<Test>]
+    member that.oneFails() =
+        equalsParsed (All.func + "all (\\x => x > 3) [3,5,6]") "false"
+
+
+[<TestFixture>]
+type Any() =
+
+    static member func = """
+let rec any(pred, ls) {
+	if empty? ls then
+		false
+	else if (head ls) |> pred then
+		true
+	else
+		(tail ls) |> any pred
+};
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x1 = VarType "x"
+        matchesType (Any.func + "any") <| 
+            Function (Function (x1, Bool), Function (List x1, Bool))
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (Any.func + "any [1,2,3]")
+        throwsWrongType (Any.func + "any (\\x => x = true) [1,2,3]")
+
+    [<Test>]
+    member that.emptyList() =
+        equalsParsed (Any.func + "any (\\x => x > 2) []") "false"
+        
+    [<Test>]
+    member that.allFail() =
+        equalsParsed (Any.func + "any (\\x => x < 3) [4,5,6]") "false"
+        
+    [<Test>]
+    member that.oneMatches() =
+        equalsParsed (Any.func + "any (\\x => x > 3) [3,5,2]") "true"
+
+[<TestFixture>]
+type Maximum() =
+
+    static member func = 
+        Reduce.func + """
+let maximum(ls) {
+    reduce (\acc, x => if acc < x then x else acc) ls
+};
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x1 = VarType "x"
+        matchesType (Maximum.func + "maximum") <| 
+            Function (List x1, x1)
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (Maximum.func + "maximum [true,false,true]")
+        throwsWrongType (Maximum.func + "maximum [skip]")
+        throwsWrongType (Maximum.func + "maximum 3")
+
+    [<Test>]
+    member that.emptyList() =
+        equalsParsed (Maximum.func + "maximum []") "raise"
+        
+    [<Test>]
+    member that.maxNumber() =
+        equalsParsed (Maximum.func + "maximum [1,5,3]") "5"
+
+    [<Test>]
+    member that.maxChar() =
+        equalsParsed (Maximum.func + "maximum \"hello\"") "'o'"
+      
+    
+[<TestFixture>]
+type Minimum() =
+
+    static member func = 
+        Reduce.func + """
+let minimum(ls) {
+    reduce (\acc, x => if acc > x then x else acc) ls
+};
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x1 = VarType "x"
+        matchesType (Minimum.func + "minimum") <| 
+            Function (List x1, x1)
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (Minimum.func + "minimum [true,false,true]")
+        throwsWrongType (Minimum.func + "minimum [skip]")
+        throwsWrongType (Minimum.func + "minimum 3")
+
+    [<Test>]
+    member that.emptyList() =
+        equalsParsed (Minimum.func + "minimum []") "raise"
+        
+    [<Test>]
+    member that.minNumber() =
+        equalsParsed (Minimum.func + "minimum [1,5,3]") "1"
+
+    [<Test>]
+    member that.minChar() =
+        equalsParsed (Minimum.func + "minimum \"hello\"") "'e'"    
+        
+             
 [<TestFixture>]
 type Teststdlib() =
 
@@ -566,7 +799,7 @@ type Teststdlib() =
 
     [<Test>]
     member that.existsWrong() =
-        (fun () -> compare ("exists (\x => x) []", True) |> ignore)
+        (fun () -> compare ("exists (\\x => x) []", True) |> ignore)
              |> should throw typeof<InvalidType>
 
     [<Test>]

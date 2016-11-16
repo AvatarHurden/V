@@ -121,9 +121,9 @@ let rec map(f, ls) {
 };
 
 
-// // ========================
-// // List reduction functions
-// // ========================
+// ========================
+// List reduction functions
+// ========================
 
 let rec fold(f, acc, ls) {
     if empty? ls then
@@ -132,40 +132,38 @@ let rec fold(f, acc, ls) {
         fold f (f acc (head ls)) (tail ls)
 };
 
-// let rec reduce(f, ls) {
-    // if empty? ls then
-        // raise
-    // else if empty? (tail ls) then
-        // head ls
-    // else
-        // f (head ls) (reduce f (tail ls))
-// };
+let reduce(f, ls) {
+    if empty? ls then
+        raise
+    else
+        fold f (head ls) (tail ls)
+};
 
-// let rec all(pred, ls) {
-	// if empty? ls then
-		// true
-	// else if (head ls) |> pred |> not then
-		// false
-	// else
-		// (tail ls) |> all pred
-// };
+let rec all(pred, ls) {
+	if empty? ls then
+		true
+	else if (head ls) |> pred |> not then
+        false
+	else
+		(tail ls) |> all pred
+};
 
-// let rec any(pred, ls) {
-	// if empty? ls then
-		// false
-	// else if (head ls) |> pred then
-		// true
-	// else
-		// (tail ls) |> any pred
-// };
+let rec any(pred, ls) {
+	if empty? ls then
+		false
+	else if (head ls) |> pred then
+		true
+	else
+		(tail ls) |> any pred
+};
 
-// let maximum(ls) {
-    // reduce (\acc, x => if acc < x then x else acc) ls
-// };
+let maximum(ls) {
+    reduce (\acc, x => if acc < x then x else acc) ls
+};
 
-// let minimum(ls) {
-    // reduce (\acc, x => if acc > x then x else acc) ls
-// };
+let minimum(ls) {
+    reduce (\acc, x => if acc > x then x else acc) ls
+};
 
 // // =================
 // // Sublist functions
