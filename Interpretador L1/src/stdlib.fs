@@ -165,54 +165,56 @@ let minimum(ls) {
     reduce (\acc, x => if acc > x then x else acc) ls
 };
 
-// // =================
-// // Sublist functions
-// // =================
+// =================
+// Sublist functions
+// =================
 
-// let rec take(x, ls) {
-	// if (x = 0) || (empty? ls) then
-		// nil
-	// else
-		// (head ls)::((tail ls) |> take (x-1))
-// };
+let rec take(x, ls) {
+    if x < 0 then
+        raise
+	else if (x = 0) || (empty? ls) then
+		nil
+	else
+		(head ls)::((tail ls) |> take (x-1))
+};
 
-// let rec drop(x, ls) {
-    // if x > 0 && empty? ls then
-        // []
-    // else if x = 0 then
-        // ls
-    // else
-        // drop (x-1) (tail ls)
-// };
+let rec drop(x, ls) {
+    if x < 0 then
+        raise
+    else if empty? ls || x = 0 then
+        ls    
+    else
+        drop (x-1) (tail ls)
+};
 
-// let rec takeWhile(pred, ls) {
-	// if empty? ls then
-		// nil
-	// else if (head ls) |> pred |> not then
-		// nil
-	// else
-		// (head ls)::(tail ls |> takeWhile pred)
-// };
+let rec takeWhile(pred, ls) {
+	if empty? ls then
+		nil
+	else if (head ls) |> pred |> not then
+		nil
+	else
+		(head ls)::(tail ls |> takeWhile pred)
+};
 
-// let rec dropWhile(pred, ls) {
-    // if empty? ls then
-        // []
-    // else if head ls |> pred |> not then
-        // ls
-    // else
-        // dropWhile pred (tail ls)
-// };
+let rec dropWhile(pred, ls) {
+    if empty? ls then
+        []
+    else if head ls |> pred |> not then
+        ls
+    else
+        dropWhile pred (tail ls)
+};
 
-// let subList(start, end, ls) {
-    // if start < 0 || end < 0 || end < start || end > length ls then
-        // raise
-    // else
-        // take (end-start) <| drop start ls 
-// };
+let sublist(start, size, ls) {
+    if start < 0 || size > length ls then
+        raise
+    else
+        take size <| drop start ls 
+};
 
-// // =====================
-// // List search functions
-// // =====================
+// =====================
+// List search functions
+// =====================
 
 let rec exists(t, ls) {
     if empty? ls then
@@ -223,18 +225,18 @@ let rec exists(t, ls) {
         exists t <| tail ls
 };      
 
-// let rec filter(pred, ls) {
-	// if empty? ls then
-		// nil
-	// else if head ls |> pred then
-		// head ls::tail ls |> filter pred
-	// else
-		// tail ls |> filter pred
-// };
+let rec filter(pred, ls) {
+	if empty? ls then
+		nil
+	else if head ls |> pred then
+		head ls::tail ls |> filter pred
+	else
+		tail ls |> filter pred
+}; 
 
-// // =======================
-// // List indexing functions
-// // =======================
+// =======================
+// List indexing functions
+// =======================
 
 let indexOf(t, ls) {
     let rec f(index, ls) {
@@ -248,94 +250,99 @@ let indexOf(t, ls) {
     f 0 ls
 };
 
-// let rec nth(index, ls) {
-    // if index > 0 && empty? ls then 
-        // raise
-    // else if index = 0 then
-        // head ls
-    // else
-        // nth (index - 1) (tail ls)
-// };
+let rec nth(index, ls) {
+    if empty? ls || index < 0 then 
+        raise
+    else if index = 0 then
+        head ls
+    else
+        nth (index - 1) (tail ls)
+};
 
-// // ======================
-// // List sorting functions
-// // ======================
+// ======================
+// List sorting functions
+// ======================
 
-// let rec sort(ls) {
-    // if empty? ls then
-        // []
-    // else
-        // let min = minimum ls;
-        // let index = indexOf min ls;
-        // let rest = take index ls @ (drop (index+1) ls);
-        // min::(sort rest)
-// };
-
-
-// // ===========================
-// // String conversion functions
-// // ===========================
-
-// let parseInt(s: String): Int {
-    // if empty? s then
-        // raise
-    // else
-        // let rec f(s) {
-            // if empty? s then
-                // 0
-            // else 
-                // let x = 
-                    // if head s = '0' then 0
-                    // else if head s = '1' then 1
-                    // else if head s = '2' then 2
-                    // else if head s = '3' then 3
-                    // else if head s = '4' then 4
-                    // else if head s = '5' then 5
-                    // else if head s = '6' then 6
-                    // else if head s = '7' then 7
-                    // else if head s = '8' then 8
-                    // else if head s = '9' then 9
-                    // else raise;
-            // x + 10 * f (tail s)
-        // };
-        // f (reverse s)
-// };
-
-// let rec printInt(i: Int): String {
-    // let parseDigit(d) {
-        // if d = 0 then "0"
-        // else if d = 1 then "1"
-        // else if d = 2 then "2"
-        // else if d = 3 then "3"
-        // else if d = 4 then "4"
-        // else if d = 5 then "5"
-        // else if d = 6 then "6"
-        // else if d = 7 then "7"
-        // else if d = 8 then "8"
-        // else "9"
-    // };
-    // if i < 10 then
-        // parseDigit i
-    // else 
-        // let c = parseDigit (i % 10);     
-        // (printInt (i/10)) @ c
-// };
-
-// let parseBool(s: String): Bool {
-    // if s = "true" then
-        // true
-    // else if s = "false" then
-        // false
-    // else 
-        // raise
-// };
+let rec sort(ls) {
+    if empty? ls then
+        nil
+    else
+        let first = head ls;
+        let rest = tail ls;
+        (sort <| filter (\x => x <= first) rest) 
+        @ [first] @ 
+        (sort <| filter (\x => x > first) rest)
+};
 
 
-// let printBool(b: Bool): String {
-    // if b then
-        // "true"
-    // else
-        // "false"
-// };
+// ===========================
+// String conversion functions
+// ===========================
+
+let parseInt(s: String): Int {
+    if empty? s then
+        raise
+    else
+        let rec f(s: String): Int {
+            if empty? s then
+                0
+            else 
+                let x = 
+                    if head s = '0' then 0
+                    else if head s = '1' then 1
+                    else if head s = '2' then 2
+                    else if head s = '3' then 3
+                    else if head s = '4' then 4
+                    else if head s = '5' then 5
+                    else if head s = '6' then 6
+                    else if head s = '7' then 7
+                    else if head s = '8' then 8
+                    else if head s = '9' then 9
+                    else raise;
+            x + 10 * f (tail s)
+        };
+        if head s = '-' then
+            negate (f (reverse (tail s)))
+        else
+            f (reverse s)
+};
+
+let rec printInt(i: Int): String {
+    let printDigit(d) {
+        if d = 0 then "0"
+        else if d = 1 then "1"
+        else if d = 2 then "2"
+        else if d = 3 then "3"
+        else if d = 4 then "4"
+        else if d = 5 then "5"
+        else if d = 6 then "6"
+        else if d = 7 then "7"
+        else if d = 8 then "8"
+        else "9"
+    };
+    if i < 0 then   
+        '-' :: printInt (-i)
+    else if i < 10 then
+        printDigit i
+    else 
+        let c = printDigit (i % 10);     
+        (printInt (i/10)) @ c
+};
+
+let parseBool(s: String): Bool {
+    if s = "true" then
+        true
+    else if s = "false" then
+        false
+    else 
+        raise
+};
+
+let printBool(b: Bool): String {
+    if b then
+        "true"
+    else
+        "false"
+};
 
 """

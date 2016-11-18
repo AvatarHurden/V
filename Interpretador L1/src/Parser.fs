@@ -425,7 +425,7 @@ and parseNamedFunction text closings =
     | Let (_, None, RecFn (id1, None, id2, None, t1), t2) ->
         rest, Let (id1, None, Fn (id2, None, t1), t2)
     | Let (_, Some typ, RecFn (id1, Some typ1, id2, Some typ2, t1), t2) ->
-        rest, Let (id1, Some typ, Fn (id2, Some typ1, t1), t2)
+        rest, Let (id1, Some typ, Fn (id2, Some typ2, t1), t2)
     | _ ->
         raiseExp <| sprintf "Wrong named function declaration at %A" text
 

@@ -163,6 +163,15 @@ let rec applyType typ (unified: Unified) =
             typ
             
 
+let rec applyTypeToEnv env uni: Map<string, EnvAssociation> =
+    let f key value =
+        match value with
+        | Simple typ ->
+            Simple <| applyType typ uni
+        | Universal _ -> 
+            value
+    Map.map f env
+
 // Constraint Collection Functions
 
 let findId id (e: Map<string, EnvAssociation>) =
@@ -261,15 +270,20 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         typ2, c1 @ c2 @ [Equals (typ, typ1)]
     | Let(id, None, t1, t2) ->
         let typ1, c1 = collectConstraints t1 env
-        let typ1' = unify c1 |> applyType typ1 
-        let freeVars = getFreeVars typ1' env
-        let assoc, cons = 
-            if freeVars.IsEmpty then
-                Simple typ1', []
+        let uni = unify c1
+        let typ1' = applyType typ1 uni
+
+        let freeVars = getFreeVars typ1' <| applyTypeToEnv env uni
+        let isFn = match typ1' with | Function _ -> true | _ -> false
+
+        let assoc = 
+            if freeVars.IsEmpty || not isFn then
+                Simple typ1'
             else
-                Universal (freeVars, typ1'), []
+                Universal (freeVars, typ1')
         let typ2, c2 = collectConstraints t2  <| env.Add(id, assoc)
-        typ2, c1 @ c2 @ cons
+
+        typ2, c1 @ c2
     | Nil ->
         List <| getVarType [], []
     | Head(t1) ->
