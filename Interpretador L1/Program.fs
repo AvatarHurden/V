@@ -38,11 +38,11 @@ let main argv =
             exit(0)
 
     try
-        let term = parse text
+        let term = parsePure text
 
         //printfn "%O" <| toString term
 
-        //typeInfer term |> printfn "Your program is of type:\n\n%A\n\n"
+        typeInfer term |> printfn "Your program is of type:\n\n%A\n\n"
             
         term |> evaluate |> printResult |> printfn "Your program resulted in:\n\n%O\n"
     with
