@@ -18,12 +18,32 @@
 
 \addcontentsline{toc}{chapter}{Introduction}
 \section*{Introduction}
-This document ...
+The $L1$ programming language is a functional language.
+It has a simple I/O system supporting only direct string operations. 
+It is strongly and statically typed language supporting both explicit and implicit typing.
+
+This document both specifies the $L1$ language and shows its implementation in F\#.
+It is divided into 4 categories:
+\begin{enumerate}
+	\item Abstract Syntax and Semantics
+	
+		This defines the abstract syntax and semantics for the functional language.
+		It only contains the bare minimum for the language to function, without any syntactic sugar. 
+	\item Concrete Syntax
+	
+		This is the actual syntax when programming for $L1$.
+		This defines all operators, syntactic sugar and other aspects of the language.
+	\item Implementation
+	
+		Technical aspects on how $L1$ is implemented in F\#, showing the interpreter, evaluator and type inference.
+	\item Change log
+	
+		A chronological list of changes made both to the language definition and its implementation.
+\end{enumerate}
 
 \newpage
 \pagenumbering{arabic}
-\part{Language Definition}
+\part{Abstract Syntax and Semantics}
 
-$L1$ is a functional language.
 
 \end{document}
