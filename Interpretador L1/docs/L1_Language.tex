@@ -1,8 +1,12 @@
-\documentclass{report}
+\documentclass{article}
 
 \usepackage{amsmath}
+\usepackage{array}
+\usepackage{txfonts}
 \usepackage{syntax}
 \usepackage{lib/bcprules} 
+
+\newcommand\nonter[1]{\ensuremath{#1\negthinspace s}}
 
 \author{Arthur Giesel Vedana}
 \title{L1 Syntax and Documentation}
@@ -16,11 +20,12 @@
 \tableofcontents
 \newpage
 
-\addcontentsline{toc}{chapter}{Introduction}
+\addcontentsline{toc}{section}{Introduction}
 \section*{Introduction}
-The $L1$ programming language is a functional language.
+The $L1$ programming language is a functional language with eager left-to-right evaluation.
 It has a simple I/O system supporting only direct string operations. 
-It is strongly and statically typed language supporting both explicit and implicit typing.
+It is a trait based strongly and statically typed language supporting both explicit and implicit typing.
+
 
 This document both specifies the $L1$ language and shows its implementation in F\#.
 It is divided into 4 categories:
@@ -43,7 +48,177 @@ It is divided into 4 categories:
 
 \newpage
 \pagenumbering{arabic}
-\part{Abstract Syntax and Semantics}
+\section{Abstract Syntax and Semantics}
 
+\subsection{Abstract Syntax}
 
+Programs in $L1$ are terms $e$ belonging to the following abstract syntax tree:
+
+\bigskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
+	e &::= &n\\
+  &| &b\\
+	&| &c\\
+  &| &x\\
+  &| &e_1 \; op \; e_2\\
+  &| &if \; e_1\; then \; e_2 \; else \; e_3\\
+	&| &e_1 \; e_2\\
+	&| &fn \; x:T \Rightarrow e\\
+	&| &fn \; x \Rightarrow e\\
+	&| &rec \; x_1:T_1 \rightarrow T_2 \; \; x_2:T_1 \Rightarrow e\\
+	&| &rec \; x_1 \; x_2 \Rightarrow e\\
+	&| &let \; x:T = e_1 \; in \; e_2\\
+	&| &let \; x = e_1 \; in \; e_2\\
+	&| &nil\\
+	&| &e_1 :: e_2\\
+	&| &isempty \; e\\
+	&| &hd \; e\\
+	&| &tl \; e\\
+	&| &raise\\
+	&| &try \; e_1 \; with \; e_2\\
+	&| &skip\\
+	&| &e_1 \; ; \; e_2\\
+	&| &input\\
+	&| &output \; e\\
+	\\
+	T &::= &Int \; | \; Bool \; | \; Char \; | \; Unit \\
+	&| &T_1 \rightarrow T_2 \; | \; T \; list\\
+	\\
+	x &::= &\{ x_0, x_1, \ldots \}\\
+	\\
+	b &::= &True \; | \; False\\
+	n &::= &\mathbb{N}\\
+	c &::= & \lq char \rq\\
+	char&::= &\mathrm{a \ldots z} \; | \; \mathrm{A \ldots Z} \; | \; \mathrm{0 \ldots 9}\\
+	\\
+	op &::= &opNum \; | \; opEq \; | \; opIneq \; | \; opBool \\
+	opNum &::= &+ \; | \; - \; | \; \ast \; | \; \div\\
+	opEq &::= &= \; | \; \neq\\
+	opIneq &::= &< \; | \; \leq \; | \; > \; | \; \geq\\
+	boolOp &::= &\wedge \; | \; \vee\\
+		
+\end{tabular}}
+\newpage
+\subsection{Operational Semantics}
+ 
+The $L1$ language is evaluated using a big-step evaluation with environments. 
+This evaluation reduces a term into a value directly, not necessarily having a rule of evaluation for every  possible term. 
+To stop programmers from creating programs that cannot be evaluated, a type inference system will be specified later. 
+
+\paragraph{Value}
+A value is the result of the evaluation of a term in big-step.
+This set of values that is different from the set of terms of $L1$, even though they share many similarities.
+
+\paragraph{Environment} 
+An environment is a mapping of identifiers to values that is extended each time a $let$ declaration in encountered. 
+Because the environment stores only values, this means that $L1$ has eager evaluation.
+
+\bigskip
+
+Below are the definitions of both values and environments:
+
+\bigskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
+env &::= &\{\} \; | \; \{x \rightarrow v\} \cup env\\
+\\
+	v &::= &n\\
+  &| &b\\
+	&| &c\\
+	&| &nil\\
+	&| &v_1 :: v_2\\
+	&| &raise\\
+	&| &skip\\
+	&| &\left\langle x, e, env\right\rangle\\
+	&| &\left\langle f, x, e, env\right\rangle\\
+\end{tabular}}
+
+\bigskip
+
+The values $\left\langle x, e, env\right\rangle$ and $\left\langle f, x, e, env\right\rangle$ are closures and recursive closures, respectively.
+They represent the result of evaluating functions and recursive functions, and store the environment at the moment of evaluation.
+This means that $L1$ has static scope, since closures capture the environment at the moment of evaluation and $L1$ has eager evaluation.
+
+\subsubsection{Big-Step Rules}
+
+\infax[BS-Num]
+	{\mbox{env} \vdash n \Downarrow n}
+	
+\infax[BS-Bool]
+	{\mbox{env} \vdash b \Downarrow b}
+	
+\infax[BS-Char]
+	{\mbox{env} \vdash c \Downarrow c}
+
+\infrule[BS-Ident]
+	{\mbox{env}(x) = v}
+	{\mbox{env} \vdash x \Downarrow v}
+	
+\paragraph{Equality Operations}
+Equality Operations
+
+\infrule[BS-$=$NumTrue]
+	{\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n_1\right\|=\left\|n_2\right\|}
+	{\mbox{env} \vdash e_1 = e_2 \Downarrow True}
+	
+\infrule[BS-$=$NumFalse]
+	{\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n_1\right\|\neq\left\|n_2\right\|}
+	{\mbox{env} \vdash e_1 = e_2 \Downarrow False}
+	
+\infrule[BS-$\neq$NumTrue]
+	{\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n_1\right\|\neq\left\|n_2\right\|}
+	{\mbox{env} \vdash e_1 \neq e_2 \Downarrow True}
+	
+\infrule[BS-$\neq$NumFalse]
+	{\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n_1\right\|=\left\|n_2\right\|}
+	{\mbox{env} \vdash e_1 \neq e_2 \Downarrow False}
+	
+	
+\infrule[BS-$=$BoolTrue1]
+	{\mbox{env} \vdash e_1 \Downarrow True \andalso \mbox{env} \vdash e_2 \Downarrow True}
+	{\mbox{env} \vdash e_1 = e_2 \Downarrow True}
+	
+\infrule[BS-$=$BoolTrue2]
+	{\mbox{env} \vdash e_1 \Downarrow False \andalso \mbox{env} \vdash e_2 \Downarrow False}
+	{\mbox{env} \vdash e_1 = e_2 \Downarrow True}
+	
+\infrule[BS-$=$BoolFalse]
+	{\mbox{env} \vdash e_1 \Downarrow b_1 \andalso \mbox{env} \vdash e_2 \Downarrow b_2}
+	{\mbox{env} \vdash e_1 = e_2 \Downarrow False}
+	
+	
+\infrule[BS-$\neq$BoolTrue1]
+	{\mbox{env} \vdash e_1 \Downarrow True \andalso \mbox{env} \vdash e_2 \Downarrow False}
+	{\mbox{env} \vdash e_1 \neq e_2 \Downarrow True}
+	
+\infrule[BS-$\neq$BoolTrue2]
+	{\mbox{env} \vdash e_1 \Downarrow False \andalso \mbox{env} \vdash e_2 \Downarrow True}
+	{\mbox{env} \vdash e_1 \neq e_2 \Downarrow True}
+	
+\infrule[BS-$\neq$BoolFalse]
+	{\mbox{env} \vdash e_1 \Downarrow b_1 \andalso \mbox{env} \vdash e_2 \Downarrow b_2}
+	{\mbox{env} \vdash e_1 \neq e_2 \Downarrow False}
+	
+\paragraph{Logical Operations}
+The logical operators $\wedge$ (AND) and $\vee$ (OR) both have a short-circuit evaluation. This means that, if the result of the operation can be determined from the first operand, the second one is not evaluated.
+	
+\infrule[BS-$\vee$Short]
+	{\mbox{env} \vdash e_1 \Downarrow True}
+	{\mbox{env} \vdash e_1 \vee e_2 \Downarrow True}
+	
+\infrule[BS-$\vee$]
+	{\mbox{env} \vdash e_1 \Downarrow False \andalso \mbox{env} \vdash e_2 \Downarrow b}
+	{\mbox{env} \vdash e_1 \vee e_2 \Downarrow b}
+	
+\infrule[BS-$\wedge$Short]
+	{\mbox{env} \vdash e_1 \Downarrow False}
+	{\mbox{env} \vdash e_1 \wedge e_2 \Downarrow False}
+	
+\infrule[BS-$\wedge$]
+	{\mbox{env} \vdash e_1 \Downarrow True \andalso \mbox{env} \vdash e_2 \Downarrow b}
+	{\mbox{env} \vdash e_1 \wedge e_2 \Downarrow b}
+	
 \end{document}
