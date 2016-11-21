@@ -18,11 +18,11 @@ let shouldFail text =
 type TestInfixParsing() =
     
     [<Test>]
-    member that.leftAssociation() =
+    member that.leftAssociationPriority() =
         compare "1 * 2 + 3" <| ResI 5
         
     [<Test>]
-    member that.rightAssociation() =
+    member that.rightAssociationPriority() =
         compare "1 + 2 * 3" <| ResI 7
         
     [<Test>]
@@ -38,13 +38,13 @@ type TestInfixParsing() =
         compare "'a' != head \"hello\"" ResTrue
         
     [<Test>]
-    member that.infixPrecededByPrefix() =
-        shouldFail "'a' head !=  \"hello\""
-
-    [<Test>]
     member that.infixFollowedByInfix() =
         shouldFail "3 != + 3"
 
+    [<Test>]
+    member that.rightAssociationCons() =
+        compare "3::4::[] = [3,4]" ResTrue
+        
 [<TestFixture>]
 type TestLetParsing() =
     

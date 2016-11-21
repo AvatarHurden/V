@@ -13,6 +13,11 @@ module Path =
 
 exception InvalidEntryText of string
 
+type associativity =
+    | Left
+    | Right
+    | NonAssociative
+
 type infixOP =
     // Infix operators
     | Def of op
@@ -33,20 +38,44 @@ type extendedTerm =
     | Infix of infixOP
     | Prefix of prefixOP
 
+let private associativityOf op =
+    match op with
+    | Concat
+    | Def Cons
+    | Def And
+    | Def Or ->
+        Right
+    | Def Add
+    | Def Subtract
+    | Def Multiply
+    | Def Divide
+    | Remainder 
+    | Def Application 
+    | Def Sequence 
+    | BackwardsPipe 
+    | Pipe ->
+        Left
+    | Def Equal
+    | Def Different
+    | Def GreaterOrEqual
+    | Def GreaterThan
+    | Def LessOrEqual
+    | Def LessThan ->
+        NonAssociative
+
 let private priorityOf op =
-    match op with             
-    | Prefix Negate -> 
-        0
-    | Infix (Def Application)
-    | Prefix IsEmpty
+    match op with            
     | Prefix Head
-    | Prefix Tail 
-    | Prefix Output ->
-                1
+    | Prefix Tail
+    | Prefix IsEmpty
+    | Prefix Output
+    | Infix (Def Application) ->
+        1
     | Infix (Def Multiply)
     | Infix (Def Divide) 
     | Infix Remainder ->
         2
+    | Prefix Negate
     | Infix (Def Add)
     | Infix (Def Subtract) ->
         3
@@ -288,7 +317,17 @@ let rec condenseTerms prev current nexts priority =
         | None ->
             [current] @ condenseTerms None nexts.Head nexts.Tail priority
     | Infix op when priorityOf current = priority ->
-        match prev, nexts with
+        let actualNexts =
+            match associativityOf op with
+            | Right ->
+                match nexts with
+                | cur :: Infix op2 :: rest when op2 = op ->
+                    condenseTerms None cur nexts.Tail priority
+                | _ ->
+                    nexts
+            | Left | NonAssociative ->
+                nexts
+        match prev, actualNexts with
         | Some (Term x), Term y :: rest ->
             let term = 
                 match op with
@@ -538,7 +577,7 @@ and parseRange text closings =
     
     rest, OP (OP (OP (X "range", Application, first), Application, last), Application, increment)
 
-and leftAssociate string extendedTerm closings =
+and addToTerms string extendedTerm closings =
     let isTerm =
         match extendedTerm with
         | Term t -> true
@@ -546,15 +585,11 @@ and leftAssociate string extendedTerm closings =
     let rem, rest = collectTerms string closings isTerm
     rem, extendedTerm :: rest
 
-and rightAssociate string extendedTerm closings =
-    let rem, term = parseTerm string closings
-    rem, extendedTerm :: [Term term]
-    
 // Iterate through the string, collecting single terms and operators
 and collectTerms text closings isAfterTerm = 
         try
         let rem, id = parseIdent text
-        leftAssociate rem (Term <| X id) closings
+        addToTerms rem (Term <| X id) closings
         with
         | InvalidEntryText t ->
         match text with
@@ -562,104 +597,104 @@ and collectTerms text closings isAfterTerm =
             t, []
         | Start "(" rest ->
             let rem, term = parseTerm rest (true, [")"])
-            leftAssociate rem (Term term) closings
+            addToTerms rem (Term term) closings
         // Matching value terms
         | Number rest ->
             let s = rest.ToCharArray()
             let num = s |> Seq.takeWhile (fun x -> Char.IsDigit(x)) |> String.Concat
-            leftAssociate (rest.Substring num.Length) (Term <| I (int num)) closings
+            addToTerms (rest.Substring num.Length) (Term <| I (int num)) closings
         | Start "true" rest ->
-            leftAssociate rest (Term True) closings
+            addToTerms rest (Term True) closings
         | Start "false" rest ->
-            leftAssociate rest (Term False) closings
+            addToTerms rest (Term False) closings
         | Start "raise" rest ->
-            leftAssociate rest (Term Raise) closings
+            addToTerms rest (Term Raise) closings
         | Start "nil" rest ->
-            leftAssociate rest (Term Nil) closings
+            addToTerms rest (Term Nil) closings
         | Start "skip" rest ->
-            leftAssociate rest (Term Skip) closings
+            addToTerms rest (Term Skip) closings
         | Start "\"" rest ->
             let rem, term = parseString rest
-            leftAssociate rem (Term term) closings
+            addToTerms rem (Term term) closings
         | Start "'" rest ->
             let rem, term = parseChar rest
-            leftAssociate rem (Term term) closings
+            addToTerms rem (Term term) closings
         // Matching normal terms
         | Start "import" rest ->
             let rem, term = parseImport rest closings
-            leftAssociate rem (Term term) closings
+            addToTerms rem (Term term) closings
         | Start "let" rest ->
             let rem, term = parseLet rest closings
-            leftAssociate rem (Term term) closings
+            addToTerms rem (Term term) closings
         | Start "rec" rest ->
             let rem, term = parseRecFunction rest closings
-            leftAssociate rem (Term term) closings
+            addToTerms rem (Term term) closings
         | Start "fn" rest ->
             let rem, term = parseFunction rest closings
-            leftAssociate rem (Term term) closings
+            addToTerms rem (Term term) closings
         | Start "\\" rest ->
             let rem, term = parseLambda rest closings
-            leftAssociate rem (Term term) closings
+            addToTerms rem (Term term) closings
         | Start "if" rest ->
             let rem, term = parseIf rest closings
-            leftAssociate rem (Term term) closings
+            addToTerms rem (Term term) closings
         | Start "try" rest ->
             let rem, term = parseTry rest closings
-            leftAssociate rem (Term term) closings
+            addToTerms rem (Term term) closings
         | Start "[" rest ->
             let rem, term = parseList rest closings
-            leftAssociate rem (Term term) closings
+            addToTerms rem (Term term) closings
         | Start "input" rest ->
-            leftAssociate rest (Term Input) closings
+            addToTerms rest (Term Input) closings
         // Matching prefix operators
         | Start "-" rest when not isAfterTerm ->
-            leftAssociate rest (Prefix Negate) closings
+            addToTerms rest (Prefix Negate) closings
         | Start "empty?" rest ->
-            leftAssociate rest (Prefix IsEmpty) closings
+            addToTerms rest (Prefix IsEmpty) closings
         | Start "head" rest ->
-            leftAssociate rest (Prefix Head) closings
+            addToTerms rest (Prefix Head) closings
         | Start "tail" rest ->
-            leftAssociate rest (Prefix Tail) closings
+            addToTerms rest (Prefix Tail) closings
         | Start "output" rest ->
-            leftAssociate rest (Prefix Output) closings
+            addToTerms rest (Prefix Output) closings
         // Matching infix operators
         | Start "|>" rest ->
-            leftAssociate rest (Infix Pipe) closings
+            addToTerms rest (Infix Pipe) closings
         | Start "<|" rest ->
-            leftAssociate rest (Infix BackwardsPipe) closings
+            addToTerms rest (Infix BackwardsPipe) closings
         | Start "%" rest ->
-            leftAssociate rest (Infix Remainder) closings        
+            addToTerms rest (Infix Remainder) closings        
         | Start "@" rest ->
-            leftAssociate rest (Infix Concat) closings
+            addToTerms rest (Infix Concat) closings
         | Start "+" rest ->
-            leftAssociate rest (Infix <| Def Add) closings
+            addToTerms rest (Infix <| Def Add) closings
         | Start "-" rest when isAfterTerm ->
-            leftAssociate rest (Infix <| Def Subtract) closings
+            addToTerms rest (Infix <| Def Subtract) closings
         | Start "*" rest ->
-            leftAssociate rest (Infix <| Def Multiply) closings
+            addToTerms rest (Infix <| Def Multiply) closings
         | Start "/" rest ->
-            leftAssociate rest (Infix <| Def Divide) closings
+            addToTerms rest (Infix <| Def Divide) closings
         | Start "<=" rest ->
-            leftAssociate rest (Infix <| Def LessOrEqual) closings
+            addToTerms rest (Infix <| Def LessOrEqual) closings
         | Start "<" rest ->
-            leftAssociate rest (Infix <| Def LessThan) closings
+            addToTerms rest (Infix <| Def LessThan) closings
         | Start "=" rest ->
-            leftAssociate rest (Infix <| Def Equal) closings
+            addToTerms rest (Infix <| Def Equal) closings
         | Start "!=" rest ->
-            leftAssociate rest (Infix <| Def Different) closings
+            addToTerms rest (Infix <| Def Different) closings
         | Start ">=" rest ->
-            leftAssociate rest (Infix <| Def GreaterOrEqual) closings
+            addToTerms rest (Infix <| Def GreaterOrEqual) closings
         | Start ">" rest ->
-            leftAssociate rest (Infix <| Def GreaterThan) closings
+            addToTerms rest (Infix <| Def GreaterThan) closings
         | Start ";" rest ->
-            leftAssociate rest (Infix <| Def Sequence) closings
+            addToTerms rest (Infix <| Def Sequence) closings
         // Right associative operators
         | Start "::" rest ->
-            rightAssociate rest (Infix <| Def Cons) closings
+            addToTerms rest (Infix <| Def Cons) closings
         | Start "&&" rest ->
-            rightAssociate rest (Infix <| Def And) closings
+            addToTerms rest (Infix <| Def And) closings
         | Start "||" rest ->
-            rightAssociate rest (Infix <| Def Or) closings
+            addToTerms rest (Infix <| Def Or) closings
         | _ when (snd closings).IsEmpty ->
             "", []
         | _ ->

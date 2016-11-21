@@ -1058,7 +1058,7 @@ let rec filter(pred, ls) {
 	if empty? ls then
 		nil
 	else if head ls |> pred then
-		head ls::tail ls |> filter pred
+		head ls::(tail ls |> filter pred)
 	else
 		tail ls |> filter pred
 }; 
