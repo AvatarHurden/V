@@ -91,7 +91,7 @@ Programs in $L1$ are terms $e$ belonging to the following abstract syntax tree:
 	b &::= &True \; | \; False\\
 	n &::= &\mathbb{N}\\
 	c &::= & \lq char \rq\\
-	char&::= &\mathrm{a \ldots z} \; | \; \mathrm{A \ldots Z} \; | \; \mathrm{0 \ldots 9}\\
+	char&::= &ASCII \; characters\\
 	\\
 	op &::= &opNum \; | \; opEq \; | \; opIneq \; | \; opBool \\
 	opNum &::= &+ \; | \; - \; | \; \ast \; | \; \div\\
@@ -133,12 +133,12 @@ env &::= &\{\} \; | \; \{x \rightarrow v\} \cup env\\
 	&| &raise\\
 	&| &skip\\
 	&| &\left\langle x, e, env\right\rangle\\
-	&| &\left\langle f, x, e, env\right\rangle\\
+	&| &\left\langle x_1, x_2, e, env\right\rangle\\
 \end{tabular}}
 
 \bigskip
 
-The values $\left\langle x, e, env\right\rangle$ and $\left\langle f, x, e, env\right\rangle$ are closures and recursive closures, respectively.
+The values $\left\langle x, e, env\right\rangle$ and $\left\langle x_1, x_2, e, env\right\rangle$ are closures and recursive closures, respectively.
 They represent the result of evaluating functions and recursive functions, and store the environment at the moment of evaluation.
 This means that $L1$ has static scope, since closures capture the environment at the moment of evaluation and $L1$ has eager evaluation.
 
@@ -157,8 +157,39 @@ This means that $L1$ has static scope, since closures capture the environment at
 	{\mbox{env}(x) = v}
 	{\mbox{env} \vdash x \Downarrow v}
 	
+\paragraph{Numerical Operations}
+The $L1$ language only supports integers, so all operations are done on integer numbers.
+This means that the division always results in a whole number, truncated towards zero.
+
+\medskip
+
+\infrule[BS-+]
+	{\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n\right\|=\left\|n_1\right\|+\left\|n_2\right\|}
+	{\mbox{env} \vdash e_1 + e_2 \Downarrow n}
+	
+\infrule[BS--]
+	{\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n\right\|=\left\|n_1\right\|-\left\|n_2\right\|}
+	{\mbox{env} \vdash e_1 - e_2 \Downarrow n}
+	
+\infrule[BS-$\ast$]
+	{\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n\right\|=\left\|n_1\right\|\ast\left\|n_2\right\|}
+	{\mbox{env} \vdash e_1 - e_2 \Downarrow n}
+	
+\infrule[BS-$\div$Zero]
+	{\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow 0}
+	{\mbox{env} \vdash e_1 \div e_2 \Downarrow raise}
+	
+\infrule[BS-$\div$]
+	{\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2\\
+	 \andalso \left\|n_2\right\|\neq 0 \andalso \left\|n\right\|=\left\|n_1\right\|\div\left\|n_2\right\|}
+	{\mbox{env} \vdash e_1 \div e_2 \Downarrow n}
+	
 \paragraph{Equality Operations}
-Equality Operations
+The equality operators ($=$ and $\neq$) allow comparison of certain terms with other terms of the same kind.
+In this way, it is a polymorphic operator, being usable in different contexts.
+Even so, it is important to realize that it only compares values of the same kind (numbers with numbers, characters with characters, etc).
+
+\medskip
 
 \infrule[BS-$=$NumTrue]
 	{\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n_1\right\|=\left\|n_2\right\|}
@@ -168,42 +199,161 @@ Equality Operations
 	{\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n_1\right\|\neq\left\|n_2\right\|}
 	{\mbox{env} \vdash e_1 = e_2 \Downarrow False}
 	
-\infrule[BS-$\neq$NumTrue]
-	{\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n_1\right\|\neq\left\|n_2\right\|}
-	{\mbox{env} \vdash e_1 \neq e_2 \Downarrow True}
+\medskip
+
+\infrule[BS-$=$CharTrue]
+	{\mbox{env} \vdash e_1 \Downarrow c_1 \andalso \mbox{env} \vdash e_2 \Downarrow c_2 \andalso \left\|c_1\right\|=\left\|c_2\right\|}
+	{\mbox{env} \vdash e_1 ineqOP e_2 \Downarrow True}
 	
-\infrule[BS-$\neq$NumFalse]
-	{\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n_1\right\|=\left\|n_2\right\|}
-	{\mbox{env} \vdash e_1 \neq e_2 \Downarrow False}
+\infrule[BS-$=$CharFalse]
+	{\mbox{env} \vdash e_1 \Downarrow c_1 \andalso \mbox{env} \vdash e_2 \Downarrow c_2 \andalso \left\|c_1\right\|\neq\left\|c_2\right\|}
+	{\mbox{env} \vdash e_1 ineqOP e_2 \Downarrow True}
 	
+\medskip
 	
-\infrule[BS-$=$BoolTrue1]
-	{\mbox{env} \vdash e_1 \Downarrow True \andalso \mbox{env} \vdash e_2 \Downarrow True}
-	{\mbox{env} \vdash e_1 = e_2 \Downarrow True}
-	
-\infrule[BS-$=$BoolTrue2]
-	{\mbox{env} \vdash e_1 \Downarrow False \andalso \mbox{env} \vdash e_2 \Downarrow False}
+\infrule[BS-$=$BoolTrue]
+	{\mbox{env} \vdash e_1 \Downarrow b_1 \andalso \mbox{env} \vdash e_2 \Downarrow b_2 \andalso \left\|b_1\right\|=\left\|b_2\right\|}
 	{\mbox{env} \vdash e_1 = e_2 \Downarrow True}
 	
 \infrule[BS-$=$BoolFalse]
-	{\mbox{env} \vdash e_1 \Downarrow b_1 \andalso \mbox{env} \vdash e_2 \Downarrow b_2}
+	{\mbox{env} \vdash e_1 \Downarrow b_1 \andalso \mbox{env} \vdash e_2 \Downarrow b_2 \andalso \left\|b_1\right\|\neq\left\|b_2\right\|}
 	{\mbox{env} \vdash e_1 = e_2 \Downarrow False}
 	
+\medskip
 	
-\infrule[BS-$\neq$BoolTrue1]
-	{\mbox{env} \vdash e_1 \Downarrow True \andalso \mbox{env} \vdash e_2 \Downarrow False}
+\infrule[BS-$=$NilTrue]
+	{\mbox{env} \vdash e_1 \Downarrow Nil \andalso \mbox{env} \vdash e_2 \Downarrow Nil}
+	{\mbox{env} \vdash e_1 = e_2 \Downarrow True}
+	
+\infrule[BS-$=$NilFalse1]
+	{\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow Nil}
+	{\mbox{env} \vdash e_1 = e_2 \Downarrow False}
+	
+\infrule[BS-$=$NilFalse2]
+	{\mbox{env} \vdash e_1 \Downarrow Nil \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
+	{\mbox{env} \vdash e_1 = e_2 \Downarrow False}
+
+\medskip
+
+\infrule[BS-$=$ListFalse]
+	{\mbox{env} \vdash e_1 \Downarrow h_1::tl_1 \andalso \mbox{env} \vdash e_2 \Downarrow h_2::tl_2\\
+	 \mbox{env} \vdash h_1 = h_2 \Downarrow False}
+	{\mbox{env} \vdash e_1 = e_2 \Downarrow False}
+	
+\infrule[BS-$=$ListTrue]
+	{\mbox{env} \vdash e_1 \Downarrow h_1::tl_1 \andalso \mbox{env} \vdash e_2 \Downarrow h_2::tl_2\\
+	 \mbox{env} \vdash h_1 = h_2 \Downarrow True \andalso \mbox{env} \vdash tl_1 = tl_2 \Downarrow b}
+	{\mbox{env} \vdash e_1 = e_2 \Downarrow b}
+	
+\bigskip
+	
+\infrule[BS-$\neq$True]
+	{\mbox{env}\vdash e_1 = e_2 \Downarrow False}
 	{\mbox{env} \vdash e_1 \neq e_2 \Downarrow True}
 	
-\infrule[BS-$\neq$BoolTrue2]
-	{\mbox{env} \vdash e_1 \Downarrow False \andalso \mbox{env} \vdash e_2 \Downarrow True}
-	{\mbox{env} \vdash e_1 \neq e_2 \Downarrow True}
-	
-\infrule[BS-$\neq$BoolFalse]
-	{\mbox{env} \vdash e_1 \Downarrow b_1 \andalso \mbox{env} \vdash e_2 \Downarrow b_2}
+\infrule[BS-$\neq$False]
+	{\mbox{env}\vdash e_1 = e_2 \Downarrow True}
 	{\mbox{env} \vdash e_1 \neq e_2 \Downarrow False}
 	
+\bigskip
+
+\paragraph{Inequality Operations}
+The inequality operators function much in the same way as the equality operators.
+The only difference is that they do not allow comparison of certain kinds of terms (such as booleans) when such terms do not have a clear ordering to them.
+
+To reduce the number of rules, some rules are condensed for all inequality operators ($<, \leq, >, \geq$).
+The comparison done on numbers is the ordinary numerical comparison.
+For characters, the ASCII values are compared numerically.
+
+\infrule[BS-IneqNumTrue]
+	{\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n_1\right\|opIneq\left\|n_2\right\|}
+	{\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow True}
+	
+\infrule[BS-IneqNumFalse]
+	{\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \neg \left\|n_1\right\|opIneq\left\|n_2\right\|}
+	{\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow True}
+	
+\medskip
+
+\infrule[BS-IneqCharTrue]
+	{\mbox{env} \vdash e_1 \Downarrow c_1 \andalso \mbox{env} \vdash e_2 \Downarrow c_2 \andalso \left\|c_1\right\|opIneq\left\|c_2\right\|}
+	{\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow True}
+	
+\infrule[BS-IneqCharFalse]
+	{\mbox{env} \vdash e_1 \Downarrow c_1 \andalso \mbox{env} \vdash e_2 \Downarrow c_2 \andalso \neg \left\|c_1\right\|opIneq\left\|c_2\right\|}
+	{\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow True}
+
+\medskip
+
+\infrule[BS-<Nil]
+	{\mbox{env} \vdash e_1 \Downarrow Nil \andalso \mbox{env} \vdash e_2 \Downarrow Nil}
+	{\mbox{env} \vdash e_1 < e_2 \Downarrow False}
+	
+\infrule[BS-$\leq$Nil]
+	{\mbox{env} \vdash e_1 \Downarrow Nil \andalso \mbox{env} \vdash e_2 \Downarrow Nil}
+	{\mbox{env} \vdash e_1 \leq e_2 \Downarrow True}
+
+\infrule[BS->Nil]
+	{\mbox{env} \vdash e_1 \Downarrow Nil \andalso \mbox{env} \vdash e_2 \Downarrow Nil}
+	{\mbox{env} \vdash e_1 > e_2 \Downarrow False}
+	
+\infrule[BS-$\geq$Nil]
+	{\mbox{env} \vdash e_1 \Downarrow Nil \andalso \mbox{env} \vdash e_2 \Downarrow Nil}
+	{\mbox{env} \vdash e_1 \geq e_2 \Downarrow True}
+
+\medskip
+
+\infrule[BS-<ListNil]
+	{\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow Nil}
+	{\mbox{env} \vdash e_1 < e_2 \Downarrow False}
+	
+\infrule[BS-$\leq$ListNil]
+	{\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow Nil}
+	{\mbox{env} \vdash e_1 \leq e_2 \Downarrow False}
+
+\infrule[BS->ListNil]
+	{\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow Nil}
+	{\mbox{env} \vdash e_1 > e_2 \Downarrow True}
+	
+\infrule[BS-$\geq$ListNil]
+	{\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow Nil}
+	{\mbox{env} \vdash e_1 \geq e_2 \Downarrow True}
+
+\medskip
+
+\infrule[BS-<NilList]
+	{\mbox{env} \vdash e_1 \Downarrow Nil \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
+	{\mbox{env} \vdash e_1 < e_2 \Downarrow True}
+	
+\infrule[BS-$\leq$NilList]
+	{\mbox{env} \vdash e_1 \Downarrow Nil \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
+	{\mbox{env} \vdash e_1 \leq e_2 \Downarrow True}
+
+\infrule[BS->NilList]
+	{\mbox{env} \vdash e_1 \Downarrow Nil \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
+	{\mbox{env} \vdash e_1 > e_2 \Downarrow False}
+	
+\infrule[BS-$\geq$NilList]
+	{\mbox{env} \vdash e_1 \Downarrow Nil \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
+	{\mbox{env} \vdash e_1 \geq e_2 \Downarrow False}
+
+\medskip
+
+\medskip
+
+\infrule[BS-IneqListHead]
+	{\mbox{env} \vdash e_1 \Downarrow h_1::tl_1 \andalso \mbox{env} \vdash e_2 \Downarrow h_2::tl_2\\
+	 \mbox{env} \vdash h_1 = h_2 \Downarrow False \andalso \mbox{env} \vdash h_1 \; opIneq \; h_2 \Downarrow b}
+	{\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow b}
+	
+\infrule[BS-IneqListTail]
+	{\mbox{env} \vdash e_1 \Downarrow h_1::tl_1 \andalso \mbox{env} \vdash e_2 \Downarrow h_2::tl_2\\
+	 \mbox{env} \vdash h_1 = h_2 \Downarrow True \andalso \mbox{env} \vdash tl_1 \; opIneq \; tl_2 \Downarrow b}
+	{\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow b}
+
 \paragraph{Logical Operations}
-The logical operators $\wedge$ (AND) and $\vee$ (OR) both have a short-circuit evaluation. This means that, if the result of the operation can be determined from the first operand, the second one is not evaluated.
+The logical operators $\wedge$ (AND) and $\vee$ (OR) both have a short-circuit evaluation. 
+This means that, if the result of the operation can be determined from the first operand, the second one is not evaluated.
 	
 \infrule[BS-$\vee$Short]
 	{\mbox{env} \vdash e_1 \Downarrow True}
@@ -220,5 +370,42 @@ The logical operators $\wedge$ (AND) and $\vee$ (OR) both have a short-circuit e
 \infrule[BS-$\wedge$]
 	{\mbox{env} \vdash e_1 \Downarrow True \andalso \mbox{env} \vdash e_2 \Downarrow b}
 	{\mbox{env} \vdash e_1 \wedge e_2 \Downarrow b}
+	
+\bigskip
+	
+\infrule[BS-IfTrue]
+	{\mbox{env} \vdash e_1 \Downarrow True \andalso \mbox{env} \vdash e_2 \Downarrow v}
+	{\mbox{env} \vdash if \; e_1\; then \; e_2 \; else \; e_3 \Downarrow v}
+	
+\infrule[BS-IfFalse]
+	{\mbox{env} \vdash e_1 \Downarrow False \andalso \mbox{env} \vdash e_3 \Downarrow v}
+	{\mbox{env} \vdash if \; e_1\; then \; e_2 \; else \; e_3 \Downarrow v}
+	
+\bigskip
+
+\infrule[BS-AppFn]
+	{\mbox{env} \vdash e_1 \Downarrow \left\langle x, e, env\right\rangle \andalso \mbox{env} \vdash e_2 \Downarrow v_2\\
+	 \{x \rightarrow v_2 \} \cup \mbox{env} \vdash e \Downarrow v}
+	{\mbox{env} \vdash e_1 \; e_2 \Downarrow v}
+	
+\infrule[BS-AppRec]
+	{\mbox{env} \vdash e_1 \Downarrow \left\langle x_1, x_2, e, env\right\rangle \andalso \mbox{env} \vdash e_2 \Downarrow v_2\\
+	 \{x_2 \rightarrow v_2, x_1 \rightarrow \left\langle x_1, x_2, e, env\right\rangle \} \cup \mbox{env} \vdash e \Downarrow v}
+	{\mbox{env} \vdash e_1 \; e_2 \Downarrow v}
+		
+\bigskip
+
+\infax[BS-Fn]
+	{\mbox{env} \vdash fn \; x:T \Rightarrow e \Downarrow \left\langle x, e, env\right\rangle}
+
+\infax[BS-Fn2]
+	{\mbox{env} \vdash fn \; x \Rightarrow e \Downarrow \left\langle x, e, env\right\rangle}
+	
+\infax[BS-Rec]
+	{\mbox{env} \vdash rec \; x_1:T_1 \rightarrow T_2 \; \; x_2:T_1 \Rightarrow e \Downarrow \left\langle x_1, x_2, e, env\right\rangle}
+
+\infax[BS-Rec2]
+	{\mbox{env} \vdash rec \; x_1 \; x_2 \Rightarrow e \Downarrow \left\langle x_1, x_2, e, env\right\rangle}
+	
 	
 \end{document}
