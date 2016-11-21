@@ -222,15 +222,15 @@ Even so, it is important to realize that it only compares values of the same kin
 \medskip
 	
 \infrule[BS-$=$NilTrue]
-	{\mbox{env} \vdash e_1 \Downarrow Nil \andalso \mbox{env} \vdash e_2 \Downarrow Nil}
+	{\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow nil}
 	{\mbox{env} \vdash e_1 = e_2 \Downarrow True}
 	
 \infrule[BS-$=$NilFalse1]
-	{\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow Nil}
+	{\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow nil}
 	{\mbox{env} \vdash e_1 = e_2 \Downarrow False}
 	
 \infrule[BS-$=$NilFalse2]
-	{\mbox{env} \vdash e_1 \Downarrow Nil \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
+	{\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
 	{\mbox{env} \vdash e_1 = e_2 \Downarrow False}
 
 \medskip
@@ -286,55 +286,55 @@ For characters, the ASCII values are compared numerically.
 \medskip
 
 \infrule[BS-<Nil]
-	{\mbox{env} \vdash e_1 \Downarrow Nil \andalso \mbox{env} \vdash e_2 \Downarrow Nil}
+	{\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow nil}
 	{\mbox{env} \vdash e_1 < e_2 \Downarrow False}
 	
 \infrule[BS-$\leq$Nil]
-	{\mbox{env} \vdash e_1 \Downarrow Nil \andalso \mbox{env} \vdash e_2 \Downarrow Nil}
+	{\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow nil}
 	{\mbox{env} \vdash e_1 \leq e_2 \Downarrow True}
 
 \infrule[BS->Nil]
-	{\mbox{env} \vdash e_1 \Downarrow Nil \andalso \mbox{env} \vdash e_2 \Downarrow Nil}
+	{\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow nil}
 	{\mbox{env} \vdash e_1 > e_2 \Downarrow False}
 	
 \infrule[BS-$\geq$Nil]
-	{\mbox{env} \vdash e_1 \Downarrow Nil \andalso \mbox{env} \vdash e_2 \Downarrow Nil}
+	{\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow nil}
 	{\mbox{env} \vdash e_1 \geq e_2 \Downarrow True}
 
 \medskip
 
 \infrule[BS-<ListNil]
-	{\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow Nil}
+	{\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow nil}
 	{\mbox{env} \vdash e_1 < e_2 \Downarrow False}
 	
 \infrule[BS-$\leq$ListNil]
-	{\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow Nil}
+	{\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow nil}
 	{\mbox{env} \vdash e_1 \leq e_2 \Downarrow False}
 
 \infrule[BS->ListNil]
-	{\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow Nil}
+	{\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow nil}
 	{\mbox{env} \vdash e_1 > e_2 \Downarrow True}
 	
 \infrule[BS-$\geq$ListNil]
-	{\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow Nil}
+	{\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow nil}
 	{\mbox{env} \vdash e_1 \geq e_2 \Downarrow True}
 
 \medskip
 
 \infrule[BS-<NilList]
-	{\mbox{env} \vdash e_1 \Downarrow Nil \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
+	{\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
 	{\mbox{env} \vdash e_1 < e_2 \Downarrow True}
 	
 \infrule[BS-$\leq$NilList]
-	{\mbox{env} \vdash e_1 \Downarrow Nil \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
+	{\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
 	{\mbox{env} \vdash e_1 \leq e_2 \Downarrow True}
 
 \infrule[BS->NilList]
-	{\mbox{env} \vdash e_1 \Downarrow Nil \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
+	{\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
 	{\mbox{env} \vdash e_1 > e_2 \Downarrow False}
 	
 \infrule[BS-$\geq$NilList]
-	{\mbox{env} \vdash e_1 \Downarrow Nil \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
+	{\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
 	{\mbox{env} \vdash e_1 \geq e_2 \Downarrow False}
 
 \medskip
@@ -407,5 +407,55 @@ This means that, if the result of the operation can be determined from the first
 \infax[BS-Rec2]
 	{\mbox{env} \vdash rec \; x_1 \; x_2 \Rightarrow e \Downarrow \left\langle x_1, x_2, e, env\right\rangle}
 	
+\bigskip
+
+\infrule[BS-Let]
+	{\mbox{env} \vdash e_1 \Downarrow v \andalso 
+	 \{x \rightarrow v\} \cup \mbox{env} \vdash e_2 \Downarrow v_2}
+	{\mbox{env} \vdash let \; x:T = e_1 \; in \; e_2 \Downarrow v_2}
+	
+\infrule[BS-Let2]
+	{\mbox{env} \vdash e_1 \Downarrow v \andalso 
+	 \{x \rightarrow v\} \cup \mbox{env} \vdash e_2 \Downarrow v_2}
+	{\mbox{env} \vdash let \; x = e_1 \; in \; e_2 \Downarrow v_2}
+	
+\bigskip
+
+\infax[BS-Nil]
+	{\mbox{env} \vdash nil \Downarrow nil}
+
+\infrule[BS-List]
+	{\mbox{env} \vdash e_1 \Downarrow v \andalso \mbox{env} \vdash e_2 \Downarrow nil}
+	{\mbox{env} \vdash e_1 :: e_2 \Downarrow v :: nil}
+	
+\infrule[BS-List2]
+	{\mbox{env} \vdash e_1 \Downarrow v_1 \andalso \mbox{env} \vdash e_2 \Downarrow h_2::tl_2}
+	{\mbox{env} \vdash e_1 :: e_2 \Downarrow v_1 :: (h_2 :: tl_2)}
+	
+\medskip
+
+\infrule[BS-EmptyTrue]
+	{\mbox{env} \vdash e_1 \Downarrow nil}
+	{\mbox{env} \vdash isempty \; e_1 \Downarrow True}
+	
+\infrule[BS-EmptyFalse]
+	{\mbox{env} \vdash e_1 \Downarrow h_1::tl_1}
+	{\mbox{env} \vdash isempty \; e_1 \Downarrow False}
+
+\infrule[BS-Head]
+	{\mbox{env} \vdash e_1 \Downarrow h_1::tl_1}
+	{\mbox{env} \vdash hd \; e_1 \Downarrow h_1}
+
+\infrule[BS-HeadEmpty]
+	{\mbox{env} \vdash e_1 \Downarrow nil}
+	{\mbox{env} \vdash hd \; e_1 \Downarrow raise}
+		
+\infrule[BS-Tail]
+	{\mbox{env} \vdash e_1 \Downarrow h_1::tl_1}
+	{\mbox{env} \vdash tl \; e_1 \Downarrow tl_1}
+
+\infrule[BS-TailEmpty]
+	{\mbox{env} \vdash e_1 \Downarrow nil}
+	{\mbox{env} \vdash tl \; e_1 \Downarrow raise}
 	
 \end{document}
