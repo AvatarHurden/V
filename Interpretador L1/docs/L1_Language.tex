@@ -458,4 +458,76 @@ This means that, if the result of the operation can be determined from the first
 	{\mbox{env} \vdash e_1 \Downarrow nil}
 	{\mbox{env} \vdash tl \; e_1 \Downarrow raise}
 	
+\paragraph{Exceptions}
+
+Some programs can be syntactically correct but still violate the semantics of the $L1$ language, such as a dividing by zero or trying to access the head of an empty list.
+In these scenarios, the term is evaluated as the $raise$ value. 
+
+Besides violation of semantic rules, the only other term that evaluates to the $raise$ value is the $raise$ term, using the following rule:
+
+\infax[BS-Raise]
+	{\mbox{env} \vdash raise \Downarrow raise}
+
+This value is propagated by (almost) all terms, climbing up the evaluation tree.
+This means that, for every evaluation rule, there is an alternative rule that, when a sub-term evaluates to raise, evaluates the whole term to raise.
+To avoid cluttering this document with the repetition of rules, these are not shown in their entirety. 
+Below are a few examples of these propagation rules:
+
+\infrule[BS-LetRaise]
+	{\mbox{env} \vdash e_1 \Downarrow raise}
+	{\mbox{env} \vdash let \; x:T = e_1 \; in \; e_2 \Downarrow raise}
+
+\infrule[BS-+Raise]
+	{\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow raise}
+	{\mbox{env} \vdash e_1 + e_2 \Downarrow raise}
+
+The only term that does not propagate the $raise$ value is the $try$ exception.
+Its evaluation rules are the following:
+
+\infrule[BS-TryRaise]
+	{\mbox{env} \vdash e_1 \Downarrow raise \andalso \mbox{env} \vdash e_2 \Downarrow v}
+	{\mbox{env} \vdash try \; e_1 \; with \; e_2 \Downarrow v}
+	
+\infrule[BS-Try]
+	{\mbox{env} \vdash e_1 \Downarrow v}
+	{\mbox{env} \vdash try \; e_1 \; with \; e_2 \Downarrow v}
+
+\paragraph{Sequential Evaluation}
+The term $e_1 \; ; \; e_2$ is used when the term $e_1$ is only evaluated for its side effects, without any regard for its resulting value.
+
+\infrule[BS-Sequential]
+	{\mbox{env} \vdash e_1 \Downarrow skip \andalso \mbox{env} \vdash e_2 \Downarrow v}
+	{\mbox{env} \vdash e_1 \; ; \; e_2 \Downarrow v}
+	
+The value $skip$ can be obtained either by the term $skip$
+
+\infax[BS-Skip]
+	{\mbox{env} \vdash skip \Downarrow skip}
+	
+or by evaluating other terms (such as $output e$, as shown below).
+
+\paragraph{Input and Output}
+Since both input and output deal with side effects, specifying their evaluation rules is tricky.
+
+The $output$ term does not evaluate to any significant value, so we represent with the value $skip$.
+
+\infrule[BS-OutputEmpty]
+	{\mbox{env} \vdash e \Downarrow nil}
+	{\mbox{env} \vdash output \; e \Downarrow skip}
+	
+\infrule[BS-Output]
+	{\mbox{env} \vdash e \Downarrow c :: v_1 \andalso \mbox{env} \vdash output \; v_1 \Downarrow skip}
+	{\mbox{env} \vdash output \; e \Downarrow skip}
+
+This cannot be represented in the semantic rules, but the value $c$ that results from evaluating $e$ in rule \textbf{BS-Output} is printed on the output stream (typically the console).
+The rule \textbf{BS-OutputEmpty} prints a new line character on the output stream, effectively making $output$ similar to "`printLine"' found in other languages.
+
+The $input$ term does evaluate to a significant value, but the value is nondeterministic, since it depends on the input of a user.
+The only guarantees that exist are that it will be either $nil$ or $c :: v_2$, making this similar to "`readLine"' found in other languages.
+
+\infax[BS-Input]
+	{\mbox{env} \vdash input \Downarrow v}
+
+
+	
 \end{document}
