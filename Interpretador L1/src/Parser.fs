@@ -21,6 +21,7 @@ type associativity =
 type infixOP =
     // Infix operators
     | Def of op
+    | Apply
     | Pipe
     | BackwardsPipe
     | Remainder
@@ -28,10 +29,6 @@ type infixOP =
 
 type prefixOP =
     | Negate
-    | Head
-    | Tail
-    | IsEmpty
-    | Output
 
 type extendedTerm =
     | Term of term
@@ -41,6 +38,7 @@ type extendedTerm =
 let private associativityOf op =
     match op with
     | Concat
+    | Apply
     | Def Cons
     | Def And
     | Def Or ->
@@ -64,11 +62,7 @@ let private associativityOf op =
         NonAssociative
 
 let private priorityOf op =
-    match op with            
-    | Prefix Head
-    | Prefix Tail
-    | Prefix IsEmpty
-    | Prefix Output
+    match op with        
     | Infix (Def Application) ->
         1
     | Infix (Def Multiply)
@@ -98,6 +92,8 @@ let private priorityOf op =
         8
     | Infix (Def Sequence) ->
         9
+    | Infix Apply ->
+        10
 
 type closings = bool * string list
 
@@ -154,7 +150,7 @@ let parseIdent text =
     | Number rest ->
         raiseExp "An identifier cannot begin with a digit"
     | Trimmed rest ->
-        let prohibited = " .,;:+-/*<=>(){}[]%&|!@\\'\"\n\r\t".ToCharArray()
+        let prohibited = " .,;:+-/*<=>(){}[]%$&|!@\\'\"\n\r\t".ToCharArray()
         let ident = String.Concat (rest |> 
                         Seq.takeWhile (fun x -> not <| Seq.exists ((=) x) prohibited))
         match ident with
@@ -295,25 +291,19 @@ let rec condenseTerms prev current nexts priority =
             condenseTerms prev (Term <| OP (x, Application, y)) rest priority
         | t :: rest ->
             condenseTerms (Some current) t rest priority
-    | Prefix op when priorityOf current = priority ->
+    | Prefix Negate when priorityOf current = priority ->
         match prev, nexts with
         | None, Term y :: rest ->
-            let term = 
-                match op with
-                | Negate -> OP (X "negate", Application, y)
-                | IsEmpty -> Definition.IsEmpty y
-                | Head -> Definition.Head y
-                | Tail -> Definition.Tail y
-                | Output -> Definition.Output y
+            let term = OP (X "negate", Application, y)
             condenseTerms prev (Term term) rest priority
         | Some _, _ ->
-            raise (InvalidEntryText <| sprintf "Prefix %A cannot be preceded by a term" op)
+            raise (InvalidEntryText <| sprintf "Prefix %A cannot be preceded by a term" Negate)
         | _ ->
-            raiseExp <| sprintf "Prefix %A must be followed by a term" op
-    | Prefix op ->
+            raiseExp <| sprintf "Prefix %A must be followed by a term" Negate
+    | Prefix Negate ->
         match prev with
         | Some _ ->
-            raise (InvalidEntryText <| sprintf "Prefix %A cannot be preceded by a term" op)
+            raise (InvalidEntryText <| sprintf "Prefix %A cannot be preceded by a term" Negate)
         | None ->
             [current] @ condenseTerms None nexts.Head nexts.Tail priority
     | Infix op when priorityOf current = priority ->
@@ -332,6 +322,7 @@ let rec condenseTerms prev current nexts priority =
             let term = 
                 match op with
                 | Def op -> OP (x, op, y)
+                | Apply -> OP(x, Application, y)
                 | Pipe -> OP(y, Application, x)
                 | BackwardsPipe -> OP(x, Application, y)
                 | Remainder -> OP (OP (X "remainder", Application, x), Application, y)
@@ -650,13 +641,17 @@ and collectTerms text closings isAfterTerm =
         | Start "-" rest when not isAfterTerm ->
             addToTerms rest (Prefix Negate) closings
         | Start "empty?" rest ->
-            addToTerms rest (Prefix IsEmpty) closings
+            addToTerms rest 
+                (Term <| Fn ("x", None, IsEmpty <| X "x")) closings
         | Start "head" rest ->
-            addToTerms rest (Prefix Head) closings
+            addToTerms rest 
+                (Term <| Fn ("x", None, Head <| X "x")) closings
         | Start "tail" rest ->
-            addToTerms rest (Prefix Tail) closings
+            addToTerms rest 
+                (Term <| Fn ("x", None, Tail <| X "x")) closings
         | Start "output" rest ->
-            addToTerms rest (Prefix Output) closings
+            addToTerms rest 
+                (Term <| Fn ("x", None, Output <| X "x")) closings
         // Matching infix operators
         | Start "|>" rest ->
             addToTerms rest (Infix Pipe) closings
@@ -689,6 +684,8 @@ and collectTerms text closings isAfterTerm =
         | Start ";" rest ->
             addToTerms rest (Infix <| Def Sequence) closings
         // Right associative operators
+        | Start "$" rest ->
+            addToTerms rest (Infix Apply) closings
         | Start "::" rest ->
             addToTerms rest (Infix <| Def Cons) closings
         | Start "&&" rest ->
