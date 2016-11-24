@@ -23,8 +23,6 @@ type infixOP =
     | Def of op
     | Apply
     | Compose
-    | Pipe
-    | BackwardsPipe
     | Remainder
     | Concat
 
@@ -51,9 +49,7 @@ let private associativityOf op =
     | Def Divide
     | Remainder 
     | Def Application 
-    | Def Sequence 
-    | BackwardsPipe 
-    | Pipe ->
+    | Def Sequence ->
         Left
     | Def Equal
     | Def Different
@@ -86,9 +82,7 @@ let private priorityOf op =
     | Infix (Def Equal)
     | Infix (Def Different)
     | Infix (Def GreaterThan)
-    | Infix (Def GreaterOrEqual)
-    | Infix Pipe
-    | Infix BackwardsPipe ->
+    | Infix (Def GreaterOrEqual) ->
         6
     | Infix (Def And) ->
         7
@@ -326,11 +320,9 @@ let rec condenseTerms prev current nexts priority =
             let term = 
                 match op with
                 | Def op -> OP (x, op, y)
-                | Apply -> OP(x, Application, y)
-                | Pipe -> OP(y, Application, x)
-                | BackwardsPipe -> OP(x, Application, y)
                 | Remainder -> OP (OP (X "remainder", Application, x), Application, y)
                 | Concat -> OP (OP (X "concat", Application, x), Application, y)
+                | Apply -> OP(x, Application, y)
                 | Compose -> Fn ("x", None, OP (x, Application, OP (y, Application, X "x")))
             condenseTerms None (Term <| term) rest priority
         | _ ->
@@ -658,10 +650,6 @@ and collectTerms text closings isAfterTerm =
             addToTerms rest 
                 (Term <| Fn ("x", None, Output <| X "x")) closings
         // Matching infix operators
-        | Start "|>" rest ->
-            addToTerms rest (Infix Pipe) closings
-        | Start "<|" rest ->
-            addToTerms rest (Infix BackwardsPipe) closings
         | Start "%" rest ->
             addToTerms rest (Infix Remainder) closings        
         | Start "@" rest ->

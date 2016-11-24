@@ -315,7 +315,7 @@ type TestInteractions() =
                         else
                             (fac x) :: (faclist (x-1))
                     };
-                    reverse <| faclist 5" <| ResCons(ResI 1, ResCons(ResI 2,  
+                    reverse $ faclist 5" <| ResCons(ResI 1, ResCons(ResI 2,  
                         ResCons(ResI 6, ResCons(ResI 24, ResCons(ResI 120, ResNil)))))
 
     [<Test>]

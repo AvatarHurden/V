@@ -142,19 +142,19 @@ let reduce(f, ls) {
 let rec all(pred, ls) {
 	if empty? ls then
 		true
-	else if (head ls) |> pred |> not then
+	else if not . pred $ head ls then
         false
 	else
-		(tail ls) |> all pred
+		all pred $ tail ls 
 };
 
 let rec any(pred, ls) {
 	if empty? ls then
 		false
-	else if (head ls) |> pred then
+	else if pred $ head ls then
 		true
 	else
-		(tail ls) |> any pred
+		any pred $ tail ls
 };
 
 let maximum(ls) {
@@ -175,7 +175,7 @@ let rec take(x, ls) {
 	else if (x = 0) || (empty? ls) then
 		nil
 	else
-		(head ls)::((tail ls) |> take (x-1))
+		(head ls)::(take (x-1) $ tail ls)
 };
 
 let rec drop(x, ls) {
@@ -190,26 +190,26 @@ let rec drop(x, ls) {
 let rec takeWhile(pred, ls) {
 	if empty? ls then
 		nil
-	else if (head ls) |> pred |> not then
+	else if not . pred $ head ls then
 		nil
 	else
-		(head ls)::(tail ls |> takeWhile pred)
+		(head ls)::(takeWhile pred $ tail ls)
 };
 
 let rec dropWhile(pred, ls) {
     if empty? ls then
         []
-    else if head ls |> pred |> not then
+    else if not . pred $ head ls then
         ls
     else
-        dropWhile pred (tail ls)
+        dropWhile pred $ tail ls
 };
 
 let sublist(start, size, ls) {
     if start < 0 || size > length ls then
         raise
     else
-        take size <| drop start ls 
+        take size $ drop start ls 
 };
 
 // =====================
@@ -222,16 +222,16 @@ let rec exists(t, ls) {
     else if t = (head ls) then
         true
     else
-        exists t <| tail ls
+        exists t $ tail ls
 };      
 
 let rec filter(pred, ls) {
 	if empty? ls then
 		nil
-	else if head ls |> pred then
-		head ls::tail ls |> filter pred
+	else if pred $ head ls then
+		head ls::(filter pred $ tail ls)
 	else
-		tail ls |> filter pred
+		filter pred $ tail ls
 }; 
 
 // =======================
@@ -269,9 +269,9 @@ let rec sort(ls) {
     else
         let first = head ls;
         let rest = tail ls;
-        (sort <| filter (\x => x <= first) rest) 
+        (sort $ filter (\x => x <= first) rest) 
         @ [first] @ 
-        (sort <| filter (\x => x > first) rest)
+        (sort $ filter (\x => x > first) rest)
 };
 
 
