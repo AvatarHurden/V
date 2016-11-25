@@ -95,6 +95,8 @@ let private priorityOf op =
         9
     | Infix Apply ->
         10
+    | Term _ ->
+        raise <| InvalidEntryText "A Term has no priority"
 
 type closings = bool * string list
 
