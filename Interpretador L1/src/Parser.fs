@@ -23,6 +23,7 @@ type infixOP =
     | Def of op
     | Apply
     | Compose
+    | Index
     | Remainder
     | Concat
 
@@ -48,6 +49,7 @@ let private associativityOf op =
     | Def Multiply
     | Def Divide
     | Remainder 
+    | Index
     | Def Application 
     | Def Sequence ->
         Left
@@ -63,7 +65,8 @@ let private priorityOf op =
     match op with        
     | Infix (Def Application) ->
         0
-    | Infix Compose ->
+    | Infix Compose
+    | Infix Index ->
         1
     | Infix (Def Multiply)
     | Infix (Def Divide) 
@@ -324,6 +327,7 @@ let rec condenseTerms prev current nexts priority =
                 | Concat -> OP (OP (X "concat", Application, x), Application, y)
                 | Apply -> OP(x, Application, y)
                 | Compose -> Fn ("x", None, OP (x, Application, OP (y, Application, X "x")))
+                | Index -> OP (OP (X "nth", Application, y), Application, x) 
             condenseTerms None (Term <| term) rest priority
         | _ ->
             raiseExp <| sprintf "Infix %A must be surrounded by terms" op
@@ -650,6 +654,8 @@ and collectTerms text closings isAfterTerm =
             addToTerms rest 
                 (Term <| Fn ("x", None, Output <| X "x")) closings
         // Matching infix operators
+        | Start "!!" rest ->
+            addToTerms rest (Infix Index) closings  
         | Start "%" rest ->
             addToTerms rest (Infix Remainder) closings        
         | Start "@" rest ->
