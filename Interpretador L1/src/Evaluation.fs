@@ -197,6 +197,44 @@ and private eval t env =
         | ResCons (ResC c, t) as t1' -> printf "%s" <| toString t1'; ResSkip
         | ResNil -> printfn ""; ResSkip
         | t1' -> sprintf "Term %A is not a string at %A" t1' t |> WrongExpression |> raise
+    | Record (names, terms) ->
+        if terms.Length < 2 then
+            sprintf "Record must have more than 2 values at %A" t |> WrongExpression |> raise
+
+        match names with
+        | Some names ->
+            if names.Length <> terms.Length 
+                || Set(names).Count < names.Length then
+                sprintf "List of names does not match list of terms at %A" t |> WrongExpression |> raise
+        | None -> ()
+
+        let foldF (valid, valuePairs) t1 =
+            match valid, eval t1 env with
+            | false, _ -> false, []
+            | true, ResRaise -> false, []
+            | true, t1' -> valid, t1' :: valuePairs
+        
+        let valid, values = List.fold foldF (true, []) terms
+        if valid then
+            ResRecord (names, List.rev values)
+        else
+            ResRaise
+    | Project(field, t1) ->
+        match field, eval t1 env with
+        | _, ResRaise -> ResRaise
+        | IntProjection i, ResRecord (_, values) ->
+            if i >= 0 && i < values.Length then
+                values.[i]
+            else
+                sprintf "Cannot acces index %A of record at %A" i t |> WrongExpression |> raise
+        | StringProjection s, ResRecord (Some names, values) ->
+            if List.exists ((=) s) names then
+                values.[List.findIndex ((=) s) names]
+            else
+                sprintf "Record has no entry %A at %A" s t |> WrongExpression |> raise
+        | StringProjection s, ResRecord (None, values) as t1' ->
+            sprintf "Term %A is not a named record at %A" t1' t |> WrongExpression |> raise
+        | t1' -> sprintf "Term %A is not a record at %A" t1' t |> WrongExpression |> raise
     | X(id) -> 
         if env.ContainsKey id then
             env.[id]

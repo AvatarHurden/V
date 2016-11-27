@@ -12,6 +12,7 @@ type Type =
     | Unit
     | Function of Type * Type
     | List of Type
+    | Record of string list option * Type list
 
 
 let rec validateTrait trt typ =
@@ -38,6 +39,20 @@ let rec validateTrait trt typ =
             match validateTrait trt typ1 with
             | None -> None
             | Some typ1 -> Some <| List typ1
+    | Record (names, types) ->
+        match trt with
+        | Equatable ->
+            let foldF (valid, newTypes) typ =
+                match valid, validateTrait trt typ with
+                | false, _ -> false, []
+                | true, Some typ -> valid, typ :: newTypes
+                | true, None -> false, []
+            let valid, types = List.fold foldF (true, []) types
+            if valid then
+                Some <| Record (names, List.rev types)
+            else
+                None 
+        | Orderable -> None
     | VarType (x, traits) ->
         if List.exists ((=) trt) traits then
             Some typ
@@ -61,6 +76,10 @@ type op =
     | And
     | Or
 
+type ProjectionType =
+    | IntProjection of int
+    | StringProjection of string
+
 type Ident = string
     
 type term =
@@ -83,6 +102,8 @@ type term =
     | Try of term * term
     | Output of term
     | Input
+    | Record of string list option * term list
+    | Project of ProjectionType * term
 
 type result =
     | ResTrue
@@ -95,6 +116,7 @@ type result =
     | ResCons of result * result
     | ResClosure of Ident * term * env
     | ResRecClosure of Ident * Ident * term * env
+    | ResRecord of string list option * result list
 and
     env = Map<Ident, result>
 

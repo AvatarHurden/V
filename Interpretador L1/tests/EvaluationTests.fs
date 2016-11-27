@@ -27,6 +27,14 @@ let compare (text, term) =
     let evaluated = evaluate <| parse text
     evaluated |> should equal term
 
+let compareDirect term result =
+    let evaluated = evaluate term
+    evaluated |> should equal result
+
+let throwsWrongExpression term =
+    (fun () -> evaluate term |> ignore) |> should throw typeof<WrongExpression>
+
+
 [<TestFixture>]
 type TestEval() =
 
@@ -93,3 +101,66 @@ lcm 121 11*15" |> parse |> evaluate |> should equal <| ResI 1815
         compare ("false && true", ResFalse)
         compare ("false && raise", ResFalse)
         compare ("let t = []; (empty? t) || (head t) = 0", ResTrue)
+
+
+[<TestFixture>]
+type TestRecordEval() =
+
+    [<Test>]
+    member that.singleton() =
+        throwsWrongExpression <| Record (None, [I 3])
+
+    [<Test>]
+    member that.singletonRecord() =
+        throwsWrongExpression <| Record (Some ["h"], [I 3])
+
+    [<Test>]
+    member that.unmatchingLists() =
+        throwsWrongExpression <| Record (Some ["h"], [I 3; True])
+
+    [<Test>]
+    member that.twoTuple() =
+        compareDirect (Record(None, [I 3; True])) <|
+             ResRecord(None, [ResI 3; ResTrue])
+
+    [<Test>]
+    member that.twoTupleNames() =
+        compareDirect (Record(Some ["a";"b"], [I 3; True])) <|
+             ResRecord(Some ["a";"b"], [ResI 3; ResTrue])
+             
+    [<Test>]
+    member that.repeatedNames() =
+        throwsWrongExpression <| Record(Some ["a";"a"], [I 3; Raise])
+
+    [<Test>]
+    member that.invalidMember() =
+        compareDirect (Record(Some ["a";"b"], [I 3; Raise])) <|
+             ResRaise
+
+    [<Test>]
+    member that.accessIndex() =
+        compareDirect 
+            (Project (IntProjection 1, Record(Some ["a";"b"], [I 3; True])))
+            ResTrue
+    
+    [<Test>]
+    member that.accessIndexOutOfRange() =
+        throwsWrongExpression <|
+            (Project (IntProjection 2, Record(Some ["a";"b"], [I 3; True])))
+            
+    [<Test>]
+    member that.accessName() =
+        compareDirect
+            (Project (StringProjection "a", Record(Some ["a";"b"], [I 3; True])))
+            (ResI 3)
+    
+    [<Test>]
+    member that.accessNameOutOfRange() =
+        throwsWrongExpression <|
+            (Project (StringProjection "c", Record(Some ["a";"b"], [I 3; True])))
+             
+    [<Test>]
+    member that.accessNameUnnamed() =
+        throwsWrongExpression <|
+            (Project (StringProjection "c", Record(None, [I 3; True])))
+             
