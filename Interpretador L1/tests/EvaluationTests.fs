@@ -5,6 +5,7 @@ open FsUnit
 open Parser
 open Definition
 open Evaluation
+open TypeInference
 
 let facList =
     Let("faclist", Some <| Function(Int, List Int), 
@@ -28,6 +29,7 @@ let compare (text, term) =
     evaluated |> should equal term
 
 let compareDirect term result =
+    let typ = typeInfer term
     let evaluated = evaluate term
     evaluated |> should equal result
 
@@ -112,11 +114,11 @@ type TestRecordEval() =
 
     [<Test>]
     member that.singletonRecord() =
-        throwsWrongExpression <| Record (Some ["h"], [I 3])
+        throwsWrongExpression <| Record (Some <| seq(["h"]), [I 3])
 
     [<Test>]
     member that.unmatchingLists() =
-        throwsWrongExpression <| Record (Some ["h"], [I 3; True])
+        throwsWrongExpression <| Record (Some <| seq(["h"]), [I 3; True])
 
     [<Test>]
     member that.twoTuple() =
@@ -125,39 +127,40 @@ type TestRecordEval() =
 
     [<Test>]
     member that.twoTupleNames() =
-        compareDirect (Record(Some ["a";"b"], [I 3; True])) <|
-             ResRecord(Some ["a";"b"], [ResI 3; ResTrue])
+        compareDirect (Record(Some <| seq(["a";"b"]), [I 3; True])) <|
+             ResRecord(Some <| seq(["a";"b"]), [ResI 3; ResTrue])
              
     [<Test>]
     member that.repeatedNames() =
-        throwsWrongExpression <| Record(Some ["a";"a"], [I 3; Raise])
+        throwsWrongExpression <| Record(Some <| seq(["a";"a"]), [I 3; Raise])
 
     [<Test>]
     member that.invalidMember() =
-        compareDirect (Record(Some ["a";"b"], [I 3; Raise])) <|
+        compareDirect (Record(Some <| seq(["a";"b"]), [I 3; Raise])) <|
              ResRaise
 
     [<Test>]
     member that.accessIndex() =
         compareDirect 
-            (Project (IntProjection 1, Record(Some ["a";"b"], [I 3; True])))
+            (OP (I 3, Add, 
+                Project (IntProjection 1, Record(Some <| seq(["a";"b"]), [I 3; True]))))
             ResTrue
     
     [<Test>]
     member that.accessIndexOutOfRange() =
         throwsWrongExpression <|
-            (Project (IntProjection 2, Record(Some ["a";"b"], [I 3; True])))
+            (Project (IntProjection 2, Record(Some <| seq(["a";"b"]), [I 3; True])))
             
     [<Test>]
     member that.accessName() =
         compareDirect
-            (Project (StringProjection "a", Record(Some ["a";"b"], [I 3; True])))
+            (Project (StringProjection "a", Record(Some <| seq(["a";"b"]), [I 3; True])))
             (ResI 3)
     
     [<Test>]
     member that.accessNameOutOfRange() =
         throwsWrongExpression <|
-            (Project (StringProjection "c", Record(Some ["a";"b"], [I 3; True])))
+            (Project (StringProjection "c", Record(Some <| seq(["a";"b"]), [I 3; True])))
              
     [<Test>]
     member that.accessNameUnnamed() =

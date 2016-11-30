@@ -9,9 +9,21 @@ exception InvalidType of string
 // This is a stand-in for VarType, to avoid having to match types
 type FreeVar = string * Trait list
 
-type Unified(subs, traits) =
-    member that.substitution: Map<string, Type> = subs
-    member that.traits: Map<string, Trait list> = traits
+type Unified =
+    struct 
+     val substitution: Map<string, Type>
+     val traits: Map<string, Trait list>
+     new (subs, traits) = {
+        substitution = subs
+        traits = traits
+     }
+    end
+
+    member that.AddTrait x trt =
+        Unified (that.substitution, that.traits.Add(x, trt))
+        
+    member that.AddSubstitution x subs =
+        Unified (that.substitution.Add(x, subs), that.traits)
 
 type Constraint =
     | Equals of Type * Type
@@ -21,10 +33,10 @@ type EnvAssociation =
     | Universal of FreeVar list * Type
 
 let mutable varType = 0
-let getVarType traits =
+let getVarType (traits: Trait list) =
     let newType = varType
     varType <- varType + 1
-    VarType (sprintf "VarType%d" newType, traits)
+    VarType <| Var (sprintf "VarType%d" newType, traits)
 
 // Polimorphism Functions
 
@@ -37,17 +49,21 @@ let rec getFreeVars typ env: FreeVar list =
         | Unit -> []
         | List(t1) -> getFreeVars t1 env
         | Function(t1, t2) -> getFreeVars t1 env @ getFreeVars t2 env
-        | VarType (x, traits) -> 
+        | Type.Record(_, types) ->
+            Seq.fold (fun acc x -> getFreeVars x env @ acc) [] types
+        | VarType {name = x; traits = traits} -> 
             let freeChecker = 
                 (fun x' assoc -> 
                     match assoc with
-                    | Simple (VarType (x1, traits)) -> x1 = x
+                    | Simple (VarType {name = x1}) -> x1 = x
                     | _ -> false)
             if Map.exists freeChecker env then
                 []
             else
                 [(x, traits)]
     in Set(f typ) |> Set.toList
+
+// Unify Helper Functions
 
 let substituteInType subs typ' =
     let x, typ = subs
@@ -59,7 +75,9 @@ let substituteInType subs typ' =
         | Unit -> Unit
         | List(s1) -> List(f s1)
         | Function(s1, s2) -> Function(f s1, f s2)
-        | VarType(id, traits) ->
+        | Type.Record(names, types) ->
+            Type.Record (names, Seq.map f types)
+        | VarType {name = id} ->
             if id = x then
                 typ
             else
@@ -74,6 +92,8 @@ let substituteInConstraints subs constraints =
             Equals (substituteInType subs s, substituteInType subs t)
     List.map f constraints
 
+// Equals Constraint Solving
+
 let rec occursIn x typ =
     match typ with
     | Int
@@ -82,7 +102,11 @@ let rec occursIn x typ =
     | Unit -> false
     | List(t1) -> occursIn x t1
     | Function(t1, t2) -> occursIn x t1 || occursIn x t2
-    | VarType(id, ls) -> id = x
+    | Type.Record(_, types) ->
+        Seq.fold (fun acc typ -> acc || occursIn x typ) false types
+    | VarType {name = id} -> id = x
+
+// Trait Constraint Solving
 
 let rec validateTraits traits typ =
     match typ with
@@ -97,13 +121,9 @@ let rec replaceVarTypes (vars: FreeVar list) constraints =
     | [] -> constraints
     | (x, traits) :: rest ->
         replaceVarTypes rest <| 
-            substituteInConstraints (x, VarType (x, traits)) constraints
+            substituteInConstraints (x, VarType <| Var (x, traits)) constraints
 
-let rec addTraitsToUnified (vars: FreeVar list) (unified: Unified) =
-    match vars with
-    | [] -> unified
-    | (x, traits) :: rest ->
-        new Unified(unified.substitution, unified.traits.Add(x, traits))
+// Main Unify 
 
 let rec unify constraints =
 //    for c in constraints do
@@ -112,37 +132,44 @@ let rec unify constraints =
 //            printfn "%A = %A" (printType s) (printType t)
 //    printfn ""
     match constraints with
-    | [] -> new Unified(Map.empty, Map.empty)
+    | [] -> Unified(Map.empty, Map.empty)
     | first::rest ->
         match first with
         | Equals (s, t) ->
             match s, t with
             | s, t when s = t -> unify rest
-            | VarType (x, traits), t | t, VarType (x, traits) ->
-                if occursIn x t then
-                    sprintf "Circular constraints" |> InvalidType |> raise
-                else
-                    let t' = validateTraits traits <| Some t
-                    match t' with
-                    | None ->
-                        sprintf "Can not satisfy constraints %A for %A" traits t 
-                            |> InvalidType |> raise
-                    | Some t' ->
-                        let replacedX = (substituteInConstraints (x, t') rest)
-                        let unified = 
-                            if t = t' then
-                                unify replacedX
-                            else
-                                let free = getFreeVars t' Map.empty
-                                let unified = unify <| replaceVarTypes free replacedX
-                                addTraitsToUnified free unified
-                        new Unified(unified.substitution.Add(x, t'), unified.traits) 
+            | VarType _ , t2 | t2, VarType _ ->
+                unifyVarType s t rest
             | List s1, List t1 -> 
                 unify <| rest @ [Equals (s1, t1)]
             | Function(s1, s2), Function(t1, t2) -> 
                 unify <| rest @ [Equals (s1, t1); Equals (s2, t2)]
             | _ -> 
                 raise <| InvalidType "Unsolvable constraints"
+
+and unifyVarType t1 t2 rest =
+    match t1, t2 with
+    | VarType {name = x; traits = traits}, t | t, VarType {name = x; traits = traits} ->
+        if occursIn x t then
+            sprintf "Circular constraints" |> InvalidType |> raise
+        else
+            let t' = validateTraits traits <| Some t
+            match t' with
+            | None ->
+                sprintf "Can not satisfy constraints %A for %A" traits t 
+                    |> InvalidType |> raise
+            | Some t' ->
+                let replacedX = (substituteInConstraints (x, t') rest)
+                let unified = 
+                    if t = t' then
+                        unify replacedX
+                    else
+                        let free = getFreeVars t' Map.empty
+                        let unified = unify <| replaceVarTypes free replacedX
+                        List.fold (fun acc (x, trts) -> acc.AddTrait x trts) unified free
+                unified.AddSubstitution x t'
+    | _ -> 
+        raise <| InvalidType "Passed non-varType to varType function"
 
 let rec applyType typ (unified: Unified) =
     match typ with
@@ -154,11 +181,13 @@ let rec applyType typ (unified: Unified) =
         List(applyType t1 unified)
     | Function(t1, t2) -> 
         Function(applyType t1 unified, applyType t2 unified)
-    | VarType(x, traits) -> 
+    | Type.Record(names, types) ->
+        Type.Record (names, Seq.map (fun typ -> applyType typ unified) types)
+    | VarType {name = x} -> 
         if unified.substitution.ContainsKey x then
             applyType (unified.substitution.Item x) unified
         else if unified.traits.ContainsKey x then
-            VarType (x, unified.traits.Item x)
+            VarType <| Var (x, unified.traits.Item x)
         else
             typ
             
@@ -308,6 +337,34 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
     | Output(t1) ->
         let typ1, c1 = collectConstraints t1 env
         Unit, c1 @ [Equals (typ1, List Char)]
+    | Record(names, terms) ->
+        
+        if Seq.length terms < 2 then
+            sprintf "Records must have at least 2 values at %A" term |> InvalidType |> raise
+
+        match names with
+            | None -> ()
+            | Some names ->
+                if Set(names).Count < Seq.length names then
+                    sprintf "Records cannot have duplicate labels at %A" term |> InvalidType |> raise
+        
+        let types, constraints = List.unzip <| 
+            (Seq.toList <| Seq.map (fun t -> collectConstraints t env) terms)
+        
+        Type.Record (names, types), List.reduce (@) constraints
+    | Project (field, term) ->
+        let typ1, c1 = collectConstraints term env
+        match field with
+        | IntProjection i ->
+            let retType = getVarType []
+            let varType = Type.Record (None,
+                List.map (fun x -> getVarType []) [0..i-1]@[retType])
+            retType, [Subtype (typ1, varType)]
+        | StringProjection s ->
+            let retType = getVarType []
+            let varType = Type.Record (Some <| seq([s]), [retType])
+            retType, [Subtype (typ1, varType)]
+        
 
 
 let typeInfer t =

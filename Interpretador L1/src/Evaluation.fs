@@ -198,39 +198,40 @@ and private eval t env =
         | ResNil -> printfn ""; ResSkip
         | t1' -> sprintf "Term %A is not a string at %A" t1' t |> WrongExpression |> raise
     | Record (names, terms) ->
-        if terms.Length < 2 then
+        if Seq.length terms < 2 then
             sprintf "Record must have more than 2 values at %A" t |> WrongExpression |> raise
 
         match names with
         | Some names ->
-            if names.Length <> terms.Length 
-                || Set(names).Count < names.Length then
+            if Seq.length names <> Seq.length terms 
+                || Set(names).Count < Seq.length names then
                 sprintf "List of names does not match list of terms at %A" t |> WrongExpression |> raise
         | None -> ()
 
         let foldF (valid, valuePairs) t1 =
             match valid, eval t1 env with
-            | false, _ -> false, []
-            | true, ResRaise -> false, []
-            | true, t1' -> valid, t1' :: valuePairs
+            | false, _ -> false, Seq.empty
+            | true, ResRaise -> false, Seq.empty
+            | true, t1' -> valid, Seq.append valuePairs [|t1'|] 
         
-        let valid, values = List.fold foldF (true, []) terms
+        let valid, values = Seq.fold foldF (true, Seq.empty) terms
         if valid then
-            ResRecord (names, List.rev values)
+            ResRecord (names, values)
         else
             ResRaise
     | Project(field, t1) ->
         match field, eval t1 env with
         | _, ResRaise -> ResRaise
         | IntProjection i, ResRecord (_, values) ->
-            if i >= 0 && i < values.Length then
-                values.[i]
+            if i >= 0 && i < Seq.length values then
+                Seq.nth i values
             else
                 sprintf "Cannot acces index %A of record at %A" i t |> WrongExpression |> raise
         | StringProjection s, ResRecord (Some names, values) ->
-            if List.exists ((=) s) names then
-                values.[List.findIndex ((=) s) names]
-            else
+            match Seq.tryFindIndex ((=) s) names with
+            | Some i ->
+                Seq.nth i values
+            | None ->
                 sprintf "Record has no entry %A at %A" s t |> WrongExpression |> raise
         | StringProjection s, ResRecord (None, values) as t1' ->
             sprintf "Term %A is not a named record at %A" t1' t |> WrongExpression |> raise

@@ -15,7 +15,8 @@ let rec printTraits traits =
 
 let rec printType typ =
     match typ with
-    | VarType(s, traits) -> s + " (" + printTraits traits + ")"
+    | VarType {name = s; traits = traits} -> 
+        s + " (" + printTraits traits + ")"
     | Int -> "Int"
     | Bool -> "Bool"
     | Char -> "Char"

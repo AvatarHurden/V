@@ -5,15 +5,30 @@ type Trait =
     | Orderable
 
 type Type =
-    | VarType of string * Trait list
+    | VarType of Var
     | Int
     | Bool
     | Char
     | Unit
     | Function of Type * Type
     | List of Type
-    | Record of string list option * Type list
+    | Record of string seq option * Type seq
+    
+and Var =
+    struct 
+     val name: string
+     val traits: Trait list
+     val supertypes: Type list
+     new (name, traits, supertypes) = {
+        name = name
+        traits = traits
+        supertypes = supertypes
+     }
+    end
 
+    new (name) = Var (name, [], [])
+    new (name, traits) = Var (name, traits, [])
+    new (name, supertypes) = Var (name, [], supertypes)
 
 let rec validateTrait trt typ =
     match typ with
@@ -44,20 +59,20 @@ let rec validateTrait trt typ =
         | Equatable ->
             let foldF (valid, newTypes) typ =
                 match valid, validateTrait trt typ with
-                | false, _ -> false, []
-                | true, Some typ -> valid, typ :: newTypes
-                | true, None -> false, []
-            let valid, types = List.fold foldF (true, []) types
+                | false, _ -> false, Seq.empty
+                | true, Some typ -> valid, Seq.append newTypes [|typ|]
+                | true, None -> false, Seq.empty
+            let valid, types = Seq.fold foldF (true, Seq.empty) types
             if valid then
-                Some <| Record (names, List.rev types)
+                Some <| Record (names, types)
             else
                 None 
         | Orderable -> None
-    | VarType (x, traits) ->
+    | VarType {name = x; traits = traits} ->
         if List.exists ((=) trt) traits then
             Some typ
         else
-            Some <| VarType (x, trt::traits)
+            Var(x, trt::traits) |> VarType |> Some
 
 type op =
     | Add
@@ -102,7 +117,7 @@ type term =
     | Try of term * term
     | Output of term
     | Input
-    | Record of string list option * term list
+    | Record of string seq option * term seq
     | Project of ProjectionType * term
 
 type result =
@@ -116,7 +131,7 @@ type result =
     | ResCons of result * result
     | ResClosure of Ident * term * env
     | ResRecClosure of Ident * Ident * term * env
-    | ResRecord of string list option * result list
+    | ResRecord of string seq option * result seq
 and
     env = Map<Ident, result>
 
