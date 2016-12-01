@@ -12,23 +12,31 @@ type Type =
     | Unit
     | Function of Type * Type
     | List of Type
-    | Record of string seq option * Type seq
+    | Tuple of Type list
+    | Record of (string * Type) list
     
 and Var =
     struct 
      val name: string
      val traits: Trait list
-     val supertypes: Type list
-     new (name, traits, supertypes) = {
+     new (name, traits) = {
         name = name
         traits = traits
-        supertypes = supertypes
      }
     end
 
-    new (name) = Var (name, [], [])
-    new (name, traits) = Var (name, traits, [])
-    new (name, supertypes) = Var (name, [], supertypes)
+    new (name) = Var (name, [])
+
+let rec mapOption f ls =
+    match ls with
+    | [] -> Some []
+    | x :: rest ->
+        match f x with
+        | Some x' -> 
+            match mapOption f rest with
+            | None -> None
+            | Some rest' -> Some <| x' :: rest'
+        | None -> None
 
 let rec validateTrait trt typ =
     match typ with
@@ -54,19 +62,24 @@ let rec validateTrait trt typ =
             match validateTrait trt typ1 with
             | None -> None
             | Some typ1 -> Some <| List typ1
-    | Record (names, types) ->
+    | Tuple (types) ->
         match trt with
         | Equatable ->
-            let foldF (valid, newTypes) typ =
-                match valid, validateTrait trt typ with
-                | false, _ -> false, Seq.empty
-                | true, Some typ -> valid, Seq.append newTypes [|typ|]
-                | true, None -> false, Seq.empty
-            let valid, types = Seq.fold foldF (true, Seq.empty) types
-            if valid then
-                Some <| Record (names, types)
-            else
-                None 
+            match mapOption (validateTrait trt) types with
+            | None -> None
+            | Some types' -> Some <| Tuple types'
+        | Orderable ->
+            None
+    | Record (pairs) ->
+        match trt with
+        | Equatable ->
+            let f (name, typ) =
+                match validateTrait trt typ with
+                | None -> None
+                | Some typ' -> Some (name, typ')
+            match mapOption f pairs with
+            | None -> None
+            | Some pairs' -> Some <| Record pairs' 
         | Orderable -> None
     | VarType {name = x; traits = traits} ->
         if List.exists ((=) trt) traits then
@@ -91,10 +104,6 @@ type op =
     | And
     | Or
 
-type ProjectionType =
-    | IntProjection of int
-    | StringProjection of string
-
 type Ident = string
     
 type term =
@@ -117,8 +126,10 @@ type term =
     | Try of term * term
     | Output of term
     | Input
-    | Record of string seq option * term seq
-    | Project of ProjectionType * term
+    | Tuple of term list
+    | Record of (string * term) list
+    | ProjectIndex of int * term
+    | ProjectName of string * term
 
 type result =
     | ResTrue
@@ -131,7 +142,8 @@ type result =
     | ResCons of result * result
     | ResClosure of Ident * term * env
     | ResRecClosure of Ident * Ident * term * env
-    | ResRecord of string seq option * result seq
+    | ResTuple of result list
+    | ResRecord of (string * result) list
 and
     env = Map<Ident, result>
 

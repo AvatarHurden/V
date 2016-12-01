@@ -3,14 +3,22 @@
 open NUnit.Framework
 open FsUnit
 open Definition
-open Evaluation
 open Parser
 open TypeInference
 
 
 let compare (text, typ) =
-    let evaluated = typeInfer <| parse text
+    let evaluated, _ = typeInfer <| parse text
     evaluated |> should equal typ
+
+let compareDirect term typ =
+    let typ, (u: Unified) = typ
+    let typ', u' = typeInfer term
+    typ |> should equal typ'
+    u |> should equal u'
+
+let throwsInvalidType term =
+    (fun () -> typeInfer term |> ignore) |> should throw typeof<InvalidType>
 
 
 [<TestFixture>]
@@ -84,3 +92,56 @@ else
 else
 	reduce (\\acc, x => x || acc) [true,false,true]", Int) |> ignore) |> 
         should throw typeof<InvalidType>
+
+[<TestFixture>]
+type TestTupleType() =
+
+    [<Test>]
+    member that.singleton() =
+        throwsInvalidType <| Tuple [I 3]
+
+    [<Test>]
+    member that.singletonRecord() =
+        throwsInvalidType <| Record (["h", I 3])
+
+    [<Test>]
+    member that.twoTuple() =
+        compareDirect (Tuple [I 3; True]) <|
+             (Type.Tuple [Int; Bool], Unified([]))
+
+    [<Test>]
+    member that.twoTupleNames() =
+        compareDirect (Record ["a", I 3; "b", True]) <|
+             (Type.Record ["a", Int; "b", Bool], Unified([]))
+
+    [<Test>]
+    member that.repeatedNames() =
+        throwsInvalidType <| Record ["a", I 3; "a", True]
+
+    [<Test>]
+    member that.accessIndex() =
+        let x0 = VarType <| Var ("VarType0")
+        compareDirect (ProjectIndex (1, Record ["a", I 3; "b", True])) <|
+            (x0, Unified([Subtype (Bool, x0)]))
+    
+    [<Test>]
+    member that.accessIndexOutOfRange() =
+        throwsInvalidType <|
+            ProjectIndex (2, Record ["a", I 3; "b", True])
+            
+    [<Test>]
+    member that.accessName() =
+        let x0 = VarType <| Var ("VarType0")
+        compareDirect
+            (ProjectName ("a", Record ["a", I 3; "b", True]))
+            (x0, Unified([Subtype (Int, x0)]))
+    
+    [<Test>]
+    member that.accessNameOutOfRange() =
+        throwsInvalidType <|
+            (ProjectName ("c", Record ["a", I 3; "b", True]))
+             
+    [<Test>]
+    member that.accessNameUnnamed() =
+        throwsInvalidType <|
+            ProjectName ("c", Tuple [I 3; True])

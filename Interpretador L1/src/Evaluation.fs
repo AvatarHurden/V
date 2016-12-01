@@ -197,44 +197,56 @@ and private eval t env =
         | ResCons (ResC c, t) as t1' -> printf "%s" <| toString t1'; ResSkip
         | ResNil -> printfn ""; ResSkip
         | t1' -> sprintf "Term %A is not a string at %A" t1' t |> WrongExpression |> raise
-    | Record (names, terms) ->
-        if Seq.length terms < 2 then
+    | Tuple(terms) ->
+        if List.length terms < 2 then
+            sprintf "Tuple must have more than 2 components at %A" t |> WrongExpression |> raise
+    
+        let f t =
+            match eval t env with
+            | ResRaise -> None
+            | t' -> Some t'
+
+        match mapOption f terms with
+        | None -> ResRaise
+        | Some results -> ResTuple results
+    | Record(pairs) ->
+        if List.length pairs < 2 then
             sprintf "Record must have more than 2 values at %A" t |> WrongExpression |> raise
+        elif Set(List.unzip pairs |> fst).Count < List.length pairs then
+            sprintf "Record has duplicate fields at %A" t |> WrongExpression |> raise
 
-        match names with
-        | Some names ->
-            if Seq.length names <> Seq.length terms 
-                || Set(names).Count < Seq.length names then
-                sprintf "List of names does not match list of terms at %A" t |> WrongExpression |> raise
-        | None -> ()
+        let f (name, t) =
+            match eval t env with
+            | ResRaise -> None
+            | t' -> Some (name, t')
 
-        let foldF (valid, valuePairs) t1 =
-            match valid, eval t1 env with
-            | false, _ -> false, Seq.empty
-            | true, ResRaise -> false, Seq.empty
-            | true, t1' -> valid, Seq.append valuePairs [|t1'|] 
-        
-        let valid, values = Seq.fold foldF (true, Seq.empty) terms
-        if valid then
-            ResRecord (names, values)
-        else
-            ResRaise
-    | Project(field, t1) ->
-        match field, eval t1 env with
-        | _, ResRaise -> ResRaise
-        | IntProjection i, ResRecord (_, values) ->
-            if i >= 0 && i < Seq.length values then
-                Seq.nth i values
+        match mapOption f pairs with
+        | None -> ResRaise
+        | Some results -> ResRecord results
+    | ProjectIndex(n, t1) ->
+        match eval t1 env with
+        | ResRaise -> ResRaise
+        | ResTuple values ->
+            if n >= 0 && n < List.length values then
+                List.nth values n
             else
-                sprintf "Cannot acces index %A of record at %A" i t |> WrongExpression |> raise
-        | StringProjection s, ResRecord (Some names, values) ->
+                sprintf "Cannot acces index %A of tuple at %A" n t |> WrongExpression |> raise
+        | ResRecord pairs ->
+            if n >= 0 && n < List.length pairs then
+                List.nth (snd <| List.unzip pairs) n
+            else
+                sprintf "Cannot acces index %A of record at %A" n t |> WrongExpression |> raise
+        | t1' -> sprintf "Term %A is not a tuple at %A" t1' t |> WrongExpression |> raise
+    | ProjectName(s, t1) ->
+        match eval t1 env with
+        | ResRaise -> ResRaise
+        | ResRecord pairs ->
+            let names, values = List.unzip pairs
             match Seq.tryFindIndex ((=) s) names with
             | Some i ->
                 Seq.nth i values
             | None ->
                 sprintf "Record has no entry %A at %A" s t |> WrongExpression |> raise
-        | StringProjection s, ResRecord (None, values) as t1' ->
-            sprintf "Term %A is not a named record at %A" t1' t |> WrongExpression |> raise
         | t1' -> sprintf "Term %A is not a record at %A" t1' t |> WrongExpression |> raise
     | X(id) -> 
         if env.ContainsKey id then

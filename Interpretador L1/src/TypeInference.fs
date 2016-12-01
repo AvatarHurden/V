@@ -9,31 +9,40 @@ exception InvalidType of string
 // This is a stand-in for VarType, to avoid having to match types
 type FreeVar = string * Trait list
 
+type Constraint =
+    | Equals of Type * Type
+    | Subtype of Type * Type
+    
 type Unified =
     struct 
      val substitution: Map<string, Type>
      val traits: Map<string, Trait list>
-     new (subs, traits) = {
+     val constraints: Constraint list
+     new (subs, traits, constraints) = {
         substitution = subs
         traits = traits
+        constraints = constraints
      }
     end
+
+    new (constraints) = Unified (Map.empty, Map.empty, constraints)
+    new (subs, traits) = Unified (subs, traits, [])
 
     member that.AddTrait x trt =
         Unified (that.substitution, that.traits.Add(x, trt))
         
     member that.AddSubstitution x subs =
         Unified (that.substitution.Add(x, subs), that.traits)
-
-type Constraint =
-    | Equals of Type * Type
+    
+    member that.AddConstraint cons =
+        Unified (that.substitution, that.traits, cons :: that.constraints)
 
 type EnvAssociation =
     | Simple of Type
     | Universal of FreeVar list * Type
 
 let mutable varType = 0
-let getVarType (traits: Trait list) =
+let getVarType traits =
     let newType = varType
     varType <- varType + 1
     VarType <| Var (sprintf "VarType%d" newType, traits)
@@ -49,8 +58,11 @@ let rec getFreeVars typ env: FreeVar list =
         | Unit -> []
         | List(t1) -> getFreeVars t1 env
         | Function(t1, t2) -> getFreeVars t1 env @ getFreeVars t2 env
-        | Type.Record(_, types) ->
-            Seq.fold (fun acc x -> getFreeVars x env @ acc) [] types
+        | Type.Tuple(types) -> 
+            List.fold (fun acc x -> getFreeVars x env @ acc) [] types
+        | Type.Record(pairs) -> 
+            pairs |> List.unzip |> snd |> 
+            List.fold (fun acc x -> getFreeVars x env @ acc) []
         | VarType {name = x; traits = traits} -> 
             let freeChecker = 
                 (fun x' assoc -> 
@@ -75,8 +87,11 @@ let substituteInType subs typ' =
         | Unit -> Unit
         | List(s1) -> List(f s1)
         | Function(s1, s2) -> Function(f s1, f s2)
-        | Type.Record(names, types) ->
-            Type.Record (names, Seq.map f types)
+        | Type.Tuple(types) ->
+            Type.Tuple <| List.map f types
+        | Type.Record(pairs) ->
+            let names, types = List.unzip pairs
+            Type.Record (List.zip names <| List.map f types)
         | VarType {name = id} ->
             if id = x then
                 typ
@@ -90,6 +105,8 @@ let substituteInConstraints subs constraints =
         match cons with
         | Equals (s, t) ->
             Equals (substituteInType subs s, substituteInType subs t)
+        | Subtype (s, t) ->
+            Subtype (substituteInType subs s, substituteInType subs t)
     List.map f constraints
 
 // Equals Constraint Solving
@@ -102,8 +119,10 @@ let rec occursIn x typ =
     | Unit -> false
     | List(t1) -> occursIn x t1
     | Function(t1, t2) -> occursIn x t1 || occursIn x t2
-    | Type.Record(_, types) ->
-        Seq.fold (fun acc typ -> acc || occursIn x typ) false types
+    | Type.Tuple(types) ->
+        List.exists (occursIn x) types
+    | Type.Record(pairs) ->
+        pairs |> List.unzip |> snd |> List.exists (occursIn x)
     | VarType {name = id} -> id = x
 
 // Trait Constraint Solving
@@ -123,6 +142,85 @@ let rec replaceVarTypes (vars: FreeVar list) constraints =
         replaceVarTypes rest <| 
             substituteInConstraints (x, VarType <| Var (x, traits)) constraints
 
+// Subtype Constraint Solving
+
+let rec tryToExpand cons =
+    match cons with
+    | Equals (s, t) ->
+        match s, t with
+        | List s1, List t1 -> 
+            Some <| [Equals (s1, t1)]
+        | Function (s1, s2), Function (t1, t2) -> 
+            Some <| [Equals (s1, t1); Equals (s2, t2)]
+        | Type.Tuple typs1, Type.Tuple typs2 when typs1.Length = typs2.Length ->
+            Some <| List.map2 (fun typ1 typ2 -> Equals (typ1, typ2)) typs1 typs2
+        | Type.Record pairs1, Type.Record pairs2 
+            when pairs1.Length = pairs2.Length && 
+                 List.forall (fun (name1, _) -> List.exists (fun (name2, _) -> name2 = name1) pairs2) pairs1 ->
+            
+            let matchNames (name1, typ1) =
+                let (name2, typ2) = List.find (fun (name2, typ2) -> name1 = name2) pairs2
+                Equals (typ1, typ2)
+                
+            Some <| List.map matchNames pairs1
+        | _ ->
+            None
+    | Subtype (s, t) ->
+        match s, t with
+        | Function(s1, s2), Function(t1, t2) -> 
+                Some [Subtype (t1, s1); Subtype (s2, t2)]
+        | Type.Tuple typs1, Type.Tuple typs2 when typs1.Length >= typs2.Length ->
+            let f = (fun t1 t2 -> Subtype (t1, t2))
+            let constraints = Seq.map2 f typs2 <| Seq.take typs2.Length typs1
+            Some <| Seq.toList constraints
+        | Type.Record pairs1, Type.Record pairs2 ->
+            let names1, typs1 = List.unzip pairs1
+            let names2, typs2 = List.unzip pairs2
+            if Seq.forall (fun x -> Seq.exists ((=) x) names1) names2 then
+                let f (indexInParent, acc) ident =
+                    let indexInSubtype = Seq.findIndex ((=) ident) names1
+                    indexInParent + 1, Subtype (Seq.nth indexInSubtype typs1, 
+                        Seq.nth indexInParent typs2) :: acc
+                let _, constraints = Seq.fold f (0, []) names2
+                Some <| constraints
+            else
+                None
+        | Type.Record pairs1, Type.Tuple typs2 when pairs1.Length >= typs2.Length ->
+            let _, typs1 = List.unzip pairs1
+            let f = (fun t2 t1 -> Subtype (t1, t2))
+            let constraints = Seq.map2 f typs2 <| Seq.take (Seq.length typs2) typs1
+            Some <| Seq.toList constraints
+        | _ ->
+            None
+
+let rec expandSubtypeConstraint varName superType constraints =
+    match constraints with
+    | [] -> []
+    | first :: rest ->
+        match first with
+        | Subtype (t2, VarType {name = x}) when x = varName ->
+            let created = expandSubtypeConstraint x superType rest 
+            let c = Subtype (t2, superType)
+            if List.exists ((=) c) created then
+                created
+            else
+                c :: created
+        | Equals (VarType {name = x}, t2)
+        | Equals (t2, VarType {name = x}) when x = varName ->
+            let created = expandSubtypeConstraint x superType rest 
+            let c = Subtype (t2, superType)
+            if List.exists ((=) c) created then
+                created
+            else
+                c :: created
+        | _ ->
+            let extras =
+                match tryToExpand first with
+                | Some values -> values
+                | None -> []
+            expandSubtypeConstraint varName superType <|
+                rest @ extras
+                    
 // Main Unify 
 
 let rec unify constraints =
@@ -132,42 +230,47 @@ let rec unify constraints =
 //            printfn "%A = %A" (printType s) (printType t)
 //    printfn ""
     match constraints with
-    | [] -> Unified(Map.empty, Map.empty)
+    | [] -> Unified (Map.empty, Map.empty)
     | first::rest ->
         match first with
-        | Equals (s, t) ->
-            match s, t with
-            | s, t when s = t -> unify rest
-            | VarType _ , t2 | t2, VarType _ ->
-                unifyVarType s t rest
-            | List s1, List t1 -> 
-                unify <| rest @ [Equals (s1, t1)]
-            | Function(s1, s2), Function(t1, t2) -> 
-                unify <| rest @ [Equals (s1, t1); Equals (s2, t2)]
-            | _ -> 
+        | Equals (s, t)
+        | Subtype (s, t) when s = t ->
+            unify rest
+
+        | Equals (VarType _ as s, t)
+        | Equals (t, (VarType _ as s)) ->
+            unifyVarType s t rest
+
+        | Subtype (VarType {name = x} as s, t)
+        | Subtype (t, (VarType {name = x} as s)) ->
+            let uni = unify <| rest @ expandSubtypeConstraint x t rest 
+            uni.AddConstraint first
+
+        | _ ->
+            match tryToExpand first with
+            | Some cons -> unify <| rest @ cons
+            | None ->
                 raise <| InvalidType "Unsolvable constraints"
 
 and unifyVarType t1 t2 rest =
     match t1, t2 with
-    | VarType {name = x; traits = traits}, t | t, VarType {name = x; traits = traits} ->
-        if occursIn x t then
-            sprintf "Circular constraints" |> InvalidType |> raise
-        else
-            let t' = validateTraits traits <| Some t
-            match t' with
-            | None ->
-                sprintf "Can not satisfy constraints %A for %A" traits t 
-                    |> InvalidType |> raise
-            | Some t' ->
-                let replacedX = (substituteInConstraints (x, t') rest)
-                let unified = 
-                    if t = t' then
-                        unify replacedX
-                    else
-                        let free = getFreeVars t' Map.empty
-                        let unified = unify <| replaceVarTypes free replacedX
-                        List.fold (fun acc (x, trts) -> acc.AddTrait x trts) unified free
-                unified.AddSubstitution x t'
+    | VarType {name = x; traits = traits}, t 
+    | t, VarType {name = x; traits = traits} when not <| occursIn x t ->
+        let t' = validateTraits traits <| Some t
+        match t' with
+        | None ->
+            sprintf "Can not satisfy constraints %A for %A" traits t 
+                |> InvalidType |> raise
+        | Some t' ->
+            let replacedX = (substituteInConstraints (x, t') rest)
+            let unified = 
+                if t = t' then
+                    unify replacedX
+                else
+                    let free = getFreeVars t' Map.empty
+                    let unified = unify <| replaceVarTypes free replacedX
+                    List.fold (fun acc (x, trts) -> acc.AddTrait x trts) unified free
+            unified.AddSubstitution x t'
     | _ -> 
         raise <| InvalidType "Passed non-varType to varType function"
 
@@ -181,8 +284,12 @@ let rec applyType typ (unified: Unified) =
         List(applyType t1 unified)
     | Function(t1, t2) -> 
         Function(applyType t1 unified, applyType t2 unified)
-    | Type.Record(names, types) ->
-        Type.Record (names, Seq.map (fun typ -> applyType typ unified) types)
+    | Type.Tuple(types) ->
+        Type.Tuple <| List.map (fun typ -> applyType typ unified) types
+    | Type.Record(pairs) ->
+        let names, types = List.unzip pairs
+        List.map (fun typ -> applyType typ unified) types |>
+        List.zip names |> Type.Record
     | VarType {name = x} -> 
         if unified.substitution.ContainsKey x then
             applyType (unified.substitution.Item x) unified
@@ -317,11 +424,11 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         List <| getVarType [], []
     | Head(t1) ->
         let typ1, c1 = collectConstraints t1 env
-        let x = getVarType [] in
+        let x = getVarType []
         x, c1 @ [Equals (typ1, List x)]
     | Tail(t1) ->
         let typ1, c1 = collectConstraints t1 env
-        let x = getVarType [] in
+        let x = getVarType []
         List x, c1 @ [Equals (typ1, List x)]
     | IsEmpty(t1) ->
         let typ1, c1 = collectConstraints t1 env
@@ -337,37 +444,49 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
     | Output(t1) ->
         let typ1, c1 = collectConstraints t1 env
         Unit, c1 @ [Equals (typ1, List Char)]
-    | Record(names, terms) ->
-        
-        if Seq.length terms < 2 then
-            sprintf "Records must have at least 2 values at %A" term |> InvalidType |> raise
-
-        match names with
-            | None -> ()
-            | Some names ->
-                if Set(names).Count < Seq.length names then
-                    sprintf "Records cannot have duplicate labels at %A" term |> InvalidType |> raise
-        
-        let types, constraints = List.unzip <| 
-            (Seq.toList <| Seq.map (fun t -> collectConstraints t env) terms)
-        
-        Type.Record (names, types), List.reduce (@) constraints
-    | Project (field, term) ->
-        let typ1, c1 = collectConstraints term env
-        match field with
-        | IntProjection i ->
-            let retType = getVarType []
-            let varType = Type.Record (None,
-                List.map (fun x -> getVarType []) [0..i-1]@[retType])
-            retType, [Subtype (typ1, varType)]
-        | StringProjection s ->
-            let retType = getVarType []
-            let varType = Type.Record (Some <| seq([s]), [retType])
-            retType, [Subtype (typ1, varType)]
-        
-
+    | Tuple(terms) ->
+        if List.length terms < 2 then
+            sprintf "Tuple must have more than 2 components at %A" term |> InvalidType |> raise
+        let types, constraints = 
+            List.unzip <| 
+            List.map (fun t -> collectConstraints t env) terms
+        Type.Tuple types, List.reduce (@) constraints
+    | Record(pairs) ->
+        let names, types = List.unzip pairs
+        if List.length types < 2 then
+            sprintf "Record must have more than 2 values at %A" term |> InvalidType |> raise
+        elif Set(names).Count < List.length names then
+            sprintf "Record has duplicate fields at %A" term |> InvalidType |> raise
+        let types', constraints = 
+            List.unzip <| 
+            List.map (fun t -> collectConstraints t env) types
+        Type.Record (List.zip names types') , List.reduce (@) constraints
+    | ProjectIndex(n, t1) ->
+        let typ1, c1 = collectConstraints t1 env
+        let retType = getVarType []
+        let varType = 
+            Type.Tuple <| 
+            List.map (fun x -> getVarType []) [0..n-1] @ [retType]
+        retType, [Subtype (typ1, varType)]
+    | ProjectName(s, t1) ->
+        let typ1, c1 = collectConstraints t1 env
+        let retType = getVarType []
+        let varType = Type.Record [s, retType]
+        retType, [Subtype (typ1, varType)]
+     
 
 let typeInfer t =
     let typ, c = collectConstraints t Map.empty
-    let substitutions = unify c
-    applyType typ substitutions
+    let uni = unify c
+    let typ1 = applyType typ uni
+
+    let freeVars = getFreeVars typ1 Map.empty
+
+    let f c =
+        match c with
+        | Equals (s, t) 
+        | Subtype (s, t) ->
+            List.exists (fun (x, _) -> occursIn x s || occursIn x t) freeVars
+                
+    let c' = List.filter f uni.constraints
+    typ1, Unified (uni.substitution, uni.traits, c')
