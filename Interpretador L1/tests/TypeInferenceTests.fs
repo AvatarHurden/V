@@ -8,8 +8,24 @@ open TypeInference
 
 
 let compare (text, typ) =
-    let evaluated, _ = typeInfer <| parse text
+    let evaluated, uni = typeInfer <| parse text
     evaluated |> should equal typ
+
+let compareVarTypes term (typ, uni: Unified) =
+    let typ', uni' = typeInfer term
+
+    let freeVars = getFreeVars typ Map.empty |> List.unzip |> fst
+    let freeVars' = getFreeVars typ' Map.empty |> List.unzip |> fst
+    let freePairs = List.zip freeVars freeVars'
+
+    let replaceOne (typ, uni: Unified) (newX, oldX) =
+        let sub = (oldX, VarType <| Var (newX))
+        substituteInType sub typ,
+        Unified (substituteInConstraints sub uni.constraints)
+
+    let typ'', uni'' = List.fold replaceOne (typ', uni') freePairs
+    typ |> should equal typ''
+    uni.constraints |> should equal uni''.constraints
 
 let compareDirect term typ =
     let typ, (u: Unified) = typ
@@ -70,6 +86,13 @@ map (\x => x + 1) [1,2,3,4]", List Int)
                     f 4", Int) |> ignore) |> should throw typeof<InvalidType>
 
     [<Test>]
+    member that.nonFunctionImplicitLet() =
+        throwsInvalidType
+            (Let ("x", None, Nil,
+                Let ("y", None, OP (I 1, Cons, X "x"),
+                    OP (True, Cons, X "x")))) 
+
+    [<Test>]
     member that.polymorphicHead() =
         compare ("let f(x) { head x };
                 if (f [true]) then
@@ -120,8 +143,8 @@ type TestTupleType() =
 
     [<Test>]
     member that.accessIndex() =
-        let x0 = VarType <| Var ("VarType0")
-        compareDirect (ProjectIndex (1, Record ["a", I 3; "b", True])) <|
+        let x0 = VarType <| Var ("x")
+        compareVarTypes (ProjectIndex (1, Record ["a", I 3; "b", True])) <|
             (x0, Unified([Subtype (Bool, x0)]))
     
     [<Test>]
@@ -131,8 +154,8 @@ type TestTupleType() =
             
     [<Test>]
     member that.accessName() =
-        let x0 = VarType <| Var ("VarType0")
-        compareDirect
+        let x0 = VarType <| Var ("x")
+        compareVarTypes
             (ProjectName ("a", Record ["a", I 3; "b", True]))
             (x0, Unified([Subtype (Int, x0)]))
     
@@ -145,3 +168,54 @@ type TestTupleType() =
     member that.accessNameUnnamed() =
         throwsInvalidType <|
             ProjectName ("c", Tuple [I 3; True])
+            
+    [<Test>]
+    member that.polymporphicProjection() =
+        let x0 = VarType <| Var ("x")
+        compareVarTypes
+            (Let ("f", None,
+                Fn ("x", None ,ProjectName ("a", X "x")),
+                //OP (
+                    OP (X "f", Application, Record ["a", I 3; "b", True])
+                 //   Add,
+                 //   OP (X "f", Application, Record ["c", Nil;"a", I 3])
+                 //   )
+                ))
+            (x0, Unified([Subtype (Int, x0)]))
+
+    [<Test>]
+    member that.polymporphicProjection2() =
+        let x0 = VarType <| Var ("x")
+        compareVarTypes
+            (Let ("x", None,
+                (Let ("f", None,
+                    Fn ("x", None ,ProjectName ("a", X "x")),
+                    OP (X "f", Application, Record ["a", I 3; "b", True])
+                    )),
+                X "x"))
+            (x0, Unified([Subtype (Int, x0)]))
+
+    [<Test>]
+    member that.simpleFunctionWrong() =
+        throwsInvalidType <|
+            (Let ("x", Some <| List (Type.Tuple [Int; Bool]), Nil,
+                (OP (True, And,
+                    (OP (Fn ("x", Some <| List (Type.Tuple [Int]), ProjectIndex (0, Head (X "x"))), 
+                        Application,
+                        X "x"
+                    ))
+                ))
+            ))
+
+    [<Test>]
+    member that.simpleFunction() =
+        compareVarTypes
+            (Let ("x", Some <| List (Type.Tuple [Int; Bool]), Nil,
+                (OP (I 3, Add,
+                    (OP (Fn ("x", Some <| List (Type.Tuple [Int]), ProjectIndex (0, Head (X "x"))), 
+                        Application,
+                        X "x"
+                    ))
+                ))
+            ))
+            (Int, Unified [])

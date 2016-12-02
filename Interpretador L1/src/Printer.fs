@@ -13,10 +13,24 @@ let rec printTraits traits =
     | trt :: [] -> printTrait trt
     | trt :: rest -> printTrait trt + ", " + printTraits rest
 
-let rec printType typ =
+let rec printTuple types =
+    match types with
+    | [] -> ""
+    | typ :: [] -> printType typ
+    | typ :: rest -> printType typ + ", " + printTuple rest
+    
+and printRecord pairs =
+    match pairs with
+    | [] -> ""
+    | (x, typ) :: [] -> 
+        sprintf "%s: %s" x <| printType typ
+    | (x, typ) :: rest -> 
+        sprintf "%s: %s, %s" x (printType typ) (printRecord rest)
+
+and printType typ =
     match typ with
     | VarType {name = s; traits = traits} -> 
-        s + " (" + printTraits traits + ")"
+        s //+ " (" + printTraits traits + ")"
     | Int -> "Int"
     | Bool -> "Bool"
     | Char -> "Char"
@@ -30,6 +44,10 @@ let rec printType typ =
             sprintf "%s -> %s" (printType t1) (printType t2)
     | List(t) ->
         sprintf "[%s]" (printType t)
+    | Type.Tuple (types) ->
+        sprintf "(%s)" (printTuple types)
+    | Type.Record (pairs) ->
+        sprintf "(%s)" (printRecord pairs)
 
 let rec private stringify term lvl =
     let tabs = String.replicate(lvl) "\t"

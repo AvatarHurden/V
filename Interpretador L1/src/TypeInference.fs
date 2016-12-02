@@ -39,13 +39,13 @@ type Unified =
 
 type EnvAssociation =
     | Simple of Type
-    | Universal of FreeVar list * Type
+    | Universal of FreeVar list * Type * Constraint list
 
-let mutable varType = 0
+let mutable varType = 1
 let getVarType traits =
     let newType = varType
     varType <- varType + 1
-    VarType <| Var (sprintf "VarType%d" newType, traits)
+    VarType <| Var (sprintf "t%d" newType, traits)
 
 // Polimorphism Functions
 
@@ -167,10 +167,12 @@ let rec tryToExpand cons =
             None
     | Subtype (s, t) ->
         match s, t with
+        | List s1, List s2 ->
+            Some [Subtype (s1, s2)]
         | Function(s1, s2), Function(t1, t2) -> 
-                Some [Subtype (t1, s1); Subtype (s2, t2)]
+            Some [Subtype (t1, s1); Subtype (s2, t2)]
         | Type.Tuple typs1, Type.Tuple typs2 when typs1.Length >= typs2.Length ->
-            let f = (fun t1 t2 -> Subtype (t1, t2))
+            let f = (fun t2 t1 -> Subtype (t1, t2))
             let constraints = Seq.map2 f typs2 <| Seq.take typs2.Length typs1
             Some <| Seq.toList constraints
         | Type.Record pairs1, Type.Record pairs2 ->
@@ -198,13 +200,7 @@ let rec expandSubtypeConstraint varName superType constraints =
     | [] -> []
     | first :: rest ->
         match first with
-        | Subtype (t2, VarType {name = x}) when x = varName ->
-            let created = expandSubtypeConstraint x superType rest 
-            let c = Subtype (t2, superType)
-            if List.exists ((=) c) created then
-                created
-            else
-                c :: created
+        | Subtype (t2, VarType {name = x})
         | Equals (VarType {name = x}, t2)
         | Equals (t2, VarType {name = x}) when x = varName ->
             let created = expandSubtypeConstraint x superType rest 
@@ -227,7 +223,9 @@ let rec unify constraints =
 //    for c in constraints do
 //        match c with
 //        | Equals (s,t) ->
-//            printfn "%A = %A" (printType s) (printType t)
+//            printfn "%s = %s" (printType s) (printType t)
+//        | Subtype (s,t) ->
+//            printfn "%s <: %s" (printType s) (printType t)
 //    printfn ""
     match constraints with
     | [] -> Unified (Map.empty, Map.empty)
@@ -315,11 +313,14 @@ let findId id (e: Map<string, EnvAssociation>) =
         match e.[id] with
         | Simple typ ->
             typ, []
-        | Universal (freeVars, typ) ->
+        | Universal (freeVars, typ, constraints) ->
             let newVars = List.map (fun (x, traits) -> x, getVarType traits) freeVars
             List.fold 
                 (fun acc subs -> substituteInType subs acc)
-                typ newVars, []
+                typ newVars, 
+            List.fold 
+                (fun acc subs -> substituteInConstraints subs acc)
+                constraints newVars
     else
         sprintf "Identifier %A undefined" id |> InvalidType |> raise
 
@@ -340,7 +341,7 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         let typ1, c1 = collectConstraints t1 env
         let typ2, c2 = collectConstraints t2 env
         let x = getVarType []
-        x, c1 @ c2 @ [Equals (typ1, Function (typ2, x))]
+        x, c1 @ c2 @ [Subtype (typ1, Function (typ2, x))]
     | OP(t1, Cons, t2) ->
         let typ1, c1 = collectConstraints t1 env
         let typ2, c2 = collectConstraints t2 env
@@ -409,6 +410,8 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         let uni = unify c1
         let typ1' = applyType typ1 uni
 
+        let uni = filterConstraints typ1' uni false
+
         let freeVars = getFreeVars typ1' <| applyTypeToEnv env uni
         let isFn = match typ1' with | Function _ -> true | _ -> false
 
@@ -416,7 +419,7 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
             if freeVars.IsEmpty || not isFn then
                 Simple typ1'
             else
-                Universal (freeVars, typ1')
+                Universal (freeVars, typ1', uni.constraints)
         let typ2, c2 = collectConstraints t2  <| env.Add(id, assoc)
 
         typ2, c1 @ c2
@@ -467,26 +470,32 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         let varType = 
             Type.Tuple <| 
             List.map (fun x -> getVarType []) [0..n-1] @ [retType]
-        retType, [Subtype (typ1, varType)]
+        retType, c1 @ [Subtype (typ1, varType)]
     | ProjectName(s, t1) ->
         let typ1, c1 = collectConstraints t1 env
         let retType = getVarType []
         let varType = Type.Record [s, retType]
-        retType, [Subtype (typ1, varType)]
+        retType, c1 @ [Subtype (typ1, varType)]
      
 
-let typeInfer t =
-    let typ, c = collectConstraints t Map.empty
-    let uni = unify c
-    let typ1 = applyType typ uni
-
+and filterConstraints typ1 (uni: Unified) removeVarTypes =
     let freeVars = getFreeVars typ1 Map.empty
 
     let f c =
         match c with
         | Equals (s, t) 
-        | Subtype (s, t) ->
-            List.exists (fun (x, _) -> occursIn x s || occursIn x t) freeVars
+        | Subtype (s, t) -> 
+            let freeInCons = getFreeVars s Map.empty @ getFreeVars t Map.empty            
+            List.exists (fun x -> List.exists ((=) x) freeInCons) freeVars &&
+            (not removeVarTypes || 
+                List.forall (fun x' -> List.exists ((=) x') freeVars) freeInCons)
                 
     let c' = List.filter f uni.constraints
-    typ1, Unified (uni.substitution, uni.traits, c')
+    Unified (uni.substitution, uni.traits, c')
+
+and typeInfer t =
+    let typ, c = collectConstraints t Map.empty
+    let uni = unify c
+    let typ1 = applyType typ uni
+
+    typ1, filterConstraints typ1 uni true
