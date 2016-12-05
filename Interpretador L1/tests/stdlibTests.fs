@@ -15,7 +15,7 @@ let compare (text, term) =
 
 let matchesType text typ =
     let parsed = parsePure text
-    let typ', _ = typeInfer <| parsed
+    let typ', uni' = typeInfer <| parsed
     let freeVars = getFreeVars typ Map.empty
     let freeVars' = getFreeVars typ' Map.empty
     let freePairs = List.zip freeVars freeVars'
@@ -248,7 +248,7 @@ let rec append(x, ls) {
      
     [<Test>]
     member that.testType2() =
-        matchesType (Append.func + "append 4") <| 
+        matchesType (Append.func + "append (3,4)") <| 
             Function (List Int, List Int)
      
     [<Test>]

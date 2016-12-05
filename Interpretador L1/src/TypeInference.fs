@@ -29,10 +29,10 @@ type Unified =
     new (subs, traits) = Unified (subs, traits, [])
 
     member that.AddTrait x trt =
-        Unified (that.substitution, that.traits.Add(x, trt))
+        Unified (that.substitution, that.traits.Add(x, trt), that.constraints)
         
     member that.AddSubstitution x subs =
-        Unified (that.substitution.Add(x, subs), that.traits)
+        Unified (that.substitution.Add(x, subs), that.traits, that.constraints)
     
     member that.AddConstraint cons =
         Unified (that.substitution, that.traits, cons :: that.constraints)
@@ -46,6 +46,15 @@ let getVarType traits =
     let newType = varType
     varType <- varType + 1
     VarType <| Var (sprintf "t%d" newType, traits)
+
+let printConstraints constraints =
+    for c in constraints do
+        match c with
+        | Equals (s,t) ->
+            printfn "%s = %s" (printType s) (printType t)
+        | Subtype (s,t) ->
+            printfn "%s <: %s" (printType s) (printType t)
+    printfn ""
 
 // Polimorphism Functions
 
@@ -168,7 +177,7 @@ let rec tryToExpand cons =
     | Subtype (s, t) ->
         match s, t with
         | List s1, List s2 ->
-            Some [Subtype (s1, s2)]
+            Some [Equals (s1, s2)]
         | Function(s1, s2), Function(t1, t2) -> 
             Some [Subtype (t1, s1); Subtype (s2, t2)]
         | Type.Tuple typs1, Type.Tuple typs2 when typs1.Length >= typs2.Length ->
@@ -195,16 +204,33 @@ let rec tryToExpand cons =
         | _ ->
             None
 
-let rec expandSubtypeConstraint varName superType constraints =
+let rec expandSubtypeConstraint varName superType constraints isLeft =
     match constraints with
     | [] -> []
     | first :: rest ->
         match first with
-        | Subtype (t2, VarType {name = x})
+        | Subtype (t2, VarType {name = x}) when x = varName && isLeft ->
+            let created = expandSubtypeConstraint x superType rest isLeft
+            let c = Subtype (t2, superType)
+            if List.exists ((=) c) created then
+                created
+            else
+                c :: created
+        | Subtype (VarType {name = x}, t2) when x = varName && not isLeft ->
+            let created = expandSubtypeConstraint x superType rest isLeft
+            let c = Subtype (superType, t2)
+            if List.exists ((=) c) created then
+                created
+            else
+                c :: created
         | Equals (VarType {name = x}, t2)
         | Equals (t2, VarType {name = x}) when x = varName ->
-            let created = expandSubtypeConstraint x superType rest 
-            let c = Subtype (t2, superType)
+            let created = expandSubtypeConstraint x superType rest isLeft
+            let c =
+                if isLeft then
+                    Subtype (t2, superType)
+                else
+                    Subtype (superType, t2)
             if List.exists ((=) c) created then
                 created
             else
@@ -214,19 +240,13 @@ let rec expandSubtypeConstraint varName superType constraints =
                 match tryToExpand first with
                 | Some values -> values
                 | None -> []
-            expandSubtypeConstraint varName superType <|
-                rest @ extras
+            expandSubtypeConstraint varName superType 
+                (rest @ extras) isLeft
                     
 // Main Unify 
 
 let rec unify constraints =
-//    for c in constraints do
-//        match c with
-//        | Equals (s,t) ->
-//            printfn "%s = %s" (printType s) (printType t)
-//        | Subtype (s,t) ->
-//            printfn "%s <: %s" (printType s) (printType t)
-//    printfn ""
+    printConstraints constraints
     match constraints with
     | [] -> Unified (Map.empty, Map.empty)
     | first::rest ->
@@ -239,9 +259,11 @@ let rec unify constraints =
         | Equals (t, (VarType _ as s)) ->
             unifyVarType s t rest
 
-        | Subtype (VarType {name = x} as s, t)
-        | Subtype (t, (VarType {name = x} as s)) ->
-            let uni = unify <| rest @ expandSubtypeConstraint x t rest 
+        | Subtype (VarType {name = x}, t) ->
+            let uni = unify <| rest @ expandSubtypeConstraint x t rest true 
+            uni.AddConstraint first
+        | Subtype (t, VarType {name = x}) ->
+            let uni = unify <| rest @ expandSubtypeConstraint x t rest false
             uni.AddConstraint first
 
         | _ ->
@@ -410,7 +432,9 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         let uni = unify c1
         let typ1' = applyType typ1 uni
 
-        let uni = filterConstraints typ1' uni false
+        printConstraints uni.constraints
+        let uni: Unified = filterReal typ1' uni true
+        printConstraints (uni.constraints: Constraint list)
 
         let freeVars = getFreeVars typ1' <| applyTypeToEnv env uni
         let isFn = match typ1' with | Function _ -> true | _ -> false
@@ -477,9 +501,31 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         let varType = Type.Record [s, retType]
         retType, c1 @ [Subtype (typ1, varType)]
      
-
-and filterConstraints typ1 (uni: Unified) removeVarTypes =
+and filterReal typ1 uni final =
     let freeVars = getFreeVars typ1 Map.empty
+
+    recurseFilter freeVars uni final
+
+and recurseFilter freeVars uni final =
+    let filteredCons = filterConstraints freeVars uni final
+    let newFreeVars = findAllFreeVars filteredCons
+
+    if newFreeVars = freeVars then
+        Unified (uni.substitution, uni.traits, filteredCons)
+    else
+        recurseFilter newFreeVars uni final
+        
+
+and findAllFreeVars (cons : Constraint list) =
+    let f acc c =
+        match c with
+        | Equals (s, t)
+        | Subtype (s, t) ->
+            getFreeVars s Map.empty @ getFreeVars t Map.empty @ acc
+
+    List.fold f [] cons |> Seq.distinct |> Seq.toList
+
+and filterConstraints freeVars (uni: Unified) final =
 
     let f c =
         match c with
@@ -487,15 +533,16 @@ and filterConstraints typ1 (uni: Unified) removeVarTypes =
         | Subtype (s, t) -> 
             let freeInCons = getFreeVars s Map.empty @ getFreeVars t Map.empty            
             List.exists (fun x -> List.exists ((=) x) freeInCons) freeVars &&
-            (not removeVarTypes || 
-                List.forall (fun x' -> List.exists ((=) x') freeVars) freeInCons)
-                
-    let c' = List.filter f uni.constraints
-    Unified (uni.substitution, uni.traits, c')
+            (not final || 
+                List.forall (fun x -> List.exists ((=) x) freeVars) freeInCons)
+
+    List.filter f uni.constraints
 
 and typeInfer t =
     let typ, c = collectConstraints t Map.empty
     let uni = unify c
     let typ1 = applyType typ uni
 
-    typ1, filterConstraints typ1 uni true
+    printConstraints uni.constraints
+    printConstraints <| (filterReal typ1 uni false).constraints
+    typ1, filterReal typ1 uni false
