@@ -239,7 +239,35 @@ type TestLists() =
     member that.subtractiveRange() =
         compare "[5,4..1]" <|
             ResCons(ResI 5, ResCons(ResI 4, ResCons(ResI 3, ResCons(ResI 2, ResCons(ResI 1, ResNil)))))
+            
 
+[<TestFixture>]
+type TestTupleRecords() =
+
+    [<Test>]
+    member that.emptyTuple() =
+        compare "(   )" ResNil
+        
+    [<Test>]
+    member that.singletonTerm() =
+        compare "( 3 + 4  )" <| ResI 7
+
+    [<Test>]
+    member that.namedSingletonTerm() =
+        shouldFail "(a : 3 + 4  )"
+
+    [<Test>]
+    member that.two_tuple() =
+        compare "( 3 + 4, true  )" <| ResTuple [ResI 7; ResTrue]
+        
+    [<Test>]
+    member that.mixedNaming() =
+        shouldFail "( a: 3 + 4, true  )"
+
+    [<Test>]
+    member that.two_tupleNamed() =
+        compare "( a: 3 + 4, b: true  )" <| 
+            ResRecord ["a", ResI 7; "b", ResTrue]
 
 [<TestFixture>]
 type TestSequence() =

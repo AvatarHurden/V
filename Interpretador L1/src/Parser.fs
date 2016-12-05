@@ -217,7 +217,8 @@ let rec parseParameters text closings =
     | AnyStart closings (t, start) ->
         t, []
     | Trimmed rest -> 
-        let removedFirst, (id, typ) = parseIdentTypePair rest (false, snd closings @ [","])
+        let removedFirst, (id, typ) = 
+            parseIdentTypePair rest (false, snd closings @ [","])
 
         let nextParameterText =
             match removedFirst with
@@ -411,7 +412,9 @@ let rec parseImport text closings =
 
 //#endregion
 
-//#region Term parsing        
+//#region Term parsing
+    
+//#region Let parsing        
 
 and parseLet text closings =
     match text with
@@ -462,6 +465,10 @@ and parseNamedFunction text closings =
     | _ ->
         raiseExp <| sprintf "Wrong named function declaration at %A" text
 
+//#endregion
+
+//#region Function parsing
+
 and parseRecFunction text closings =
     let rest, id = parseIdent text
     let rest, parameters =
@@ -507,18 +514,9 @@ and parseLambda text closings =
 
     rest, Fn(paramId, paramTyp, retTerm)
 
-and parseIf text closings =
-    let rest, t1 = parseTerm text (true, ["then"])
-    let rest, t2 = parseTerm rest (true, ["else"])
-    let rest, t3 = parseTerm rest (false, snd closings)
-   
-    rest, Cond(t1, t2, t3)
+//#endregion
 
-and parseTry text closings =
-    let rest, t1 = parseTerm text (true, ["except"])
-    let rest, t2 = parseTerm rest (false, snd closings)
-
-    rest, Try(t1, t2)
+//#region List parsing
 
 and parseList text closings =
     match text with
@@ -530,17 +528,17 @@ and parseList text closings =
             let rest, t2 = parseTerm rest (false, [",";"..";"]"])
             match rest with
             | Start ".." rest -> parseRange text closings
-            | Trimmed rest -> parseMultiList text closings
+            | Trimmed rest -> parseSimpleList text closings
         | Start ".." rest -> parseRange text closings
         | Start "for" rest -> parseComprehension text closings
         | Start "]" rest -> rest, OP(t, Cons, Nil) 
         | Trimmed rest -> raiseExp <| sprintf "Expected \",\" at %A" rest
 
-and parseMultiList text closings =
+and parseSimpleList text closings =
     let rest, t = parseTerm text (false, [",";"]"])
     match rest with
     | Start "," rest -> 
-        let rest, t2 = parseMultiList rest closings
+        let rest, t2 = parseSimpleList rest closings
         rest, OP(t, Cons, t2) 
     | Start "]" rest -> 
         rest, OP(t, Cons, Nil) 
@@ -571,27 +569,89 @@ and parseRange text closings =
     
     rest, OP (OP (OP (X "range", Application, first), Application, last), Application, increment)
 
-and addToTerms string extendedTerm closings =
-    let isTerm =
-        match extendedTerm with
-        | Term t -> true
-        | _ -> false
-    let rem, rest = collectTerms string closings isTerm
-    rem, extendedTerm :: rest
+//#endregion
+
+//#region Record/Tuple parsing
+
+and parseTupleComponent text closings =
+    try 
+        let rest, label = parseIdent text
+        let rest, term = 
+            match rest with
+            | Start ":" rest ->
+                parseTerm rest closings
+            | _ -> 
+                raiseExp <| sprintf "Expected %A, but found %A" closings rest
+        rest, (Some label, term)
+    with
+    | InvalidEntryText t ->
+        let rest, term = parseTerm text closings
+        rest, (None, term)
+
+and parseMultipleComponents text closings =
+    match text with
+    | AnyStart closings (t, start) ->
+        t, []
+    | Trimmed rest -> 
+        let removedFirst, (id, term) = 
+            parseTupleComponent rest (false, snd closings @ [","])
+
+        let rest =
+            match removedFirst with
+            | Start "," rest -> rest
+            | _ -> removedFirst
+
+        let removedRest, restPairs = parseMultipleComponents rest closings
+        removedRest, [id, term] @ restPairs 
+
+and parseParenthesis text closings =
+    let rest, pairs = 
+        parseMultipleComponents text closings
+    match pairs with
+    | [] -> rest, Nil
+    | [None, term] -> rest, term
+    | [Some t, term] -> 
+        raiseExp <| sprintf "Record must have more than one field at %A" text
+    | _ -> 
+        if pairs |> List.forall (fun (x, t) -> x.IsNone) then
+            rest, term.Tuple (pairs |> List.map (fun (x, t) -> t))
+        elif pairs |> List.forall (fun (x, t) -> x.IsSome) then
+            rest, Record (pairs |> List.map (fun (x, t) -> x.Value, t))
+        else
+            raiseExp <| sprintf "Record must have name for all fields at %A" text
+
+//#endregion
+
+//#region Conditional parsing
+
+and parseIf text closings =
+    let rest, t1 = parseTerm text (true, ["then"])
+    let rest, t2 = parseTerm rest (true, ["else"])
+    let rest, t3 = parseTerm rest (false, snd closings)
+   
+    rest, Cond(t1, t2, t3)
+
+and parseTry text closings =
+    let rest, t1 = parseTerm text (true, ["except"])
+    let rest, t2 = parseTerm rest (false, snd closings)
+
+    rest, Try(t1, t2)
+
+//#endregion
 
 // Iterate through the string, collecting single terms and operators
 and collectTerms text closings isAfterTerm = 
-        try
+    try
         let rem, id = parseIdent text
         addToTerms rem (Term <| X id) closings
-        with
-        | InvalidEntryText t ->
+    with
+    | InvalidEntryText t ->
         match text with
         | AnyStart closings (t, start) ->
             t, []
         | Start "(" rest ->
-            let rem, term = parseTerm rest (true, [")"])
-            addToTerms rem (Term term) closings
+            let rest, term = parseParenthesis rest (true, [")"])
+            addToTerms rest (Term term) closings
         // Matching value terms
         | Number rest ->
             let s = rest.ToCharArray()
@@ -700,7 +760,14 @@ and collectTerms text closings isAfterTerm =
         | _ ->
             raiseExp <| sprintf "Expected \"%A\" at %A" closings text
 
-   
+and addToTerms string extendedTerm closings =
+    let isTerm =
+        match extendedTerm with
+        | Term t -> true
+        | _ -> false
+    let rem, rest = collectTerms string closings isTerm
+    rem, extendedTerm :: rest
+
 // Calls collectTerms and unify, testing if the return is a term
 and parseTerm text closings = 
     let rem, collected = collectTerms text closings false
