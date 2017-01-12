@@ -114,9 +114,11 @@ let rec private matchStart (text: string) matches =
 
 let private (|Number|_|) text =
     let trimmed = splitSpaces text
-    if trimmed.Length > 0 && Char.IsDigit(trimmed.[0]) then
-        Some trimmed
-        else
+    if trimmed.Length > 0 && Char.IsDigit trimmed.[0] then
+        let s = trimmed.ToCharArray()
+        let num = s |> Seq.takeWhile (fun x -> Char.IsDigit(x)) |> String.Concat
+        Some (int num, trimmed.Substring num.Length)
+    else
         None
     
 let private (|AnyStart|_|) starts text =
@@ -136,8 +138,8 @@ let private (|Start|_|) start text =
     let trimmed = splitSpaces text
     if trimmed.StartsWith start then
         Some <| trimmed.Substring start.Length
-        else
-            None
+    else
+        None
 
 let private (|Trimmed|) text =
     splitSpaces text
@@ -153,7 +155,7 @@ let parseIdent text =
     | Number rest ->
         raiseExp "An identifier cannot begin with a digit"
     | Trimmed rest ->
-        let prohibited = " .,;:+-/*<=>(){}[]%$&|!@\\'\"\n\r\t".ToCharArray()
+        let prohibited = " .,;:+-/*<=>(){}[]%$&|!@#\\'\"\n\r\t".ToCharArray()
         let ident = String.Concat (rest |> 
                         Seq.takeWhile (fun x -> not <| Seq.exists ((=) x) prohibited))
         match ident with
@@ -571,6 +573,70 @@ and parseRange text closings =
     
     rest, OP (OP (OP (X "range", Application, first), Application, last), Application, increment)
 
+//#region Record/Tuple parsing
+
+and parseTupleComponent text closings =
+    try 
+        let rest, label = parseIdent text
+        let rest, term = 
+            match rest with
+            | Start ":" rest ->
+                parseTerm rest closings
+            | _ -> 
+                raiseExp <| sprintf "Expected %A, but found %A" closings rest
+        rest, (Some label, term)
+    with
+    | InvalidEntryText t ->
+        let rest, term = parseTerm text closings
+        rest, (None, term)
+
+and parseMultipleComponents text closings =
+    match text with
+    | AnyStart closings (t, start) ->
+        t, []
+    | Trimmed rest -> 
+        let removedFirst, (id, term) = 
+            parseTupleComponent rest (false, snd closings @ [","])
+
+        let rest =
+            match removedFirst with
+            | Start "," rest -> rest
+            | _ -> removedFirst
+
+        let removedRest, restPairs = parseMultipleComponents rest closings
+        removedRest, [id, term] @ restPairs 
+
+and parseParenthesis text closings =
+    let rest, pairs = 
+        parseMultipleComponents text closings
+    match pairs with
+    | [] -> rest, Nil
+    | [None, term] -> rest, term
+    | [Some t, term] -> 
+        raiseExp <| sprintf "Record must have more than one field at %A" text
+    | _ -> 
+        if pairs |> List.forall (fun (x, t) -> x.IsNone) then
+            rest, term.Tuple (pairs |> List.map (fun (x, t) -> t))
+        elif pairs |> List.forall (fun (x, t) -> x.IsSome) then
+            rest, Record (pairs |> List.map (fun (x, t) -> x.Value, t))
+        else
+            raiseExp <| sprintf "Record must have name for all fields at %A" text
+
+and parseProjection (text: string) closings =
+    if Char.IsWhiteSpace text.[0] then
+        raiseExp <| sprintf "Incomplete projection expression"
+    else
+        match text with
+        | Number (num, rest) ->
+            let rest, t = parseTerm rest (false, snd closings) 
+            rest, ProjectIndex (num, t)
+        | Trimmed rest ->
+            let rest, label = parseIdent rest
+            let rest, t = parseTerm rest (false, snd closings)
+            rest, ProjectName (label, t)
+
+//#endregion
+
 and addToTerms string extendedTerm closings =
     let isTerm =
         match extendedTerm with
@@ -581,22 +647,20 @@ and addToTerms string extendedTerm closings =
 
 // Iterate through the string, collecting single terms and operators
 and collectTerms text closings isAfterTerm = 
-        try
+    try
         let rem, id = parseIdent text
         addToTerms rem (Term <| X id) closings
-        with
-        | InvalidEntryText t ->
+    with
+    | InvalidEntryText t ->
         match text with
         | AnyStart closings (t, start) ->
             t, []
         | Start "(" rest ->
-            let rem, term = parseTerm rest (true, [")"])
-            addToTerms rem (Term term) closings
+            let rest, term = parseParenthesis rest (true, [")"])
+            addToTerms rest (Term term) closings
         // Matching value terms
-        | Number rest ->
-            let s = rest.ToCharArray()
-            let num = s |> Seq.takeWhile (fun x -> Char.IsDigit(x)) |> String.Concat
-            addToTerms (rest.Substring num.Length) (Term <| I (int num)) closings
+        | Number (num, rest) ->
+            addToTerms rest (Term <| I num) closings
         | Start "true" rest ->
             addToTerms rest (Term True) closings
         | Start "false" rest ->
@@ -655,6 +719,9 @@ and collectTerms text closings isAfterTerm =
         | Start "output" rest ->
             addToTerms rest 
                 (Term <| Fn ("x", None, Output <| X "x")) closings
+        | Start "#" rest ->
+            let rest, term = parseProjection rest closings
+            addToTerms rest (Term term) closings
         // Matching infix operators
         | Start "!!" rest ->
             addToTerms rest (Infix Index) closings  

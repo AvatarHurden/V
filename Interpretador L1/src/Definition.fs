@@ -14,6 +14,17 @@ type Type =
     | List of Type
 
 
+let rec mapOption f ls =
+    match ls with
+    | [] -> Some []
+    | x :: rest ->
+        match f x with
+        | Some x' -> 
+            match mapOption f rest with
+            | None -> None
+            | Some rest' -> Some <| x' :: rest'
+        | None -> None
+
 let rec validateTrait trt typ =
     match typ with
     | Int ->
@@ -83,6 +94,10 @@ type term =
     | Try of term * term
     | Output of term
     | Input
+    | Tuple of term list
+    | Record of (string * term) list
+    | ProjectIndex of int * term
+    | ProjectName of string * term
 
 type result =
     | ResTrue
@@ -95,6 +110,8 @@ type result =
     | ResCons of result * result
     | ResClosure of Ident * term * env
     | ResRecClosure of Ident * Ident * term * env
+    | ResTuple of result list
+    | ResRecord of (string * result) list
 and
     env = Map<Ident, result>
 

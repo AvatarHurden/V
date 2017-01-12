@@ -202,3 +202,38 @@ type TestStringParsing() =
     member that.escapedString() =
         parseString "\\\"h\\\"\" @ \\\"hello\\\"" |> should equal 
             (" @ \\\"hello\\\"", OP(C '"', Cons, OP(C 'h', Cons, OP(C '"', Cons, Nil))))
+
+[<TestFixture>]
+type TestComponentParsing() =
+
+    [<Test>]
+    member that.noComponent() =
+        let t = parseMultipleComponents "  )" (true, [")"])
+        let s: string * (string option * term) list = "", []
+        t |> should equal s 
+
+    [<Test>]
+    member that.singleComponent() =
+        parseMultipleComponents " 3 )" (true, [")"]) |> 
+            should equal ("", [((None: string option), I 3)])
+
+    [<Test>]
+    member that.doubleComponent() =
+        parseMultipleComponents " 3, 'c' )" (true, [")"]) |> 
+            should equal ("", [((None: string option), I 3); (None, C 'c')])
+    
+    [<Test>]
+    member that.namedSingleComponent() =
+        parseMultipleComponents " a : x )" (true, [")"]) |> 
+            should equal ("", [(Some "a", X "x")])
+
+    [<Test>]
+    member that.namedDoubleComponent() =
+        parseMultipleComponents " a : x, b: 3 )" (true, [")"]) |> 
+            should equal ("", [(Some "a", X "x"); (Some "b", I 3)])
+
+    [<Test>]
+    member that.consComponent() =
+        let t = parseMultipleComponents " a :: x )" (true, [")"])
+        let s = ("", [((None: string option), OP (X "a", Cons, X "x"))])
+        t |> should equal s        
