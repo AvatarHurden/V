@@ -177,7 +177,7 @@ let rec tryToExpand cons =
     | Subtype (s, t) ->
         match s, t with
         | List s1, List s2 ->
-            Some [Equals (s1, s2)]
+            Some [Subtype (s1, s2)]
         | Function(s1, s2), Function(t1, t2) -> 
             Some [Subtype (t1, s1); Subtype (s2, t2)]
         | Type.Tuple typs1, Type.Tuple typs2 when typs1.Length >= typs2.Length ->
@@ -367,7 +367,7 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
     | OP(t1, Cons, t2) ->
         let typ1, c1 = collectConstraints t1 env
         let typ2, c2 = collectConstraints t2 env
-        typ1 |> List, c1 @ c2 @ [Equals (List typ1, typ2)]
+        typ2, c1 @ c2 @ [Subtype (List typ1, typ2)]
     | OP(t1, Sequence, t2) ->
         let typ1, c1 = collectConstraints t1 env
         let typ2, c2 = collectConstraints t2 env
@@ -433,7 +433,7 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         let typ1' = applyType typ1 uni
 
         printConstraints uni.constraints
-        let uni: Unified = filterReal typ1' uni true
+        let uni: Unified = filterReal typ1' uni false
         printConstraints (uni.constraints: Constraint list)
 
         let freeVars = getFreeVars typ1' <| applyTypeToEnv env uni

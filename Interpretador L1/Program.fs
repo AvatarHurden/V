@@ -16,6 +16,18 @@ let private splitSpaces term =
 [<EntryPoint>]
 let main argv = 
 
+    let t = "
+    let t = [(3,4,6)];
+    f (3,4,4,5)::t"
+
+    let t' = parsePure t
+    
+    let f = Let ("f", None, Fn ("x", None, ProjectIndex (2, (X "x"))), t') 
+
+    let typ, uni = typeInfer f
+    printConstraints uni.constraints
+    let t = evaluate f
+
     // Para permitir debug (não permite espaços entre parâmetros)
     let argv = 
         if argv.Length = 0 then

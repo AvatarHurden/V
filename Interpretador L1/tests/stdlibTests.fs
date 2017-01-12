@@ -248,7 +248,7 @@ let rec append(x, ls) {
      
     [<Test>]
     member that.testType2() =
-        matchesType (Append.func + "append (3,4)") <| 
+        matchesType (Append.func + "append 34") <| 
             Function (List Int, List Int)
      
     [<Test>]
@@ -528,7 +528,7 @@ let rec map(f, ls) {
         let x1 = VarType <| Var ("x", [])
         let x2 = VarType <| Var ("y", [])
         matchesType (Map.func + "map") <| 
-            Function (Function (x2, x1), Function (List x2, List x1))
+            Function (Function (x1, x2), Function (List x1, List x2))
      
     [<Test>]
     member that.wrongParameter() =

@@ -210,7 +210,7 @@ type TestTupleType() =
     [<Test>]
     member that.simpleFunction() =
         compareVarTypes
-            (Let ("x", Some <| List (Type.Tuple [Int; Bool]), Nil,
+            (Let ("x", Some <| List (Type.Tuple [Int]), Nil,
                 (OP (I 3, Add,
                     (OP (Fn ("x", Some <| List (Type.Tuple [Int]), ProjectIndex (0, Head (X "x"))), 
                         Application,
