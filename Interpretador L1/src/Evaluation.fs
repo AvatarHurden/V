@@ -17,21 +17,41 @@ and compareEquality t1 t2 =
     match t1, t2 with
     | ResRaise, _ -> ResRaise
     | _, ResRaise -> ResRaise
-    | ResI i1, ResI i2 -> if i1 = i2 then ResTrue else ResFalse
-    | ResC c1, ResC c2 -> if c1 = c2 then ResTrue else ResFalse
-    | ResTrue, ResTrue -> ResTrue
-    | ResTrue, ResFalse -> ResFalse
-    | ResFalse, ResTrue -> ResFalse
-    | ResFalse, ResFalse -> ResTrue
-    | ResNil, ResNil -> ResTrue
-    | ResCons (hd1, tl1), ResNil -> ResFalse
-    | ResNil, ResCons (hd1, tl1)  -> ResFalse
+    | ResI i1, ResI i2 -> ResB (i1 = i2)
+    | ResC c1, ResC c2 -> ResB (c1 = c2)
+    | ResB b1, ResB b2 -> ResB (b1 = b2)
+    | ResNil, ResNil -> ResB true
+    | ResCons (hd1, tl1), ResNil -> ResB false
+    | ResNil, ResCons (hd1, tl1)  -> ResB false
     | ResCons (hd1, tl1), ResCons (hd2, tl2) ->
         match compareEquality hd1 hd2, compareEquality tl1 tl2 with
-        | ResFalse, _ -> ResFalse
-        | ResTrue, ResFalse -> ResFalse
-        | ResTrue, ResTrue -> ResTrue
+        | ResB false, _ -> ResB false
+        | ResB true, ResB false -> ResB false
+        | ResB true, ResB true -> ResB true
         | _ -> raise <| WrongExpression "Equal returned a non-expected value"
+    | ResTuple v1, ResTuple v2 when v1.Length = v2.Length ->
+        let f acc r1 r2 =
+            match acc, compareEquality r1 r2 with
+            | ResRaise, _
+            | _, ResRaise -> ResRaise
+            | ResB b1, ResB b2 -> ResB (b1 && b2)
+            | _ -> raise <| WrongExpression "Equal returned a non-expected value"
+        List.fold2 f (ResB true) v1 v2
+    | ResRecord v1, ResRecord v2 when v1.Length = v2.Length ->
+        let existsInV1 (name2, _) =
+            List.exists (fun (name1, _) -> name2 = name1) v1
+        
+        if List.forall existsInV1 v2 then
+            let f acc (name1, r1) =
+                let (name2, r2) = List.find (fun (name2, typ2) -> name1 = name2) v2
+                match acc, compareEquality r1 r2 with
+                | ResRaise, _
+                | _, ResRaise -> ResRaise
+                | ResB b1, ResB b2 -> ResB (b1 && b2)
+                | _ -> raise <| WrongExpression "Equal returned a non-expected value"
+            List.fold f (ResB true) v1
+        else
+            raise <| WrongExpression (sprintf "Records %A and %A have different fields" t1 t2)
     | _ , _ -> sprintf "Values %A and %A are not comparable" t1 t2 |> WrongExpression |> raise  
 
 and compareOrder t1 t2 orderType =
@@ -40,44 +60,43 @@ and compareOrder t1 t2 orderType =
     | _, ResRaise -> ResRaise
     | ResI i1, ResI i2 -> 
         match orderType with
-        | LessThan -> if i1 < i2 then ResTrue else ResFalse
-        | LessOrEqual -> if i1 <= i2 then ResTrue else ResFalse
-        | GreaterOrEqual -> if i1 >= i2 then ResTrue else ResFalse
-        | GreaterThan -> if i1 > i2 then ResTrue else ResFalse
+        | LessThan -> ResB (i1 < i2)
+        | LessOrEqual -> ResB (i1 <= i2)
+        | GreaterOrEqual -> ResB (i1 >= i2)
+        | GreaterThan -> ResB (i1 > i2)
         | _ -> sprintf "Cannot order %A and %A with %A" t1 t2 orderType |> WrongExpression |> raise  
     | ResC c1, ResC c2 -> 
         match orderType with
-        | LessThan -> if c1 < c2 then ResTrue else ResFalse
-        | LessOrEqual -> if c1 <= c2 then ResTrue else ResFalse
-        | GreaterOrEqual -> if c1 >= c2 then ResTrue else ResFalse
-        | GreaterThan -> if c1 > c2 then ResTrue else ResFalse
+        | LessThan -> ResB (c1 < c2)
+        | LessOrEqual -> ResB (c1 <= c2)
+        | GreaterOrEqual -> ResB (c1 >= c2)
+        | GreaterThan -> ResB (c1 > c2)
         | _ -> sprintf "Cannot order %A and %A with %A" t1 t2 orderType |> WrongExpression |> raise  
     | ResNil, ResNil ->
         match orderType with
-        | LessOrEqual | GreaterOrEqual -> ResTrue
-        | LessThan | GreaterThan -> ResFalse
+        | LessOrEqual | GreaterOrEqual -> ResB true
+        | LessThan | GreaterThan -> ResB false
         | _ -> sprintf "Cannot order %A and %A with %A" t1 t2 orderType |> WrongExpression |> raise  
     | ResCons (hd1, tl1), ResNil ->
         match orderType with
-        | GreaterOrEqual | GreaterThan -> ResTrue
-        | LessOrEqual | LessThan -> ResFalse
+        | GreaterOrEqual | GreaterThan -> ResB true
+        | LessOrEqual | LessThan -> ResB false
         | _ -> sprintf "Cannot order %A and %A with %A" t1 t2 orderType |> WrongExpression |> raise  
     | ResNil, ResCons (hd1, tl1) ->
         match orderType with
-        | LessOrEqual | LessThan -> ResTrue
-        | GreaterOrEqual | GreaterThan -> ResFalse
+        | LessOrEqual | LessThan -> ResB true
+        | GreaterOrEqual | GreaterThan -> ResB false
         | _ -> sprintf "Cannot order %A and %A with %A" t1 t2 orderType |> WrongExpression |> raise  
     | ResCons (hd1, tl1), ResCons (hd2, tl2) ->
         match compareEquality hd1 hd2, compareOrder tl1 tl2 orderType with
-        | ResTrue, t2' -> t2'
-        | ResFalse, _ -> compareOrder hd1 hd2 orderType
+        | ResB true, t2' -> t2'
+        | ResB false, _ -> compareOrder hd1 hd2 orderType
         | _ -> raise <| WrongExpression "Equal returned a non-expected value"
     | _ , _ -> sprintf "Values %A and %A are not comparable" t1 t2 |> WrongExpression |> raise  
 
 and private eval t env =
     match t with
-    | True -> ResTrue
-    | False -> ResFalse
+    | B b-> ResB b
     | Skip -> ResSkip
     | I i -> ResI i
     | C c -> ResC c
@@ -113,8 +132,7 @@ and private eval t env =
         let equals = compareEquality (eval t1 env) (eval t2 env)
         match equals with
         | ResRaise -> ResRaise
-        | ResTrue -> ResFalse
-        | ResFalse -> ResTrue
+        | ResB b -> ResB (not b)
         | _ -> raise <| WrongExpression "Equal returned a non-expected value"
     | OP(t1, (LessThan as op), t2)
     | OP(t1, (LessOrEqual as op), t2)
@@ -140,24 +158,24 @@ and private eval t env =
     | OP(t1, And, t2) ->
         match eval t1 env, eval t2 env with
         | ResRaise, _ -> ResRaise
-        | ResFalse, _ -> ResFalse
-        | ResTrue, ResRaise -> ResRaise
-        | ResTrue, ResTrue -> ResTrue
-        | ResTrue, ResFalse -> ResFalse
+        | ResB false, _ -> ResB false
+        | ResB true, ResRaise -> ResRaise
+        | ResB true, ResB true -> ResB true
+        | ResB true, ResB false -> ResB false
         | t1', t2' -> sprintf "AND operation requires boolean values at %A" t |> WrongExpression |> raise
     | OP(t1, Or, t2) ->
         match eval t1 env, eval t2 env with
         | ResRaise, _ -> ResRaise
-        | ResTrue, _ -> ResTrue
-        | ResFalse, ResRaise -> ResRaise
-        | ResFalse, ResTrue -> ResTrue
-        | ResFalse, ResFalse -> ResFalse
+        | ResB true, _ -> ResB true
+        | ResB false, ResRaise -> ResRaise
+        | ResB false, ResB true -> ResB true
+        | ResB false, ResB false -> ResB false
         | t1', t2' -> sprintf "OR operation requires boolean values at %A" t |> WrongExpression |> raise
     | Cond(t1, t2, t3) ->
         match eval t1 env with
         | ResRaise -> ResRaise
-        | ResTrue -> eval t2 env
-        | ResFalse -> eval t3 env
+        | ResB true -> eval t2 env
+        | ResB false -> eval t3 env
         | t1' -> sprintf "Term %A is not a Boolean value at %A" t1' t |> WrongExpression |> raise
     | Fn(id, typ, t1) -> ResClosure(id, t1, env)
     | RecFn(id1, typ1, id2, typ2, t) -> ResRecClosure(id1, id2, t, env)
@@ -169,8 +187,8 @@ and private eval t env =
     | IsEmpty(t1) ->
         match eval t1 env with
         | ResRaise -> ResRaise
-        | ResNil -> ResTrue
-        | ResCons (_, _) -> ResFalse
+        | ResNil -> ResB true
+        | ResCons (_, _) -> ResB false
         | t1' -> sprintf "Term %A is not a list at %A" t1' t |> WrongExpression |> raise
     | Head(t1) -> 
         match eval t1 env with
@@ -210,9 +228,7 @@ and private eval t env =
         | None -> ResRaise
         | Some results -> ResTuple results
     | Record(pairs) ->
-        if List.length pairs < 2 then
-            sprintf "Record must have more than 2 values at %A" t |> WrongExpression |> raise
-        elif Set(List.unzip pairs |> fst).Count < List.length pairs then
+        if Set(List.unzip pairs |> fst).Count < List.length pairs then
             sprintf "Record has duplicate fields at %A" t |> WrongExpression |> raise
 
         let f (name, t) =
@@ -231,11 +247,6 @@ and private eval t env =
                 List.nth values n
             else
                 sprintf "Cannot acces index %A of tuple at %A" n t |> WrongExpression |> raise
-        | ResRecord pairs ->
-            if n >= 0 && n < List.length pairs then
-                List.nth (snd <| List.unzip pairs) n
-            else
-                sprintf "Cannot acces index %A of record at %A" n t |> WrongExpression |> raise
         | t1' -> sprintf "Term %A is not a tuple at %A" t1' t |> WrongExpression |> raise
     | ProjectName(s, t1) ->
         match eval t1 env with

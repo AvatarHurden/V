@@ -575,53 +575,48 @@ and parseRange text closings =
 
 //#region Record/Tuple parsing
 
-and parseTupleComponent text closings =
-    try 
-        let rest, label = parseIdent text
-        let rest, term = 
-            match rest with
-            | Start ":" rest ->
-                parseTerm rest closings
-            | _ -> 
-                raiseExp <| sprintf "Expected %A, but found %A" closings rest
-        rest, (Some label, term)
-    with
-    | InvalidEntryText t ->
-        let rest, term = parseTerm text closings
-        rest, (None, term)
-
-and parseMultipleComponents text closings =
+and parseMultipleComponents f text closings =
     match text with
     | AnyStart closings (t, start) ->
         t, []
     | Trimmed rest -> 
-        let removedFirst, (id, term) = 
-            parseTupleComponent rest (false, snd closings @ [","])
+        let removedFirst, ret = f rest (false, snd closings @ [","])
 
         let rest =
             match removedFirst with
             | Start "," rest -> rest
             | _ -> removedFirst
 
-        let removedRest, restPairs = parseMultipleComponents rest closings
-        removedRest, [id, term] @ restPairs 
+        let removedRest, restPairs = parseMultipleComponents f rest closings
+        removedRest, ret :: restPairs 
 
-and parseParenthesis text closings =
-    let rest, pairs = 
-        parseMultipleComponents text closings
+and parseRecordComponent text closings =
+    let rest, label = parseIdent text
+    let rest, term = 
+        match rest with
+        | Start ":" rest ->
+            parseTerm rest closings
+        | _ -> 
+            raiseExp <| sprintf "Expected %A, but found %A" closings rest
+    rest, (label, term)
+
+and parseRecord text closings =
+    let rest, pairs =
+        parseMultipleComponents parseRecordComponent text closings
     match pairs with
     | [] -> rest, Nil
-    | [None, term] -> rest, term
-    | [Some t, term] -> 
-        raiseExp <| sprintf "Record must have more than one field at %A" text
+    | _ ->  
+        rest, Record pairs
+        
+and parseParenthesis text closings =
+    let rest, pairs = 
+        parseMultipleComponents parseTerm text closings
+    match pairs with
+    | [] -> rest, Nil
+    | [term] -> rest, term
     | _ -> 
-        if pairs |> List.forall (fun (x, t) -> x.IsNone) then
-            rest, term.Tuple (pairs |> List.map (fun (x, t) -> t))
-        elif pairs |> List.forall (fun (x, t) -> x.IsSome) then
-            rest, Record (pairs |> List.map (fun (x, t) -> x.Value, t))
-        else
-            raiseExp <| sprintf "Record must have name for all fields at %A" text
-
+        rest, term.Tuple pairs
+        
 and parseProjection (text: string) closings =
     if Char.IsWhiteSpace text.[0] then
         raiseExp <| sprintf "Incomplete projection expression"
@@ -658,13 +653,16 @@ and collectTerms text closings isAfterTerm =
         | Start "(" rest ->
             let rest, term = parseParenthesis rest (true, [")"])
             addToTerms rest (Term term) closings
+        | Start "{" rest ->
+            let rest, term = parseRecord rest (true, ["}"])
+            addToTerms rest (Term term) closings
         // Matching value terms
         | Number (num, rest) ->
             addToTerms rest (Term <| I num) closings
         | Start "true" rest ->
-            addToTerms rest (Term True) closings
+            addToTerms rest (Term <| B true) closings
         | Start "false" rest ->
-            addToTerms rest (Term False) closings
+            addToTerms rest (Term <| B false) closings
         | Start "raise" rest ->
             addToTerms rest (Term Raise) closings
         | Start "nil" rest ->

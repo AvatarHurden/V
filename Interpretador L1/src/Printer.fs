@@ -15,7 +15,8 @@ let rec printTraits traits =
 
 let rec printType typ =
     match typ with
-    | VarType(s, traits) -> s + " (" + printTraits traits + ")"
+    | VarType(s, {traits = traits}) -> 
+        s + " (" + printTraits traits + ")"
     | Int -> "Int"
     | Bool -> "Bool"
     | Char -> "Char"
@@ -33,9 +34,9 @@ let rec printType typ =
 let rec private stringify term lvl =
     let tabs = String.replicate(lvl) "\t"
     match term with
-    | True -> 
+    | B true -> 
         tabs + "true"
-    | False -> 
+    | B false -> 
         tabs + "false"
     | I(i) -> 
         tabs + (string i)
@@ -115,17 +116,29 @@ let rec printResultList result =
     match result with
     | ResCons (head, ResNil) -> printResult head
     | ResCons (head, tail) -> printResult head + ", " + printResultList tail
+    | t -> sprintf "Result %A is not list to be printed" t
 
 and printResult result =
     match result with
-    | ResTrue -> "true"
-    | ResFalse -> "false"
+    | ResB true -> "true"
+    | ResB false -> "false"
     | ResSkip -> "skip"
     | ResC c -> string c
     | ResI i -> string i
     | ResRaise -> "raise"
     | ResNil -> "[]"
     | ResCons (head, tail) -> "[" + printResultList result + "]"
+    | ResTuple v -> 
+        "(" + 
+        (List.fold (fun acc v -> acc + ", " + printResult v) 
+        (printResult v.Head) v.Tail) 
+        + ")"
+    | ResRecord v -> 
+        let headName, headV = v.Head
+        "(" + 
+        (List.fold (fun acc (name, v) -> acc + ", " + name + ":" + printResult v) 
+        (headName + ":" + printResult headV) v.Tail) 
+        + ")"
     | ResClosure (id, t, env) -> sprintf "Function with parameter %A" id
     | ResRecClosure (id, id2, t, env) -> 
         sprintf "Recursive function with name %A and parameter %A" id id2

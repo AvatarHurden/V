@@ -5,7 +5,7 @@ type Trait =
     | Orderable
 
 type Type =
-    | VarType of string * Trait list
+    | VarType of string * Var
     | Int
     | Bool
     | Char
@@ -13,6 +13,19 @@ type Type =
     | Function of Type * Type
     | List of Type
 
+and Var =
+    struct 
+     val traits: Trait list
+     val superTypes: Type list
+     val subTypes: Type list
+     new (traits, superTypes, subTypes) = {
+        traits = traits
+        superTypes = superTypes
+        subTypes = subTypes
+     }
+    end
+
+    new (traits) = Var (traits, [], [])
 
 let rec mapOption f ls =
     match ls with
@@ -49,11 +62,11 @@ let rec validateTrait trt typ =
             match validateTrait trt typ1 with
             | None -> None
             | Some typ1 -> Some <| List typ1
-    | VarType (x, traits) ->
+    | VarType (x, {traits = traits}) ->
         if List.exists ((=) trt) traits then
             Some typ
         else
-            Some <| VarType (x, trt::traits)
+            Some <| VarType (x, Var <| trt::traits)
 
 type op =
     | Add
@@ -75,8 +88,7 @@ type op =
 type Ident = string
     
 type term =
-    | True
-    | False
+    | B of bool
     | Skip
     | I of int
     | C of char
@@ -100,8 +112,7 @@ type term =
     | ProjectName of string * term
 
 type result =
-    | ResTrue
-    | ResFalse
+    | ResB of bool
     | ResSkip
     | ResI of int
     | ResC of char

@@ -35,7 +35,7 @@ type TestInfixParsing() =
         
     [<Test>]
     member that.infixFollowedByPrefix() =
-        compare "'a' != head \"hello\"" ResTrue
+        compare "'a' != head \"hello\"" <| ResB true
         
     [<Test>]
     member that.infixFollowedByInfix() =
@@ -43,7 +43,7 @@ type TestInfixParsing() =
 
     [<Test>]
     member that.rightAssociationCons() =
-        compare "3::4::[] = [3,4]" ResTrue
+        compare "3::4::[] = [3,4]" <| ResB true
         
 [<TestFixture>]
 type TestLetParsing() =
@@ -253,11 +253,11 @@ type TestTupleRecords() =
 
     [<Test>]
     member that.namedSingletonTerm() =
-        shouldFail "(a : 3 + 4  )"
+        compare "{a : 3 + 4  }" <| ResRecord ["a", ResI 7]
 
     [<Test>]
     member that.twoTuple() =
-        compare "( 3 + 4, true  )" <| ResTuple [ResI 7; ResTrue]
+        compare "( 3 + 4, true  )" <| ResTuple [ResI 7; ResB true]
         
     [<Test>]
     member that.mixedNaming() =
@@ -265,20 +265,16 @@ type TestTupleRecords() =
 
     [<Test>]
     member that.twoTupleNamed() =
-        compare "( a: 3 + 4, b: true  )" <| 
-            ResRecord ["a", ResI 7; "b", ResTrue]
+        compare "{ a: 3 + 4, b: true  }" <| 
+            ResRecord ["a", ResI 7; "b", ResB true]
 
     [<Test>]
     member that.projectIndex() =
         compare "#2 ('a','b','c')" <| ResC 'c'
         
     [<Test>]
-    member that.projectIndexRecord() =
-        compare "#1 (name: 'a', age: 3, male: true)" <| ResI 3
-        
-    [<Test>]
     member that.projectName() =
-        compare "#name (name: 'a', age: 3)" <| ResC 'a'
+        compare "#name {name: 'a', age: 3}" <| ResC 'a'
 
     [<Test>]
     member that.projectWrong() =
