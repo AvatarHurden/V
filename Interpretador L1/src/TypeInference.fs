@@ -7,7 +7,7 @@ open Printer
 exception InvalidType of string
 
 // This is a stand-in for VarType, to avoid having to match types
-type FreeVar = string * Var
+type FreeVar = string * Trait list
 
 type Unified(subs, traits) =
     member that.substitution: Map<string, Type> = subs
@@ -24,7 +24,7 @@ let mutable varType = 0
 let getVarType traits =
     let newType = varType
     varType <- varType + 1
-    VarType (sprintf "VarType%d" newType, Var traits)
+    VarType (sprintf "VarType%d" newType, traits)
 
 // Polimorphism Functions
 
@@ -37,7 +37,7 @@ let rec getFreeVars typ env: FreeVar list =
         | Unit -> []
         | List(t1) -> getFreeVars t1 env
         | Function(t1, t2) -> getFreeVars t1 env @ getFreeVars t2 env
-        | VarType (x, { traits = traits }) -> 
+        | VarType (x, traits) -> 
             let freeChecker = 
                 (fun x' assoc -> 
                     match assoc with
@@ -46,7 +46,7 @@ let rec getFreeVars typ env: FreeVar list =
             if Map.exists freeChecker env then
                 []
             else
-                [x, Var traits]
+                [x, traits]
     in Set(f typ) |> Set.toList
 
 let substituteInType subs typ' =
@@ -102,7 +102,7 @@ let rec replaceVarTypes (vars: FreeVar list) constraints =
 let rec addTraitsToUnified (vars: FreeVar list) (unified: Unified) =
     match vars with
     | [] -> unified
-    | (x, {traits = traits}) :: rest ->
+    | (x, traits) :: rest ->
         new Unified(unified.substitution, unified.traits.Add(x, traits))
 
 let rec unify constraints =
@@ -118,8 +118,8 @@ let rec unify constraints =
         | Equals (s, t) ->
             match s, t with
             | s, t when s = t -> unify rest
-            | VarType (x, {traits = traits}), t 
-            | t, VarType (x, {traits = traits}) ->
+            | VarType (x, traits), t 
+            | t, VarType (x, traits) ->
                 if occursIn x t then
                     sprintf "Circular constraints" |> InvalidType |> raise
                 else
@@ -159,7 +159,7 @@ let rec applyType typ (unified: Unified) =
         if unified.substitution.ContainsKey x then
             applyType (unified.substitution.Item x) unified
         else if unified.traits.ContainsKey x then
-            VarType (x, Var <| unified.traits.Item x)
+            VarType (x, unified.traits.Item x)
         else
             typ
             
@@ -181,7 +181,7 @@ let findId id (e: Map<string, EnvAssociation>) =
         | Simple typ ->
             typ, []
         | Universal (freeVars, typ) ->
-            let f = (fun (x, {traits = traits}: Var) -> x, getVarType traits)
+            let f = (fun (x, traits) -> x, getVarType traits)
             let newVars = List.map f freeVars
             List.fold 
                 (fun acc subs -> substituteInType subs acc)

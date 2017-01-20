@@ -241,7 +241,7 @@ let rec append(x, ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType ("x", Var [])
+        let x1 = VarType ("x", [])
         matchesType (Append.func + "append") <| 
             Function (x1, Function (List x1, List x1))
      
@@ -283,7 +283,7 @@ let rec concat(ls1, ls2) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType ("x", Var [])
+        let x1 = VarType ("x", [])
         matchesType (Concat.func + "concat") <| 
             Function (List x1, Function (List x1, List x1))
      
@@ -331,7 +331,7 @@ let rec last(ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType ("x", Var [])
+        let x1 = VarType ("x", [])
         matchesType (Last.func + "last") <| Function (List x1, x1)
      
     [<Test>]
@@ -368,7 +368,7 @@ let rec init(ls){
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType ("x", Var [])
+        let x1 = VarType ("x", [])
         matchesType (Init.func + "init") <| Function (List x1, List x1)
      
     [<Test>]
@@ -402,7 +402,7 @@ let rec length(ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType ("x", Var [])
+        let x1 = VarType ("x", [])
         matchesType (Length.func + "length") <| Function (List x1, Int)
      
     [<Test>]
@@ -484,7 +484,7 @@ let reverse(ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType ("x", Var [])
+        let x1 = VarType ("x", [])
         matchesType (Reverse.func + "reverse") <| 
             Function (List x1, List x1)
      
@@ -524,8 +524,8 @@ let rec map(f, ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType ("x", Var [])
-        let x2 = VarType ("y", Var [])
+        let x1 = VarType ("x", [])
+        let x2 = VarType ("y", [])
         matchesType (Map.func + "map") <| 
             Function (Function (x2, x1), Function (List x2, List x1))
      
@@ -568,8 +568,8 @@ let rec fold(f, acc, ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType ("x", Var [])
-        let x2 = VarType ("y", Var [])
+        let x1 = VarType ("x", [])
+        let x2 = VarType ("y", [])
         matchesType (Fold.func + "fold") <| 
             Function (Function (x2, Function (x1, x2)), Function (x2, Function (List x1, x2)))
      
@@ -614,7 +614,7 @@ let reduce(f, ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType ("x", Var [])
+        let x1 = VarType ("x", [])
         matchesType (Reduce.func + "reduce") <| 
             Function (Function (x1, Function (x1, x1)), Function (List x1, x1))
      
@@ -654,7 +654,7 @@ let rec all(pred, ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType ("x", Var [])
+        let x1 = VarType ("x", [])
         matchesType (All.func + "all") <| 
             Function (Function (x1, Bool), Function (List x1, Bool))
      
@@ -692,7 +692,7 @@ let rec any(pred, ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType ("x", Var [])
+        let x1 = VarType ("x", [])
         matchesType (Any.func + "any") <| 
             Function (Function (x1, Bool), Function (List x1, Bool))
      
@@ -725,7 +725,7 @@ let maximum(ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType ("x", Var [Orderable])
+        let x1 = VarType ("x", [Orderable])
         matchesType (Maximum.func + "maximum") <| 
             Function (List x1, x1)
      
@@ -760,7 +760,7 @@ let minimum(ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType ("x", Var [Orderable])
+        let x1 = VarType ("x", [Orderable])
         matchesType (Minimum.func + "minimum") <| 
             Function (List x1, x1)
      
@@ -799,7 +799,7 @@ let rec take(x, ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType ("x", Var [])
+        let x1 = VarType ("x", [])
         matchesType (Take.func + "take") <| 
             Function (Int, Function (List x1, List x1))
      
@@ -845,7 +845,7 @@ let rec drop(x, ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType ("x", Var [])
+        let x1 = VarType ("x", [])
         matchesType (Drop.func + "drop") <| 
             Function (Int, Function (List x1, List x1))
      
@@ -892,7 +892,7 @@ let rec takeWhile(pred, ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType ("x", Var [])
+        let x1 = VarType ("x", [])
         matchesType (TakeWhile.func + "takeWhile") <| 
             Function (Function(x1, Bool), Function (List x1, List x1))
      
@@ -935,7 +935,7 @@ let rec dropWhile(pred, ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType ("x", Var [])
+        let x1 = VarType ("x", [])
         matchesType (DropWhile.func + "dropWhile") <| 
             Function (Function(x1, Bool), Function (List x1, List x1))
      
@@ -976,7 +976,7 @@ let sublist(start, size, ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType ("x", Var [])
+        let x1 = VarType ("x", [])
         matchesType (Sublist.func + "sublist") <| 
             Function (Int, Function (Int, Function (List x1, List x1)))
      
@@ -1023,7 +1023,7 @@ let rec exists(t, ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType ("x", Var [Equatable])
+        let x1 = VarType ("x", [Equatable])
         matchesType (Exists.func + "exists") <| 
             Function (x1, Function (List x1, Bool))
      
@@ -1066,7 +1066,7 @@ let rec filter(pred, ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType ("x", Var [])
+        let x1 = VarType ("x", [])
         matchesType (Filter.func + "filter") <| 
             Function (Function (x1, Bool), Function (List x1, List x1))
      
@@ -1111,7 +1111,7 @@ let indexOf(t, ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType ("x", Var [Equatable])
+        let x1 = VarType ("x", [Equatable])
         matchesType (IndexOf.func + "indexOf") <| 
             Function (x1, Function (List x1, Int))
      
@@ -1154,7 +1154,7 @@ let rec nth(index, ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType ("x", Var [])
+        let x1 = VarType ("x", [])
         matchesType (Nth.func + "nth") <| 
             Function (Int, Function (List x1, x1))
      
@@ -1200,7 +1200,7 @@ let rec sort(ls) {
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType ("x", Var [Orderable])
+        let x1 = VarType ("x", [Orderable])
         
         matchesType (Sort.func + "sort") <| 
             Function (List x1, List x1)
