@@ -332,10 +332,10 @@ Every type can have multiple traits.
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
 	T &::= &X\\
-	&| &Int\\
-	&| &Bool\\
-	&| &Char\\
-	&| &Unit \\
+	&| &\mbox{Int}\\
+	&| &\mbox{Bool}\\
+	&| &\mbox{Char}\\
+	&| &\mbox{Unit} \\
 	&| &T_1 \rightarrow T_2\\
 	&| &T \; list\\
 	\\
@@ -415,7 +415,7 @@ This means that the division always results in a whole number, truncated towards
 	
 \infrule[BS-$\ast$]
 	{\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n\right\|=\left\|n_1\right\|\ast\left\|n_2\right\|}
-	{\mbox{env} \vdash e_1 - e_2 \Downarrow n}
+	{\mbox{env} \vdash e_1 * e_2 \Downarrow n}
 	
 \infrule[BS-$\div$Zero]
 	{\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow 0}
@@ -746,7 +746,7 @@ The value $skip$ can be obtained either by the expression $skip$
 \infax[BS-Skip]
 	{\mbox{env} \vdash skip \Downarrow skip}
 	
-or by evaluating other expressions (such as $output e$, as shown below).
+or by evaluating other expressions (such as $output \; e$, as shown below).
 
 \paragraph{Input and Output}
 Since both input and output deal with side effects, specifying their evaluation rules is tricky.
@@ -772,4 +772,165 @@ The only guarantees that exist are that it will be either $nil$ or $c :: v_2$, m
 
 \subsection{Type System}\label{Type System}
 	
+\subsubsection{Type Inference Rules}
+
+\infax[T-Num]
+	{\Gamma \vdash n : \mbox{Int} \; | \; \left[\right]}
+	
+\infax[T-Bool]
+	{\Gamma \vdash b : \mbox{Bool} \; | \; \left[\right]}
+	
+\infax[T-Char]
+	{\Gamma \vdash c : \mbox{Char} \; | \; \left[\right]}
+	
+\infax[T-Skip]
+	{\Gamma \vdash skip : \mbox{Unit} \; | \; \left[\right]}
+	
+\infrule[T-Ident]
+	{\Gamma \left(x\right) = T}
+	{\Gamma \vdash x : \mbox{T} \; | \; \left[\right]}
+	
+\bigskip
+	
+\infrule[T-+]
+	{\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2}
+	{\Gamma \vdash e_1 + e_2 : \mbox{Int} \; | \; \left[T_1 = \mbox{Int}; T_2 = \mbox{Int}\right]}
+	
+\infrule[T--]
+	{\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2}
+	{\Gamma \vdash e_1 - e_2 : \mbox{Int} \; | \; \left[T_1 = \mbox{Int}; T_2 = \mbox{Int}\right]}
+	
+\infrule[T-$\ast$]
+	{\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2}
+	{\Gamma \vdash e_1 * e_2 : \mbox{Int} \; | \; \left[T_1 = \mbox{Int}; T_2 = \mbox{Int}\right]}
+	
+\infrule[T-$\div$]
+	{\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2}
+	{\Gamma \vdash e_1 \div e_2 : \mbox{Int} \; | \; \left[T_1 = \mbox{Int}; T_2 = \mbox{Int}\right]}
+
+\bigskip
+	
+\infrule[T-$=$]
+	{\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2 \andalso X \in Equatable}
+	{\Gamma \vdash e_1 = e_2 : \mbox{Bool} \; | \; \left[T_1 = T_2; X = T_2\right]}
+	
+\infrule[T-$\neq$]
+	{\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2 \andalso X \in Equatable}
+	{\Gamma \vdash e_1 \neq e_2 : \mbox{Bool} \; | \; \left[T_1 = T_2; X = T_2\right]}
+
+\bigskip
+	
+\infrule[T-$<$]
+	{\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2 \andalso X \in Orderable}
+	{\Gamma \vdash e_1 < e_2 : \mbox{Bool} \; | \; \left[T_1 = T_2; X = T_2\right]}
+	
+\infrule[T-$\leq$]
+	{\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2 \andalso X \in Orderable}
+	{\Gamma \vdash e_1 \leq e_2 : \mbox{Bool} \; | \; \left[T_1 = T_2; X = T_2\right]}
+	
+\infrule[T-$>$]
+	{\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2 \andalso X \in Orderable}
+	{\Gamma \vdash e_1 > e_2 : \mbox{Bool} \; | \; \left[T_1 = T_2; X = T_2\right]}
+	
+\infrule[T-$\geq$]
+	{\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2 \andalso X \in Orderable}
+	{\Gamma \vdash e_1 \geq e_2 : \mbox{Bool} \; | \; \left[T_1 = T_2; X = T_2\right]}
+
+\bigskip
+	
+\infrule[T-$\vee$]
+	{\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2}
+	{\Gamma \vdash e_1 \vee e_2 : \mbox{Bool} \; | \; \left[T_1 = \mbox{Bool}; T_2 = \mbox{Bool} \right]}
+	
+\infrule[T-$\wedge$]
+	{\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2}
+	{\Gamma \vdash e_1 \wedge e_2 : \mbox{Bool} \; | \; \left[T_1 = \mbox{Bool}; T_2 = \mbox{Bool} \right]}
+	
+\bigskip
+	
+\infrule[T-If]
+	{\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2  \andalso \Gamma \vdash e_3 : T_3}
+	{\Gamma \vdash if \; e_1\; then \; e_2 \; else \; e_3 : \mbox{Bool} \; | \; \left[T1 = \mbox{Bool}; T_2 = T_3\right]}
+
+\bigskip
+
+\infrule[T-App]
+	{\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2  \andalso X \; is \; new}
+	{\Gamma \vdash e_1 \; e_2 : X \; | \; \left[T1 = T_2 \rightarrow X\right]}
+	
+\bigskip
+	
+\infrule[T-Fn]
+	{ \{x \rightarrow T\} \cup \Gamma \vdash e : T_1}
+	{\Gamma \vdash fn \; x:T \Rightarrow e : T \rightarrow T_1 \; | \; \left[\right]}
+
+\infrule[T-Fn2]
+	{X \; is \; new \andalso \{x \rightarrow X\} \cup \Gamma \vdash e : T_1}
+	{\Gamma \vdash fn \; x \Rightarrow e : X \rightarrow T_1 \; | \; \left[\right]}
+	
+\infrule[T-Rec]
+	{ \{x_1 \rightarrow \left(T_1 \rightarrow T_2\right), x_2 \rightarrow T_1\} \cup \Gamma \vdash e : T_3}
+	{\Gamma \vdash rec \; x_1:T_1 \rightarrow T_2 \; \; x_2:T_1 \Rightarrow e : T_1 \rightarrow T_2 \; | \; \left[T_3 = T_2\right]}
+	
+\infrule[T-Rec2]
+	{X \; is \; new \andalso Y \; is \; new \andalso \{x_1 \rightarrow X, x_2 \rightarrow Y\} \cup \Gamma \vdash e : T}
+	{\Gamma \vdash rec \; x_1 \; x_2 \Rightarrow e : Y \rightarrow T \; | \; \left[X = Y \rightarrow T \right]}
+
+\bigskip
+
+\infrule[T-Let]
+	{\Gamma \vdash e_1 : T_1 \andalso \{x \rightarrow T\} \cup \Gamma \vdash e_2 : T_2 }
+	{\Gamma \vdash let \; x:T = e_1 \; in \; e_2 : T_2 \; | \; \left[T = T_1 \right]}
+
+\infrule[T-Let2]
+	{\Gamma \vdash e_1 : T_1 \andalso \{x \rightarrow T_1\} \cup \Gamma \vdash e_2 : T_2 }
+	{\Gamma \vdash let \; x = e_1 \; in \; e_2 : T_2 \; | \; \left[T = T_1 \right]}
+	
+\bigskip
+	
+\infrule[T-Nil]
+	{X \; is\; new}
+	{\Gamma \vdash nil : X \; list \; | \; \left[\right]}
+	
+\infrule[T-List]
+	{\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2}
+	{\Gamma \vdash e_1 :: e_2 : T_1 \; list \; | \; \left[T_1 \; list = T_2\right]}
+
+\infrule[T-Empty]
+	{\Gamma \vdash e_1 : T_1 \andalso X \; is \; new}
+	{\Gamma \vdash isempty \; e_1 : Bool \; | \; \left[T_1 = X \; list\right]}
+	
+\infrule[T-Head]
+	{\Gamma \vdash e_1 : T_1 \andalso X \; is \; new}
+	{\Gamma \vdash head \; e_1 : X \; | \; \left[T_1 = X \; list\right]}
+	
+\infrule[T-Tail]
+	{\Gamma \vdash e_1 : T_1 \andalso X \; is \; new}
+	{\Gamma \vdash tail \; e_1 : X \; | \; \left[T_1 = X \; list\right]}
+	
+\bigskip
+
+\infrule[T-Raise]
+	{X \; is\; new}
+	{\Gamma \vdash raise : X \; | \; \left[\right]}
+	
+\infrule[T-Try]
+	{\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2}
+	{\Gamma \vdash try \; e_1 \; with \; e_2 : T_2 \; | \; \left[T_1 = T_2\right]}
+
+\bigskip
+
+\infrule[T-Sequential]
+	{\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2}
+	{\Gamma \vdash e_1 \; ; \; e_2 : T_2 \; | \; \left[T_1 = Unit\right]}
+	
+\bigskip
+
+\infrule[T-Output]
+	{\Gamma \vdash e : T}
+	{\Gamma \vdash output \; e : Unit \; | \; \left[T = \mbox{Char} \; list\right]}
+
+\infax[T-Input]
+	{\Gamma \vdash input : \mbox{Char} \; list \; | \; \left[\right]}
+
 \end{document}
