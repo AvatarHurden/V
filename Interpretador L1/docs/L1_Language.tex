@@ -381,8 +381,12 @@ env &::= &\{\} \; | \; \{x \rightarrow v\} \cup env\\
 \bigskip
 
 The values $\left\langle x, e, env\right\rangle$ and $\left\langle x_1, x_2, e, env\right\rangle$ are closures and recursive closures, respectively.
-They represent the result of evaluating functions and recursive functions, and store the environment at the moment of evaluation.
+They represent the result of evaluating functions and recursive functions, both and store the environment at the moment of evaluation.
 This means that $L1$ has static scope, since closures capture the environment at the moment of evaluation and $L1$ has eager evaluation.
+
+Closures also store the identifier for the parameter of the respective function (as $x$), along with the function body (as $e$).
+Recursive closures, besides storing the identifier for the parameter (as $x_2$) and the function body, also store the name of the function (as $x_1$).
+This allows the function to be called inside its own body, something that the simple closure does not allow.
 
 \subsubsection{Big-Step Rules}
 
@@ -613,7 +617,10 @@ This means that, if the result of the operation can be determined from the first
 	{\mbox{env} \vdash e_1 \Downarrow true \andalso \mbox{env} \vdash e_2 \Downarrow b}
 	{\mbox{env} \vdash e_1 \wedge e_2 \Downarrow b}
 	
-\bigskip
+\paragraph{Conditional Expression}
+$L1$ supports conditional expressions, which always return a value, but not conditional statements.
+Because of this, all conditional expressions must have both a $then$ and an $else$ branch.
+Evaluation is done only on the condition and the proper branch, avoiding the evaluation of the unused branch.
 	
 \infrule[BS-IfTrue]
 	{\mbox{env} \vdash e_1 \Downarrow true \andalso \mbox{env} \vdash e_2 \Downarrow v}
@@ -623,19 +630,16 @@ This means that, if the result of the operation can be determined from the first
 	{\mbox{env} \vdash e_1 \Downarrow false \andalso \mbox{env} \vdash e_3 \Downarrow v}
 	{\mbox{env} \vdash if \; e_1\; then \; e_2 \; else \; e_3 \Downarrow v}
 	
-\bigskip
+\paragraph{Function Expressions}
 
-\infrule[BS-AppFn]
-	{\mbox{env} \vdash e_1 \Downarrow \left\langle x, e, env\right\rangle \andalso \mbox{env} \vdash e_2 \Downarrow v_2\\
-	 \{x \rightarrow v_2 \} \cup \mbox{env} \vdash e \Downarrow v}
-	{\mbox{env} \vdash e_1 \; e_2 \Downarrow v}
-	
-\infrule[BS-AppRec]
-	{\mbox{env} \vdash e_1 \Downarrow \left\langle x_1, x_2, e, env\right\rangle \andalso \mbox{env} \vdash e_2 \Downarrow v_2\\
-	 \{x_2 \rightarrow v_2, x_1 \rightarrow \left\langle x_1, x_2, e, env\right\rangle \} \cup \mbox{env} \vdash e \Downarrow v}
-	{\mbox{env} \vdash e_1 \; e_2 \Downarrow v}
-		
-\bigskip
+There are two types of function expressions, each having two variants, with implicit or explicit typing.
+
+\smallskip
+
+The first is for a simple unnamed function that takes exactly one parameter.
+This parameter can occur anywhere inside the function body ($e$), and will be replaced by the argument when the function is called.
+
+The typed variant specifies only the type of the input, not of the output.
 
 \infax[BS-Fn]
 	{\mbox{env} \vdash fn \; x:T \Rightarrow e \Downarrow \left\langle x, e, env\right\rangle}
@@ -643,12 +647,43 @@ This means that, if the result of the operation can be determined from the first
 \infax[BS-Fn2]
 	{\mbox{env} \vdash fn \; x \Rightarrow e \Downarrow \left\langle x, e, env\right\rangle}
 	
+The second type of function is a recursive function that also takes exactly one parameter ($x_2$).
+Unlike the unnamed function, a recursive function also specifies its own name ($x_1$), such that it can be called within the function body.
+
+The typed variant must specify the types of both the input and output.
+The type $T_1$ is the type of the input, and $T_2$ is the type of the output.
+In $L_1$, the programmer specifies the type of the function (that is, $T_1 \rightarrow T_2$), instead of specifying the output type directly.
+	
 \infax[BS-Rec]
 	{\mbox{env} \vdash rec \; x_1:T_1 \rightarrow T_2 \; \; x_2:T_1 \Rightarrow e \Downarrow \left\langle x_1, x_2, e, env\right\rangle}
 
 \infax[BS-Rec2]
 	{\mbox{env} \vdash rec \; x_1 \; x_2 \Rightarrow e \Downarrow \left\langle x_1, x_2, e, env\right\rangle}
 	
+\paragraph{Application}
+An application expression requires either a closure or a recursive closure for its left-hand operand.
+The right-hand operand (argument) is always evaluated using the current environment, resulting in a value $v_2$.
+
+\smallskip
+
+In the case of a simple closure, the body of the function ($e$) is evaluated using the stored closure, 
+adding an association between the parameter identifier ($x$) and the argument ($v_2$).
+
+\infrule[BS-AppFn]
+	{\mbox{env} \vdash e_1 \Downarrow \left\langle x, e, env\right\rangle \andalso \mbox{env} \vdash e_2 \Downarrow v_2\\
+	 \{x \rightarrow v_2 \} \cup \mbox{env} \vdash e \Downarrow v}
+	{\mbox{env} \vdash e_1 \; e_2 \Downarrow v}
+	
+In the case of a recursive closure, there are two new associations added to the stored closure.
+The first is, as with a simple closure, the parameter identifier ($x_2$) and the argument ($v_2$).
+The second is the function identifier ($x_1$) and the closure itself.
+This ensures that the function body can call the recursive function again, since its closure is included in the environment.
+
+\infrule[BS-AppRec]
+	{\mbox{env} \vdash e_1 \Downarrow \left\langle x_1, x_2, e, env\right\rangle \andalso \mbox{env} \vdash e_2 \Downarrow v_2\\
+	 \{x_2 \rightarrow v_2, x_1 \rightarrow \left\langle x_1, x_2, e, env\right\rangle \} \cup \mbox{env} \vdash e \Downarrow v}
+	{\mbox{env} \vdash e_1 \; e_2 \Downarrow v}
+		
 \bigskip
 
 \infrule[BS-Let]
