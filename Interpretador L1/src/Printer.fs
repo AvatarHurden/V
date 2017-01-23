@@ -2,18 +2,36 @@
 
 open Definition
 
-let printTrait trt =
+let rec printTrait trt =
     match trt with
     | Orderable -> "Orderable"
     | Equatable -> "Equatable"
+    | TuplePosition (index, typ) ->
+        sprintf "%A at index %A" (printType typ) index
+    | RecordLabel (label, typ) ->
+        sprintf "%A at label %A" (printType typ) label
 
-let rec printTraits traits =
+and printTraits traits =
     match traits with
     | [] -> ""
     | trt :: [] -> printTrait trt
     | trt :: rest -> printTrait trt + ", " + printTraits rest
 
-let rec printType typ =
+and printTuple types =
+    match types with
+    | [] -> ""
+    | typ :: [] -> printType typ
+    | typ :: rest -> printType typ + ", " + printTuple rest
+    
+and printRecord pairs =
+    match pairs with
+    | [] -> ""
+    | (x, typ) :: [] -> 
+        sprintf "%s: %s" x <| printType typ
+    | (x, typ) :: rest -> 
+        sprintf "%s: %s, %s" x (printType typ) (printRecord rest)
+
+and printType typ =
     match typ with
     | VarType(s, traits) -> 
         s + " (" + printTraits traits + ")"
@@ -30,6 +48,10 @@ let rec printType typ =
             sprintf "%s -> %s" (printType t1) (printType t2)
     | List(t) ->
         sprintf "[%s]" (printType t)
+    | Type.Tuple (types) ->
+        sprintf "(%s)" (printTuple types)
+    | Type.Record (pairs) ->
+        sprintf "(%s)" (printRecord pairs)
 
 let rec private stringify term lvl =
     let tabs = String.replicate(lvl) "\t"

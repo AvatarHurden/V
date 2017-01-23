@@ -3,6 +3,8 @@
 type Trait =
     | Equatable
     | Orderable
+    | TuplePosition of int * Type
+    | RecordLabel of string * Type
 
 and Type =
     | VarType of string * Trait list
@@ -25,55 +27,6 @@ let rec mapOption f ls =
             | None -> None
             | Some rest' -> Some <| x' :: rest'
         | None -> None
-
-let rec validateTrait trt typ =
-    match typ with
-    | Int ->
-        match trt with
-        | Orderable | Equatable -> Some Int
-    | Bool ->
-        match trt with
-        | Equatable -> Some Bool
-        | Orderable -> None
-    | Char ->
-        match trt with
-        | Orderable | Equatable -> Some Char
-    | Unit ->
-        match trt with
-        | Orderable | Equatable -> None
-    | Function (typ1, typ2) ->
-        match trt with
-        | Orderable | Equatable -> None
-    | List typ1 ->
-        match trt with
-        | Orderable | Equatable ->
-            match validateTrait trt typ1 with
-            | None -> None
-            | Some typ1 -> Some <| List typ1
-    | Tuple (types) ->
-        match trt with
-        | Equatable ->
-            match mapOption (validateTrait trt) types with
-            | None -> None
-            | Some types' -> Some <| Tuple types'
-        | Orderable ->
-            None
-    | Record (pairs) ->
-        match trt with
-        | Equatable ->
-            let f (name, typ) =
-                match validateTrait trt typ with
-                | None -> None
-                | Some typ' -> Some (name, typ')
-            match mapOption f pairs with
-            | None -> None
-            | Some pairs' -> Some <| Record pairs' 
-        | Orderable -> None
-    | VarType (x, traits) ->
-        if List.exists ((=) trt) traits then
-            Some typ
-        else
-            Some <| VarType (x, trt::traits)
 
 type op =
     | Add

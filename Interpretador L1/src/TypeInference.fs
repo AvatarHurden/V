@@ -37,6 +37,11 @@ let rec getFreeVars typ env: FreeVar list =
         | Unit -> []
         | List(t1) -> getFreeVars t1 env
         | Function(t1, t2) -> getFreeVars t1 env @ getFreeVars t2 env
+        | Type.Tuple(types) -> 
+            List.fold (fun acc x -> getFreeVars x env @ acc) [] types
+        | Type.Record(pairs) -> 
+            pairs |> List.unzip |> snd |> 
+            List.fold (fun acc x -> getFreeVars x env @ acc) []
         | VarType (x, traits) -> 
             let freeChecker = 
                 (fun x' assoc -> 
@@ -59,6 +64,11 @@ let substituteInType subs typ' =
         | Unit -> Unit
         | List(s1) -> List(f s1)
         | Function(s1, s2) -> Function(f s1, f s2)
+        | Type.Tuple(types) ->
+            Type.Tuple <| List.map f types
+        | Type.Record(pairs) ->
+            let names, types = List.unzip pairs
+            Type.Record (List.zip names <| List.map f types)
         | VarType(id, traits) ->
             if id = x then
                 typ
@@ -82,15 +92,100 @@ let rec occursIn x typ =
     | Unit -> false
     | List(t1) -> occursIn x t1
     | Function(t1, t2) -> occursIn x t1 || occursIn x t2
+    | Type.Tuple(types) ->
+        List.exists (occursIn x) types
+    | Type.Record(pairs) ->
+        pairs |> List.unzip |> snd |> List.exists (occursIn x)
     | VarType(id, ls) -> id = x
 
-let rec validateTraits traits typ =
+//#region Traits
+
+let rec validateTrait trt typ =
     match typ with
-    | None -> None
+    | Int ->
+        match trt with
+        | Orderable | Equatable -> Some Int, []
+        | TuplePosition _ | RecordLabel _ -> None, []
+    | Bool ->
+        match trt with
+        | Equatable -> Some Bool, []
+        | Orderable | TuplePosition _ | RecordLabel _ -> None, []
+    | Char ->
+        match trt with
+        | Orderable | Equatable -> Some Char, []
+        | TuplePosition _ | RecordLabel _ -> None, []
+    | Unit ->
+        match trt with
+        | Orderable | Equatable
+        | TuplePosition _ | RecordLabel _ -> None, []
+    | Function (typ1, typ2) ->
+        match trt with
+        | Orderable | Equatable
+        | TuplePosition _ | RecordLabel _ -> None, []
+    | List typ1 ->
+        match trt with
+        | Orderable | Equatable ->
+            match validateTrait trt typ1 with
+            | None, cons -> None, cons
+            | Some typ1, cons -> Some <| List typ1, cons
+        | TuplePosition _ | RecordLabel _ -> None, []
+    | Type.Tuple (types) ->
+        match trt with
+        | Equatable ->
+            let f typ =
+                match validateTrait trt typ with
+                | None, [] -> None
+                | Some typ', [] -> Some typ'
+                | _ ->
+                    sprintf "Validating Equatable resulted in constraint at %A" typ 
+                        |> InvalidType |> raise 
+            match mapOption f types with
+            | None -> None, []
+            | Some types' -> Some <| Type.Tuple types', []
+        | TuplePosition (pos, typ) ->
+            if types.Length > pos then
+                Some <| Type.Tuple types, [Equals (typ, types.[pos])]
+            else
+                None, []
+        | Orderable | RecordLabel _ -> None, []
+    | Type.Record (pairs) ->
+        match trt with
+        | Equatable ->
+            let f (name, typ) =
+                match validateTrait trt typ with
+                | None, [] -> None
+                | Some typ', [] -> Some (name, typ')
+                | _ ->
+                    sprintf "Validating Equatable resulted in constraint at %A" typ 
+                        |> InvalidType |> raise 
+            match mapOption f pairs with
+            | None -> None, []
+            | Some pairs' -> Some <| Type.Record pairs' , []
+        | RecordLabel (label, typ) ->
+            let names, values = List.unzip pairs
+            match Seq.tryFindIndex ((=) label) names with
+            | Some i ->
+                 Some <| Type.Record pairs, [Equals (typ, values.[i])]
+            | None ->
+                None, []
+        | Orderable | TuplePosition _ -> None, []
+    | VarType (x, traits) ->
+        if List.exists ((=) trt) traits then
+            Some typ, []
+        else
+            Some <| VarType (x, trt::traits), []
+
+let rec validateTraits traits (typ, cons) =
+    match typ with
+    | None -> None, cons
     | Some typ' -> 
         match traits with
-        | [] -> Some typ'
-        | trt::rest -> validateTraits rest <| validateTrait trt typ'
+        | [] -> Some typ', cons
+        | trt::rest -> 
+            let typ', cons' = validateTraits rest <| validateTrait trt typ'
+            typ', cons' @ cons
+
+//#endregion Traits
 
 let rec replaceVarTypes (vars: FreeVar list) constraints =
     match vars with
@@ -123,13 +218,13 @@ let rec unify constraints =
                 if occursIn x t then
                     sprintf "Circular constraints" |> InvalidType |> raise
                 else
-                    let t' = validateTraits traits <| Some t
+                    let t', cons' = validateTraits traits <| (Some t, [])
                     match t' with
                     | None ->
                         sprintf "Can not satisfy constraints %A for %A" traits t 
                             |> InvalidType |> raise
                     | Some t' ->
-                        let replacedX = (substituteInConstraints (x, t') rest)
+                        let replacedX = substituteInConstraints (x, t') <| cons' @ rest
                         let unified = 
                             if t = t' then
                                 unify replacedX
@@ -155,6 +250,12 @@ let rec applyType typ (unified: Unified) =
         List(applyType t1 unified)
     | Function(t1, t2) -> 
         Function(applyType t1 unified, applyType t2 unified)
+    | Type.Tuple(types) ->
+        Type.Tuple <| List.map (fun typ -> applyType typ unified) types
+    | Type.Record(pairs) ->
+        let names, types = List.unzip pairs
+        List.map (fun typ -> applyType typ unified) types |>
+        List.zip names |> Type.Record
     | VarType(x, traits) -> 
         if unified.substitution.ContainsKey x then
             applyType (unified.substitution.Item x) unified
@@ -310,6 +411,31 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
     | Output(t1) ->
         let typ1, c1 = collectConstraints t1 env
         Unit, c1 @ [Equals (typ1, List Char)]
+    | Tuple(terms) ->
+        if List.length terms < 2 then
+            sprintf "Tuple must have more than 2 components at %A" term |> InvalidType |> raise
+        let types, constraints = 
+            List.unzip <| 
+            List.map (fun t -> collectConstraints t env) terms
+        Type.Tuple types, List.reduce (@) constraints
+    | Record(pairs) ->
+        let names, types = List.unzip pairs
+        if Set(names).Count < List.length names then
+            sprintf "Record has duplicate fields at %A" term |> InvalidType |> raise
+        let types', constraints = 
+            List.unzip <| 
+            List.map (fun t -> collectConstraints t env) types
+        Type.Record (List.zip names types') , List.reduce (@) constraints
+    | ProjectIndex (n, t1) ->
+        let typ1, c1 = collectConstraints t1 env
+        let retType = getVarType []
+        let varType = getVarType [TuplePosition (n, retType)]
+        retType, c1 @ [Equals (typ1, varType)]
+    | ProjectName (name, t1) ->
+        let typ1, c1 = collectConstraints t1 env
+        let retType = getVarType []
+        let varType = getVarType [RecordLabel (name, retType)]
+        retType, c1 @ [Equals (typ1, varType)]
 
 
 let typeInfer t =
