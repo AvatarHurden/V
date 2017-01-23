@@ -684,7 +684,16 @@ This ensures that the function body can call the recursive function again, since
 	 \{x_2 \rightarrow v_2, x_1 \rightarrow \left\langle x_1, x_2, e, env\right\rangle \} \cup \mbox{env} \vdash e \Downarrow v}
 	{\mbox{env} \vdash e_1 \; e_2 \Downarrow v}
 		
-\bigskip
+\paragraph{Let Expressions}
+These expressions are used to associate an identifier to a specific value, allowing the value to be reused throughout the program.
+Since $L1$ is a functional languages, these are not variables, and the values assigned to an identifier will be constant (unless the same identifier is used in a new $let$ expression).
+
+After evaluating the expression that is to be associated to the identifier (that is, $e_1$), resulting in $v$, the $let$ expression evaluates $e_2$.
+For this evaluation, the association of $x$ to $v$ is added to the environment.
+The result of this evaluation (that is, $v_2$) is the final result of the evaluation of the entire $let$ expression.
+
+There are two variants of the $let$ expression, one with explicit typing and one with implicit typing.
+For the purposes of evaluation, both have the same behavior.
 
 \infrule[BS-Let]
 	{\mbox{env} \vdash e_1 \Downarrow v \andalso 
