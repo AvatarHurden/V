@@ -4,7 +4,7 @@ type Trait =
     | Equatable
     | Orderable
 
-type Type =
+and Type =
     | VarType of string * Trait list
     | Int
     | Bool
@@ -12,6 +12,8 @@ type Type =
     | Unit
     | Function of Type * Type
     | List of Type
+    | Tuple of Type list
+    | Record of (string * Type) list
 
 let rec mapOption f ls =
     match ls with
@@ -48,6 +50,25 @@ let rec validateTrait trt typ =
             match validateTrait trt typ1 with
             | None -> None
             | Some typ1 -> Some <| List typ1
+    | Tuple (types) ->
+        match trt with
+        | Equatable ->
+            match mapOption (validateTrait trt) types with
+            | None -> None
+            | Some types' -> Some <| Tuple types'
+        | Orderable ->
+            None
+    | Record (pairs) ->
+        match trt with
+        | Equatable ->
+            let f (name, typ) =
+                match validateTrait trt typ with
+                | None -> None
+                | Some typ' -> Some (name, typ')
+            match mapOption f pairs with
+            | None -> None
+            | Some pairs' -> Some <| Record pairs' 
+        | Orderable -> None
     | VarType (x, traits) ->
         if List.exists ((=) trt) traits then
             Some typ

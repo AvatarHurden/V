@@ -146,6 +146,21 @@ let private (|Trimmed|) text =
 
 let private raiseExp x = raise <| InvalidEntryText x
 
+let rec parseMultipleComponents f text closings =
+    match text with
+    | AnyStart closings (t, start) ->
+        t, []
+    | Trimmed rest -> 
+        let removedFirst, ret = f rest (false, snd closings @ [","])
+
+        let rest =
+            match removedFirst with
+            | Start "," rest -> rest
+            | _ -> removedFirst
+
+        let removedRest, restPairs = parseMultipleComponents f rest closings
+        removedRest, ret :: restPairs 
+
 //#endregion
             
 //#region Identifier and Type Functions
@@ -173,7 +188,9 @@ let rec parseType text closings =
     let remainingText, typ1 = 
         match text with
         | Start "(" rest ->
-            parseType rest (true, [")"])
+            parseTupleType rest (true, [")"])
+        | Start "{" rest ->
+            parseRecordType rest (true, ["}"])
         | Start "[" rest ->
             let remaining, t = parseType rest (true, ["]"])
             remaining, List t
@@ -198,6 +215,33 @@ let rec parseType text closings =
         remaining, Function (typ1, typ2)
     | _ -> 
         raiseExp <| sprintf "Could not parse type at %A" remainingText
+
+and parseRecordTypeComponent text closings =
+    let rest, label = parseIdent text
+    let rest, typ = 
+        match rest with
+        | Start ":" rest ->
+            parseType rest closings
+        | _ -> 
+            raiseExp <| sprintf "Expected %A, but found %A" closings rest
+    rest, (label, typ)
+
+and parseTupleType text closings =
+    let rest, pairs = 
+        parseMultipleComponents parseType text closings
+    match pairs with
+    | [] -> rest, Unit
+    | [typ] -> rest, typ
+    | _ -> 
+        rest, Type.Tuple pairs
+    
+and parseRecordType text closings =
+    let rest, pairs =
+        parseMultipleComponents parseRecordTypeComponent text closings
+    match pairs with
+    | [] -> rest, Unit
+    | _ ->  
+        rest, Type.Record pairs
         
 let parseSomeType text closings =
     let rest, typ = parseType text closings
@@ -214,20 +258,7 @@ let rec parseIdentTypePair text closings =
 
     rest, (id, typ)
 
-let rec parseParameters text closings =
-    match text with
-    | AnyStart closings (t, start) ->
-        t, []
-    | Trimmed rest -> 
-        let removedFirst, (id, typ) = parseIdentTypePair rest (false, snd closings @ [","])
-
-        let nextParameterText =
-            match removedFirst with
-            | Start "," rest -> rest
-            | _ -> removedFirst
-
-        let removedRest, restPairs = parseParameters nextParameterText closings
-        removedRest, [id, typ] @ restPairs 
+let rec parseParameters = parseMultipleComponents parseIdentTypePair
 
 // Returns a tuple of ((id, type1), (term, type2), where
 // id: Ident of first parameter
@@ -575,21 +606,6 @@ and parseRange text closings =
 
 //#region Record/Tuple parsing
 
-and parseMultipleComponents f text closings =
-    match text with
-    | AnyStart closings (t, start) ->
-        t, []
-    | Trimmed rest -> 
-        let removedFirst, ret = f rest (false, snd closings @ [","])
-
-        let rest =
-            match removedFirst with
-            | Start "," rest -> rest
-            | _ -> removedFirst
-
-        let removedRest, restPairs = parseMultipleComponents f rest closings
-        removedRest, ret :: restPairs 
-
 and parseRecordComponent text closings =
     let rest, label = parseIdent text
     let rest, term = 
@@ -623,12 +639,10 @@ and parseProjection (text: string) closings =
     else
         match text with
         | Number (num, rest) ->
-            let rest, t = parseTerm rest (false, snd closings) 
-            rest, ProjectIndex (num, t)
+            rest, Fn ("x", None, ProjectIndex (num, X "x"))
         | Trimmed rest ->
             let rest, label = parseIdent rest
-            let rest, t = parseTerm rest (false, snd closings)
-            rest, ProjectName (label, t)
+            rest, Fn ("x", None, ProjectName (label, X "x"))
 
 //#endregion
 

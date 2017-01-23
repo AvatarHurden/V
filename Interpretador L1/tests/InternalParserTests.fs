@@ -66,6 +66,26 @@ type TestTypeParsing() =
         parseType " ( Int   ->   String  ) 4" (true, [""]) |> 
             should equal ("4", Function(Int, List Char))
 
+    [<Test>]
+    member that.tupleType() =
+        parseType " ( Int, Bool  ) 4" (true, [""]) |> 
+            should equal ("4", Type.Tuple [Int; Bool])
+            
+    [<Test>]
+    member that.tupleUnitType() =
+        parseType " (   ) 4" (true, [""]) |> 
+            should equal ("4", Unit)
+
+    [<Test>]
+    member that.recordType() =
+        parseType " {a: Bool , b: (Int, Char)} 4" (true, [""]) |> 
+            should equal ("4", 
+                Type.Record ["a", Bool; "b", Type.Tuple [Int; Char]])
+                
+    [<Test>]
+    member that.recordUnitType() =
+        parseType " { } 4" (true, [""]) |> 
+            should equal ("4", Unit)
 
 [<TestFixture>]
 type TestIdentTypeParsing() =
