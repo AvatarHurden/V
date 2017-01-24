@@ -482,13 +482,13 @@ Even so, it is important to realize that it only compares values of the same kin
 \medskip
 
 \infrule[BS-$=$ListFalse]
-	{\mbox{env} \vdash e_1 \Downarrow h_1::tl_1 \andalso \mbox{env} \vdash e_2 \Downarrow h_2::tl_2\\
-	 \mbox{env} \vdash h_1 = h_2 \Downarrow false}
+	{\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow v_3::v_4\\
+	 \mbox{env} \vdash v_1 = v_3 \Downarrow false}
 	{\mbox{env} \vdash e_1 = e_2 \Downarrow false}
 	
 \infrule[BS-$=$ListTrue]
-	{\mbox{env} \vdash e_1 \Downarrow h_1::tl_1 \andalso \mbox{env} \vdash e_2 \Downarrow h_2::tl_2\\
-	 \mbox{env} \vdash h_1 = h_2 \Downarrow true \andalso \mbox{env} \vdash tl_1 = tl_2 \Downarrow b}
+	{\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow v_3::v_4\\
+	 \mbox{env} \vdash v_1 = v_3 \Downarrow true \andalso \mbox{env} \vdash v_2 = v_4 \Downarrow b}
 	{\mbox{env} \vdash e_1 = e_2 \Downarrow b}
 	
 \bigskip
@@ -588,13 +588,13 @@ For characters, the ASCII values are compared numerically.
 \medskip
 
 \infrule[BS-IneqListHead]
-	{\mbox{env} \vdash e_1 \Downarrow h_1::tl_1 \andalso \mbox{env} \vdash e_2 \Downarrow h_2::tl_2\\
-	 \mbox{env} \vdash h_1 = h_2 \Downarrow false \andalso \mbox{env} \vdash h_1 \; opIneq \; h_2 \Downarrow b}
+	{\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow v_3::v_4\\
+	 \mbox{env} \vdash v_1 = v_3 \Downarrow false \andalso \mbox{env} \vdash v_1 \; opIneq \; v_3 \Downarrow b}
 	{\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow b}
 	
 \infrule[BS-IneqListTail]
-	{\mbox{env} \vdash e_1 \Downarrow h_1::tl_1 \andalso \mbox{env} \vdash e_2 \Downarrow h_2::tl_2\\
-	 \mbox{env} \vdash h_1 = h_2 \Downarrow true \andalso \mbox{env} \vdash tl_1 \; opIneq \; tl_2 \Downarrow b}
+	{\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow v_3::v_4\\
+	 \mbox{env} \vdash v_1 = v_3 \Downarrow true \andalso \mbox{env} \vdash v_2 \; opIneq \; v_4 \Downarrow b}
 	{\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow b}
 
 \paragraph{Logical Operations}
@@ -707,6 +707,10 @@ For the purposes of evaluation, both have the same behavior.
 	
 \bigskip
 
+\paragraph{Lists}
+The expression $nil$ always evaluates to the value $nil$, which represents an empty list.
+The append operation ($::$) accepts any value as its first operand ($e_1$), but the second operand ($e_2$) must evaluate to either the empty list ($nil$) or a non-empty list (represented by the value $v_1 :: v_2$).
+
 \infax[BS-Nil]
 	{\mbox{env} \vdash nil \Downarrow nil}
 
@@ -715,30 +719,34 @@ For the purposes of evaluation, both have the same behavior.
 	{\mbox{env} \vdash e_1 :: e_2 \Downarrow v :: nil}
 	
 \infrule[BS-List2]
-	{\mbox{env} \vdash e_1 \Downarrow v_1 \andalso \mbox{env} \vdash e_2 \Downarrow h_2::tl_2}
-	{\mbox{env} \vdash e_1 :: e_2 \Downarrow v_1 :: (h_2 :: tl_2)}
+	{\mbox{env} \vdash e_1 \Downarrow v \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
+	{\mbox{env} \vdash e_1 :: e_2 \Downarrow v :: (v_1 :: v_2)}
 	
-\medskip
+The $empty$ expression returns $true$ if and only if its operand ($e_1$) evaluates to the empty list ($nil$).
 
 \infrule[BS-EmptyTrue]
 	{\mbox{env} \vdash e_1 \Downarrow nil}
 	{\mbox{env} \vdash isempty \; e_1 \Downarrow true}
 	
 \infrule[BS-EmptyFalse]
-	{\mbox{env} \vdash e_1 \Downarrow h_1::tl_1}
+	{\mbox{env} \vdash e_1 \Downarrow v_1::v_2}
 	{\mbox{env} \vdash isempty \; e_1 \Downarrow false}
 
+The $head$ expression attempts to obtain the first element of a non-empty list.
+The $tail$ expression is the mirror of the $head$ expression, removing the first element of the list and returning the remaining list.
+If the list evaluates to $nil$, a run-time exception is thrown for both of these expressions.
+
 \infrule[BS-Head]
-	{\mbox{env} \vdash e_1 \Downarrow h_1::tl_1}
-	{\mbox{env} \vdash hd \; e_1 \Downarrow h_1}
+	{\mbox{env} \vdash e_1 \Downarrow v_1::v_2}
+	{\mbox{env} \vdash hd \; e_1 \Downarrow v_1}
 
 \infrule[BS-HeadEmpty]
 	{\mbox{env} \vdash e_1 \Downarrow nil}
 	{\mbox{env} \vdash hd \; e_1 \Downarrow raise}
 		
 \infrule[BS-Tail]
-	{\mbox{env} \vdash e_1 \Downarrow h_1::tl_1}
-	{\mbox{env} \vdash tl \; e_1 \Downarrow tl_1}
+	{\mbox{env} \vdash e_1 \Downarrow v_1::v_2}
+	{\mbox{env} \vdash tl \; e_1 \Downarrow v_2}
 
 \infrule[BS-TailEmpty]
 	{\mbox{env} \vdash e_1 \Downarrow nil}
@@ -928,7 +936,7 @@ The only guarantees that exist are that it will be either $nil$ or $c :: v_2$, m
 
 \infrule[T-Let2]
 	{\Gamma \vdash e_1 : T_1 \andalso \{x \rightarrow T_1\} \cup \Gamma \vdash e_2 : T_2 }
-	{\Gamma \vdash let \; x = e_1 \; in \; e_2 : T_2 \; | \; \left[T = T_1 \right]}
+	{\Gamma \vdash let \; x = e_1 \; in \; e_2 : T_2 \; | \; \left[\right]}
 	
 \bigskip
 	
