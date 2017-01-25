@@ -16,10 +16,10 @@ let compare (text, term) =
 let matchesType text typ =
     let parsed = parsePure text
     let typ' = typeInfer <| parsed
-    let freeVars = getFreeVars typ Map.empty
-    let freeVars' = getFreeVars typ' Map.empty
+    let freeVars = getFreeVars typ Map.empty |> List.unzip |> fst
+    let freeVars' = getFreeVars typ' Map.empty  |> List.unzip |> fst
     let freePairs = List.zip freeVars freeVars'
-    let replaced = List.fold (fun acc ((x, traits), (x', traits')) -> substituteInType (x', VarType (x, traits')) acc)
+    let replaced = List.fold (fun acc (x, x') -> substituteInType (NameSub (x', x)) acc)
                         typ' freePairs
     typ |> should equal replaced
 
@@ -1325,8 +1325,8 @@ let unzip(ls) {
     [<Test>]
     member that.testType() =
         let x1 = VarType ("x", [])
-        let x2 = VarType ("y", [])
-        let x3 = VarType ("z", [TuplePosition (0, x1); TuplePosition (1, x2)])
+        let x2 = VarType ("z", [])
+        let x3 = VarType ("y", [TuplePosition (1, x2); TuplePosition (0, x1)])
 
         matchesType (Unzip.func + "unzip") <| 
             Function (List x3, Type.Tuple [List x1; List x2])
