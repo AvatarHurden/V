@@ -274,6 +274,29 @@ let rec sort(ls) {
         (sort $ filter (\x => x > first) rest)
 };
 
+// ======================
+// List zipping functions
+// ======================
+
+let rec zip(x, y) {
+    if empty? x || empty? y then
+        nil
+    else
+        (head x, head y) :: zip (tail x) (tail y)
+};
+
+let rec zipWith(f, x, y) {
+    if empty? x || empty? y then
+        nil
+    else
+        f (head x) (head y) :: zipWith f (tail x) (tail y)
+};
+
+let unzip(ls) {
+    let x = map #0 ls;
+    let y = map #1 ls;
+    (x, y)
+};
 
 // ===========================
 // String conversion functions

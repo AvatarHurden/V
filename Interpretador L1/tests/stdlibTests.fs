@@ -1229,6 +1229,124 @@ let rec sort(ls) {
 
 
 [<TestFixture>]
+type Zip() =
+
+    static member func = """
+let rec zip(x, y) {
+    if empty? x || empty? y then
+        nil
+    else
+        (head x, head y) :: zip (tail x) (tail y)
+};
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x1 = VarType ("x", [])
+        let x2 = VarType ("y", [])
+
+        matchesType (Zip.func + "zip") <| 
+            Function (List x1, Function (List x2, List <| Type.Tuple [x1;x2]))
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (Zip.func + "zip 'c'")
+        throwsWrongType (Zip.func + "zip 3")
+        throwsWrongType (Zip.func + "zip [true, false] false")
+        
+    [<Test>]
+    member that.emptyList() =
+        equalsParsed (Zip.func + "zip [] []") "[]"
+        
+    [<Test>]
+    member that.sameSize() =
+        equalsParsed (Zip.func + "zip [1,2,3] ['a', 'b', 'c']") <|
+            "[(1, 'a'), (2, 'b'), (3, 'c')]"
+        
+    [<Test>]
+    member that.differentSize() =
+        equalsParsed (Zip.func + "zip [1,2,3] ['a', 'b']") <|
+            "[(1, 'a'), (2, 'b')]"
+
+
+[<TestFixture>]
+type ZipWith() =
+
+    static member func = """
+let rec zipWith(f, x, y) {
+    if empty? x || empty? y then
+        nil
+    else
+        f (head x) (head y) :: zipWith f (tail x) (tail y)
+};
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x1 = VarType ("x", [])
+        let x2 = VarType ("y", [])
+        let x3 = VarType ("z", [])
+
+        matchesType (ZipWith.func + "zipWith") <| 
+            Function (Function (x1, Function (x2, x3)), 
+                Function (List x1, Function (List x2, List x3)))
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (ZipWith.func + "zipWith (\x, y => x + y) ['a']")
+        throwsWrongType (ZipWith.func + "zipWith (\x, y => x @ y) [\"alo\"] [[1,2],[2,3]]")
+        throwsWrongType (ZipWith.func + "zipWith [true, false] false")
+        
+    [<Test>]
+    member that.emptyList() =
+        equalsParsed (ZipWith.func + "zipWith (\x, y => x + y) [] []") "[]"
+        
+    [<Test>]
+    member that.sameSize() =
+        equalsParsed (ZipWith.func + "zipWith (\x, y => x + y) [1,2,3] [1,2,3]") <|
+            "[2,4,6]"
+        
+    [<Test>]
+    member that.differentSize() =
+        equalsParsed (ZipWith.func + "zipWith (\x, y => x + y) [1,2,3] [1,3]") <|
+            "[2,5]"
+
+
+[<TestFixture>]
+type Unzip() =
+
+    static member func = 
+        Map.func + """
+let unzip(ls) {
+    (map #0 ls, map #1 ls)
+};
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x1 = VarType ("x", [])
+        let x2 = VarType ("y", [])
+        let x3 = VarType ("z", [TuplePosition (0, x1); TuplePosition (1, x2)])
+
+        matchesType (Unzip.func + "unzip") <| 
+            Function (List x3, Type.Tuple [List x1; List x2])
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (Unzip.func + "unzip ['a']")
+        throwsWrongType (Unzip.func + "unzip (1, 'a', 3)")
+        
+    [<Test>]
+    member that.emptyList() =
+        equalsParsed (Unzip.func + "unzip []") "([], [])"
+        
+    [<Test>]
+    member that.sameSize() =
+        equalsParsed (Unzip.func + "unzip [(1, 'a', 3), (2, 'b', 4)]") <|
+            "([1,2], ['a', 'b'])"
+        
+
+[<TestFixture>]
 type ParseInt() =
 
     static member func = 
