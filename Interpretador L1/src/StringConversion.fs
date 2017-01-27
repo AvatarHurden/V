@@ -6,8 +6,8 @@ open System
 let rec toString term =
     match term with
     | I i -> sprintf "%A" i
-    | True -> "true"
-    | False -> "false"
+    | B true -> "true"
+    | B false -> "false"
     | C c -> string c
     | Nil -> "[]"
     | OP(C c, Cons, _) -> "\"" + (toStringString term) + "\""

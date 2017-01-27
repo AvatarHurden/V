@@ -3,8 +3,10 @@
 type Trait =
     | Equatable
     | Orderable
+    | TuplePosition of int * Type
+    | RecordLabel of string * Type
 
-type Type =
+and Type =
     | VarType of string * Trait list
     | Int
     | Bool
@@ -12,37 +14,19 @@ type Type =
     | Unit
     | Function of Type * Type
     | List of Type
+    | Tuple of Type list
+    | Record of (string * Type) list
 
-
-let rec validateTrait trt typ =
-    match typ with
-    | Int ->
-        match trt with
-        | Orderable | Equatable -> Some Int
-    | Bool ->
-        match trt with
-        | Equatable -> Some Bool
-        | Orderable -> None
-    | Char ->
-        match trt with
-        | Orderable | Equatable -> Some Char
-    | Unit ->
-        match trt with
-        | Orderable | Equatable -> None
-    | Function (typ1, typ2) ->
-        match trt with
-        | Orderable | Equatable -> None
-    | List typ1 ->
-        match trt with
-        | Orderable | Equatable ->
-            match validateTrait trt typ1 with
+let rec mapOption f ls =
+    match ls with
+    | [] -> Some []
+    | x :: rest ->
+        match f x with
+        | Some x' -> 
+            match mapOption f rest with
             | None -> None
-            | Some typ1 -> Some <| List typ1
-    | VarType (x, traits) ->
-        if List.exists ((=) trt) traits then
-            Some typ
-        else
-            Some <| VarType (x, trt::traits)
+            | Some rest' -> Some <| x' :: rest'
+        | None -> None
 
 type op =
     | Add
@@ -64,8 +48,7 @@ type op =
 type Ident = string
     
 type term =
-    | True
-    | False
+    | B of bool
     | Skip
     | I of int
     | C of char
@@ -83,10 +66,13 @@ type term =
     | Try of term * term
     | Output of term
     | Input
+    | Tuple of term list
+    | Record of (string * term) list
+    | ProjectIndex of int * term
+    | ProjectName of string * term
 
 type result =
-    | ResTrue
-    | ResFalse
+    | ResB of bool
     | ResSkip
     | ResI of int
     | ResC of char
@@ -95,6 +81,8 @@ type result =
     | ResCons of result * result
     | ResClosure of Ident * term * env
     | ResRecClosure of Ident * Ident * term * env
+    | ResTuple of result list
+    | ResRecord of (string * result) list
 and
     env = Map<Ident, result>
 

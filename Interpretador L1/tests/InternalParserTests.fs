@@ -66,6 +66,26 @@ type TestTypeParsing() =
         parseType " ( Int   ->   String  ) 4" (true, [""]) |> 
             should equal ("4", Function(Int, List Char))
 
+    [<Test>]
+    member that.tupleType() =
+        parseType " ( Int, Bool  ) 4" (true, [""]) |> 
+            should equal ("4", Type.Tuple [Int; Bool])
+            
+    [<Test>]
+    member that.tupleUnitType() =
+        parseType " (   ) 4" (true, [""]) |> 
+            should equal ("4", Unit)
+
+    [<Test>]
+    member that.recordType() =
+        parseType " {a: Bool , b: (Int, Char)} 4" (true, [""]) |> 
+            should equal ("4", 
+                Type.Record ["a", Bool; "b", Type.Tuple [Int; Char]])
+                
+    [<Test>]
+    member that.recordUnitType() =
+        parseType " { } 4" (true, [""]) |> 
+            should equal ("4", Unit)
 
 [<TestFixture>]
 type TestIdentTypeParsing() =
@@ -98,8 +118,10 @@ type TestIdentTypeParsing() =
     [<Test>]
     member that.complexType() =
         parseIdentTypePair "x:[[Int]->[(Bool->String)]] = 3" (true, ["="]) |> 
-            should equal (" 3", ("x", Some <| 
-                List (Function (List Int, List (Function (Bool, List Char))))))
+            should equal 
+                (" 3", ("x", 
+                    Some <| 
+                    List (Function (List Int, List (Function (Bool, List Char))))))
 
 
 [<TestFixture>]
@@ -113,8 +135,9 @@ type TestParameterParsing() =
     [<Test>]
     member that.noTypes() =
         parseParameters "x,y,z => x+y+z" (true, ["=>"]) |> 
-            should equal (" x+y+z", ["x", (None: Type option); 
-                "y", (None: Type option); "z", (None: Type option)])
+            should equal 
+                (" x+y+z", ["x", (None: Type option); 
+                    "y", (None: Type option); "z", (None: Type option)])
 
     [<Test>]
     member that.simpleTypes() =
@@ -202,3 +225,51 @@ type TestStringParsing() =
     member that.escapedString() =
         parseString "\\\"h\\\"\" @ \\\"hello\\\"" |> should equal 
             (" @ \\\"hello\\\"", OP(C '"', Cons, OP(C 'h', Cons, OP(C '"', Cons, Nil))))
+
+[<TestFixture>]
+type TestComponentParsing() =
+
+    [<Test>]
+    member that.noComponent() =
+        let t = parseMultipleComponents parseTerm "  )" (true, [")"])
+        let s: string * term list = "", []
+        t |> should equal s 
+
+    [<Test>]
+    member that.singleComponent() =
+        parseMultipleComponents parseTerm " 3 )" (true, [")"]) |> 
+            should equal ("", [I 3])
+
+    [<Test>]
+    member that.doubleComponent() =
+        parseMultipleComponents parseTerm " 3, 'c' )" (true, [")"]) |> 
+            should equal ("", [I 3; C 'c'])
+    
+    [<Test>]
+    member that.namedSingleComponent() =
+        parseMultipleComponents parseRecordComponent " a : x }" (true, ["}"]) |> 
+            should equal ("", [("a", X "x")])
+
+    [<Test>]
+    member that.namedDoubleComponent() =
+        parseMultipleComponents parseRecordComponent " a : x, b: 3 }" (true, ["}"]) |> 
+            should equal ("", [("a", X "x"); ("b", I 3)])
+
+    [<Test>]
+    member that.consComponent() =
+        let t = parseMultipleComponents parseTerm " a :: x )" (true, [")"])
+        let s = ("", [OP (X "a", Cons, X "x")])
+        t |> should equal s   
+       
+    [<Test>]
+    member that.consComponentRecord() =
+        let t = parseMultipleComponents parseRecordComponent "b : a :: x }" (true, ["}"])
+        let s = ("", ["b", OP (X "a", Cons, X "x")])
+        t |> should equal s
+
+    [<Test>]
+    member that.consComponentRecordUnnamed() =
+        (fun () -> parseMultipleComponents parseRecordComponent "a :: x }" (true, ["}"]) |> ignore) |> 
+            should throw typeof<InvalidEntryText> 
+         
+         

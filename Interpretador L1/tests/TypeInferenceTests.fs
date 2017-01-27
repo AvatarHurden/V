@@ -78,9 +78,10 @@ else
 
     [<Test>]
     member that.wrongReduces() =
-        (fun () -> compare (
-        "if (reduce (\\acc, x => x && acc) [true,true,false]) then
-	reduce (\\acc, x => acc + x) [1,2,3]
-else
-	reduce (\\acc, x => x || acc) [true,false,true]", Int) |> ignore) |> 
+        (fun () -> 
+            compare (
+                "if (reduce (\\acc, x => x && acc) [true,true,false]) then
+	        reduce (\\acc, x => acc + x) [1,2,3]
+        else
+	        reduce (\\acc, x => x || acc) [true,false,true]", Int) |> ignore) |> 
         should throw typeof<InvalidType>
