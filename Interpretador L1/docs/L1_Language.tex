@@ -1,13 +1,16 @@
 \documentclass{article}
 
+\usepackage{amssymb}
 \usepackage{amsmath}
 \usepackage{array}
 \usepackage{txfonts}
 \usepackage{syntax}
 \usepackage{hyperref}
 \usepackage{lib/bcprules} 
+\usepackage{hyphenat}
 
 \newcommand\nonter[1]{\ensuremath{#1\negthinspace s}}
+\def\code#1{\begin{footnotesize}\texttt{#1}\end{footnotesize}}
 
 \author{Arthur Giesel Vedana}
 \title{L1 Syntax and Documentation}
@@ -322,27 +325,112 @@ It requires that $e_1$ evaluates to no useful value (i.e. evaluates to $skip$).
 Since $L1$ is strongly typed, every (valid) expression has exactly one type associated with it.
 Some expressions require the programmer to explicitly declare types of identifiers, such as \texttt{let} declarations and functions.
 Other expressions, such as $e_1 = e_2$, or even constants, such as $1$ or $true$, have types implicitly associated with them.
-These types are used by the type system (see \ref{Type System}) to check whether an expression is valid or not, avoiding runtime errors that can be detected in compile time.
+These types are used by the type system (see \ref{Type System}) to check whether an expression is valid or not, avoiding run-time errors that can be detected at compile time.
 
-\paragraph{Traits}
+\paragraph{Base Types}
+These are all of the base types available in $L1$.
+They are considered constant, and cannot be deconstructed or replaced by other types.
 
-$L1$ has a trait system to define certain behaviors for types.
-Every type can have multiple traits.
+\medskip
 
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
-	T &::= &X\\
-	&| &\mbox{Int}\\
+	T &::= &\mbox{Int}\\
 	&| &\mbox{Bool}\\
 	&| &\mbox{Char}\\
 	&| &\mbox{Unit} \\
+\end{tabular}}
+
+\paragraph{Parametric Types}
+These types are composed of 1 or more other types.
+If the argument types of a parametric type are constant, we can say that the parametric type itself is also constant.
+This means that `Int $list$' is a constant type, while `$VarType_1 \rightarrow Int$' is not.
+
+\medskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
+	T &::= &\cdots\\
 	&| &T_1 \rightarrow T_2\\
 	&| &T \; list\\
+\end{tabular}}
+
+\paragraph{Variable Types}
+These types represent an unknown constant type.
+Explicitly typed expressions cannot be given variable types, but they are used by the type system for implicitly typed expressions.
+In the course of the type inference, the type system can replace variable types for their corresponding parametric or constant type.
+
+It is important to realize that variable types already represent a unique type with an unknown identity.
+This means that a variable type may only be replaced by the specific type which it represents and not any other type.
+This distinction becomes important when talking about polymorphism, which uses variable types, along with universal quantifiers, to represent a placeholder for any possible type (this is discussed in greater detail in \ref{Polymorphism}).
+
+\medskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
+	T &::= &\cdots\\
+	&| &\alpha \; \left[Traits\right]\\
 	\\
-	X &::= &{X_1, X_2, ...}
+	\alpha &::= &{\alpha_1, \alpha_2, ...}
+\end{tabular}}
+
+\bigskip
+
+\subsubsection{Traits}
+
+Types can posses traits, which define certain behaviors that are expected of said type.
+Constant types always have their trait information implicitly defined, since this information is included in the language.
+Variable types, on the other hand, can explicitly state which traits they posses, restricting the set of possible constant types they can represent.
+
+\medskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
+	Traits &::= &\varnothing\\
+	&| &\{Trait\} \cup Traits\\
+\end{tabular}}
+
+\bigskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
+	Trait &::= &Equatable\\
+	&| &Orderable\\
+\end{tabular}}
+
+\paragraph{Equatable}
+If a type $T$ is $Equatable$, expressions of type $T$ can use the equality operators ($=, \neq$).
+
+To define the set of types that belong to $Equatable$, the following equations are used:
+
+\medskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
+	\{\mbox{Int}, \mbox{Bool}, \mbox{Char}\} \in Equatable\\
+	T \in Equatable \iff T \; list \in Equatable\\
+	\alpha \; \left[Traits\right] \in Equatable \iff Equatable \in Traits\\
+\end{tabular}}
+
+
+\paragraph{Orderable}
+If a type $T$ is $Orderable$, expressions of type $T$ can use the inequality operators ($<, \leq, >, \geq$).
+Any type that is $Orderable$ is also $Equatable$.
+In practice, the only difference between $Orderable$ and $Equatable$ is that the base type Bool is not in $Orderable$.
+
+To define the set of types that belong to $Orderable$, the following equations are used:
+
+\medskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
+	\{\mbox{Int}, \mbox{Char}\} \in Orderable\\
+	T \in Orderable \iff T \; list \in Orderable\\
+	\alpha \; \left[Traits\right] \in Orderable \iff Orderable \in Traits\\
 \end{tabular}}
 
 \newpage
+
 \subsection{Operational Semantics}
  
 The $L1$ language is evaluated using a big-step evaluation with environments. 
@@ -824,7 +912,51 @@ The only guarantees that exist are that it will be either $nil$ or $c :: v_2$, m
 
 \subsection{Type System}\label{Type System}
 	
+$L1$ has a strong and static type inference system that checks a program to decide whether or not it is "`well-typed"'.
+If a program is considered to be well-typed, the type system guarantees that the program will be able to be properly evaluated according to the operational semantics of $L1$. 
+As a side-effect of checking the validity of a program, the type system can also provided the actual type of any implicitly typed expression down to its basic types, be those concrete types or variable types.
+
+\paragraph{Environment}
+Just like the operational semantics, the type system also uses an environment to store information about identifiers.
+In this case, the environment maps identifiers to type associations. 
+These can be either simple associations or universal associations, which are used for polymorphic functions.
+
+\subsubsection{Polymorphism}\label{Polymorphism}
+
+$L1$ has support for parametric Damas\hyp Milner polymorphism.
+This means that functions can have their types be defined with universal quantifiers, allowing their use with any type.
+
+For instance, take the function $count$, which counts the number of elements in a list.
+This function can be defined as follows:
+
+\smallskip
+
+\code{let count = rec count x $\Rightarrow$ if isempty x then 0 else 1 + count (tl x) in}
+
+\code{count (3::4::nil)}
+
+\smallskip
+
+In this situation, $count$ can be used with a list of any type, not only Int.
+To allow this, its identifier ($count$) must have a universal association in the environment, defined as so:
+
+\smallskip
+$\forall x. \; x \; list \rightarrow \mbox{Int}$
+\smallskip
+
+The universal quantifier $\forall x$ allows the type variable $x$ to be substituted for any concrete type when the function is called.
+When creating a polymorphic type, the type system must identify which type variables are free in the function type and which are bound in the environment.
+This process guarantees that a polymorphic type only universally quantifies those type variables that are not already bound, while still allowing all free variables to be instantiated when the function is called.
+
+\subsubsection{Traits}
+
+Traits are characteristics that a type can have, defining behaviors expected of that type.
+Some expressions are polymorphic in a sense that they accept certain types for their operators, but not any type.
+
 \subsubsection{Type Inference Rules}
+
+The type system uses a constraint collection and unification process to decide whether or not an expression is well-typed.
+For 
 
 \infax[T-Num]
 	{\Gamma \vdash n : \mbox{Int} \; | \; \left[\right]}
