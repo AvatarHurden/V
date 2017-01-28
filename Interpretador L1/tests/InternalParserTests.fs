@@ -134,20 +134,20 @@ type TestParameterParsing() =
 
     [<Test>]
     member that.noTypes() =
-        parseParameters "x,y,z => x+y+z" (true, ["=>"]) |> 
+        parseParameters "x y z => x+y+z" (true, ["=>"]) |> 
             should equal 
                 (" x+y+z", ["x", (None: Type option); 
                     "y", (None: Type option); "z", (None: Type option)])
 
     [<Test>]
     member that.simpleTypes() =
-        parseParameters "x:Int,y:Bool,z:String => x+y+z" (true, ["=>"]) |> 
+        parseParameters "(x:Int) (y:Bool) (z:String) => x+y+z" (true, ["=>"]) |> 
             should equal (" x+y+z", ["x", Some Int; 
                 "y", Some Bool; "z", Some <| List Char])
 
     [<Test>]
     member that.complexTypes() =
-        parseParameters "x:[[Int]],y:(Bool->Int),z:String => x+y+z" (true, ["=>"]) |> 
+        parseParameters "(x:[[Int]]) (y:(Bool->Int)) (z:String) => x+y+z" (true, ["=>"]) |> 
             should equal (" x+y+z", ["x", List Int |> List |> Some; 
                 "y", Some <| Function (Bool, Int); "z", Some <| List Char])
 

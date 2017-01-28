@@ -258,7 +258,21 @@ let rec parseIdentTypePair text closings =
 
     rest, (id, typ)
 
-let rec parseParameters = parseMultipleComponents parseIdentTypePair
+let rec parseParameters text closings = 
+    match text with
+    | AnyStart closings (rest, start) ->
+        rest, []
+    | Trimmed rest ->
+        let rest, curParameter = 
+            match rest with
+            | Start "(" rest ->
+                let rest, (id, typ) = parseIdentTypePair rest (true, [")"])
+                rest, (id, typ)
+            | Trimmed rest ->
+                let rest, id = parseIdent rest
+                rest, (id, None)
+        let rest, otherParameters = parseParameters rest closings
+        rest, curParameter :: otherParameters
 
 // Returns a tuple of ((id, type1), (term, type2), where
 // id: Ident of first parameter
@@ -450,87 +464,61 @@ and parseLet text closings =
     match text with
     | Start "rec" rest ->
         parseLetRec rest closings
-    | _ ->
-        let rest, id = parseIdent text
-        match rest with
-        | Start "(" rest ->
-            parseNamedFunction text closings
-        | _ ->
-            parseLetDefinition text closings
-
-and parseLetDefinition text closings =
-    let rest, id = parseIdent text
-    let rest, typ =
-        match rest with
-        | Start ":" rest -> parseSomeType rest (true, ["="])
-        | Start "=" rest -> rest, None
-        | _ -> raiseExp <| sprintf "Expected a \"=\" at %A" text
-    let rest, t1 = parseTerm rest (true, [";"])
-    let rest, t2 = parseTerm rest (false, snd closings)
-    rest, Let(id, typ, t1, t2)
+    | Trimmed rest ->
+        parseDirectLet rest closings
 
 and parseLetRec text closings =
-    let rest, recFn = parseRecFunction text closings
-    let rest =
-        match rest with
-        | Start ";" rest -> rest
-        | _ -> raiseExp <| sprintf "Expected a \";\" at %A" text
+    let rest, recFn = parseRecFunction text (true, [";"])
     let rest, t2 = parseTerm rest (false, snd closings)
-
+    
     match recFn with
-    | RecFn (id, Some retType, id2, Some paramTyp, t1) ->
-        rest, Let(id, Some <| Function(paramTyp, retType), recFn, t2)
-    | RecFn (id, None, id2, None, t1) ->
+    | RecFn(id, Some retType, id2, Some typ1, retTerm) ->
+        rest, Let(id, Some <| Function(typ1, retType), recFn, t2)
+    | RecFn(id, None, id2, None, retTerm) ->
         rest, Let(id, None, recFn, t2)
     | _ -> raiseExp <| sprintf "Wrong recurive function at %A" text
 
-and parseNamedFunction text closings =
-    let rest, t = parseLetRec text closings
+and parseDirectLet text closings = 
+    let rest, id = parseIdent text
+    let rest, parameters = parseParameters rest (false, ["="; ":"])
+    let rest, retType =
+        match rest with
+        | Start ":" rest -> parseSomeType rest (true, ["="])
+        | Start "=" rest -> rest, None
+        | _ -> raiseExp "Expected a \"=\" at %A" text
+
+    let rest, retTerm = parseTerm rest (true, [";"])
+    let rest, t2 = parseTerm rest (false, snd closings)
     
-    match t with
-    | Let (_, None, RecFn (id1, None, id2, None, t1), t2) ->
-        rest, Let (id1, None, Fn (id2, None, t1), t2)
-    | Let (_, Some typ, RecFn (id1, Some typ1, id2, Some typ2, t1), t2) ->
-        rest, Let (id1, Some typ, Fn (id2, Some typ2, t1), t2)
+    match parameters with
+    | [] ->
+        rest, Let(id, retType, retTerm, t2)
     | _ ->
-        raiseExp <| sprintf "Wrong named function declaration at %A" text
+        let (id2, typ1), (retTerm, retType) = joinMultiParameters parameters retTerm retType
+        let fn = Fn(id2, typ1, retTerm)
+        match retType, typ1 with
+        | Some retType, Some typ1 ->
+            rest, Let(id, Some <| Function(typ1, retType), fn, t2)
+        | None, None ->
+            rest, Let(id, None, fn, t2)
+        | _ -> raiseExp <| sprintf "Wrong recurive function at %A" text
 
 and parseRecFunction text closings =
     let rest, id = parseIdent text
-    let rest, parameters =
-        match rest with
-        | Start "(" rest -> parseParameters rest (true, [")"])
-        | _ -> raiseExp <| sprintf "Expected a \"(\" at %A" text
+    let rest, parameters = parseParameters rest (false, ["="; ":"])
     let rest, retType =
         match rest with
-        | Start ":" rest -> parseSomeType rest (true, ["{"])
-        | Start "{" rest -> rest, None
-        | _ -> raiseExp "Expected a \"{\" at %A" text
-    let rest, retTerm = parseTerm rest (true, ["}"])
+        | Start ":" rest -> parseSomeType rest (true, ["="])
+        | Start "=" rest -> rest, None
+        | _ -> raiseExp "Expected a \"=\" at %A" text
+    let rest, retTerm = parseTerm rest closings
     
     let (id2, typ1), (retTerm, retType) = joinMultiParameters parameters retTerm retType
 
     rest, RecFn(id, retType, id2, typ1, retTerm)
 
-and parseFunction text closings =
-    let rest, parameters =
-        match text with
-        | Start "(" rest -> parseParameters rest (true, [")"])
-        | _ -> raiseExp <| sprintf "Expected a \"(\" at %A" text
-    let rest, retTerm =
-        match rest with
-        | Start "{" rest -> parseTerm rest (true, ["}"])
-        | _ -> raiseExp <| sprintf "Expected a \"{\" at %A" text
-
-    // A function does not need a return type, but I must know if the
-    // parameters have a type so that joining them will not cause an error
-    let (paramId, paramTyp), (retTerm, _) = 
-        joinMultiParameters parameters retTerm <| snd parameters.Head
-
-    rest, Fn(paramId, paramTyp, retTerm)
-
 and parseLambda text closings =
-    let rest, parameters = parseParameters text (true, ["=>"])
+    let rest, parameters = parseParameters text (true, ["->"])
     let rest, retTerm = parseTerm rest (false, snd closings)
 
     // A function does not need a return type, but I must know if the
@@ -699,9 +687,7 @@ and collectTerms text closings isAfterTerm =
         | Start "rec" rest ->
             let rem, term = parseRecFunction rest closings
             addToTerms rem (Term term) closings
-        | Start "fn" rest ->
-            let rem, term = parseFunction rest closings
-            addToTerms rem (Term term) closings
+        | Start "fn" rest
         | Start "\\" rest ->
             let rem, term = parseLambda rest closings
             addToTerms rem (Term term) closings

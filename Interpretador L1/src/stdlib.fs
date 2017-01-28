@@ -6,61 +6,59 @@ let content = """
 // Arithmetic functions
 // ====================
 
-let rec remainder(x, y) {
+let rec remainder x y =
     if y = 0 then  
         raise
     else if x<y then
         x
     else
         remainder (x-y) y
-};
+;
 
-let negate(x) {
-	0-x
-};
+let negate x = 0 - x;
 
-let abs(x) {
+let abs x =
 	if x < 0 then
 		negate x
 	else
 		x
-};
+;
 
 // =================
 // Logical functions
 // =================
 
-let not(t) {
+let not t =
 	if t then
 		false
 	else
 		true
-};
+;
 
-let xor(t1, t2) {
+let xor t1 t2 =
 	if t1 then
 		not t2
 	else
 		t2
-};
+;
 
 // ====================
 // Basic List functions
 // ====================
 
-let rec append(x, ls) {
+let rec append x ls =
 	if empty? ls then
 		x::ls
 	else
 		(head ls)::(append x (tail ls))
-};
+;
 
-let rec concat(ls1, ls2) {
+let rec concat ls1 ls2 =
 	if empty? ls1 then
 		ls2
 	else
 		(head ls1)::(concat (tail ls1) ls2)
-};
+;
 
 let rec last(ls) {
 	if empty? ls then

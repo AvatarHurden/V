@@ -52,14 +52,14 @@ let throwsWrongType text =
 type Remainder() =
 
     static member func = """
-let rec remainder(x, y) {
+let rec remainder x y =
     if y = 0 then  
         raise
     else if x<y then
         x
     else
         remainder (x-y) y
-};
+;
 """
 
     [<Test>]
@@ -93,9 +93,9 @@ let rec remainder(x, y) {
 type Negate() =
 
     static member func = """
-let negate(x) {
+let negate x =
 	0-x
-};
+;
 """
 
     [<Test>]
@@ -126,12 +126,12 @@ type Abs() =
 
     static member func = 
         Negate.func + """
-let abs(x) {
+let abs x =
 	if x < 0 then
 		negate x
 	else
 		x
-};
+;
 """
 
     [<Test>]
@@ -161,12 +161,12 @@ let abs(x) {
 type Not() =
 
     static member func = """
-let not(t) {
+let not t =
 	if t then
 		false
 	else
 		true
-};
+;
 """
 
     [<Test>]
@@ -192,12 +192,12 @@ type Xor() =
 
     static member func = 
         Not.func + """
-let xor(t1, t2) {
+let xor t1 t2 =
 	if t1 then
 		not t2
 	else
 		t2
-};
+;
 """
 
     [<Test>]
@@ -231,12 +231,12 @@ let xor(t1, t2) {
 type Append() =
 
     static member func = """
-let rec append(x, ls) {
+let rec append x ls =
 	if empty? ls then
 		x::ls
 	else
 		(head ls)::(append x (tail ls))
-};
+;
 """
 
     [<Test>]
@@ -273,12 +273,12 @@ let rec append(x, ls) {
 type Concat() =
 
     static member func = """
-let rec concat(ls1, ls2) {
+let rec concat ls1 ls2 =
 	if empty? ls1 then
 		ls2
 	else
 		(head ls1)::(concat (tail ls1) ls2)
-};
+;
 """
 
     [<Test>]

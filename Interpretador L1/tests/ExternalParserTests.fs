@@ -185,7 +185,7 @@ type TestCondAndTry() =
 
     [<Test>]
     member that.simpleTry() =
-        compare "try if true then raise else 1 except fn(x: Int) { x+3 } 4" <| ResI 7
+        compare "try if true then raise else 1 except fn((x: Int)) { x+3 } 4" <| ResI 7
        
     [<Test>]
     member that.nestedTry() =
