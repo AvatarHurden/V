@@ -687,7 +687,6 @@ and collectTerms text closings isAfterTerm =
         | Start "rec" rest ->
             let rem, term = parseRecFunction rest closings
             addToTerms rem (Term term) closings
-        | Start "fn" rest
         | Start "\\" rest ->
             let rem, term = parseLambda rest closings
             addToTerms rem (Term term) closings

@@ -51,29 +51,29 @@ type TestEval() =
 
     [<Test>]
     member that.LCM() =
-        "let modulo(x:Int): Int -> Int {
-    let rec d(y:Int): Int {
+        "let modulo (x:Int): Int -> Int =
+    let rec d (y:Int): Int =
         if x = 0 then  
             raise
         else if y<x then
             y
         else
-            d(y-x)
-    };
-    (\y:Int => d y)
-};
-let rec gcd(x:Int): Int -> Int {
-    let f(y: Int): Int {
+            d (y-x)
+    ;
+    (\(y:Int) -> d y)
+;
+let rec gcd (x:Int): Int -> Int =
+    let f (y: Int): Int =
         try
             gcd y (modulo y x) 
         except
-            x    
-    };
-    (\y: Int => f y)
-};
-let lcm(x:Int): Int -> Int {
-    (\y: Int => x*y/(gcd x y))
-};
+            x
+    ;
+    (\(y: Int) -> f y)
+;
+let lcm (x:Int): Int -> Int =
+    (\(y: Int) -> x*y/(gcd x y))
+;
 lcm 121 11*15" |> parse |> evaluate |> should equal <| ResI 1815
 
     [<Test>]
