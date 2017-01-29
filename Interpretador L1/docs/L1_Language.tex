@@ -916,11 +916,6 @@ $L1$ has a strong and static type inference system that checks a program to deci
 If a program is considered to be well-typed, the type system guarantees that the program will be able to be properly evaluated according to the operational semantics of $L1$.
 As a side-effect of checking the validity of a program, the type system can also provide the actual type of any implicitly typed expression down to its basic types, be those concrete types or variable types.
 
-\paragraph{Environment}
-Just like the operational semantics, the type system also uses an environment to store information about identifiers.
-In this case, the environment maps identifiers to type associations.
-These can be either simple associations or universal associations, which are used for polymorphic functions.
-
 \subsubsection{Polymorphism}\label{Polymorphism}
 
 $L1$ has support for parametric Damas\hyp Milner polymorphism.
@@ -953,168 +948,197 @@ This process guarantees that a polymorphic type only universally quantifies thos
 Traits are characteristics that a type can have, defining behaviors expected of that type.
 Some expressions are polymorphic in a sense that they accept certain types for their operators, but not any type.
 
-\subsubsection{Type Inference Rules}
+\subsubsection{Type Inference System}
 
-The type system uses a constraint collection and unification process to decide whether or not an expression is well-typed.
-For
+The type inference system is composed of two basic parts:
+\begin{itemize}
+  \item Constraint Collection
+  \item Constraint Unification
+\end{itemize}
+
+Constraints are equations between type expressions, which can have both constant types and variable types.
+To infer the type of a program, the type system recursively collects a set of constraints for every subexpression in that program.
+This is done in a static way across the expression tree from the nodes to the root, without having to evaluate any of the expressions.
+To create a valid set of constraints, the system must contain an environment, built from the root to the nodes, to ensure identifiers are properly typed.
+
+\paragraph{Environment}
+Just like the operational semantics, the type system also uses an environment to store information about identifiers.
+In this case, the environment maps identifiers to type associations.
+These can be either simple associations or universal associations, which are used for polymorphic functions.
+
+\paragraph{Simple Associations}
+These associate an identifier with a unique type, which can be either constant or a variable type.
+When the association is called, the type is returned as-is, even if it is a variable type.
+
+\paragraph{Universal Associations}
+This association, also called a type scheme, stores a type which contains at least one variable type bound by a ``for all'' quantifier ($\forall$).
+When called, this association creates a new variable type for each bound variable and returns a new instance of the type scheme.
+
+Universal associations are used exclusively for polymorphic functions.
+To create this type of association, the type system must generate a list of ``free variables'' present in the type that is to be universalized.
+These are the variable types that are not present in the environment when the identifier is declared.
+
+
+\paragraph{Constraint Collection Rules}
+Every expression in $L1$ has a rule for constraint collection, similar to how every expression has a rule for its semantic evaluation.
 
 \infax[T-Num]
-    {\Gamma \vdash n : \mbox{Int} \; | \; \left[\right]}
+    {\Gamma \vdash n : \mbox{Int} \; | \; \{\}}
 
 \infax[T-Bool]
-    {\Gamma \vdash b : \mbox{Bool} \; | \; \left[\right]}
+    {\Gamma \vdash b : \mbox{Bool} \; | \; \{\}}
 
 \infax[T-Char]
-    {\Gamma \vdash c : \mbox{Char} \; | \; \left[\right]}
+    {\Gamma \vdash c : \mbox{Char} \; | \; \{\}}
 
 \infax[T-Skip]
-    {\Gamma \vdash skip : \mbox{Unit} \; | \; \left[\right]}
+    {\Gamma \vdash skip : \mbox{Unit} \; | \; \{\}}
 
 \infrule[T-Ident]
     {\Gamma \left(x\right) = T}
-    {\Gamma \vdash x : \mbox{T} \; | \; \left[\right]}
+    {\Gamma \vdash x : \mbox{T} \; | \; \{\}}
 
 \bigskip
 
 \infrule[T-+]
-    {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2}
-    {\Gamma \vdash e_1 + e_2 : \mbox{Int} \; | \; \left[T_1 = \mbox{Int}; T_2 = \mbox{Int}\right]}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2}
+    {\Gamma \vdash e_1 + e_2 : \mbox{Int} \; | \; C_1 \cup C_2 \cup \{T_1 = \mbox{Int}; T_2 = \mbox{Int}\}}
 
 \infrule[T--]
-    {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2}
-    {\Gamma \vdash e_1 - e_2 : \mbox{Int} \; | \; \left[T_1 = \mbox{Int}; T_2 = \mbox{Int}\right]}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2}
+    {\Gamma \vdash e_1 - e_2 : \mbox{Int} \; | \; C_1 \cup C_2 \cup \{T_1 = \mbox{Int}; T_2 = \mbox{Int}\}}
 
 \infrule[T-$\ast$]
-    {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2}
-    {\Gamma \vdash e_1 * e_2 : \mbox{Int} \; | \; \left[T_1 = \mbox{Int}; T_2 = \mbox{Int}\right]}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2}
+    {\Gamma \vdash e_1 * e_2 : \mbox{Int} \; | \; C_1 \cup C_2 \cup \{T_1 = \mbox{Int}; T_2 = \mbox{Int}\}}
 
 \infrule[T-$\div$]
-    {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2}
-    {\Gamma \vdash e_1 \div e_2 : \mbox{Int} \; | \; \left[T_1 = \mbox{Int}; T_2 = \mbox{Int}\right]}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2}
+    {\Gamma \vdash e_1 \div e_2 : \mbox{Int} \; | \; C_1 \cup C_2 \cup \{T_1 = \mbox{Int}; T_2 = \mbox{Int}\}}
 
 \bigskip
 
 \infrule[T-$=$]
-    {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2 \andalso X \in Equatable}
-    {\Gamma \vdash e_1 = e_2 : \mbox{Bool} \; | \; \left[T_1 = T_2; X = T_2\right]}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso \alpha_1 \; [\{Equatable\}] \; is \; new}
+    {\Gamma \vdash e_1 = e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; \alpha_1 = T_2\}}
 
 \infrule[T-$\neq$]
-    {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2 \andalso X \in Equatable}
-    {\Gamma \vdash e_1 \neq e_2 : \mbox{Bool} \; | \; \left[T_1 = T_2; X = T_2\right]}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso \alpha_1 \; [\{Equatable\}] \; is \; new}
+    {\Gamma \vdash e_1 \neq e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; \alpha_1 = T_2\}}
 
 \bigskip
 
 \infrule[T-$<$]
-    {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2 \andalso X \in Orderable}
-    {\Gamma \vdash e_1 < e_2 : \mbox{Bool} \; | \; \left[T_1 = T_2; X = T_2\right]}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso \alpha_1 \; [\{Orderable\}] \; is \; new}
+    {\Gamma \vdash e_1 < e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; \alpha_1 = T_2\}}
 
 \infrule[T-$\leq$]
-    {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2 \andalso X \in Orderable}
-    {\Gamma \vdash e_1 \leq e_2 : \mbox{Bool} \; | \; \left[T_1 = T_2; X = T_2\right]}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso \alpha_1 \; [\{Orderable\}] \; is \; new}
+    {\Gamma \vdash e_1 \leq e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; \alpha_1 = T_2\}}
 
 \infrule[T-$>$]
-    {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2 \andalso X \in Orderable}
-    {\Gamma \vdash e_1 > e_2 : \mbox{Bool} \; | \; \left[T_1 = T_2; X = T_2\right]}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso \alpha_1 \; [\{Orderable\}] \; is \; new}
+    {\Gamma \vdash e_1 > e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; \alpha_1 = T_2\}}
 
 \infrule[T-$\geq$]
-    {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2 \andalso X \in Orderable}
-    {\Gamma \vdash e_1 \geq e_2 : \mbox{Bool} \; | \; \left[T_1 = T_2; X = T_2\right]}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso \alpha_1 \; [\{Orderable\}] \; is \; new}
+    {\Gamma \vdash e_1 \geq e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; \alpha_1 = T_2\}}
 
 \bigskip
 
 \infrule[T-$\vee$]
-    {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2}
-    {\Gamma \vdash e_1 \vee e_2 : \mbox{Bool} \; | \; \left[T_1 = \mbox{Bool}; T_2 = \mbox{Bool} \right]}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2}
+    {\Gamma \vdash e_1 \vee e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = \mbox{Bool}; T_2 = \mbox{Bool}\}}
 
 \infrule[T-$\wedge$]
-    {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2}
-    {\Gamma \vdash e_1 \wedge e_2 : \mbox{Bool} \; | \; \left[T_1 = \mbox{Bool}; T_2 = \mbox{Bool} \right]}
+    {\Gamma \vdash e_1 :  T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2}
+    {\Gamma \vdash e_1 \wedge e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = \mbox{Bool}; T_2 = \mbox{Bool}\}}
 
 \bigskip
 
 \infrule[T-If]
-    {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2  \andalso \Gamma \vdash e_3 : T_3}
-    {\Gamma \vdash if \; e_1\; then \; e_2 \; else \; e_3 : \mbox{Bool} \; | \; \left[T1 = \mbox{Bool}; T_2 = T_3\right]}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2  \andalso \Gamma \vdash e_3 : T_3 \; | \; C_3}
+    {\Gamma \vdash if \; e_1\; then \; e_2 \; else \; e_3 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup C_3 \cup \{T1 = \mbox{Bool}; T_2 = T_3\}}
 
 \bigskip
 
 \infrule[T-App]
-    {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2  \andalso X \; is \; new}
-    {\Gamma \vdash e_1 \; e_2 : X \; | \; \left[T1 = T_2 \rightarrow X\right]}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2  \andalso \alpha_1 \; [] \; is \; new}
+    {\Gamma \vdash e_1 \; e_2 : X \; | \; C_1 \cup C_2 \cup \{T1 = T_2 \rightarrow \alpha_1\}}
 
 \bigskip
 
 \infrule[T-Fn]
-    { \{x \rightarrow T\} \cup \Gamma \vdash e : T_1}
-    {\Gamma \vdash fn \; x:T \Rightarrow e : T \rightarrow T_1 \; | \; \left[\right]}
+    { \{x \rightarrow T\} \cup \Gamma \vdash e : T_1 \; | \; C_1}
+    {\Gamma \vdash fn \; x:T \Rightarrow e : T \rightarrow T_1 \; | \; C_1}
 
 \infrule[T-Fn2]
-    {X \; is \; new \andalso \{x \rightarrow X\} \cup \Gamma \vdash e : T_1}
-    {\Gamma \vdash fn \; x \Rightarrow e : X \rightarrow T_1 \; | \; \left[\right]}
+    {\alpha_1 \; [] \; is \; new \andalso \{x \rightarrow \alpha_1\} \cup \Gamma \vdash e : T_1 \; | \; C_1}
+    {\Gamma \vdash fn \; x \Rightarrow e : \alpha_1 \rightarrow T_1 \; | \; C_1}
 
 \infrule[T-Rec]
-    { \{x_1 \rightarrow \left(T_1 \rightarrow T_2\right), x_2 \rightarrow T_1\} \cup \Gamma \vdash e : T_3}
-    {\Gamma \vdash rec \; x_1:T_1 \rightarrow T_2 \; \; x_2:T_1 \Rightarrow e : T_1 \rightarrow T_2 \; | \; \left[T_3 = T_2\right]}
+    { \{x_1 \rightarrow \left(T_1 \rightarrow T_2\right), x_2 \rightarrow T_1\} \cup \Gamma \vdash e : T \; | \; C}
+    {\Gamma \vdash rec \; x_1:T_1 \rightarrow T_2 \; \; x_2:T_1 \Rightarrow e : T_1 \rightarrow T_2 \; | \; C \cup \{T = T_2\}}
 
 \infrule[T-Rec2]
-    {X \; is \; new \andalso Y \; is \; new \andalso \{x_1 \rightarrow X, x_2 \rightarrow Y\} \cup \Gamma \vdash e : T}
-    {\Gamma \vdash rec \; x_1 \; x_2 \Rightarrow e : Y \rightarrow T \; | \; \left[X = Y \rightarrow T \right]}
+    {\alpha_1 \; [] \; is \; new \andalso \alpha_2 \; [] \; is \; new \andalso \{x_1 \rightarrow \alpha_1, x_2 \rightarrow \alpha_2\} \cup \Gamma \vdash e : T | C}
+    {\Gamma \vdash rec \; x_1 \; x_2 \Rightarrow e : Y \rightarrow T \; | \; C \cup \{\alpha_1 = \alpha_2 \rightarrow T \}}
 
 \bigskip
 
 \infrule[T-Let]
-    {\Gamma \vdash e_1 : T_1 \andalso \{x \rightarrow T\} \cup \Gamma \vdash e_2 : T_2 }
-    {\Gamma \vdash let \; x:T = e_1 \; in \; e_2 : T_2 \; | \; \left[T = T_1 \right]}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \{x \rightarrow T\} \cup \Gamma \vdash e_2 : T_2 \; | \; C_2}
+    {\Gamma \vdash let \; x:T = e_1 \; in \; e_2 : T_2 \; | \; C_1 \cup C_2 \cup \{T = T_1\}}
 
 \infrule[T-Let2]
-    {\Gamma \vdash e_1 : T_1 \andalso \{x \rightarrow T_1\} \cup \Gamma \vdash e_2 : T_2 }
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \{x \rightarrow T_1\} \cup \Gamma \vdash e_2 : T_2 \; | \; C_2}
     {\Gamma \vdash let \; x = e_1 \; in \; e_2 : T_2 \; | \; \left[\right]}
 
 \bigskip
 
 \infrule[T-Nil]
-    {X \; is\; new}
-    {\Gamma \vdash nil : X \; list \; | \; \left[\right]}
+    {\alpha_1 \; [] \; is\; new}
+    {\Gamma \vdash nil : \alpha_1 \; list \; | \; \{\}}
 
 \infrule[T-List]
-    {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2}
-    {\Gamma \vdash e_1 :: e_2 : T_1 \; list \; | \; \left[T_1 \; list = T_2\right]}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2\; | \; C_2}
+    {\Gamma \vdash e_1 :: e_2 : T_1 \; list \; | \; C_1 \cup C_2 \cup \{T_1 \; list = T_2\}}
 
 \infrule[T-Empty]
-    {\Gamma \vdash e_1 : T_1 \andalso X \; is \; new}
-    {\Gamma \vdash isempty \; e_1 : Bool \; | \; \left[T_1 = X \; list\right]}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \alpha_1 \; [] \; is \; new}
+    {\Gamma \vdash isempty \; e_1 : Bool \; | \; C_1 \cup \{T_1 = \alpha_1 \; list\}}
 
 \infrule[T-Head]
-    {\Gamma \vdash e_1 : T_1 \andalso X \; is \; new}
-    {\Gamma \vdash head \; e_1 : X \; | \; \left[T_1 = X \; list\right]}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \alpha_1 \; [] \; is \; new}
+    {\Gamma \vdash head \; e_1 : \alpha_1 \; | \; C_1 \cup \{T_1 = \alpha_1 \; list\}}
 
 \infrule[T-Tail]
-    {\Gamma \vdash e_1 : T_1 \andalso X \; is \; new}
-    {\Gamma \vdash tail \; e_1 : X \; | \; \left[T_1 = X \; list\right]}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \alpha_1 \; [] \; is \; new}
+    {\Gamma \vdash tail \; e_1 : \alpha_1 \; list \; | \; C_1 \cup \{T_1 = \alpha_1 \; list\}}
 
 \bigskip
 
 \infrule[T-Raise]
-    {X \; is\; new}
-    {\Gamma \vdash raise : X \; | \; \left[\right]}
+    {\alpha_1 \; [] \; is\; new}
+    {\Gamma \vdash raise : \alpha_1 \; | \; \{\}}
 
 \infrule[T-Try]
-    {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2}
-    {\Gamma \vdash try \; e_1 \; with \; e_2 : T_2 \; | \; \left[T_1 = T_2\right]}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2}
+    {\Gamma \vdash try \; e_1 \; with \; e_2 : T_2 \; | \; C_1 \cup C_2 \cup \{T_1 = T_2\}}
 
 \bigskip
 
 \infrule[T-Sequential]
-    {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2}
-    {\Gamma \vdash e_1 \; ; \; e_2 : T_2 \; | \; \left[T_1 = Unit\right]}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2}
+    {\Gamma \vdash e_1 \; ; \; e_2 : T_2 \; | \; C_1 \cup C_2 \cup \{[T_1 = Unit\}}
 
 \bigskip
 
 \infrule[T-Output]
-    {\Gamma \vdash e : T}
-    {\Gamma \vdash output \; e : Unit \; | \; \left[T = \mbox{Char} \; list\right]}
+    {\Gamma \vdash e : T \; | \; C}
+    {\Gamma \vdash output \; e : Unit \; | \; C \cup \{T = \mbox{Char} \; list\}}
 
 \infax[T-Input]
-    {\Gamma \vdash input : \mbox{Char} \; list \; | \; \left[\right]}
+    {\Gamma \vdash input : \mbox{Char} \; list \; | \; \{\}}
 
 \end{document}
