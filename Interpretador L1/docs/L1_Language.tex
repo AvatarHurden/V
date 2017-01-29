@@ -6,7 +6,7 @@
 \usepackage{txfonts}
 \usepackage{syntax}
 \usepackage{hyperref}
-\usepackage{lib/bcprules} 
+\usepackage{lib/bcprules}
 \usepackage{hyphenat}
 
 \newcommand\nonter[1]{\ensuremath{#1\negthinspace s}}
@@ -27,7 +27,7 @@
 \addcontentsline{toc}{section}{Introduction}
 \section*{Introduction}
 The $L1$ programming language is a functional language with eager left-to-right evaluation.
-It has a simple I/O system supporting only direct string operations. 
+It has a simple I/O system supporting only direct string operations.
 It is a trait based strongly and statically typed language supporting both explicit and implicit typing.
 
 
@@ -35,18 +35,18 @@ This document both specifies the $L1$ language and shows its implementation in F
 It is divided into 4 categories:
 \begin{enumerate}
     \item Abstract Syntax and Semantics
-    
+
         This defines the abstract syntax and semantics of the language.
-        It only contains the bare minimum for the language to function, without any syntactic sugar. 
+        It only contains the bare minimum for the language to function, without any syntactic sugar.
     \item Concrete Syntax
-    
+
         This is the actual syntax when programming for $L1$.
         This defines all operators, syntactic sugar and other aspects of the language.
     \item Implementation
-    
+
         Technical aspects on how $L1$ is implemented in F\#, showing the interpreter, evaluator and type inference.
     \item Changelog
-    
+
         A chronological list of changes made both to the language definition and its implementation.
 \end{enumerate}
 
@@ -60,7 +60,7 @@ It is divided into 4 categories:
 
 Programs in $L1$ are expressions.
 Each expression is a member of the abstract syntax tree defined below.
-The syntax tree will be constructed in parts, with an explanation of what each expression means and their uses. 
+The syntax tree will be constructed in parts, with an explanation of what each expression means and their uses.
 The full syntax tree can be obtained by simply joining all the separate sections.
 
 \paragraph{Constants and Variables}
@@ -87,7 +87,7 @@ e &::= &n\\
 \bigskip
 
 The constants available for the language are:
-    
+
     \begin{quote}
         \begin{itemize}
             \item Booleans
@@ -95,7 +95,7 @@ The constants available for the language are:
             \item Characters
         \end{itemize}
     \end{quote}
-    
+
 For variables, one can define any number of identifiers to be used throughout the program.
 These variables must be associated with other terms in some way (functions, \texttt{let} declarations, etc) as they cannot be evaluated on their own.
 
@@ -133,26 +133,26 @@ e &::= &\cdots\\
 
 \bigskip
 
-They are divided into separate categories, each one requiring terms of specific types. 
+They are divided into separate categories, each one requiring terms of specific types.
 The following list describes the requirements and meaning of each category of built-in operators:
 
 \begin{itemize}
     \item Numerical
-    
+
     These operators require numbers and also return numbers.
-    
+
     \item Equality
-    
+
     These operators ($=, \neq$) compare two different values for equality, returning a boolean.
     The value’s type must conform to the Equatable trait.
-    
+
     \item Inequality
-    
+
     These operators compare two different values for order, returning a boolean.
     The value’s type must conform to the Equatable and Orderable trait.
-    
+
     \item Boolean Operators
-    
+
     These operators perform logical operations on boolean values.
 \end{itemize}
 
@@ -194,7 +194,7 @@ The last expression is the application of $e_2$ to a function $e_1$.
 
 \paragraph{Let declarations}
 
-The expressions below are used to declare identifiers for sub-expressions. 
+The expressions below are used to declare identifiers for sub-expressions.
 This both helps increase readability and reduce repetition when writing programs.
 
 \medskip
@@ -401,15 +401,15 @@ Variable types, on the other hand, can explicitly state which traits they posses
 \paragraph{Equatable}
 If a type $T$ is $Equatable$, expressions of type $T$ can use the equality operators ($=, \neq$).
 
-To define the set of types that belong to $Equatable$, the following equations are used:
+To define the set of types that belong to $Equatable$, the following rules are used:
 
 \medskip
 
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
-    \{\mbox{Int}, \mbox{Bool}, \mbox{Char}\} \in Equatable\\
-    T \in Equatable \iff T \; list \in Equatable\\
-    \alpha \; \left[Traits\right] \in Equatable \iff Equatable \in Traits\\
+    \{\mbox{Int}, \mbox{Bool}, \mbox{Char}\} \subset Equatable\\
+    T \in Equatable \implies T \; list \in Equatable\\
+    \alpha \; \left[Traits\right] \in Equatable \implies Equatable \in Traits\\
 \end{tabular}}
 
 
@@ -418,31 +418,31 @@ If a type $T$ is $Orderable$, expressions of type $T$ can use the inequality ope
 Any type that is $Orderable$ is also $Equatable$.
 In practice, the only difference between $Orderable$ and $Equatable$ is that the base type Bool is not in $Orderable$.
 
-To define the set of types that belong to $Orderable$, the following equations are used:
+To define the set of types that belong to $Orderable$, the following rules are used:
 
 \medskip
 
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
-    \{\mbox{Int}, \mbox{Char}\} \in Orderable\\
-    T \in Orderable \iff T \; list \in Orderable\\
-    \alpha \; \left[Traits\right] \in Orderable \iff Orderable \in Traits\\
+    \{\mbox{Int}, \mbox{Char}\} \subset Orderable\\
+    T \in Orderable \implies T \; list \in Orderable\\
+    \alpha \; \left[Traits\right] \in Orderable \implies Orderable \in Traits\\
 \end{tabular}}
 
 \newpage
 
 \subsection{Operational Semantics}
- 
-The $L1$ language is evaluated using a big-step evaluation with environments. 
-This evaluation reduces an expression into a value directly, not necessarily having a rule of evaluation for every possible expression. 
-To stop programmers from creating programs that cannot be evaluated, a type inference system will be specified later. 
+
+The $L1$ language is evaluated using a big-step evaluation with environments.
+This evaluation reduces an expression into a value directly, not necessarily having a rule of evaluation for every possible expression.
+To stop programmers from creating programs that cannot be evaluated, a type inference system will be specified later.
 
 \paragraph{Value}
 A value is the result of the evaluation of an expression in big-step.
 This set of values is different from the set of expressions of $L1$, even though they share many similarities.
 
 \paragraph{Environment}\label{environment}
-An environment is a mapping of identifiers to values that is extended each time a $let$ declaration in encountered. 
+An environment is a mapping of identifiers to values that is extended each time a $let$ declaration in encountered.
 Every expression must be evaluated before being stored in the environment, which means that $L1$ has eager evaluation.
 
 \bigskip
@@ -480,17 +480,17 @@ This allows the function to be called inside its own body, something that the si
 
 \infax[BS-Num]
     {\mbox{env} \vdash n \Downarrow n}
-    
+
 \infax[BS-Bool]
     {\mbox{env} \vdash b \Downarrow b}
-    
+
 \infax[BS-Char]
     {\mbox{env} \vdash c \Downarrow c}
 
 \infrule[BS-Ident]
     {\mbox{env}(x) = v}
     {\mbox{env} \vdash x \Downarrow v}
-    
+
 \paragraph{Numerical Operations}
 The $L1$ language only supports integers, so all operations are done on integer numbers.
 This means that the division always results in a whole number, truncated towards zero.
@@ -500,24 +500,24 @@ This means that the division always results in a whole number, truncated towards
 \infrule[BS-+]
     {\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n\right\|=\left\|n_1\right\|+\left\|n_2\right\|}
     {\mbox{env} \vdash e_1 + e_2 \Downarrow n}
-    
+
 \infrule[BS--]
     {\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n\right\|=\left\|n_1\right\|-\left\|n_2\right\|}
     {\mbox{env} \vdash e_1 - e_2 \Downarrow n}
-    
+
 \infrule[BS-$\ast$]
     {\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n\right\|=\left\|n_1\right\|\ast\left\|n_2\right\|}
     {\mbox{env} \vdash e_1 * e_2 \Downarrow n}
-    
+
 \infrule[BS-$\div$Zero]
     {\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow 0}
     {\mbox{env} \vdash e_1 \div e_2 \Downarrow raise}
-    
+
 \infrule[BS-$\div$]
     {\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2\\
      \andalso \left\|n_2\right\|\neq 0 \andalso \left\|n\right\|=\left\|n_1\right\|\div\left\|n_2\right\|}
     {\mbox{env} \vdash e_1 \div e_2 \Downarrow n}
-    
+
 \paragraph{Equality Operations}
 The equality operators ($=$ and $\neq$) allow comparison of certain expressions with other expressions of the same kind.
 In this way, it is a polymorphic operator, being usable in different contexts.
@@ -528,41 +528,41 @@ Even so, it is important to realize that it only compares values of the same kin
 \infrule[BS-$=$NumTrue]
     {\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n_1\right\|=\left\|n_2\right\|}
     {\mbox{env} \vdash e_1 = e_2 \Downarrow true}
-    
+
 \infrule[BS-$=$NumFalse]
     {\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n_1\right\|\neq\left\|n_2\right\|}
     {\mbox{env} \vdash e_1 = e_2 \Downarrow false}
-    
+
 \medskip
 
 \infrule[BS-$=$CharTrue]
     {\mbox{env} \vdash e_1 \Downarrow c_1 \andalso \mbox{env} \vdash e_2 \Downarrow c_2 \andalso \left\|c_1\right\|=\left\|c_2\right\|}
     {\mbox{env} \vdash e_1 = e_2 \Downarrow true}
-    
+
 \infrule[BS-$=$CharFalse]
     {\mbox{env} \vdash e_1 \Downarrow c_1 \andalso \mbox{env} \vdash e_2 \Downarrow c_2 \andalso \left\|c_1\right\|\neq\left\|c_2\right\|}
     {\mbox{env} \vdash e_1 = e_2 \Downarrow false}
-    
+
 \medskip
-    
+
 \infrule[BS-$=$BoolTrue]
     {\mbox{env} \vdash e_1 \Downarrow b_1 \andalso \mbox{env} \vdash e_2 \Downarrow b_2 \andalso \left\|b_1\right\|=\left\|b_2\right\|}
     {\mbox{env} \vdash e_1 = e_2 \Downarrow true}
-    
+
 \infrule[BS-$=$BoolFalse]
     {\mbox{env} \vdash e_1 \Downarrow b_1 \andalso \mbox{env} \vdash e_2 \Downarrow b_2 \andalso \left\|b_1\right\|\neq\left\|b_2\right\|}
     {\mbox{env} \vdash e_1 = e_2 \Downarrow false}
-    
+
 \medskip
-    
+
 \infrule[BS-$=$NilTrue]
     {\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow nil}
     {\mbox{env} \vdash e_1 = e_2 \Downarrow true}
-    
+
 \infrule[BS-$=$NilFalse1]
     {\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow nil}
     {\mbox{env} \vdash e_1 = e_2 \Downarrow false}
-    
+
 \infrule[BS-$=$NilFalse2]
     {\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
     {\mbox{env} \vdash e_1 = e_2 \Downarrow false}
@@ -573,22 +573,22 @@ Even so, it is important to realize that it only compares values of the same kin
     {\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow v_3::v_4\\
      \mbox{env} \vdash v_1 = v_3 \Downarrow false}
     {\mbox{env} \vdash e_1 = e_2 \Downarrow false}
-    
+
 \infrule[BS-$=$ListTrue]
     {\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow v_3::v_4\\
      \mbox{env} \vdash v_1 = v_3 \Downarrow true \andalso \mbox{env} \vdash v_2 = v_4 \Downarrow b}
     {\mbox{env} \vdash e_1 = e_2 \Downarrow b}
-    
+
 \bigskip
-    
+
 \infrule[BS-$\neq$True]
     {\mbox{env}\vdash e_1 = e_2 \Downarrow false}
     {\mbox{env} \vdash e_1 \neq e_2 \Downarrow true}
-    
+
 \infrule[BS-$\neq$False]
     {\mbox{env}\vdash e_1 = e_2 \Downarrow true}
     {\mbox{env} \vdash e_1 \neq e_2 \Downarrow false}
-    
+
 \bigskip
 
 \paragraph{Inequality Operations}
@@ -602,17 +602,17 @@ For characters, the ASCII values are compared numerically.
 \infrule[BS-IneqNumTrue]
     {\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n_1\right\|opIneq\left\|n_2\right\|}
     {\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow true}
-    
+
 \infrule[BS-IneqNumFalse]
     {\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \neg \left\|n_1\right\|opIneq\left\|n_2\right\|}
     {\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow true}
-    
+
 \medskip
 
 \infrule[BS-IneqCharTrue]
     {\mbox{env} \vdash e_1 \Downarrow c_1 \andalso \mbox{env} \vdash e_2 \Downarrow c_2 \andalso \left\|c_1\right\|opIneq\left\|c_2\right\|}
     {\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow true}
-    
+
 \infrule[BS-IneqCharFalse]
     {\mbox{env} \vdash e_1 \Downarrow c_1 \andalso \mbox{env} \vdash e_2 \Downarrow c_2 \andalso \neg \left\|c_1\right\|opIneq\left\|c_2\right\|}
     {\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow true}
@@ -622,7 +622,7 @@ For characters, the ASCII values are compared numerically.
 \infrule[BS-<Nil]
     {\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow nil}
     {\mbox{env} \vdash e_1 < e_2 \Downarrow false}
-    
+
 \infrule[BS-$\leq$Nil]
     {\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow nil}
     {\mbox{env} \vdash e_1 \leq e_2 \Downarrow true}
@@ -630,7 +630,7 @@ For characters, the ASCII values are compared numerically.
 \infrule[BS->Nil]
     {\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow nil}
     {\mbox{env} \vdash e_1 > e_2 \Downarrow false}
-    
+
 \infrule[BS-$\geq$Nil]
     {\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow nil}
     {\mbox{env} \vdash e_1 \geq e_2 \Downarrow true}
@@ -640,7 +640,7 @@ For characters, the ASCII values are compared numerically.
 \infrule[BS-<ListNil]
     {\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow nil}
     {\mbox{env} \vdash e_1 < e_2 \Downarrow false}
-    
+
 \infrule[BS-$\leq$ListNil]
     {\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow nil}
     {\mbox{env} \vdash e_1 \leq e_2 \Downarrow false}
@@ -648,7 +648,7 @@ For characters, the ASCII values are compared numerically.
 \infrule[BS->ListNil]
     {\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow nil}
     {\mbox{env} \vdash e_1 > e_2 \Downarrow true}
-    
+
 \infrule[BS-$\geq$ListNil]
     {\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow nil}
     {\mbox{env} \vdash e_1 \geq e_2 \Downarrow true}
@@ -658,7 +658,7 @@ For characters, the ASCII values are compared numerically.
 \infrule[BS-<NilList]
     {\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
     {\mbox{env} \vdash e_1 < e_2 \Downarrow true}
-    
+
 \infrule[BS-$\leq$NilList]
     {\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
     {\mbox{env} \vdash e_1 \leq e_2 \Downarrow true}
@@ -666,7 +666,7 @@ For characters, the ASCII values are compared numerically.
 \infrule[BS->NilList]
     {\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
     {\mbox{env} \vdash e_1 > e_2 \Downarrow false}
-    
+
 \infrule[BS-$\geq$NilList]
     {\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
     {\mbox{env} \vdash e_1 \geq e_2 \Downarrow false}
@@ -679,45 +679,45 @@ For characters, the ASCII values are compared numerically.
     {\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow v_3::v_4\\
      \mbox{env} \vdash v_1 = v_3 \Downarrow false \andalso \mbox{env} \vdash v_1 \; opIneq \; v_3 \Downarrow b}
     {\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow b}
-    
+
 \infrule[BS-IneqListTail]
     {\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow v_3::v_4\\
      \mbox{env} \vdash v_1 = v_3 \Downarrow true \andalso \mbox{env} \vdash v_2 \; opIneq \; v_4 \Downarrow b}
     {\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow b}
 
 \paragraph{Logical Operations}
-The logical operators $\wedge$ (AND) and $\vee$ (OR) both have a short-circuit evaluation. 
+The logical operators $\wedge$ (AND) and $\vee$ (OR) both have a short-circuit evaluation.
 This means that, if the result of the operation can be determined from the first operand, the second one is not evaluated.
-    
+
 \infrule[BS-$\vee$Short]
     {\mbox{env} \vdash e_1 \Downarrow true}
     {\mbox{env} \vdash e_1 \vee e_2 \Downarrow true}
-    
+
 \infrule[BS-$\vee$]
     {\mbox{env} \vdash e_1 \Downarrow false \andalso \mbox{env} \vdash e_2 \Downarrow b}
     {\mbox{env} \vdash e_1 \vee e_2 \Downarrow b}
-    
+
 \infrule[BS-$\wedge$Short]
     {\mbox{env} \vdash e_1 \Downarrow false}
     {\mbox{env} \vdash e_1 \wedge e_2 \Downarrow false}
-    
+
 \infrule[BS-$\wedge$]
     {\mbox{env} \vdash e_1 \Downarrow true \andalso \mbox{env} \vdash e_2 \Downarrow b}
     {\mbox{env} \vdash e_1 \wedge e_2 \Downarrow b}
-    
+
 \paragraph{Conditional Expression}
 $L1$ supports conditional expressions, which always return a value, but not conditional statements.
 Because of this, all conditional expressions must have both a $then$ and an $else$ branch.
 Evaluation is done only on the condition and the proper branch, avoiding the evaluation of the unused branch.
-    
+
 \infrule[BS-IfTrue]
     {\mbox{env} \vdash e_1 \Downarrow true \andalso \mbox{env} \vdash e_2 \Downarrow v}
     {\mbox{env} \vdash if \; e_1\; then \; e_2 \; else \; e_3 \Downarrow v}
-    
+
 \infrule[BS-IfFalse]
     {\mbox{env} \vdash e_1 \Downarrow false \andalso \mbox{env} \vdash e_3 \Downarrow v}
     {\mbox{env} \vdash if \; e_1\; then \; e_2 \; else \; e_3 \Downarrow v}
-    
+
 \paragraph{Function Expressions}
 
 There are two types of function expressions, each having two variants, with implicit or explicit typing.
@@ -734,34 +734,34 @@ The typed variant specifies only the type of the input, not of the output.
 
 \infax[BS-Fn2]
     {\mbox{env} \vdash fn \; x \Rightarrow e \Downarrow \left\langle x, e, env\right\rangle}
-    
+
 The second type of function is a recursive function that also takes exactly one parameter ($x_2$).
 Unlike the unnamed function, a recursive function also specifies its own name ($x_1$), such that it can be called within the function body.
 
 The typed variant must specify the types of both the input and output.
 The type $T_1$ is the type of the input, and $T_2$ is the type of the output.
 In $L_1$, the programmer specifies the type of the function (that is, $T_1 \rightarrow T_2$), instead of specifying the output type directly.
-    
+
 \infax[BS-Rec]
     {\mbox{env} \vdash rec \; x_1:T_1 \rightarrow T_2 \; \; x_2:T_1 \Rightarrow e \Downarrow \left\langle x_1, x_2, e, env\right\rangle}
 
 \infax[BS-Rec2]
     {\mbox{env} \vdash rec \; x_1 \; x_2 \Rightarrow e \Downarrow \left\langle x_1, x_2, e, env\right\rangle}
-    
+
 \paragraph{Application}
 An application expression requires either a closure or a recursive closure for its left-hand operand.
 The right-hand operand (argument) is always evaluated using the current environment, resulting in a value $v_2$.
 
 \smallskip
 
-In the case of a simple closure, the body of the function ($e$) is evaluated using the stored closure, 
+In the case of a simple closure, the body of the function ($e$) is evaluated using the stored closure,
 adding an association between the parameter identifier ($x$) and the argument ($v_2$).
 
 \infrule[BS-AppFn]
     {\mbox{env} \vdash e_1 \Downarrow \left\langle x, e, env\right\rangle \andalso \mbox{env} \vdash e_2 \Downarrow v_2\\
      \{x \rightarrow v_2 \} \cup \mbox{env} \vdash e \Downarrow v}
     {\mbox{env} \vdash e_1 \; e_2 \Downarrow v}
-    
+
 In the case of a recursive closure, there are two new associations added to the stored closure.
 The first is, as with a simple closure, the parameter identifier ($x_2$) and the argument ($v_2$).
 The second is the function identifier ($x_1$) and the closure itself.
@@ -771,7 +771,7 @@ This ensures that the function body can call the recursive function again since 
     {\mbox{env} \vdash e_1 \Downarrow \left\langle x_1, x_2, e, env\right\rangle \andalso \mbox{env} \vdash e_2 \Downarrow v_2\\
      \{x_2 \rightarrow v_2, x_1 \rightarrow \left\langle x_1, x_2, e, env\right\rangle \} \cup \mbox{env} \vdash e \Downarrow v}
     {\mbox{env} \vdash e_1 \; e_2 \Downarrow v}
-        
+
 \paragraph{Let Expressions}
 These expressions are used to associate an identifier with a specific value, allowing the value to be reused throughout the program.
 Since $L1$ is a functional language, these are not variables, and the values assigned to an identifier will be constant (unless the same identifier is used in a new $let$ expression).
@@ -784,15 +784,15 @@ There are two variants of the $let$ expression, one with explicit typing and one
 For the purposes of evaluation, both have the same behavior.
 
 \infrule[BS-Let]
-    {\mbox{env} \vdash e_1 \Downarrow v \andalso 
+    {\mbox{env} \vdash e_1 \Downarrow v \andalso
      \{x \rightarrow v\} \cup \mbox{env} \vdash e_2 \Downarrow v_2}
     {\mbox{env} \vdash let \; x:T = e_1 \; in \; e_2 \Downarrow v_2}
-    
+
 \infrule[BS-Let2]
-    {\mbox{env} \vdash e_1 \Downarrow v \andalso 
+    {\mbox{env} \vdash e_1 \Downarrow v \andalso
      \{x \rightarrow v\} \cup \mbox{env} \vdash e_2 \Downarrow v_2}
     {\mbox{env} \vdash let \; x = e_1 \; in \; e_2 \Downarrow v_2}
-    
+
 \bigskip
 
 \paragraph{Lists}
@@ -805,17 +805,17 @@ The append operation ($::$) accepts any value as its first operand ($e_1$), but 
 \infrule[BS-List]
     {\mbox{env} \vdash e_1 \Downarrow v \andalso \mbox{env} \vdash e_2 \Downarrow nil}
     {\mbox{env} \vdash e_1 :: e_2 \Downarrow v :: nil}
-    
+
 \infrule[BS-List2]
     {\mbox{env} \vdash e_1 \Downarrow v \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
     {\mbox{env} \vdash e_1 :: e_2 \Downarrow v :: (v_1 :: v_2)}
-    
+
 The $empty$ expression returns $true$ if and only if its operand ($e_1$) evaluates to the empty list ($nil$).
 
 \infrule[BS-EmptyTrue]
     {\mbox{env} \vdash e_1 \Downarrow nil}
     {\mbox{env} \vdash isempty \; e_1 \Downarrow true}
-    
+
 \infrule[BS-EmptyFalse]
     {\mbox{env} \vdash e_1 \Downarrow v_1::v_2}
     {\mbox{env} \vdash isempty \; e_1 \Downarrow false}
@@ -831,7 +831,7 @@ If the list evaluates to $nil$, a run-time exception is thrown for both of these
 \infrule[BS-HeadEmpty]
     {\mbox{env} \vdash e_1 \Downarrow nil}
     {\mbox{env} \vdash hd \; e_1 \Downarrow raise}
-        
+
 \infrule[BS-Tail]
     {\mbox{env} \vdash e_1 \Downarrow v_1::v_2}
     {\mbox{env} \vdash tl \; e_1 \Downarrow v_2}
@@ -839,11 +839,11 @@ If the list evaluates to $nil$, a run-time exception is thrown for both of these
 \infrule[BS-TailEmpty]
     {\mbox{env} \vdash e_1 \Downarrow nil}
     {\mbox{env} \vdash tl \; e_1 \Downarrow raise}
-    
+
 \paragraph{Exceptions}
 
 Some programs can be syntactically correct but still violate the semantics of the $L1$ language, such as a dividing by zero or trying to access the head of an empty list.
-In these scenarios, the expression is evaluated as the $raise$ value. 
+In these scenarios, the expression is evaluated as the $raise$ value.
 
 Besides violation of semantic rules, the only other expression that evaluates to the $raise$ value is the $raise$ expression, using the following rule:
 
@@ -852,7 +852,7 @@ Besides violation of semantic rules, the only other expression that evaluates to
 
 This value is propagated by (almost) all expressions, climbing up the evaluation tree.
 This means that, for every evaluation rule, there is an alternative rule that, when a subexpression evaluates to raise, evaluates the whole expression to raise.
-To avoid cluttering this document with the repetition of rules, these are not shown in their entirety. 
+To avoid cluttering this document with the repetition of rules, these are not shown in their entirety.
 Below are a few examples of these propagation rules:
 
 \infrule[BS-LetRaise]
@@ -869,7 +869,7 @@ Its evaluation rules are the following:
 \infrule[BS-TryRaise]
     {\mbox{env} \vdash e_1 \Downarrow raise \andalso \mbox{env} \vdash e_2 \Downarrow v}
     {\mbox{env} \vdash try \; e_1 \; with \; e_2 \Downarrow v}
-    
+
 \infrule[BS-Try]
     {\mbox{env} \vdash e_1 \Downarrow v}
     {\mbox{env} \vdash try \; e_1 \; with \; e_2 \Downarrow v}
@@ -880,12 +880,12 @@ The expression $e_1 \; ; \; e_2$ is used when the expression $e_1$ is only evalu
 \infrule[BS-Sequential]
     {\mbox{env} \vdash e_1 \Downarrow skip \andalso \mbox{env} \vdash e_2 \Downarrow v}
     {\mbox{env} \vdash e_1 \; ; \; e_2 \Downarrow v}
-    
+
 The value $skip$ can be obtained either by the expression $skip$
 
 \infax[BS-Skip]
     {\mbox{env} \vdash skip \Downarrow skip}
-    
+
 or by evaluating other expressions (such as $output \; e$, as shown below).
 
 \paragraph{Input and Output}
@@ -896,7 +896,7 @@ The $output$ expression does not evaluate to any significant value, so we repres
 \infrule[BS-OutputEmpty]
     {\mbox{env} \vdash e \Downarrow nil}
     {\mbox{env} \vdash output \; e \Downarrow skip}
-    
+
 \infrule[BS-Output]
     {\mbox{env} \vdash e \Downarrow c :: v_1 \andalso \mbox{env} \vdash output \; v_1 \Downarrow skip}
     {\mbox{env} \vdash output \; e \Downarrow skip}
@@ -911,14 +911,14 @@ The only guarantees that exist are that it will be either $nil$ or $c :: v_2$, m
     {\mbox{env} \vdash input \Downarrow v}
 
 \subsection{Type System}\label{Type System}
-    
+
 $L1$ has a strong and static type inference system that checks a program to decide whether or not it is "`well-typed"'.
-If a program is considered to be well-typed, the type system guarantees that the program will be able to be properly evaluated according to the operational semantics of $L1$. 
+If a program is considered to be well-typed, the type system guarantees that the program will be able to be properly evaluated according to the operational semantics of $L1$.
 As a side-effect of checking the validity of a program, the type system can also provide the actual type of any implicitly typed expression down to its basic types, be those concrete types or variable types.
 
 \paragraph{Environment}
 Just like the operational semantics, the type system also uses an environment to store information about identifiers.
-In this case, the environment maps identifiers to type associations. 
+In this case, the environment maps identifiers to type associations.
 These can be either simple associations or universal associations, which are used for polymorphic functions.
 
 \subsubsection{Polymorphism}\label{Polymorphism}
@@ -956,82 +956,82 @@ Some expressions are polymorphic in a sense that they accept certain types for t
 \subsubsection{Type Inference Rules}
 
 The type system uses a constraint collection and unification process to decide whether or not an expression is well-typed.
-For 
+For
 
 \infax[T-Num]
     {\Gamma \vdash n : \mbox{Int} \; | \; \left[\right]}
-    
+
 \infax[T-Bool]
     {\Gamma \vdash b : \mbox{Bool} \; | \; \left[\right]}
-    
+
 \infax[T-Char]
     {\Gamma \vdash c : \mbox{Char} \; | \; \left[\right]}
-    
+
 \infax[T-Skip]
     {\Gamma \vdash skip : \mbox{Unit} \; | \; \left[\right]}
-    
+
 \infrule[T-Ident]
     {\Gamma \left(x\right) = T}
     {\Gamma \vdash x : \mbox{T} \; | \; \left[\right]}
-    
+
 \bigskip
-    
+
 \infrule[T-+]
     {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2}
     {\Gamma \vdash e_1 + e_2 : \mbox{Int} \; | \; \left[T_1 = \mbox{Int}; T_2 = \mbox{Int}\right]}
-    
+
 \infrule[T--]
     {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2}
     {\Gamma \vdash e_1 - e_2 : \mbox{Int} \; | \; \left[T_1 = \mbox{Int}; T_2 = \mbox{Int}\right]}
-    
+
 \infrule[T-$\ast$]
     {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2}
     {\Gamma \vdash e_1 * e_2 : \mbox{Int} \; | \; \left[T_1 = \mbox{Int}; T_2 = \mbox{Int}\right]}
-    
+
 \infrule[T-$\div$]
     {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2}
     {\Gamma \vdash e_1 \div e_2 : \mbox{Int} \; | \; \left[T_1 = \mbox{Int}; T_2 = \mbox{Int}\right]}
 
 \bigskip
-    
+
 \infrule[T-$=$]
     {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2 \andalso X \in Equatable}
     {\Gamma \vdash e_1 = e_2 : \mbox{Bool} \; | \; \left[T_1 = T_2; X = T_2\right]}
-    
+
 \infrule[T-$\neq$]
     {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2 \andalso X \in Equatable}
     {\Gamma \vdash e_1 \neq e_2 : \mbox{Bool} \; | \; \left[T_1 = T_2; X = T_2\right]}
 
 \bigskip
-    
+
 \infrule[T-$<$]
     {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2 \andalso X \in Orderable}
     {\Gamma \vdash e_1 < e_2 : \mbox{Bool} \; | \; \left[T_1 = T_2; X = T_2\right]}
-    
+
 \infrule[T-$\leq$]
     {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2 \andalso X \in Orderable}
     {\Gamma \vdash e_1 \leq e_2 : \mbox{Bool} \; | \; \left[T_1 = T_2; X = T_2\right]}
-    
+
 \infrule[T-$>$]
     {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2 \andalso X \in Orderable}
     {\Gamma \vdash e_1 > e_2 : \mbox{Bool} \; | \; \left[T_1 = T_2; X = T_2\right]}
-    
+
 \infrule[T-$\geq$]
     {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2 \andalso X \in Orderable}
     {\Gamma \vdash e_1 \geq e_2 : \mbox{Bool} \; | \; \left[T_1 = T_2; X = T_2\right]}
 
 \bigskip
-    
+
 \infrule[T-$\vee$]
     {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2}
     {\Gamma \vdash e_1 \vee e_2 : \mbox{Bool} \; | \; \left[T_1 = \mbox{Bool}; T_2 = \mbox{Bool} \right]}
-    
+
 \infrule[T-$\wedge$]
     {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2}
     {\Gamma \vdash e_1 \wedge e_2 : \mbox{Bool} \; | \; \left[T_1 = \mbox{Bool}; T_2 = \mbox{Bool} \right]}
-    
+
 \bigskip
-    
+
 \infrule[T-If]
     {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2  \andalso \Gamma \vdash e_3 : T_3}
     {\Gamma \vdash if \; e_1\; then \; e_2 \; else \; e_3 : \mbox{Bool} \; | \; \left[T1 = \mbox{Bool}; T_2 = T_3\right]}
@@ -1041,9 +1041,9 @@ For
 \infrule[T-App]
     {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2  \andalso X \; is \; new}
     {\Gamma \vdash e_1 \; e_2 : X \; | \; \left[T1 = T_2 \rightarrow X\right]}
-    
+
 \bigskip
-    
+
 \infrule[T-Fn]
     { \{x \rightarrow T\} \cup \Gamma \vdash e : T_1}
     {\Gamma \vdash fn \; x:T \Rightarrow e : T \rightarrow T_1 \; | \; \left[\right]}
@@ -1051,11 +1051,11 @@ For
 \infrule[T-Fn2]
     {X \; is \; new \andalso \{x \rightarrow X\} \cup \Gamma \vdash e : T_1}
     {\Gamma \vdash fn \; x \Rightarrow e : X \rightarrow T_1 \; | \; \left[\right]}
-    
+
 \infrule[T-Rec]
     { \{x_1 \rightarrow \left(T_1 \rightarrow T_2\right), x_2 \rightarrow T_1\} \cup \Gamma \vdash e : T_3}
     {\Gamma \vdash rec \; x_1:T_1 \rightarrow T_2 \; \; x_2:T_1 \Rightarrow e : T_1 \rightarrow T_2 \; | \; \left[T_3 = T_2\right]}
-    
+
 \infrule[T-Rec2]
     {X \; is \; new \andalso Y \; is \; new \andalso \{x_1 \rightarrow X, x_2 \rightarrow Y\} \cup \Gamma \vdash e : T}
     {\Gamma \vdash rec \; x_1 \; x_2 \Rightarrow e : Y \rightarrow T \; | \; \left[X = Y \rightarrow T \right]}
@@ -1069,13 +1069,13 @@ For
 \infrule[T-Let2]
     {\Gamma \vdash e_1 : T_1 \andalso \{x \rightarrow T_1\} \cup \Gamma \vdash e_2 : T_2 }
     {\Gamma \vdash let \; x = e_1 \; in \; e_2 : T_2 \; | \; \left[\right]}
-    
+
 \bigskip
-    
+
 \infrule[T-Nil]
     {X \; is\; new}
     {\Gamma \vdash nil : X \; list \; | \; \left[\right]}
-    
+
 \infrule[T-List]
     {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2}
     {\Gamma \vdash e_1 :: e_2 : T_1 \; list \; | \; \left[T_1 \; list = T_2\right]}
@@ -1083,21 +1083,21 @@ For
 \infrule[T-Empty]
     {\Gamma \vdash e_1 : T_1 \andalso X \; is \; new}
     {\Gamma \vdash isempty \; e_1 : Bool \; | \; \left[T_1 = X \; list\right]}
-    
+
 \infrule[T-Head]
     {\Gamma \vdash e_1 : T_1 \andalso X \; is \; new}
     {\Gamma \vdash head \; e_1 : X \; | \; \left[T_1 = X \; list\right]}
-    
+
 \infrule[T-Tail]
     {\Gamma \vdash e_1 : T_1 \andalso X \; is \; new}
     {\Gamma \vdash tail \; e_1 : X \; | \; \left[T_1 = X \; list\right]}
-    
+
 \bigskip
 
 \infrule[T-Raise]
     {X \; is\; new}
     {\Gamma \vdash raise : X \; | \; \left[\right]}
-    
+
 \infrule[T-Try]
     {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2}
     {\Gamma \vdash try \; e_1 \; with \; e_2 : T_2 \; | \; \left[T_1 = T_2\right]}
@@ -1107,7 +1107,7 @@ For
 \infrule[T-Sequential]
     {\Gamma \vdash e_1 : T_1 \andalso \Gamma \vdash e_2 : T_2}
     {\Gamma \vdash e_1 \; ; \; e_2 : T_2 \; | \; \left[T_1 = Unit\right]}
-    
+
 \bigskip
 
 \infrule[T-Output]
