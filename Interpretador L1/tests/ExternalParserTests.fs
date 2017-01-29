@@ -264,21 +264,21 @@ type TestSequence() =
 
     [<Test>]
     member that.skipOutput() =
-        compare    "skip;output \"hi\";3" <| ResI 3
+        compare    "skip >> output \"hi\" >> 3" <| ResI 3
 
     [<Test>]
     member that.printConcat() =
         compare    "let f x y =
-	                    (output (\"the first argument is \"@x);
-	                    output (\"the second argument is \"@y);
-	                    x @ \" \" @ y)
+	                    output (\"the first argument is \"@x) >>
+	                    output (\"the second argument is \"@y) >>
+	                    x @ \" \" @ y
                     ;
                     f \"hello\" \"world\"" <| (evaluate <| parse "\"hello world\"")
 
     [<Test>]
     member that.passUnit() =
         compare    "let f (x: Unit) (y: Unit): Unit =
-	                    (x;y)
+	                    x >> y
                     ;
                     f (output \"hello\") (output \"world\")" <| ResSkip
 
@@ -289,7 +289,7 @@ type TestSequence() =
                     
     [<Test>]
     member that.printInLetEscaped() =
-        compare    "let x = ((output \"hi\");3);
+        compare    "let x = (output \"hi\" >> 3);
                     x" <| ResI 3
 
            

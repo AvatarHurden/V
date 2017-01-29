@@ -720,6 +720,8 @@ and collectTerms text closings isAfterTerm =
             let rest, term = parseProjection rest closings
             addToTerms rest (Term term) closings
         // Matching infix operators
+        | Start ">>" rest ->
+            addToTerms rest (Infix <| Def Sequence) closings
         | Start "!!" rest ->
             addToTerms rest (Infix Index) closings  
         | Start "%" rest ->
@@ -746,8 +748,6 @@ and collectTerms text closings isAfterTerm =
             addToTerms rest (Infix <| Def GreaterOrEqual) closings
         | Start ">" rest ->
             addToTerms rest (Infix <| Def GreaterThan) closings
-        | Start ";" rest ->
-            addToTerms rest (Infix <| Def Sequence) closings
         // Right associative operators
         | Start "$" rest ->
             addToTerms rest (Infix Apply) closings
