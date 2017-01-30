@@ -369,9 +369,9 @@ This distinction becomes important when talking about polymorphism, which uses v
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
     T &::= &\cdots\\
-    &| &\alpha \; \left[Traits\right]\\
+    &| &X^{Traits}\\
     \\
-    \alpha &::= &{\alpha_1, \alpha_2, ...}
+    X &::= &{X_1, X_2, ...}
 \end{tabular}}
 
 \bigskip
@@ -409,7 +409,7 @@ To define the set of types that belong to $Equatable$, the following rules are u
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
     \{\mbox{Int}, \mbox{Bool}, \mbox{Char}\} \subset Equatable\\
     T \in Equatable \implies T \; list \in Equatable\\
-    \alpha \; \left[Traits\right] \in Equatable \implies Equatable \in Traits\\
+    X^{Traits} \in Equatable \implies Equatable \in Traits\\
 \end{tabular}}
 
 
@@ -426,7 +426,7 @@ To define the set of types that belong to $Orderable$, the following rules are u
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
     \{\mbox{Int}, \mbox{Char}\} \subset Orderable\\
     T \in Orderable \implies T \; list \in Orderable\\
-    \alpha \; \left[Traits\right] \in Orderable \implies Orderable \in Traits\\
+    X^{Traits} \in Orderable \implies Orderable \in Traits\\
 \end{tabular}}
 
 \newpage
@@ -712,11 +712,11 @@ Evaluation is done only on the condition and the proper branch, avoiding the eva
 
 \infrule[BS-IfTrue]
     {\mbox{env} \vdash e_1 \Downarrow true \andalso \mbox{env} \vdash e_2 \Downarrow v}
-    {\mbox{env} \vdash if \; e_1\; then \; e_2 \; else \; e_3 \Downarrow v}
+    {\mbox{env} \vdash \texttt{if} \; e_1\; \texttt{then} \; e_2 \; \texttt{else} \; e_3 \Downarrow v}
 
 \infrule[BS-IfFalse]
     {\mbox{env} \vdash e_1 \Downarrow false \andalso \mbox{env} \vdash e_3 \Downarrow v}
-    {\mbox{env} \vdash if \; e_1\; then \; e_2 \; else \; e_3 \Downarrow v}
+    {\mbox{env} \vdash \texttt{if} \; e_1\; \texttt{then} \; e_2 \; \texttt{else} \; e_3 \Downarrow v}
 
 \paragraph{Function Expressions}
 
@@ -730,10 +730,10 @@ This parameter can occur anywhere inside the function body ($e$) and will be rep
 The typed variant specifies only the type of the input, not of the output.
 
 \infax[BS-Fn]
-    {\mbox{env} \vdash fn \; x:T \Rightarrow e \Downarrow \left\langle x, e, env\right\rangle}
+    {\mbox{env} \vdash \texttt{fn} \; x:T \Rightarrow e \Downarrow \left\langle x, e, env\right\rangle}
 
 \infax[BS-Fn2]
-    {\mbox{env} \vdash fn \; x \Rightarrow e \Downarrow \left\langle x, e, env\right\rangle}
+    {\mbox{env} \vdash \texttt{fn} \; x \Rightarrow e \Downarrow \left\langle x, e, env\right\rangle}
 
 The second type of function is a recursive function that also takes exactly one parameter ($x_2$).
 Unlike the unnamed function, a recursive function also specifies its own name ($x_1$), such that it can be called within the function body.
@@ -743,10 +743,10 @@ The type $T_1$ is the type of the input, and $T_2$ is the type of the output.
 In $L_1$, the programmer specifies the type of the function (that is, $T_1 \rightarrow T_2$), instead of specifying the output type directly.
 
 \infax[BS-Rec]
-    {\mbox{env} \vdash rec \; x_1:T_1 \rightarrow T_2 \; \; x_2:T_1 \Rightarrow e \Downarrow \left\langle x_1, x_2, e, env\right\rangle}
+    {\mbox{env} \vdash \texttt{rec} \; x_1:T_1 \rightarrow T_2 \; \; x_2:T_1 \Rightarrow e \Downarrow \left\langle x_1, x_2, e, env\right\rangle}
 
 \infax[BS-Rec2]
-    {\mbox{env} \vdash rec \; x_1 \; x_2 \Rightarrow e \Downarrow \left\langle x_1, x_2, e, env\right\rangle}
+    {\mbox{env} \vdash \texttt{rec} \; x_1 \; x_2 \Rightarrow e \Downarrow \left\langle x_1, x_2, e, env\right\rangle}
 
 \paragraph{Application}
 An application expression requires either a closure or a recursive closure for its left-hand operand.
@@ -786,12 +786,12 @@ For the purposes of evaluation, both have the same behavior.
 \infrule[BS-Let]
     {\mbox{env} \vdash e_1 \Downarrow v \andalso
      \{x \rightarrow v\} \cup \mbox{env} \vdash e_2 \Downarrow v_2}
-    {\mbox{env} \vdash let \; x:T = e_1 \; in \; e_2 \Downarrow v_2}
+    {\mbox{env} \vdash \texttt{let} \; x:T = e_1 \; \texttt{in} \; e_2 \Downarrow v_2}
 
 \infrule[BS-Let2]
     {\mbox{env} \vdash e_1 \Downarrow v \andalso
      \{x \rightarrow v\} \cup \mbox{env} \vdash e_2 \Downarrow v_2}
-    {\mbox{env} \vdash let \; x = e_1 \; in \; e_2 \Downarrow v_2}
+    {\mbox{env} \vdash \texttt{let} \; x = e_1 \; \texttt{in} \; e_2 \Downarrow v_2}
 
 \bigskip
 
@@ -814,11 +814,11 @@ The $empty$ expression returns $true$ if and only if its operand ($e_1$) evaluat
 
 \infrule[BS-EmptyTrue]
     {\mbox{env} \vdash e_1 \Downarrow nil}
-    {\mbox{env} \vdash isempty \; e_1 \Downarrow true}
+    {\mbox{env} \vdash \texttt{isempty} \; e_1 \Downarrow true}
 
 \infrule[BS-EmptyFalse]
     {\mbox{env} \vdash e_1 \Downarrow v_1::v_2}
-    {\mbox{env} \vdash isempty \; e_1 \Downarrow false}
+    {\mbox{env} \vdash \texttt{isempty} \; e_1 \Downarrow false}
 
 The $head$ expression attempts to obtain the first element of a non-empty list.
 The $tail$ expression is the mirror of the $head$ expression, removing the first element of the list and returning the remaining list.
@@ -826,19 +826,19 @@ If the list evaluates to $nil$, a run-time exception is thrown for both of these
 
 \infrule[BS-Head]
     {\mbox{env} \vdash e_1 \Downarrow v_1::v_2}
-    {\mbox{env} \vdash hd \; e_1 \Downarrow v_1}
+    {\mbox{env} \vdash \texttt{hd} \; e_1 \Downarrow v_1}
 
 \infrule[BS-HeadEmpty]
     {\mbox{env} \vdash e_1 \Downarrow nil}
-    {\mbox{env} \vdash hd \; e_1 \Downarrow raise}
+    {\mbox{env} \vdash \texttt{hd} \; e_1 \Downarrow raise}
 
 \infrule[BS-Tail]
     {\mbox{env} \vdash e_1 \Downarrow v_1::v_2}
-    {\mbox{env} \vdash tl \; e_1 \Downarrow v_2}
+    {\mbox{env} \vdash \texttt{tl} \; e_1 \Downarrow v_2}
 
 \infrule[BS-TailEmpty]
     {\mbox{env} \vdash e_1 \Downarrow nil}
-    {\mbox{env} \vdash tl \; e_1 \Downarrow raise}
+    {\mbox{env} \vdash \texttt{tl} \; e_1 \Downarrow raise}
 
 \paragraph{Exceptions}
 
@@ -857,7 +857,7 @@ Below are a few examples of these propagation rules:
 
 \infrule[BS-LetRaise]
     {\mbox{env} \vdash e_1 \Downarrow raise}
-    {\mbox{env} \vdash let \; x:T = e_1 \; in \; e_2 \Downarrow raise}
+    {\mbox{env} \vdash \texttt{let} \; x:T = e_1 \; \texttt{in} \; e_2 \Downarrow raise}
 
 \infrule[BS-+Raise]
     {\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow raise}
@@ -868,11 +868,11 @@ Its evaluation rules are the following:
 
 \infrule[BS-TryRaise]
     {\mbox{env} \vdash e_1 \Downarrow raise \andalso \mbox{env} \vdash e_2 \Downarrow v}
-    {\mbox{env} \vdash try \; e_1 \; with \; e_2 \Downarrow v}
+    {\mbox{env} \vdash \texttt{try} \; e_1 \; \texttt{with} \; e_2 \Downarrow v}
 
 \infrule[BS-Try]
     {\mbox{env} \vdash e_1 \Downarrow v}
-    {\mbox{env} \vdash try \; e_1 \; with \; e_2 \Downarrow v}
+    {\mbox{env} \vdash \texttt{try} \; e_1 \; \texttt{with} \; e_2 \Downarrow v}
 
 \paragraph{Sequential Evaluation}
 The expression $e_1 \; ; \; e_2$ is used when the expression $e_1$ is only evaluated for its side effects, without any regard for its resulting value.
@@ -895,11 +895,11 @@ The $output$ expression does not evaluate to any significant value, so we repres
 
 \infrule[BS-OutputEmpty]
     {\mbox{env} \vdash e \Downarrow nil}
-    {\mbox{env} \vdash output \; e \Downarrow skip}
+    {\mbox{env} \vdash \texttt{output} \; e \Downarrow skip}
 
 \infrule[BS-Output]
     {\mbox{env} \vdash e \Downarrow c :: v_1 \andalso \mbox{env} \vdash output \; v_1 \Downarrow skip}
-    {\mbox{env} \vdash output \; e \Downarrow skip}
+    {\mbox{env} \vdash \texttt{output} \; e \Downarrow skip}
 
 This cannot be represented in the semantic rules, but the value $c$ that results from evaluating $e$ in rule \textbf{BS-Output} is printed on the output stream (typically the console).
 The rule \textbf{BS-OutputEmpty} prints a newline character on the output stream, effectively making $output$ similar to "`printLine"' found in other languages.
@@ -908,7 +908,7 @@ The $input$ expression does evaluate to a significant value, but the value is no
 The only guarantees that exist are that it will be either $nil$ or $c :: v_2$, making this similar to "`readLine"' found in other languages.
 
 \infax[BS-Input]
-    {\mbox{env} \vdash input \Downarrow v}
+    {\mbox{env} \vdash \texttt{input} \Downarrow v}
 
 \subsection{Type System}\label{Type System}
 
@@ -996,7 +996,7 @@ Every expression in $L1$ has a rule for constraint collection, similar to how ev
 
 \infrule[T-Ident]
     {\Gamma \left(x\right) = T}
-    {\Gamma \vdash x : \mbox{T} \; | \; \{\}}
+    {\Gamma \vdash x : T \; | \; \{\}}
 
 \bigskip
 
@@ -1019,30 +1019,30 @@ Every expression in $L1$ has a rule for constraint collection, similar to how ev
 \bigskip
 
 \infrule[T-$=$]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso \alpha_1 \; [\{Equatable\}] \; is \; new}
-    {\Gamma \vdash e_1 = e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; \alpha_1 = T_2\}}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso X_1^{\{Equatable\}} \; is \; new}
+    {\Gamma \vdash e_1 = e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; X_1^{\{Equatable\}} = T_2\}}
 
 \infrule[T-$\neq$]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso \alpha_1 \; [\{Equatable\}] \; is \; new}
-    {\Gamma \vdash e_1 \neq e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; \alpha_1 = T_2\}}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso X_1^{\{Equatable\}} \; is \; new}
+    {\Gamma \vdash e_1 \neq e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; X_1^{\{Equatable\}} = T_2\}}
 
 \bigskip
 
 \infrule[T-$<$]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso \alpha_1 \; [\{Orderable\}] \; is \; new}
-    {\Gamma \vdash e_1 < e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; \alpha_1 = T_2\}}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso X_1^{\{Orderable\}} \; is \; new}
+    {\Gamma \vdash e_1 < e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; X_1^{\{Orderable\}} = T_2\}}
 
 \infrule[T-$\leq$]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso \alpha_1 \; [\{Orderable\}] \; is \; new}
-    {\Gamma \vdash e_1 \leq e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; \alpha_1 = T_2\}}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso X_1^{\{Orderable\}} \; is \; new}
+    {\Gamma \vdash e_1 \leq e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; X_1^{\{Orderable\}} = T_2\}}
 
 \infrule[T-$>$]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso \alpha_1 \; [\{Orderable\}] \; is \; new}
-    {\Gamma \vdash e_1 > e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; \alpha_1 = T_2\}}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso X_1^{\{Orderable\}} \; is \; new}
+    {\Gamma \vdash e_1 > e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; X_1^{\{Orderable\}} = T_2\}}
 
 \infrule[T-$\geq$]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso \alpha_1 \; [\{Orderable\}] \; is \; new}
-    {\Gamma \vdash e_1 \geq e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; \alpha_1 = T_2\}}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso X_1^{\{Orderable\}} \; is \; new}
+    {\Gamma \vdash e_1 \geq e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; X_1^{\{Orderable\}} = T_2\}}
 
 \bigskip
 
@@ -1058,87 +1058,87 @@ Every expression in $L1$ has a rule for constraint collection, similar to how ev
 
 \infrule[T-If]
     {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2  \andalso \Gamma \vdash e_3 : T_3 \; | \; C_3}
-    {\Gamma \vdash if \; e_1\; then \; e_2 \; else \; e_3 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup C_3 \cup \{T1 = \mbox{Bool}; T_2 = T_3\}}
+    {\Gamma \vdash \texttt{if} \; e_1\; \texttt{then} \; e_2 \; \texttt{else} \; e_3 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup C_3 \cup \{T1 = \mbox{Bool}; T_2 = T_3\}}
 
 \bigskip
 
 \infrule[T-App]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2  \andalso \alpha_1 \; [] \; is \; new}
-    {\Gamma \vdash e_1 \; e_2 : X \; | \; C_1 \cup C_2 \cup \{T1 = T_2 \rightarrow \alpha_1\}}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2  \andalso X_1 \; is \; new}
+    {\Gamma \vdash e_1 \; e_2 : X \; | \; C_1 \cup C_2 \cup \{T1 = T_2 \rightarrow X_1}
 
 \bigskip
 
 \infrule[T-Fn]
     { \{x \rightarrow T\} \cup \Gamma \vdash e : T_1 \; | \; C_1}
-    {\Gamma \vdash fn \; x:T \Rightarrow e : T \rightarrow T_1 \; | \; C_1}
+    {\Gamma \vdash \texttt{fn} \; x:T \Rightarrow e : T \rightarrow T_1 \; | \; C_1}
 
 \infrule[T-Fn2]
-    {\alpha_1 \; [] \; is \; new \andalso \{x \rightarrow \alpha_1\} \cup \Gamma \vdash e : T_1 \; | \; C_1}
-    {\Gamma \vdash fn \; x \Rightarrow e : \alpha_1 \rightarrow T_1 \; | \; C_1}
+    {X_1 \; is \; new \andalso \{x \rightarrow X_1\} \cup \Gamma \vdash e : T_1 \; | \; C_1}
+    {\Gamma \vdash \texttt{fn} \; x \Rightarrow e : X_1 \rightarrow T_1 \; | \; C_1}
 
 \infrule[T-Rec]
     { \{x_1 \rightarrow \left(T_1 \rightarrow T_2\right), x_2 \rightarrow T_1\} \cup \Gamma \vdash e : T \; | \; C}
-    {\Gamma \vdash rec \; x_1:T_1 \rightarrow T_2 \; \; x_2:T_1 \Rightarrow e : T_1 \rightarrow T_2 \; | \; C \cup \{T = T_2\}}
+    {\Gamma \vdash \texttt{rec} \; x_1:T_1 \rightarrow T_2 \; \; x_2:T_1 \Rightarrow e : T_1 \rightarrow T_2 \; | \; C \cup \{T = T_2\}}
 
 \infrule[T-Rec2]
-    {\alpha_1 \; [] \; is \; new \andalso \alpha_2 \; [] \; is \; new \andalso \{x_1 \rightarrow \alpha_1, x_2 \rightarrow \alpha_2\} \cup \Gamma \vdash e : T | C}
-    {\Gamma \vdash rec \; x_1 \; x_2 \Rightarrow e : Y \rightarrow T \; | \; C \cup \{\alpha_1 = \alpha_2 \rightarrow T \}}
+    {X_1 \; is \; new \andalso X_2 \; is \; new \andalso \{x_1 \rightarrow X_1, x_2 \rightarrow X_2\} \cup \Gamma \vdash e : T | C}
+    {\Gamma \vdash \texttt{rec} \; x_1 \; x_2 \Rightarrow e : Y \rightarrow T \; | \; C \cup \{X_1 = X_2 \rightarrow T \}}
 
 \bigskip
 
 \infrule[T-Let]
     {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \{x \rightarrow T\} \cup \Gamma \vdash e_2 : T_2 \; | \; C_2}
-    {\Gamma \vdash let \; x:T = e_1 \; in \; e_2 : T_2 \; | \; C_1 \cup C_2 \cup \{T = T_1\}}
+    {\Gamma \vdash \texttt{let} \; x:T = e_1 \; \texttt{in} \; e_2 : T_2 \; | \; C_1 \cup C_2 \cup \{T = T_1\}}
 
 \infrule[T-Let2]
     {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \{x \rightarrow T_1\} \cup \Gamma \vdash e_2 : T_2 \; | \; C_2}
-    {\Gamma \vdash let \; x = e_1 \; in \; e_2 : T_2 \; | \; \left[\right]}
+    {\Gamma \vdash \texttt{let} \; x = e_1 \; \texttt{in} \; e_2 : T_2 \; | \; \left[\right]}
 
 \bigskip
 
 \infrule[T-Nil]
-    {\alpha_1 \; [] \; is\; new}
-    {\Gamma \vdash nil : \alpha_1 \; list \; | \; \{\}}
+    {X_1 \; is\; new}
+    {\Gamma \vdash nil : X_1 \; list \; | \; \{\}}
 
 \infrule[T-List]
     {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2\; | \; C_2}
     {\Gamma \vdash e_1 :: e_2 : T_1 \; list \; | \; C_1 \cup C_2 \cup \{T_1 \; list = T_2\}}
 
 \infrule[T-Empty]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \alpha_1 \; [] \; is \; new}
-    {\Gamma \vdash isempty \; e_1 : Bool \; | \; C_1 \cup \{T_1 = \alpha_1 \; list\}}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso X_1 \; is \; new}
+    {\Gamma \vdash \texttt{isempty} \; e_1 : \mbox{Bool} \; | \; C_1 \cup \{T_1 = X_1 \; list\}}
 
 \infrule[T-Head]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \alpha_1 \; [] \; is \; new}
-    {\Gamma \vdash head \; e_1 : \alpha_1 \; | \; C_1 \cup \{T_1 = \alpha_1 \; list\}}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso X_1 \; is \; new}
+    {\Gamma \vdash \texttt{hd} \; e_1 : X_1 \; | \; C_1 \cup \{T_1 = X_1 \; list\}}
 
 \infrule[T-Tail]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \alpha_1 \; [] \; is \; new}
-    {\Gamma \vdash tail \; e_1 : \alpha_1 \; list \; | \; C_1 \cup \{T_1 = \alpha_1 \; list\}}
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso X_1 \; is \; new}
+    {\Gamma \vdash \texttt{tl} \; e_1 : X_1 \; list \; | \; C_1 \cup \{T_1 = X_1 \; list\}}
 
 \bigskip
 
 \infrule[T-Raise]
-    {\alpha_1 \; [] \; is\; new}
-    {\Gamma \vdash raise : \alpha_1 \; | \; \{\}}
+    {X_1 \; is\; new}
+    {\Gamma \vdash raise : X_1 \; | \; \{\}}
 
 \infrule[T-Try]
     {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2}
-    {\Gamma \vdash try \; e_1 \; with \; e_2 : T_2 \; | \; C_1 \cup C_2 \cup \{T_1 = T_2\}}
+    {\Gamma \vdash \texttt{try} \; e_1 \; \texttt{with} \; e_2 : T_2 \; | \; C_1 \cup C_2 \cup \{T_1 = T_2\}}
 
 \bigskip
 
 \infrule[T-Sequential]
     {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2}
-    {\Gamma \vdash e_1 \; ; \; e_2 : T_2 \; | \; C_1 \cup C_2 \cup \{[T_1 = Unit\}}
+    {\Gamma \vdash e_1 \; ; \; e_2 : T_2 \; | \; C_1 \cup C_2 \cup \{T_1 = \mbox{Unit}\}}
 
 \bigskip
 
 \infrule[T-Output]
     {\Gamma \vdash e : T \; | \; C}
-    {\Gamma \vdash output \; e : Unit \; | \; C \cup \{T = \mbox{Char} \; list\}}
+    {\Gamma \vdash \texttt{output} \; e : Unit \; | \; C \cup \{T = \mbox{Char} \; list\}}
 
 \infax[T-Input]
-    {\Gamma \vdash input : \mbox{Char} \; list \; | \; \{\}}
+    {\Gamma \vdash \texttt{input} : \mbox{Char} \; list \; | \; \{\}}
 
 \end{document}
