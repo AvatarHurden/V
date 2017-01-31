@@ -52,14 +52,14 @@ let throwsWrongType text =
 type Remainder() =
 
     static member func = """
-let rec remainder(x, y) {
+let rec remainder x y =
     if y = 0 then  
         raise
     else if x<y then
         x
     else
         remainder (x-y) y
-};
+;
 """
 
     [<Test>]
@@ -93,9 +93,9 @@ let rec remainder(x, y) {
 type Negate() =
 
     static member func = """
-let negate(x) {
+let negate x =
 	0-x
-};
+;
 """
 
     [<Test>]
@@ -126,12 +126,12 @@ type Abs() =
 
     static member func = 
         Negate.func + """
-let abs(x) {
+let abs x =
 	if x < 0 then
 		negate x
 	else
 		x
-};
+;
 """
 
     [<Test>]
@@ -161,12 +161,12 @@ let abs(x) {
 type Not() =
 
     static member func = """
-let not(t) {
+let not t =
 	if t then
 		false
 	else
 		true
-};
+;
 """
 
     [<Test>]
@@ -192,12 +192,12 @@ type Xor() =
 
     static member func = 
         Not.func + """
-let xor(t1, t2) {
+let xor t1 t2 =
 	if t1 then
 		not t2
 	else
 		t2
-};
+;
 """
 
     [<Test>]
@@ -231,12 +231,12 @@ let xor(t1, t2) {
 type Append() =
 
     static member func = """
-let rec append(x, ls) {
+let rec append x ls =
 	if empty? ls then
 		x::ls
 	else
 		(head ls)::(append x (tail ls))
-};
+;
 """
 
     [<Test>]
@@ -273,12 +273,12 @@ let rec append(x, ls) {
 type Concat() =
 
     static member func = """
-let rec concat(ls1, ls2) {
+let rec concat ls1 ls2 =
 	if empty? ls1 then
 		ls2
 	else
 		(head ls1)::(concat (tail ls1) ls2)
-};
+;
 """
 
     [<Test>]
@@ -319,14 +319,14 @@ let rec concat(ls1, ls2) {
 type Last() =
 
     static member func = """
-let rec last(ls) {
+let rec last ls =
 	if empty? ls then
 		raise
 	else if empty? (tail ls) then
 		head ls
 	else
 		last (tail ls)
-};
+;
 """
 
     [<Test>]
@@ -356,14 +356,14 @@ let rec last(ls) {
 type Init() =
 
     static member func = """
-let rec init(ls){
+let rec init ls =
 	if empty? ls then
 		raise
 	else if empty? (tail ls) then
 		nil
 	else
 		(head ls)::(init (tail ls))
-};
+;
 """
 
     [<Test>]
@@ -392,12 +392,12 @@ let rec init(ls){
 type Length() =
 
     static member func = """
-let rec length(ls) {
+let rec length ls =
 	if empty? ls then
 		0
 	else
 		1 + length (tail ls)
-};
+;
 """
 
     [<Test>]
@@ -426,12 +426,12 @@ let rec length(ls) {
 type Range() =
 
     static member func = """
-let rec range(start, finish, inc) {
+let rec range start finish inc =
     if (inc > 0 && start <= finish) || (inc < 0 && start >= finish) then
 		start::(range (start+inc) finish inc)
     else
         nil
-};
+;
 """
 
     [<Test>]
@@ -471,15 +471,15 @@ let rec range(start, finish, inc) {
 type Reverse() =
 
     static member func = """
-let reverse(ls) {
-    let rec f(lsOld, lsNew) {
+let reverse ls =
+    let rec f lsOld lsNew =
         if empty? lsOld then
             lsNew
         else
             f (tail lsOld) ((head lsOld)::lsNew)
-	};
+	;
     f ls []
-};
+;
 """
 
     [<Test>]
@@ -514,12 +514,12 @@ let reverse(ls) {
 type Map() =
 
     static member func = """
-let rec map(f, ls) {
+let rec map f ls =
     if empty? ls then
         nil
     else
         (f (head ls))::(map f (tail ls))
-};
+;
 """
 
     [<Test>]
@@ -532,16 +532,16 @@ let rec map(f, ls) {
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (Map.func + "map [1,2,3]")
-        throwsWrongType (Map.func + "map (\\x => x = true) [1,2,3]")
-        throwsWrongType (Map.func + "map (\\x => x = true) true")
+        throwsWrongType (Map.func + "map (\\x -> x = true) [1,2,3]")
+        throwsWrongType (Map.func + "map (\\x -> x = true) true")
 
     [<Test>]
     member that.emptyList() =
-        equalsParsed (Map.func + "map (\\x => x) []") "[]"
+        equalsParsed (Map.func + "map (\\x -> x) []") "[]"
         
     [<Test>]
     member that.mapIdentity() =
-        equalsParsed (Map.func + "map (\\x => x) [1,2]") "[1,2]"
+        equalsParsed (Map.func + "map (\\x -> x) [1,2]") "[1,2]"
 
     [<Test>]
     member that.mapReverse() =
@@ -550,7 +550,7 @@ let rec map(f, ls) {
        
     [<Test>]
     member that.mapOtherType() =
-        equalsParsed (Map.func + "map (\\x => x > 3) [2,5,3,6]") 
+        equalsParsed (Map.func + "map (\\x -> x > 3) [2,5,3,6]") 
             "[false, true, false, true]"
         
 
@@ -558,12 +558,12 @@ let rec map(f, ls) {
 type Fold() =
 
     static member func = """
-let rec fold(f, acc, ls) {
+let rec fold f acc ls =
     if empty? ls then
         acc
     else
         fold f (f acc (head ls)) (tail ls)
-};
+;
 """
 
     [<Test>]
@@ -576,16 +576,16 @@ let rec fold(f, acc, ls) {
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (Fold.func + "fold [1,2,3]")
-        throwsWrongType (Fold.func + "fold (\\x => x = true) true [1,2,3]")
-        throwsWrongType (Fold.func + "fold (\\acc, x => acc && x % 4 = 0) true \"hi\"")
+        throwsWrongType (Fold.func + "fold (\\x -> x = true) true [1,2,3]")
+        throwsWrongType (Fold.func + "fold (\\acc x -> acc && x % 4 = 0) true \"hi\"")
 
     [<Test>]
     member that.emptyList() =
-        equalsParsed (Fold.func + "fold (\\acc, x => acc + x) 0 []") "0"
+        equalsParsed (Fold.func + "fold (\\acc x -> acc + x) 0 []") "0"
         
     [<Test>]
     member that.foldSum() =
-        equalsParsed (Fold.func + "fold (\\acc, x => acc + x) 0 [1,2,3]") "6"
+        equalsParsed (Fold.func + "fold (\\acc x -> acc + x) 0 [1,2,3]") "6"
 
     [<Test>]
     member that.foldXor() =
@@ -595,7 +595,7 @@ let rec fold(f, acc, ls) {
     [<Test>]
     member that.foldChangeType() =
         equalsParsed (Fold.func + 
-            "fold (\\acc, x => if x then acc+1 else acc) 0 [true,false,true]") 
+            "fold (\\acc x -> if x then acc+1 else acc) 0 [true,false,true]") 
             "2"
    
 
@@ -604,12 +604,12 @@ type Reduce() =
 
     static member func = 
         Fold.func + """
-let reduce(f, ls) {
+let reduce f ls =
     if empty? ls then
         raise
     else
         fold f (head ls) (tail ls)
-};
+;
 """
 
     [<Test>]
@@ -621,15 +621,15 @@ let reduce(f, ls) {
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (Reduce.func + "reduce [1,2,3]")
-        throwsWrongType (Reduce.func + "reduce (\\x => x = true) [1,2,3]")
+        throwsWrongType (Reduce.func + "reduce (\\x -> x = true) [1,2,3]")
 
     [<Test>]
     member that.emptyList() =
-        equalsParsed (Reduce.func + "reduce (\\acc, x => acc + x) []") "raise"
+        equalsParsed (Reduce.func + "reduce (\\acc x -> acc + x) []") "raise"
         
     [<Test>]
     member that.reduceSum() =
-        equalsParsed (Reduce.func + "reduce (\\acc, x => acc + x) [1,2,3]") "6"
+        equalsParsed (Reduce.func + "reduce (\\acc x -> acc + x) [1,2,3]") "6"
 
     [<Test>]
     member that.reduceXor() =
@@ -642,14 +642,14 @@ type All() =
 
     static member func = 
         Not.func + """
-let rec all(pred, ls) {
+let rec all pred ls =
 	if empty? ls then
 		true
 	else if not . pred $ head ls then
         false
 	else
 		all pred $ tail ls 
-};
+;
 """
 
     [<Test>]
@@ -661,33 +661,33 @@ let rec all(pred, ls) {
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (All.func + "all [1,2,3]")
-        throwsWrongType (All.func + "all (\\x => x = true) [1,2,3]")
+        throwsWrongType (All.func + "all (\\x -> x = true) [1,2,3]")
 
     [<Test>]
     member that.emptyList() =
-        equalsParsed (All.func + "all (\\x => x > 2) []") "true"
+        equalsParsed (All.func + "all (\\x -> x > 2) []") "true"
         
     [<Test>]
     member that.allMatch() =
-        equalsParsed (All.func + "all (\\x => x > 3) [4,5,6]") "true"
+        equalsParsed (All.func + "all (\\x -> x > 3) [4,5,6]") "true"
         
     [<Test>]
     member that.oneFails() =
-        equalsParsed (All.func + "all (\\x => x > 3) [3,5,6]") "false"
+        equalsParsed (All.func + "all (\\x -> x > 3) [3,5,6]") "false"
 
 
 [<TestFixture>]
 type Any() =
 
     static member func = """
-let rec any(pred, ls) {
+let rec any pred ls =
 	if empty? ls then
 		false
 	else if pred $ head ls then
 		true
 	else
 		any pred $ tail ls
-};
+;
 """
 
     [<Test>]
@@ -699,28 +699,28 @@ let rec any(pred, ls) {
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (Any.func + "any [1,2,3]")
-        throwsWrongType (Any.func + "any (\\x => x = true) [1,2,3]")
+        throwsWrongType (Any.func + "any (\\x -> x = true) [1,2,3]")
 
     [<Test>]
     member that.emptyList() =
-        equalsParsed (Any.func + "any (\\x => x > 2) []") "false"
+        equalsParsed (Any.func + "any (\\x -> x > 2) []") "false"
         
     [<Test>]
     member that.allFail() =
-        equalsParsed (Any.func + "any (\\x => x < 3) [4,5,6]") "false"
+        equalsParsed (Any.func + "any (\\x -> x < 3) [4,5,6]") "false"
         
     [<Test>]
     member that.oneMatches() =
-        equalsParsed (Any.func + "any (\\x => x > 3) [3,5,2]") "true"
+        equalsParsed (Any.func + "any (\\x -> x > 3) [3,5,2]") "true"
 
 [<TestFixture>]
 type Maximum() =
 
     static member func = 
         Reduce.func + """
-let maximum(ls) {
-    reduce (\acc, x => if acc < x then x else acc) ls
-};
+let maximum ls =
+    reduce (\acc x -> if acc < x then x else acc) ls
+;
 """
 
     [<Test>]
@@ -753,9 +753,9 @@ type Minimum() =
 
     static member func = 
         Reduce.func + """
-let minimum(ls) {
-    reduce (\acc, x => if acc > x then x else acc) ls
-};
+let minimum ls =
+    reduce (\acc x -> if acc > x then x else acc) ls
+;
 """
 
     [<Test>]
@@ -787,14 +787,14 @@ let minimum(ls) {
 type Take() =
 
     static member func = """
-let rec take(x, ls) {
+let rec take x ls =
     if x < 0 then
         raise
 	else if (x = 0) || (empty? ls) then
 		nil
 	else
 		(head ls)::(take (x-1) $ tail ls)
-};
+;
 """
 
     [<Test>]
@@ -833,14 +833,14 @@ let rec take(x, ls) {
 type Drop() =
 
     static member func = """
-let rec drop(x, ls) {
+let rec drop x ls =
     if x < 0 then
         raise
     else if empty? ls || x = 0 then
         ls    
     else
         drop (x-1) (tail ls)
-};
+;
 """
 
     [<Test>]
@@ -880,14 +880,14 @@ type TakeWhile() =
 
     static member func = 
         Not.func + """
-let rec takeWhile(pred, ls) {
+let rec takeWhile pred ls =
 	if empty? ls then
 		nil
 	else if not . pred $ head ls then
 		nil
 	else
 		(head ls)::(takeWhile pred $ tail ls)
-};
+;
 """
 
     [<Test>]
@@ -903,19 +903,19 @@ let rec takeWhile(pred, ls) {
 
     [<Test>]
     member that.emptyList() =
-        equalsParsed (TakeWhile.func + "takeWhile (\x => x) []") "[]"
+        equalsParsed (TakeWhile.func + "takeWhile (\x -> x) []") "[]"
         
     [<Test>]
     member that.failsFirst() =
-        equalsParsed (TakeWhile.func + "takeWhile (\x => x > 2)  [2,3,4]") "[]"
+        equalsParsed (TakeWhile.func + "takeWhile (\x -> x > 2)  [2,3,4]") "[]"
 
     [<Test>]
     member that.failsMiddle() =
-        equalsParsed (TakeWhile.func + "takeWhile (\x => x > 2) [4,3,2,4]") "[4,3]"
+        equalsParsed (TakeWhile.func + "takeWhile (\x -> x > 2) [4,3,2,4]") "[4,3]"
 
     [<Test>]
     member that.neverFails() =
-        equalsParsed (TakeWhile.func + "takeWhile (\x => x < 5) [2,3,4]") "[2,3,4]"
+        equalsParsed (TakeWhile.func + "takeWhile (\x -> x < 5) [2,3,4]") "[2,3,4]"
              
 
 [<TestFixture>]
@@ -923,14 +923,14 @@ type DropWhile() =
 
     static member func = 
         Not.func + """
-let rec dropWhile(pred, ls) {
+let rec dropWhile pred ls =
     if empty? ls then
         []
     else if not . pred $ head ls then
         ls
     else
         dropWhile pred $ tail ls
-};
+;
 """
 
     [<Test>]
@@ -946,19 +946,19 @@ let rec dropWhile(pred, ls) {
 
     [<Test>]
     member that.emptyList() =
-        equalsParsed (DropWhile.func + "dropWhile (\x => x) []") "[]"
+        equalsParsed (DropWhile.func + "dropWhile (\x -> x) []") "[]"
         
     [<Test>]
     member that.failsFirst() =
-        equalsParsed (DropWhile.func + "dropWhile (\x => x > 2)  [2,3,4]") "[2,3,4]"
+        equalsParsed (DropWhile.func + "dropWhile (\x -> x > 2)  [2,3,4]") "[2,3,4]"
 
     [<Test>]
     member that.failsMiddle() =
-        equalsParsed (DropWhile.func + "dropWhile (\x => x > 2) [4,3,2,4]") "[2,4]"
+        equalsParsed (DropWhile.func + "dropWhile (\x -> x > 2) [4,3,2,4]") "[2,4]"
 
     [<Test>]
     member that.neverFails() =
-        equalsParsed (DropWhile.func + "dropWhile (\x => x < 5) [2,3,4]") "[]"
+        equalsParsed (DropWhile.func + "dropWhile (\x -> x < 5) [2,3,4]") "[]"
              
 
 [<TestFixture>]
@@ -966,12 +966,12 @@ type Sublist() =
 
     static member func = 
         Take.func + Drop.func + Length.func + """
-let sublist(start, size, ls) {
+let sublist start size ls =
     if start < 0 || size > length ls then
         raise
     else
         take size $ drop start ls 
-};
+;
 """
 
     [<Test>]
@@ -1011,14 +1011,14 @@ let sublist(start, size, ls) {
 type Exists() =
 
     static member func = """
-let rec exists(t, ls) {
+let rec exists t ls =
     if empty? ls then
         false
     else if t = (head ls) then
         true
     else
         exists t $ tail ls
-};  
+;      
 """
 
     [<Test>]
@@ -1030,7 +1030,7 @@ let rec exists(t, ls) {
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (Exists.func + "exists 'c' [1,2,3]")
-        throwsWrongType (Exists.func + "exists (\x => x) []")
+        throwsWrongType (Exists.func + "exists (\x -> x) []")
         throwsWrongType (Exists.func + "exists skip [skip,skip]")
         
     [<Test>]
@@ -1054,14 +1054,14 @@ let rec exists(t, ls) {
 type Filter() =
 
     static member func = """
-let rec filter(pred, ls) {
+let rec filter pred ls =
 	if empty? ls then
 		nil
 	else if pred $ head ls then
 		head ls::(filter pred $ tail ls)
 	else
 		filter pred $ tail ls
-}; 
+; 
 """
 
     [<Test>]
@@ -1073,22 +1073,22 @@ let rec filter(pred, ls) {
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (Filter.func + "filter 'c'")
-        throwsWrongType (Filter.func + "filter (\x => x) [1,2,3]")
+        throwsWrongType (Filter.func + "filter (\x -> x) [1,2,3]")
         throwsWrongType (Filter.func + Remainder.func + 
-            "filter (\x => x % 2 = 0) \"hi\"")
+            "filter (\x -> x % 2 = 0) \"hi\"")
         
     [<Test>]
     member that.emptyList() =
-        equalsParsed (Filter.func + "filter (\x => x) []") "[]"
+        equalsParsed (Filter.func + "filter (\x -> x) []") "[]"
         
     [<Test>]
     member that.doesntExist() =
-        equalsParsed (Filter.func + "filter (\x => x) [false,false,false]") "[]"
+        equalsParsed (Filter.func + "filter (\x -> x) [false,false,false]") "[]"
         
     [<Test>]
     member that.exists() =
         equalsParsed (Filter.func + Remainder.func + 
-            "filter (\x => x%2=0) [1,2,3,4]") "[2,4]"
+            "filter (\x -> x%2=0) [1,2,3,4]") "[2,4]"
         
 
 [<TestFixture>]
@@ -1096,17 +1096,17 @@ type IndexOf() =
 
     static member func = 
         Negate.func + """
-let indexOf(t, ls) {
-    let rec f(index, ls) {
+let indexOf t ls =
+    let rec f index ls =
 	    if empty? ls then
 		    -1
 	    else if t = (head ls) then
 		    index
         else
             f (index+1) (tail ls)
-	};
+	;
     f 0 ls
-};
+;
 """
 
     [<Test>]
@@ -1118,7 +1118,7 @@ let indexOf(t, ls) {
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (IndexOf.func + "indexOf 'c' [1,2,3]")
-        throwsWrongType (IndexOf.func + "indexOf (\x => x) []")
+        throwsWrongType (IndexOf.func + "indexOf (\x -> x) []")
         throwsWrongType (IndexOf.func + "indexOf skip [skip,skip]")
         
     [<Test>]
@@ -1142,14 +1142,14 @@ let indexOf(t, ls) {
 type Nth() =
 
     static member func = """
-let rec nth(index, ls) {
+let rec nth index ls =
     if empty? ls || index < 0 then 
         raise
     else if index = 0 then
         head ls
     else
         nth (index - 1) (tail ls)
-};
+;
 """
 
     [<Test>]
@@ -1161,7 +1161,7 @@ let rec nth(index, ls) {
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (Nth.func + "nth 'c'")
-        throwsWrongType (Nth.func + "nth (\x => x) []")
+        throwsWrongType (Nth.func + "nth (\x -> x) []")
         throwsWrongType (Nth.func + "nth 2 3")
         
     [<Test>]
@@ -1186,16 +1186,16 @@ type Sort() =
 
     static member func = 
         Filter.func + Concat.func + """
-let rec sort(ls) {
+let rec sort ls =
     if empty? ls then
         nil
     else
         let first = head ls;
         let rest = tail ls;
-        (sort $ filter (\x => x <= first) rest) 
+        (sort $ filter (\x -> x <= first) rest) 
         @ [first] @ 
-        (sort $ filter (\x => x > first) rest)
-};
+        (sort $ filter (\x -> x > first) rest)
+;
 """
 
     [<Test>]
@@ -1208,7 +1208,7 @@ let rec sort(ls) {
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (Sort.func + "sort 'c'")
-        throwsWrongType (Sort.func + "sort [(\x => x)]")
+        throwsWrongType (Sort.func + "sort [(\x -> x)]")
         throwsWrongType (Sort.func + "sort [true, false]")
         
     [<Test>]
@@ -1232,12 +1232,12 @@ let rec sort(ls) {
 type Zip() =
 
     static member func = """
-let rec zip(x, y) {
+let rec zip x y =
     if empty? x || empty? y then
         nil
     else
         (head x, head y) :: zip (tail x) (tail y)
-};
+;
 """
 
     [<Test>]
@@ -1273,12 +1273,12 @@ let rec zip(x, y) {
 type ZipWith() =
 
     static member func = """
-let rec zipWith(f, x, y) {
+let rec zipWith f x y =
     if empty? x || empty? y then
         nil
     else
         f (head x) (head y) :: zipWith f (tail x) (tail y)
-};
+;
 """
 
     [<Test>]
@@ -1293,22 +1293,22 @@ let rec zipWith(f, x, y) {
      
     [<Test>]
     member that.wrongParameter() =
-        throwsWrongType (ZipWith.func + "zipWith (\x, y => x + y) ['a']")
-        throwsWrongType (ZipWith.func + "zipWith (\x, y => x @ y) [\"alo\"] [[1,2],[2,3]]")
+        throwsWrongType (ZipWith.func + "zipWith (\x y -> x + y) ['a']")
+        throwsWrongType (ZipWith.func + "zipWith (\x y -> x @ y) [\"alo\"] [[1,2],[2,3]]")
         throwsWrongType (ZipWith.func + "zipWith [true, false] false")
         
     [<Test>]
     member that.emptyList() =
-        equalsParsed (ZipWith.func + "zipWith (\x, y => x + y) [] []") "[]"
+        equalsParsed (ZipWith.func + "zipWith (\x y -> x + y) [] []") "[]"
         
     [<Test>]
     member that.sameSize() =
-        equalsParsed (ZipWith.func + "zipWith (\x, y => x + y) [1,2,3] [1,2,3]") <|
+        equalsParsed (ZipWith.func + "zipWith (\x y -> x + y) [1,2,3] [1,2,3]") <|
             "[2,4,6]"
         
     [<Test>]
     member that.differentSize() =
-        equalsParsed (ZipWith.func + "zipWith (\x, y => x + y) [1,2,3] [1,3]") <|
+        equalsParsed (ZipWith.func + "zipWith (\x y -> x + y) [1,2,3] [1,3]") <|
             "[2,5]"
 
 
@@ -1317,9 +1317,11 @@ type Unzip() =
 
     static member func = 
         Map.func + """
-let unzip(ls) {
-    (map #0 ls, map #1 ls)
-};
+let unzip ls =
+    let x = map #0 ls;
+    let y = map #1 ls;
+    (x, y)
+;
 """
 
     [<Test>]
@@ -1351,11 +1353,11 @@ type ParseInt() =
 
     static member func = 
         Negate.func + Reverse.func + """
-let parseInt(s: String): Int {
+let parseInt (s: String): Int =
     if empty? s then
         raise
     else
-        let rec f(s: String): Int {
+        let rec f (s: String): Int =
             if empty? s then
                 0
             else 
@@ -1371,13 +1373,13 @@ let parseInt(s: String): Int {
                     else if head s = '8' then 8
                     else if head s = '9' then 9
                     else raise;
-                x + 10 * f (tail s)
-        };
+            x + 10 * f (tail s)
+        ;
         if head s = '-' then
             negate (f (reverse (tail s)))
         else
             f (reverse s)
-};
+;
 """
 
     [<Test>]
@@ -1414,8 +1416,8 @@ type PrintInt() =
 
     static member func = 
         Negate.func + Remainder.func + Concat.func + """
-let rec printInt(i: Int): String {
-    let printDigit(d) {
+let rec printInt (i: Int): String =
+    let printDigit d =
         if d = 0 then "0"
         else if d = 1 then "1"
         else if d = 2 then "2"
@@ -1426,7 +1428,7 @@ let rec printInt(i: Int): String {
         else if d = 7 then "7"
         else if d = 8 then "8"
         else "9"
-    };
+    ;
     if i < 0 then   
         '-' :: printInt (-i)
     else if i < 10 then
@@ -1434,7 +1436,7 @@ let rec printInt(i: Int): String {
     else 
         let c = printDigit (i % 10);     
         (printInt (i/10)) @ c
-};
+;
 """
 
     [<Test>]
@@ -1464,14 +1466,14 @@ let rec printInt(i: Int): String {
 type ParseBool() =
 
     static member func = """
-let parseBool(s: String): Bool {
+let parseBool (s: String): Bool =
     if s = "true" then
         true
     else if s = "false" then
         false
     else 
         raise
-};
+;
 """
 
     [<Test>]
@@ -1507,12 +1509,12 @@ let parseBool(s: String): Bool {
 type PrintBool() =
 
     static member func = """
-let printBool(b: Bool): String {
+let printBool (b: Bool): String =
     if b then
         "true"
     else
         "false"
-};
+;
 """
 
     [<Test>]

@@ -75,101 +75,80 @@ type TestLetParsing() =
 
     [<Test>]
     member that.simpleLetRec() =
-        compare "   let  rec  t (x) { x*x }; t 4" <| ResI 16
+        compare "   let  rec  t x = x*x ; t 4" <| ResI 16
         
     [<Test>]
     member that.multiParameterLetRec() =
-        compare "let rec f(x:Int,y:Int):Int { x+y}; f 3 4" <| ResI 7
+        compare "let rec f (x:Int) (y:Int):Int = x+y; f 3 4" <| ResI 7
 
     [<Test>]
     member that.nestedLetRec() =
-        compare "   let  rec t (x) { let rec f(y) { x-y }; f x }; t 5" <| ResI 0
+        compare "   let  rec t x = let rec f y = x-y; f x ; t 5" <| ResI 0
         
     [<Test>]
     member that.typedLetRec() =
-        compare "   let  rec  t (x: Int): Int { x*x }; t 4" <| ResI 16
+        compare "   let  rec  t (x: Int): Int = x*x ; t 4" <| ResI 16
         
     [<Test>]
     member that.maltypedLetRec() =
-        shouldFail "   let  rec t(f): Int = (let x: Int = 3;x+4); t"
+        shouldFail "   let  rec t (f): Int = (let x: Int = 3;x+4); t"
         
     [<Test>]
     member that.incompleteLetRec() =
-        shouldFail "   let  rec t: Int { 3+4 }; t"
+        shouldFail "   let  rec t: Int = 3+4 ; t"
 
 
     [<Test>]
     member that.simpleLetFunction() =
-        compare "   let t (x) { x*x }; t 4" <| ResI 16
+        compare "   let t x = x*x; t 4" <| ResI 16
         
     [<Test>]
     member that.multiParameterLetFunction() =
-        compare "let f(x:Int,y:Int, z: Int):Int { x-y-z}; f 10 2 4" <| ResI 4
+        compare "let f (x:Int) (y:Int) (z: Int):Int = x-y-z; f 10 2 4" <| ResI 4
 
     [<Test>]
     member that.nestedLetFunction() =
-        compare "   let  t (x) { let f(y) { x-y }; f x }; t 5" <| ResI 0
+        compare "   let  t x = let f y = x-y; f x ; t 5" <| ResI 0
           
     [<Test>]
     member that.sequentialLetFunction() =
-        compare "   let  t (x) { x*2 }; let f(x, y) { x-y }; f 5 (t 2)" <| ResI 1
+        compare "   let  t x = x*2; let f x y = x-y; f 5 (t 2)" <| ResI 1
         
     [<Test>]
     member that.typedLetFunction() =
-        compare "   let  t (x: Char): String { 'a'::\"hi\" }; t 'a'" <|
+        compare "   let  t (x: Char): String = 'a'::\"hi\"; t 'a'" <|
             ResCons (ResC 'a', ResCons (ResC 'h', ResCons (ResC 'i', ResNil)))
         
     [<Test>]
     member that.maltypedLetFunction() =
-        shouldFail "   let t(f: Int) = (let x: Int = 3;x+4); t"
+        shouldFail "   let t (f: Int) = (let x: Int = 3;x+4); t"
         
     [<Test>]
     member that.incompleteLetFunction() =
-        shouldFail "   let  t(x) { 3+4 };"
+        shouldFail "   let  t x = 3+4;"
         
 [<TestFixture>]
 type TestFunctionParsing() =
 
     [<Test>]
-    member that.simpleFn() =
-        compare " fn (x) { x*x } 4" <| ResI 16
-        
-    [<Test>]
-    member that.multiParameterFn() =
-        compare "fn(x:Int,y:Int) { x-y} 3 4" <| ResI -1
-
-    [<Test>]
-    member that.nestedFn() =
-        compare "   fn(x) { fn(y) { x-y } }  5 4" <| ResI 1
-       
-    [<Test>]
-    member that.typedFn() =
-        compare "   fn   (x: Int) { x*x } 4" <| ResI 16
-        
-    [<Test>]
-    member that.maltypedFn() =
-        shouldFail "   fn(f): Int { f + 2} 3"
-        
-
-    [<Test>]
     member that.simpleLambda() =
-        compare " (\x => x*x) 4" <| ResI 16
+        compare " (\x -> x*x) 4" <| ResI 16
         
     [<Test>]
     member that.multiParameterLambda() =
-        compare "(\x:Int, y:Int => x - y) 3 4" <| ResI -1
+        compare "(\(x:Int) (y:Int) -> x - y) 3 4" <| ResI -1
 
     [<Test>]
     member that.nestedLambda() =
-        compare "   (\x => (\y => x - y))  5 4" <| ResI 1
+        compare "   (\x -> (\y -> x - y))  5 4" <| ResI 1
        
     [<Test>]
     member that.typedLambda() =
-        compare "  (\x:Int => x*x) 4" <| ResI 16
+        compare "  (\(x:Int) -> x*x) 4" <| ResI 16
         
     [<Test>]
     member that.maltypedLambda() =
-        shouldFail "   (\x: => x) 3"
+        shouldFail "   (\x: -> x) 3"
         
 
 [<TestFixture>]
@@ -185,7 +164,7 @@ type TestCondAndTry() =
 
     [<Test>]
     member that.simpleTry() =
-        compare "try if true then raise else 1 except fn(x: Int) { x+3 } 4" <| ResI 7
+        compare "try if true then raise else 1 except (\\(x: Int) -> x+3) 4" <| ResI 7
        
     [<Test>]
     member that.nestedTry() =
@@ -205,7 +184,7 @@ type TestLists() =
 
     [<Test>]
     member that.longList() =
-        compare "[0,3+2,4,(\x => x+1) 3,4]" <|
+        compare "[0,3+2,4,(\x -> x+1) 3,4]" <|
             ResCons(ResI 0, ResCons(ResI 5, ResCons(ResI 4, ResCons(ResI 4, ResCons(ResI 4, ResNil)))))
 
     [<Test>]
@@ -285,22 +264,22 @@ type TestSequence() =
 
     [<Test>]
     member that.skipOutput() =
-        compare    "skip;output \"hi\";3" <| ResI 3
+        compare    "skip >> output \"hi\" >> 3" <| ResI 3
 
     [<Test>]
     member that.printConcat() =
-        compare    "let f(x, y) {
-	                    output (\"the first argument is \"@x);
-	                    output (\"the second argument is \"@y);
+        compare    "let f x y =
+	                    output (\"the first argument is \"@x) >>
+	                    output (\"the second argument is \"@y) >>
 	                    x @ \" \" @ y
-                    };
+                    ;
                     f \"hello\" \"world\"" <| (evaluate <| parse "\"hello world\"")
 
     [<Test>]
     member that.passUnit() =
-        compare    "let f(x: Unit, y: Unit): Unit {
-	                    x;y
-                    };
+        compare    "let f (x: Unit) (y: Unit): Unit =
+	                    x >> y
+                    ;
                     f (output \"hello\") (output \"world\")" <| ResSkip
 
     [<Test>]
@@ -310,7 +289,7 @@ type TestSequence() =
                     
     [<Test>]
     member that.printInLetEscaped() =
-        compare    "let x = ((output \"hi\");3);
+        compare    "let x = (output \"hi\" >> 3);
                     x" <| ResI 3
 
            
@@ -329,37 +308,35 @@ type TestInteractions() =
 
     [<Test>]
     member that.app3() =
-        compare    "let app3: (Int -> Int) -> Int = fn(f: Int -> Int) {
+        compare    "let app3: (Int -> Int) -> Int = \\(f: Int -> Int) ->
                         f 3
-                    };
-                    app3 fn(x: Int) {
-                        (x + 1)
-                    }" <| ResI 4
+                    ;
+                    app3 (\\(x: Int) -> x + 1)" <| ResI 4
 
     [<Test>]
     member that.factorial() =
-        compare    "let rec fat(x: Int): Int {
-                    if x = 0 then 1 else x*(fat (x-1))
-                    };
+        compare    "let rec fat (x: Int): Int =
+                        if x = 0 then 1 else x*(fat (x-1))
+                    ;
                     fat 5" <| ResI 120
 
     [<Test>]
     member that.facList() =
-        compare    "let rec faclist(x: Int): [Int] {
-                        let rec fac(y: Int): Int {
+        compare    "let rec faclist (x: Int): [Int] =
+                        let rec fac (y: Int): Int =
                             if y = 0 then 1 else y*(fac (y-1))
-                        };
+                        ;
                         if x = 0 then
                             nil
                         else
                             (fac x) :: (faclist (x-1))
-                    };
+                    ;
                     reverse $ faclist 5" <| ResCons(ResI 1, ResCons(ResI 2,  
                         ResCons(ResI 6, ResCons(ResI 24, ResCons(ResI 120, ResNil)))))
 
     [<Test>]
     member that.letRecList() =
-        compare    "let rec sum(x: [Int]): Int {
+        compare    "let rec sum (x: [Int]): Int =
                         if empty? x then 0 else (head x)+(sum(tail x))
-                    };
+                    ;
                     sum(4::3::2::1::nil)" <| ResI 10
