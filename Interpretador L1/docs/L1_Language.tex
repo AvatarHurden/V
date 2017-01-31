@@ -973,11 +973,26 @@ When the association is called, the type is returned as-is, even if it is a vari
 \paragraph{Universal Associations}
 This association, also called a type scheme, stores a type which contains at least one variable type bound by a ``for all'' quantifier ($\forall$).
 When called, this association creates a new variable type for each bound variable and returns a new instance of the type scheme.
-
 Universal associations are used exclusively for polymorphic functions.
+
 To create this type of association, the type system must generate a list of ``free variables'' present in the type that is to be universalized.
 These are the variable types that are not present in the environment when the identifier is declared.
+When these free variables are found, they are universally bound.
+This ensures that only those variable types that are unbound in the environment become universally bound in the resulting association.
 
+\paragraph{Constraint Unification}
+
+After collecting every type constraint for the program, the type inference system attempts to unify these constraints and find a solution for them.
+This solution comes in the form of type substitutions, which associate variable types to other types, and type traits, which associate variable types to sets of traits.
+
+If the constraints cannot be unified - that is, if a conflict is found -, the program is deemed not well-typed.
+Because of how the collection and unification process works, little information is given about where the problem ocurred.
+
+\paragraph{Unification Application}
+
+After obtaining a valid solution to the set of constraints, the type inference system applies the substitution to the type of the program.
+This is done recursively until no more substitutions are found, resulting in what is called the principal type.
+If there are any variable types in the principal type, the traits are applied to them, restricting the set of types that the variable types can represent.
 
 \paragraph{Constraint Collection Rules}
 Every expression in $L1$ has a rule for constraint collection, similar to how every expression has a rule for its semantic evaluation.
