@@ -1156,4 +1156,63 @@ Every expression in $L1$ has a rule for constraint collection, similar to how ev
 \infax[T-Input]
     {\Gamma \vdash \texttt{input} : \mbox{Char} \; list \; | \; \{\}}
 
+\newpage
+\section{Concrete Syntax}
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
+e &::= &number\\
+    &| &bool\\
+    &| &char\\
+    &| &string\\
+    &| &x\\
+    &| &\texttt{if} \; e \; \texttt{then} \; e \; \texttt{else} \; e\\
+    &| &( \; e \;)\\
+    &| &e \; op \; e\\
+    &| &\backslash parameters \; \texttt{->} \; e\\
+    &| &\texttt{rec} \; x \; parameters \; [: Type] = e\\
+    &| &e \; e\\
+    &| &\texttt{let} \; x \; [: Type] = e \; ; \; e\\
+    &| &\texttt{let} \; [\texttt{rec}] \; x \; [parameters] \; [: Type] = e \; ; \; e\\
+    &| &\texttt{raise}\\
+    &| &\texttt{try} \; e \; \texttt{with} \; e\\
+    &| &[e \{, e\}]\\
+    &| &[]\\
+    &| &\texttt{nil}\\
+    &| &[e \; \texttt{for} \; x \; \texttt{in} \; e ]\\
+    &| &\texttt{head} \; e \\
+    &| &\texttt{tail} \; e \\
+    &| &\texttt{empty} \; e \\
+    &| &- \; e\\
+    &| &\texttt{import} \; string\\
+    &| &\texttt{skip}\\
+    &| &\texttt{input}\\
+    &| &\texttt{ouput} \; e\\
+    \\
+    op &::= &opNum \; | \; opEq \; | \; opIneq \; | \; opBool \; | \; opSugar \; | \; ; \\
+    opNum &::= &+ \; | \; - \; | \; * \; | \; / \; | \; \%\\
+    opEq &::= &= \; | \; !=\\
+    opIneq &::= &< \; | \; <= \; | \; > \; | \; >=\\
+    opBool &::= &|| \; | \; \texttt{\&\&}\\
+    opSugar &::= &!! \; | \; @ \; | \; \$ \; | \; . \; | \; ::\\
+    \\
+    bool &::= &\texttt{true} \; | \; \texttt{false}\\
+    \\
+    number &::= &digit\{digit\}\\
+    digit &::= &0 \; | \; 1 \; | \; 2 \; | \; \cdots \; | \;9\\
+    \\
+    x &::= &(letter \; \{letter \; | \; digit\})_{<reserved>}\\
+    letter &::= & \texttt{ a | b | $\cdots$ | z | A | B | $\cdots$ | Z }\\
+    \\
+    reserved &::= & \texttt{let | true | false | if | then | else }\\
+    && \texttt{rec | nil | head | tail | raise | try}\\
+    && \texttt{skip | output | input | except | for }\\
+    && \texttt{in | empty? | import}\\
+    \\
+    char &::= &\texttt{'} \; (character_{<\backslash \; | \;\texttt{'} \; >} \; | \; space \; | \; escape) \; \texttt{'}\\
+    string &::= &\texttt{"} \; \{character_{<\backslash \; | \;\texttt{"} \; >} \; | \; space \; | \; escape\} \; \texttt{"}\\
+    escape &::= &\backslash \; \texttt{( n | b | r | t | \textbackslash \; | " | ' )}\\
+    character&::= &\texttt{Unicode} \; \texttt{character}\\
+\end{tabular}}
+
 \end{document}
