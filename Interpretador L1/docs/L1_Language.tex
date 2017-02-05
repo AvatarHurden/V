@@ -1,5 +1,6 @@
 \documentclass{article}
 
+\usepackage{listings}
 \usepackage{amssymb}
 \usepackage{amsmath}
 \usepackage{array}
@@ -11,6 +12,29 @@
 
 \newcommand\nonter[1]{\ensuremath{#1\negthinspace s}}
 \def\code#1{\begin{footnotesize}\texttt{#1}\end{footnotesize}}
+
+\lstdefinelanguage{L1}{
+  morekeywords = {let, body},
+}
+\lstset{language=L1}
+
+  \lstdefinestyle{L1}{
+    basicstyle=\footnotesize\ttfamily,
+    numbers=left,
+    numberstyle=\tiny\color{gray}\ttfamily,
+    numbersep=5pt,
+    backgroundcolor=\color{white},
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    frame=single,
+    rulecolor=\color{black},
+    captionpos=b,
+    keywordstyle=\color{blue}\bf,
+    commentstyle=\color{gray},
+    stringstyle=\color{green},
+    keywordstyle={[2]\color{red}\bf},
+  }
 
 \author{Arthur Giesel Vedana}
 \title{L1 Syntax and Documentation}
@@ -1214,5 +1238,344 @@ e &::= &number\\
     escape &::= &\backslash \; \texttt{( n | b | r | t | \textbackslash \; | " | ' )}\\
     character&::= &\texttt{Unicode} \; \texttt{character}\\
 \end{tabular}}
+
+\section{Concrete Syntax}
+
+\subsection{Literals}
+
+There are 4 types of literal values available in the $L1$ language:
+
+\begin{enumerate}
+  \item Integers
+  \item Booleans
+  \item Character
+  \item Strings
+\end{enumerate}
+
+\paragraph{Integers}
+Only positive integers (plus zero) are recognized.
+They are always specified in decimal format,  using only the digits from 0 to 9.
+
+\paragraph{Booleans}
+Two values are available: \code{true} for true, and \code{false} for false.
+
+\paragraph{Characters and Strings}
+A character literal is a single Unicode character surround by single quotes (').
+A string literal is a sequence of zero or more Unicode characters surrounded by double quotes (").
+In reality, a string literal is just syntactic sugar for a list of characters.
+
+$"abc" \rightarrow 'a' :: 'b' :: 'c' :: nil$
+
+Some characters must be escaped in order to insert them into either character or string literals.
+"Escaping" a character means preceding it by the backslash character (\textbackslash).
+For character literals, the single quote must be escaped (\textbackslash'), while string literals require the escaping of the double quote (\textbackslash").
+
+There is also support for ASCII escape codes to insert special characters in literals.
+These are the allowed escape codes and their resulting characters:
+
+\begin{tabular}{|l|l|}
+  \hline
+  \textbf{Escape code} & \textbf{Character}\\
+  \hline
+  \textbackslash b & backspace\\
+  \hline
+  \textbackslash n & newline (line feed\\
+  \hline
+  \textbackslash r & carriage return\\
+  \hline
+  \textbackslash t & horizontal tab\\
+  \hline
+  \textbackslash \textbackslash & backslash\\
+  \hline
+  \textbackslash '  & single quote\\
+  \hline
+  \textbackslash "  & double quote\\
+  \hline
+\end{tabular}
+
+Any escape code can be used in either character or string literals.
+Furthermore, the special characters can be inserted directly into the literal.
+This means that multi line strings are immediately support by $L1$.
+This also means that a single quote followed by a new line and a single quote is interpreted as a valid character literal (i.e. '\textbackslash n').
+
+\subsection{Identifiers}
+
+Identifiers are used to name constants (in let declarations), functions and function arguments.
+When an identifier is expected, the identifier is defined as the longest possible sequence of valid characters.
+Any Unicode character is considered valid, with the exception of the following:
+\\
+
+\begin{tabular}{|l|l|l|l|l|l|l|}
+  \hline
+  . & , & ; & : & ! & @ & \&\\
+  \hline
+  + & - & / & * & $<$ & = & $>$ \\
+  \hline
+  ( & ) & \{ & \} & [ & ] & $|$ \\
+  \hline
+  \% & \textbackslash & ' & " & \textbackslash n & \textbackslash r & \textbackslash t\\
+  \hline
+\end{tabular}
+\\
+\\
+Furthermore, $L1$ has some reserved names that cannot be used by any identifier.
+They are the following:
+\\
+
+\begin{tabular}{|l|l|l|l|l|}
+  \hline
+  true & false & if & then & else\\
+  \hline
+  let & nil & empty? & head & tail\\
+  \hline
+  rec & raise & try & except & 	import\\
+  \hline
+  skip & input & output & for & in\\
+  \hline
+\end{tabular}
+
+\subsection{Types}
+
+\begin{tabular}{|l|l|l|}
+  \hline
+  \textbf{Type} & \textbf{Example Values} & \textbf{Comments}\\
+  \hline
+  Int & 1, 0, -3 &\\
+  \hline
+  Bool & \code{true}, \code{false} &\\
+  \hline
+  Char & `c', ` ' &\\
+  \hline
+  String & ``abc'', ``'' & This is syntactic sugar for \code{[Char]}\\
+  \hline
+  [$Type$] & [1, 2, 3], \code{nil} &\\
+  \hline
+  $Type$ -$>$ $Type$ & & Function Type (see \ref{Function Type})\\
+  \hline
+\end{tabular}
+
+\subsection{Comments}
+
+
+\subsection{Operators}
+
+$L1$ provides a number of infix binary operators to manipulate data.
+
+\subsubsection{Priority}
+
+Every operator is ordered within a priority system, in which operators at a higher priority level are evaluated first.
+The levels are ordered in an inverse numerical system (i.e. priority 0 is the highest level).
+For different operators at the same priority level, the evaluation is always done from left to right.
+
+\subsubsection{Associativity}
+
+Some operators can be composed several times in a row, such as addition or function application.
+For these operators, it is necessary to define how they are interpreted to return the desired value.
+There are 2 possible associativities that an operator can have:
+
+\begin{itemize}
+  \item Left-associative \\
+    \code{((a + b) + c) + d}
+  \item Right-associative \\
+    \code{a + (b + (c + d))}
+\end{itemize}
+
+\subsubsection{Table of Operators}
+
+Below is a summary of every operator avaiable in the language, along with a small description and their associativities (if any).
+The table is ordered by decreasing priority level (the first operator has the highest priority).
+\\
+
+\begin{tabular}{|l|l|l|l|}
+  \hline
+  \textbf{Priority} & \textbf{Operator} & \textbf{Meaning} & \textbf{Associativity}\\
+  \hline
+  0 & \code{f x} & Function Application & Left\\
+  \hline
+  1 & \code{f . g} & Function Composition & Right\\
+  \hline
+   & \code{x !! y} & List Indexing & Left\\
+  \hline
+  2 & \code{x * y} & Multiplication & Left\\
+  \hline
+   & \code{x / y} & Division & Left\\
+  \hline
+   & \code{x \% y} & Remainder & Left\\
+  \hline
+  3 & \code{x + y} & Addition & Left\\
+  \hline
+   & \code{x - y} & Subtraction & Left\\
+  \hline
+  4 & \code{x :: y} & List Construction & Right\\
+  \hline
+  5 & \code{x @ y} & List Concatenation & Right\\
+  \hline
+  6 & \code{x == y} & Equals & None\\
+  \hline
+   & \code{x != y} & Not Equals & None\\
+  \hline
+   & \code{x > y} & Greater Than & None\\
+  \hline
+   & \code{x >= y} & Greater Than Or Equal & None\\
+  \hline
+   & \code{x < y} & Less Than & None\\
+  \hline
+   & \code{x <= y} & Less Than Or Equal & None\\
+  \hline
+  7 & \code{x \&\& y} & Logical AND & Right\\
+  \hline
+  8 & \code{x || y} & Logical OR & Right\\
+  \hline
+  9 & \code{x >> y} & Sequential Evaluation & Left\\
+  \hline
+  10 & \code{x \$ y} & Function Application & Right\\
+  \hline
+\end{tabular}
+
+\subsection{Functions}
+
+There are 4 types of functions that a programmer can declare:
+
+\begin{enumerate}
+  \item Named functions
+  \item Recursive Named functions
+  \item Lambdas (unnamed functions)
+  \item Recursive Lambdas
+\end{enumerate}
+
+\subsubsection{Named Functions}
+
+These are functions that have a name by which they can be called after their definition.
+After the name, the programmer must specify one or more parameters, which can be either a simple name or a name and type pair.
+After every argument, the programmer can specify the return type of the function.
+Because of a limitation of the type system, one cannot mix typed and untyped parameters, but this will be fixed in a future version.
+
+The body of a function can use any parameter declared in its definition to compute a return value.
+Since every expression in the language returns a value, any valid expression is accepted as the body of a function.
+The only constraint is that, if the definition specifies a return type, the value must be of that type.
+
+Below are two examples of named functions:
+
+\begin{lstlisting}
+let add x y =
+  x + y
+;
+
+let duplicate (x: Int): Int =
+  x * 2
+;
+\end{lstlisting}
+
+\subsubsection{Recursive Named Functions}
+
+These functions differ from regular named functions by the fact that they can be called from within their own body.
+This means that the function can be called recursively, iterating over a certain value (or values).
+To indicate that a function is recursive, the keyword \code{rec} is added before its name.
+Below are two examples of recursive named functions:
+
+\begin{lstlisting}
+let rec count ls =
+  if empty? ls then
+    0
+  else
+    1 + count (tail ls)
+;
+
+let rec factorial (x: Int): Int =
+  if x == 0 then
+    1
+  else
+    x * factorial (x - 1)
+;
+\end{lstlisting}
+
+Here, both functions perform a test that determines whether the end condition is met.
+If the end condition is met, the function returns a simple value.
+If the end condition is not met, the function recursively calls itself with a modified value, continuing the iteration.
+
+In the case of the \code{count} function, the recursion terminates when the input is an empty list.
+For the \code{factorial} function, an input equal to 0 terminates the recursion.
+
+\subsubsection{Lambdas}
+
+These are simple unnamed functions with a compact syntax that allows them to be written in a single line most of the time.
+This is useful mostly when passing lambdas as arguments to other functions, since they do not require creating a full named declaration.
+
+The general syntax of a lambda is as follows:
+
+\begin{lstlisting}
+\param1 param2 ... -> body
+\(param1: Type1) (param2: Type2) ... -> body
+\end{lstlisting}
+
+A backslash (\textbackslash) indicates the start of a lambda, followed immediately by its parameters.
+Like in named functions, these can be either typed or untyped, but not mixed.
+Unlike named functions, however, the return type of a lambda is never specified.
+
+After the parameters, an arrow (->) indicates the start of the function body, which extends as far to the right as possible.
+Because of this, lambdas are usually enclosed in parenthesis to limit their scope.
+
+Below are the same examples shown in the named functions section, but defined using lambda expressions.
+Notice that, without the use of parenthesis to enclose each lambda, the first function would try to include everything inside its body, resulting in a parsing error.
+
+\begin{lstlisting}
+\\ add
+(\x y -> x + y)
+
+\\ duplicate
+(\(x: Int) -> x * 2)
+\end{lstlisting}
+
+\subsubsection{Recursive Lambdas}
+
+Just like there is a recursive variant of named functions, there is a recursive variant of lambdas.
+These are compact expressions to define recursive functions.
+Like regular lambdas, they are used mostly to be passed as arguments to other functions, and are usually enclosed in parenthesis.
+
+Unlike for regular lambdas, it is necessary to specify a name for a recursive lambda.
+Without a name, it would be impossible to call itself within its body.
+It is important to realize that, unlike with recursive named functions, this name is limited in scope to the inside of the lambda definition.
+
+\begin{lstlisting}
+(rec fac x -> if x == 0 then 1 else x * fac (x - 1))
+
+fac 4 // This is invalid code
+\end{lstlisting}
+
+With the example above, we see that the programmer tried to call a recursive lambda outside its definition.
+The offending code is outside the scope in which \code{fac} is available, resulting in invalid code.
+
+\subsubsection{Function Type}\label{Function Type}
+
+Every function has a type consisting of its parameter types and return type.
+Every parameter type is separated by an arrow (-$>$), and the return type is also separated by a single arrow from the parameter types.
+
+The syntax for a function type is as follows:
+\begin{lstlisting}
+  param1 -> param2 -> ... -> return
+\end{lstlisting}
+
+\smallskip
+
+ If one of the parameters is itself a function, it is possible to use parenthesis to indicate this.
+
+The following function type defines a function that takes two parameters.
+The first is a function of type \code{Int -> Int}.
+The second parameter is an \code{Int}, and the return type is also \code{Int}.
+
+ \begin{lstlisting}
+   (Int -> Int) -> Int -> Int
+ \end{lstlisting}
+
+If the parenthesis were ommited, the type would describe a function that takes 3 parameters of type \code{Int}.
+
+
+
+\subsection{Partial Application and Currying}
+
+
+\subsection{Lists}
+
+\subsection{Input and Output}
 
 \end{document}
