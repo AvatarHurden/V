@@ -38,13 +38,30 @@ let main argv =
             exit(0)
 
     try
+        let stopWatch = System.Diagnostics.Stopwatch.StartNew()
+
         let term = parse text
 
+        stopWatch.Stop()
+        printfn "Time to parse = %f" stopWatch.Elapsed.TotalMilliseconds
+        
+        
         //printfn "%O" <| toString term
+        
+        stopWatch.Restart()
 
-        //typeInfer term |> printfn "Your program is of type:\n\n%A\n\n"
+        typeInfer term |> printfn "Your program is of type:\n\n%A\n\n"
+        
+        stopWatch.Stop()
+        printfn "Time to infer type = %f" stopWatch.Elapsed.TotalMilliseconds
             
+
+        stopWatch.Restart()
+
         term |> evaluate |> printResult |> printfn "Your program resulted in:\n\n%O\n"
+        
+        stopWatch.Stop()
+        printfn "Time to evaluate = %f" stopWatch.Elapsed.TotalMilliseconds
     with
     | WrongExpression e -> Console.WriteLine e
     | InvalidEntryText t -> Console.WriteLine t

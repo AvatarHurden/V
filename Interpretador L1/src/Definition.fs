@@ -1,17 +1,32 @@
 ﻿module Definition
 
-type Type =
-    | VarType of string
+type Trait =
+    | Equatable
+    | Orderable
+    | TuplePosition of int * Type
+    | RecordLabel of string * Type
+
+and Type =
+    | VarType of string * Trait list
     | Int
     | Bool
     | Char
     | Unit
     | Function of Type * Type
     | List of Type
+    | Tuple of Type list
+    | Record of (string * Type) list
 
-type Trait =
-    | Equatable
-    | Orderable
+let rec mapOption f ls =
+    match ls with
+    | [] -> Some []
+    | x :: rest ->
+        match f x with
+        | Some x' -> 
+            match mapOption f rest with
+            | None -> None
+            | Some rest' -> Some <| x' :: rest'
+        | None -> None
 
 type op =
     | Add
@@ -33,8 +48,7 @@ type op =
 type Ident = string
     
 type term =
-    | True
-    | False
+    | B of bool
     | Skip
     | I of int
     | C of char
@@ -52,10 +66,13 @@ type term =
     | Try of term * term
     | Output of term
     | Input
+    | Tuple of term list
+    | Record of (string * term) list
+    | ProjectIndex of int * term
+    | ProjectName of string * term
 
 type result =
-    | ResTrue
-    | ResFalse
+    | ResB of bool
     | ResSkip
     | ResI of int
     | ResC of char
@@ -64,6 +81,8 @@ type result =
     | ResCons of result * result
     | ResClosure of Ident * term * env
     | ResRecClosure of Ident * Ident * term * env
+    | ResTuple of result list
+    | ResRecord of (string * result) list
 and
     env = Map<Ident, result>
 
