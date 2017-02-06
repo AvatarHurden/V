@@ -262,7 +262,7 @@ If the evaluation of $e_1$ does not encounter an exception, the resulting value 
 \paragraph{Lists}
 
 The $L1$ language has built-in lists.
-Each list is a homogeneous finite-length collection of values, meaning that a list contains only elements of the same type.
+Each list is an ordered homogeneous finite-length collection of values, meaning that a list contains only elements of the same type.
 There are also basic operations on lists, such as appending, obtaining the first element of a list, etc.
 
 \medskip
@@ -344,6 +344,49 @@ It is the result of evaluating an \texttt{output} expression and any other expre
 The second expression evaluates $e_1$, ignores its results and evaluates $e_2$.
 It requires that $e_1$ evaluates to no useful value (i.e. evaluates to $skip$).
 
+\paragraph{Tuples}
+Tuples are ordered heterogeneous collections of values with random access.
+This means that any element of a tuple can be accessed regardless of its position.
+Unlike lists, it is not possible to add a value to an existing tuple.
+Tuples of any size greater than or equal to 2 are supported, and they are of fixed-length after construction.
+
+\medskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+e &::= &\cdots&\\
+    &| &(e_1, \; \dots \; e_n) & (n\geq2)\\
+    &| &\#n \; e&\\
+\end{tabular}}
+
+\bigskip
+
+The first expression is the only way to construct a new tuple in $L1$.
+
+The second expression is the projection of a specific field of a tuple.
+
+\paragraph{Records}
+Records are unordered heterogeneous collection of named values with random access.
+Each value has a label associated to it, and this label is used to access its associated value.
+Records of any size greater than 0 are accepted, and their fields are fixed after construction.
+
+\medskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+e &::= &\cdots&\\
+    &| &\{l_1: e_1, \; \dots \; l_n: e_n\} & (n\geq1)\\
+    &| &\#l \; e&\\
+    \\
+l &::= & \{l_1, l_2, ...\}
+\end{tabular}}
+
+\bigskip
+
+The first expression is the only way to construct a new tuple in $L1$.
+
+The second expression is the projection of a specific field of a tuple.
+
 \subsubsection{Types}
 
 Since $L1$ is strongly typed, every (valid) expression has exactly one type associated with it.
@@ -373,10 +416,12 @@ This means that `Int $list$' is a constant type, while `$VarType_1 \rightarrow I
 \medskip
 
 {\setlength\tabcolsep{8pt}
-\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
     T &::= &\cdots\\
     &| &T_1 \rightarrow T_2\\
     &| &T \; list\\
+    &| &(T_1, \; \dots \; T_n) & (n\geq2)\\
+    &| &\{l_1: T_1, \; \dots \; l_n: T_n\} & (n\geq1)\\
 \end{tabular}}
 
 \paragraph{Variable Types}
@@ -417,9 +462,11 @@ Variable types, on the other hand, can explicitly state which traits they posses
 \bigskip
 
 {\setlength\tabcolsep{8pt}
-\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}r}
     Trait &::= &Equatable\\
     &| &Orderable\\
+    &| &(n: Type) & (Tuple Position)\\
+    &| &\{l: Type\} & (Record Label)\\
 \end{tabular}}
 
 \paragraph{Equatable}
@@ -453,6 +500,35 @@ To define the set of types that belong to $Orderable$, the following rules are u
     X^{Traits} \in Orderable \implies Orderable \in Traits\\
 \end{tabular}}
 
+\paragraph{Tuple Position}
+A tuple position trait specifies a type $T$ that a tuple must have at a certain position $n$.
+For this to be valid, the tuple must be at least of size $n+1$, since they are 0-indexed.
+This trait does not put an upper bound on the size of the tuple.
+
+To define the set of types that belong to a tuple position $(n: T)$, the following rules are used:
+
+\medskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+    (T_1, \; \dots \; T_{n+1}, \; \dots \; T_k) \in (n: T) \iff T_{n+1} = T & (k\geq2, \; 0 \leq n < k)\\
+    X^{Traits} \in (n: T) \implies (n: T) \in Traits\\
+\end{tabular}}
+
+\paragraph{Record Label}
+A record label trait specifies a type $T$ that a record must have associated to a label $l$.
+No bounds are placed on the size of the record, since records are unordered sets of label-type pairs.
+
+To define the set of types that belong to a record label $\{l: T\}$, the following rules are used:
+
+\medskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+    \{l_1: T_1, \; \dots \; l_n: T_n, \; \dots \; T_k\} \in \{l: T\} \iff l_n = l \wedge T_{n} = T & (1 \leq n \leq k)\\
+    X^{Traits} \in \{l: T\} \implies \{l: T\} \in Traits\\
+\end{tabular}}
+
 \newpage
 
 \subsection{Operational Semantics}
@@ -476,7 +552,7 @@ Below are the definitions of both values and environments:
 \bigskip
 
 {\setlength\tabcolsep{8pt}
-\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
 env &::= &\{\} \; | \; \{x \rightarrow v\} \cup env\\
 \\
     v &::= &n\\
@@ -486,6 +562,8 @@ env &::= &\{\} \; | \; \{x \rightarrow v\} \cup env\\
     &| &v_1 :: v_2\\
     &| &raise\\
     &| &skip\\
+    &| &(v_1, \; \dots \; v_n) & (n\geq2)\\
+    &| &\{l_1: v_1, \; \dots \; l_n: v_n\} & (n\geq1)\\
     &| &\left\langle x, e, env\right\rangle\\
     &| &\left\langle x_1, x_2, e, env\right\rangle\\
 \end{tabular}}
@@ -602,6 +680,30 @@ Even so, it is important to realize that it only compares values of the same kin
     {\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow v_3::v_4\\
      \mbox{env} \vdash v_1 = v_3 \Downarrow true \andalso \mbox{env} \vdash v_2 = v_4 \Downarrow b}
     {\mbox{env} \vdash e_1 = e_2 \Downarrow b}
+
+\medskip
+
+\infrule[BS-$=$TupleFalse]
+    {\mbox{env} \vdash e_1 \Downarrow (v_{11}, \; \dots \; v_{1n}) \andalso \mbox{env} \vdash e_2 \Downarrow (v_{21}, \; \dots \; v_{2k})\\
+     \exists \; k \in \left[1, n\right] \; \; \mbox{env} \vdash v_{1k} = v_{2k} \Downarrow false}
+    {\mbox{env} \vdash e_1 = e_2 \Downarrow false}
+
+\infrule[BS-$=$TupleTrue]
+    {\mbox{env} \vdash e_1 \Downarrow (v_{11}, \; \dots \; v_{1n}) \andalso \mbox{env} \vdash e_2 \Downarrow (v_{21}, \; \dots \; v_{2n})\\
+     \forall \; k \in \left[1, n\right] \; \; \mbox{env} \vdash v_{1k} = v_{2k} \Downarrow true}
+    {\mbox{env} \vdash e_1 = e_2 \Downarrow true}
+
+\medskip
+
+\infrule[BS-$=$RecordFalse]
+    {\mbox{env} \vdash e_1 \Downarrow (l_{11}: v_{11}, \; \dots \; l_{1n}: v_{1n}) \andalso \mbox{env} \vdash e_2 \Downarrow (l_{21}: v_{21}, \; \dots \; l_{2n}: v_{2n})\\
+     \exists \; k \in \left[1, n\right]  \exists \; j \in \left[1, n\right] \; \; l_{1j} = l_{2k} \wedge \mbox{env} \vdash v_{1j} = v_{2k} \Downarrow false}
+    {\mbox{env} \vdash e_1 = e_2 \Downarrow false}
+
+\infrule[BS-$=$RecordTrue]
+    {\mbox{env} \vdash e_1 \Downarrow (l_{11}: v_{11}, \; \dots \; l_{1n}: v_{1n}) \andalso \mbox{env} \vdash e_2 \Downarrow (l_{21}: v_{21}, \; \dots \; l_{2n}: v_{2n})\\
+     \forall \; k \in \left[1, n\right]  \exists \; j \in \left[1, n\right] \; \; l_{1j} = l_{2k} \wedge \mbox{env} \vdash v_{1j} = v_{2k} \Downarrow true}
+    {\mbox{env} \vdash e_1 = e_2 \Downarrow true}
 
 \bigskip
 
@@ -834,7 +936,7 @@ The append operation ($::$) accepts any value as its first operand ($e_1$), but 
     {\mbox{env} \vdash e_1 \Downarrow v \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
     {\mbox{env} \vdash e_1 :: e_2 \Downarrow v :: (v_1 :: v_2)}
 
-The $empty$ expression returns $true$ if and only if its operand ($e_1$) evaluates to the empty list ($nil$).
+The $isempty$ expression returns $true$ if and only if its operand ($e_1$) evaluates to the empty list ($nil$).
 
 \infrule[BS-EmptyTrue]
     {\mbox{env} \vdash e_1 \Downarrow nil}
@@ -933,6 +1035,38 @@ The only guarantees that exist are that it will be either $nil$ or $c :: v_2$, m
 
 \infax[BS-Input]
     {\mbox{env} \vdash \texttt{input} \Downarrow v}
+
+\paragraph{Tuples}
+A tuple construction expression $(e_1, \; \dots \; e_n)$ evaluates each of its sub-expressions individually, resulting in a tuple value.
+If any expression evaluates to a $raise$, the whole tuple evaluates to $raise$, propagating the exception.
+
+\infrule[BS-Tuple]
+    {\forall \; k \in \left[1, n\right] \; \; \mbox{env} \vdash e_k \Downarrow v_k}
+    {\mbox{env} \vdash (e_1, \; \dots \; e_n) \Downarrow (v_1, \; \dots \; e_n)}
+
+For field projection, the tuple is 0-indexed, meaning the first component has index 0.
+Because of this, projection can only be done on positive numbers.
+Any attempt to project an inexisting field (i.e $n \geq k$) is invalid code, and does not evaluate to $raise$.
+
+\infrule[BS-TupleProjection]
+    {\mbox{env} \vdash e \Downarrow (v_1, \; \dots \; v_k) \andalso 0 \leq \left\|n\right\| < \left\|k\right\|}
+    {\mbox{env} \vdash \#n \; e \Downarrow v_{n+1}}
+
+\paragraph{Records}
+A record construction expression $\{l_1: e_1, \; \dots \; l_n: e_n\}$ evaluates each of its sub-expressions individually, resulting in a record value.
+If any expression evaluates to a $raise$, the whole record evaluates to $raise$, propagating the exception.
+
+\infrule[BS-Record]
+    {\forall \; k \in \left[1, n\right] \; \; \mbox{env} \vdash e_k \Downarrow v_k}
+    {\mbox{env} \vdash \{l_1: e_1, \; \dots \; l_n: e_n\} \Downarrow \{l_1: v_1, \; \dots \; l_n: v_n\}}
+
+Labels are used to project a field of a record, and the fields are unordered.
+This means that, as long as some field of a record has the requested label, that field can be projected.
+Any attempt to project an inexisting field (i.e the label does not exist in the record) is invalid code, and does not evaluate to $raise$.
+
+\infrule[BS-RecordProjection]
+    {\mbox{env} \vdash e \Downarrow \{l_1: e_1, \; \dots \; l_n: e_n\} \andalso l = l_k \andalso 1 \leq \left\|k\right\| \leq \left\|n\right\|}
+    {\mbox{env} \vdash \#l \; e \Downarrow v_k}
 
 \subsection{Type System}\label{Type System}
 
@@ -1179,6 +1313,26 @@ Every expression in $L1$ has a rule for constraint collection, similar to how ev
 
 \infax[T-Input]
     {\Gamma \vdash \texttt{input} : \mbox{Char} \; list \; | \; \{\}}
+
+\bigskip
+
+\infrule[T-Tuple]
+    {\forall \; k \in \left[1, n\right] \; \; \Gamma \vdash e_k : T_k \; | \; C_k}
+    {\Gamma \vdash (e_1, \; \dots \; e_n) : (T_1, \; \dots \; T_n) \; | \; C_1 \cup \cdots C_n }
+
+\infrule[T-TupleProjection]
+    {\Gamma \vdash e : T_1 \; | \; C_1 \andalso X_1 \; is \; new \andalso X_2^{\{(n: X_1)\}} \; is \; new}
+    {\Gamma \vdash \#n \; e : X_1 \; | \; C_1 \cup \{T_1 = X_2\}}
+
+\bigskip
+
+\infrule[T-Record]
+    {\forall \; k \in \left[1, n\right] \; \; \Gamma \vdash e_k : T_k \; | \; C_k}
+    {\Gamma \vdash \{l_1: e_1, \; \dots \; l_n: e_n\} : \{l_1: T_1, \; \dots \; l_n: T_n\} \; | \; C_1 \cup \cdots C_n }
+
+\infrule[T-RecordProjection]
+    {\Gamma \vdash e : T_1 \; | \; C_1 \andalso X_1 \; is \; new \andalso X_2^{\{\{l: X_1\}\}} \; is \; new}
+    {\Gamma \vdash \#l \; e : X_1 \; | \; C_1 \cup \{T_1 = X_2\}}
 
 \newpage
 \section{Concrete Syntax}
