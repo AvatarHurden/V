@@ -111,6 +111,9 @@ let rec private matchStart (text: string) matches =
         true, x
     | x::rest ->
         matchStart text rest
+        
+let private (|Trimmed|) text =
+    splitSpaces text
 
 let private (|Number|_|) text =
     let trimmed = splitSpaces text
@@ -120,6 +123,25 @@ let private (|Number|_|) text =
         Some (int num, trimmed.Substring num.Length)
     else
         None
+
+let private (|Identifier|_|) text =
+    match text with
+    | Number rest ->
+        None
+    | Trimmed rest ->
+        let prohibited = " .,;:+-/*<=>(){}[]%$&|!@#\\'\"\n\r\t".ToCharArray()
+        let ident = String.Concat (rest |> 
+                        Seq.takeWhile (fun x -> not <| Seq.exists ((=) x) prohibited))
+        match ident with
+        | "let" | "true" | "false" | "if" | "then" | "else" 
+        | "fn" | "rec"| "nil" | "head" | "tail" | "raise" 
+        | "skip" | "output" | "input"
+        | "try" | "except" | "for" | "in" | "empty?" | "import" ->
+            None
+        | "" ->
+            None
+        | _ ->
+            Some (ident, rest.Substring ident.Length)
     
 let private (|AnyStart|_|) starts text =
     let trimmed = splitSpaces text
@@ -140,9 +162,6 @@ let private (|Start|_|) start text =
         Some <| trimmed.Substring start.Length
     else
         None
-
-let private (|Trimmed|) text =
-    splitSpaces text
 
 let private raiseExp x = raise <| InvalidEntryText x
 
@@ -167,22 +186,10 @@ let rec parseMultipleComponents f text closings =
 
 let parseIdent text = 
     match text with
-    | Number rest ->
-        raiseExp "An identifier cannot begin with a digit"
+    | Identifier (ident, rest) ->
+        rest, ident
     | Trimmed rest ->
-        let prohibited = " .,;:+-/*<=>(){}[]%$&|!@#\\'\"\n\r\t".ToCharArray()
-        let ident = String.Concat (rest |> 
-                        Seq.takeWhile (fun x -> not <| Seq.exists ((=) x) prohibited))
-        match ident with
-        | "let" | "true" | "false" | "if" | "then" | "else" 
-        | "fn" | "rec"| "nil" | "head" | "tail" | "raise" 
-        | "skip" | "output" | "input"
-        | "try" | "except" | "for" | "in" | "empty?" | "import" ->
-            raiseExp <| sprintf "A variable cannot be called %A at %A" ident text
-        | "" ->
-            raiseExp <| sprintf "Cannot declare an empty identifier at %A" text
-        | _ ->
-            rest.Substring(ident.Length), ident
+        raiseExp <| sprintf "Did not find a valid identifier at %A" text
 
 let rec parseType text closings =
     let remainingText, typ1 = 
@@ -460,26 +467,15 @@ let rec parseImport text closings =
 
 //#region Term parsing        
 
-and parseLet text closings =
-    match text with
-    | Start "rec" rest ->
-        parseLetRec rest closings
-    | Trimmed rest ->
-        parseDirectLet rest closings
+and parseLet text closings = 
+    let isRec, rest =
+        match text with
+        | Start "rec" rest ->
+            true, rest
+        | Trimmed rest ->
+            false, rest
 
-and parseLetRec text closings =
-    let rest, recFn = parseRecFunction text (true, [";"])
-    let rest, t2 = parseTerm rest (false, snd closings)
-    
-    match recFn with
-    | RecFn(id, Some retType, id2, Some typ1, retTerm) ->
-        rest, Let(id, Some <| Function(typ1, retType), recFn, t2)
-    | RecFn(id, None, id2, None, retTerm) ->
-        rest, Let(id, None, recFn, t2)
-    | _ -> raiseExp <| sprintf "Wrong recurive function at %A" text
-
-and parseDirectLet text closings = 
-    let rest, id = parseIdent text
+    let rest, id = parseIdent rest
     let rest, parameters = parseParameters rest (false, ["="; ":"])
     let rest, retType =
         match rest with
@@ -490,10 +486,10 @@ and parseDirectLet text closings =
     let rest, retTerm = parseTerm rest (true, [";"])
     let rest, t2 = parseTerm rest (false, snd closings)
     
-    match parameters with
-    | [] ->
+    match isRec, parameters with
+    | false, [] ->
         rest, Let(id, retType, retTerm, t2)
-    | _ ->
+    | false, _ ->
         let (id2, typ1), (retTerm, retType) = joinMultiParameters parameters retTerm retType
         let fn = Fn(id2, typ1, retTerm)
         match retType, typ1 with
@@ -501,16 +497,25 @@ and parseDirectLet text closings =
             rest, Let(id, Some <| Function(typ1, retType), fn, t2)
         | None, None ->
             rest, Let(id, None, fn, t2)
+        | _ -> raiseExp <| sprintf "Wrong function at %A" text
+    | true, _ ->
+        let (id2, typ1), (retTerm, retType) = joinMultiParameters parameters retTerm retType
+        let recFn = RecFn(id, retType, id2, typ1, retTerm)
+        match recFn with
+        | RecFn(id, Some retType, id2, Some typ1, retTerm) ->
+            rest, Let(id, Some <| Function(typ1, retType), recFn, t2)
+        | RecFn(id, None, id2, None, retTerm) ->
+            rest, Let(id, None, recFn, t2)
         | _ -> raiseExp <| sprintf "Wrong recurive function at %A" text
 
 and parseRecFunction text closings =
     let rest, id = parseIdent text
-    let rest, parameters = parseParameters rest (false, ["="; ":"])
+    let rest, parameters = parseParameters rest (false, ["->"; ":"])
     let rest, retType =
         match rest with
-        | Start ":" rest -> parseSomeType rest (true, ["="])
-        | Start "=" rest -> rest, None
-        | _ -> raiseExp "Expected a \"=\" at %A" text
+        | Start ":" rest -> parseSomeType rest (true, ["->"])
+        | Start "->" rest -> rest, None
+        | _ -> raiseExp "Expected a \"->\" at %A" text
     let rest, retTerm = parseTerm rest closings
     
     let (id2, typ1), (retTerm, retType) = joinMultiParameters parameters retTerm retType
@@ -644,125 +649,122 @@ and addToTerms string extendedTerm closings =
 
 // Iterate through the string, collecting single terms and operators
 and collectTerms text closings isAfterTerm = 
-    try
-        let rem, id = parseIdent text
-        addToTerms rem (Term <| X id) closings
-    with
-    | InvalidEntryText t ->
-        match text with
-        | AnyStart closings (t, start) ->
-            t, []
-        | Start "(" rest ->
-            let rest, term = parseParenthesis rest (true, [")"])
-            addToTerms rest (Term term) closings
-        | Start "{" rest ->
-            let rest, term = parseRecord rest (true, ["}"])
-            addToTerms rest (Term term) closings
-        // Matching value terms
-        | Number (num, rest) ->
-            addToTerms rest (Term <| I num) closings
-        | Start "true" rest ->
-            addToTerms rest (Term <| B true) closings
-        | Start "false" rest ->
-            addToTerms rest (Term <| B false) closings
-        | Start "raise" rest ->
-            addToTerms rest (Term Raise) closings
-        | Start "nil" rest ->
-            addToTerms rest (Term Nil) closings
-        | Start "skip" rest ->
-            addToTerms rest (Term Skip) closings
-        | Start "\"" rest ->
-            let rem, term = parseString rest
-            addToTerms rem (Term term) closings
-        | Start "'" rest ->
-            let rem, term = parseChar rest
-            addToTerms rem (Term term) closings
-        // Matching normal terms
-        | Start "import" rest ->
-            let rem, term = parseImport rest closings
-            addToTerms rem (Term term) closings
-        | Start "let" rest ->
-            let rem, term = parseLet rest closings
-            addToTerms rem (Term term) closings
-        | Start "rec" rest ->
-            let rem, term = parseRecFunction rest closings
-            addToTerms rem (Term term) closings
-        | Start "\\" rest ->
-            let rem, term = parseLambda rest closings
-            addToTerms rem (Term term) closings
-        | Start "if" rest ->
-            let rem, term = parseIf rest closings
-            addToTerms rem (Term term) closings
-        | Start "try" rest ->
-            let rem, term = parseTry rest closings
-            addToTerms rem (Term term) closings
-        | Start "[" rest ->
-            let rem, term = parseList rest closings
-            addToTerms rem (Term term) closings
-        | Start "input" rest ->
-            addToTerms rest (Term Input) closings
-        // Matching prefix operators
-        | Start "-" rest when not isAfterTerm ->
-            addToTerms rest (Prefix Negate) closings
-        | Start "empty?" rest ->
-            addToTerms rest 
-                (Term <| Fn ("x", None, IsEmpty <| X "x")) closings
-        | Start "head" rest ->
-            addToTerms rest 
-                (Term <| Fn ("x", None, Head <| X "x")) closings
-        | Start "tail" rest ->
-            addToTerms rest 
-                (Term <| Fn ("x", None, Tail <| X "x")) closings
-        | Start "output" rest ->
-            addToTerms rest 
-                (Term <| Fn ("x", None, Output <| X "x")) closings
-        | Start "#" rest ->
-            let rest, term = parseProjection rest closings
-            addToTerms rest (Term term) closings
-        // Matching infix operators
-        | Start ">>" rest ->
-            addToTerms rest (Infix <| Def Sequence) closings
-        | Start "!!" rest ->
-            addToTerms rest (Infix Index) closings  
-        | Start "%" rest ->
-            addToTerms rest (Infix Remainder) closings        
-        | Start "@" rest ->
-            addToTerms rest (Infix Concat) closings
-        | Start "+" rest ->
-            addToTerms rest (Infix <| Def Add) closings
-        | Start "-" rest when isAfterTerm ->
-            addToTerms rest (Infix <| Def Subtract) closings
-        | Start "*" rest ->
-            addToTerms rest (Infix <| Def Multiply) closings
-        | Start "/" rest ->
-            addToTerms rest (Infix <| Def Divide) closings
-        | Start "<=" rest ->
-            addToTerms rest (Infix <| Def LessOrEqual) closings
-        | Start "<" rest ->
-            addToTerms rest (Infix <| Def LessThan) closings
-        | Start "=" rest ->
-            addToTerms rest (Infix <| Def Equal) closings
-        | Start "!=" rest ->
-            addToTerms rest (Infix <| Def Different) closings
-        | Start ">=" rest ->
-            addToTerms rest (Infix <| Def GreaterOrEqual) closings
-        | Start ">" rest ->
-            addToTerms rest (Infix <| Def GreaterThan) closings
-        // Right associative operators
-        | Start "$" rest ->
-            addToTerms rest (Infix Apply) closings
-        | Start "." rest ->
-            addToTerms rest (Infix Compose) closings
-        | Start "::" rest ->
-            addToTerms rest (Infix <| Def Cons) closings
-        | Start "&&" rest ->
-            addToTerms rest (Infix <| Def And) closings
-        | Start "||" rest ->
-            addToTerms rest (Infix <| Def Or) closings
-        | _ when (snd closings).IsEmpty ->
-            "", []
-        | _ ->
-            raiseExp <| sprintf "Expected \"%A\" at %A" closings text
+    match text with
+    | Identifier (ident, rest) ->
+        addToTerms rest (Term <| X ident) closings
+    | AnyStart closings (t, start) ->
+        t, []
+    | Start "(" rest ->
+        let rest, term = parseParenthesis rest (true, [")"])
+        addToTerms rest (Term term) closings
+    | Start "{" rest ->
+        let rest, term = parseRecord rest (true, ["}"])
+        addToTerms rest (Term term) closings
+    // Matching value terms
+    | Number (num, rest) ->
+        addToTerms rest (Term <| I num) closings
+    | Start "true" rest ->
+        addToTerms rest (Term <| B true) closings
+    | Start "false" rest ->
+        addToTerms rest (Term <| B false) closings
+    | Start "raise" rest ->
+        addToTerms rest (Term Raise) closings
+    | Start "nil" rest ->
+        addToTerms rest (Term Nil) closings
+    | Start "skip" rest ->
+        addToTerms rest (Term Skip) closings
+    | Start "\"" rest ->
+        let rem, term = parseString rest
+        addToTerms rem (Term term) closings
+    | Start "'" rest ->
+        let rem, term = parseChar rest
+        addToTerms rem (Term term) closings
+    // Matching normal terms
+    | Start "import" rest ->
+        let rem, term = parseImport rest closings
+        addToTerms rem (Term term) closings
+    | Start "let" rest ->
+        let rem, term = parseLet rest closings
+        addToTerms rem (Term term) closings
+    | Start "rec" rest ->
+        let rem, term = parseRecFunction rest closings
+        addToTerms rem (Term term) closings
+    | Start "\\" rest ->
+        let rem, term = parseLambda rest closings
+        addToTerms rem (Term term) closings
+    | Start "if" rest ->
+        let rem, term = parseIf rest closings
+        addToTerms rem (Term term) closings
+    | Start "try" rest ->
+        let rem, term = parseTry rest closings
+        addToTerms rem (Term term) closings
+    | Start "[" rest ->
+        let rem, term = parseList rest closings
+        addToTerms rem (Term term) closings
+    | Start "input" rest ->
+        addToTerms rest (Term Input) closings
+    // Matching prefix operators
+    | Start "-" rest when not isAfterTerm ->
+        addToTerms rest (Prefix Negate) closings
+    | Start "empty?" rest ->
+        addToTerms rest 
+            (Term <| Fn ("x", None, IsEmpty <| X "x")) closings
+    | Start "head" rest ->
+        addToTerms rest 
+            (Term <| Fn ("x", None, Head <| X "x")) closings
+    | Start "tail" rest ->
+        addToTerms rest 
+            (Term <| Fn ("x", None, Tail <| X "x")) closings
+    | Start "output" rest ->
+        addToTerms rest 
+            (Term <| Fn ("x", None, Output <| X "x")) closings
+    | Start "#" rest ->
+        let rest, term = parseProjection rest closings
+        addToTerms rest (Term term) closings
+    // Matching infix operators
+    | Start ">>" rest ->
+        addToTerms rest (Infix <| Def Sequence) closings
+    | Start "!!" rest ->
+        addToTerms rest (Infix Index) closings  
+    | Start "%" rest ->
+        addToTerms rest (Infix Remainder) closings        
+    | Start "@" rest ->
+        addToTerms rest (Infix Concat) closings
+    | Start "+" rest ->
+        addToTerms rest (Infix <| Def Add) closings
+    | Start "-" rest when isAfterTerm ->
+        addToTerms rest (Infix <| Def Subtract) closings
+    | Start "*" rest ->
+        addToTerms rest (Infix <| Def Multiply) closings
+    | Start "/" rest ->
+        addToTerms rest (Infix <| Def Divide) closings
+    | Start "<=" rest ->
+        addToTerms rest (Infix <| Def LessOrEqual) closings
+    | Start "<" rest ->
+        addToTerms rest (Infix <| Def LessThan) closings
+    | Start "=" rest ->
+        addToTerms rest (Infix <| Def Equal) closings
+    | Start "!=" rest ->
+        addToTerms rest (Infix <| Def Different) closings
+    | Start ">=" rest ->
+        addToTerms rest (Infix <| Def GreaterOrEqual) closings
+    | Start ">" rest ->
+        addToTerms rest (Infix <| Def GreaterThan) closings
+    // Right associative operators
+    | Start "$" rest ->
+        addToTerms rest (Infix Apply) closings
+    | Start "." rest ->
+        addToTerms rest (Infix Compose) closings
+    | Start "::" rest ->
+        addToTerms rest (Infix <| Def Cons) closings
+    | Start "&&" rest ->
+        addToTerms rest (Infix <| Def And) closings
+    | Start "||" rest ->
+        addToTerms rest (Infix <| Def Or) closings
+    | _ when (snd closings).IsEmpty ->
+        "", []
+    | _ ->
+        raiseExp <| sprintf "Expected \"%A\" at %A" closings text
 
    
 // Calls collectTerms and unify, testing if the return is a term
