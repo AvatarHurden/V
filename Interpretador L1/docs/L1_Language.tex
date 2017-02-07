@@ -1395,9 +1395,9 @@ e &::= &number\\
 
 \section{Concrete Syntax}
 
-\subsection{Literals}
+\subsection{Basic Values}
 
-There are 4 types of literal values available in the $L1$ language:
+There are 4 types of basic values available in the $L1$ language:
 
 \begin{enumerate}
   \item Integers
@@ -1416,9 +1416,11 @@ Two values are available: \code{true} for true, and \code{false} for false.
 \paragraph{Characters and Strings}
 A character literal is a single Unicode character surround by single quotes (').
 A string literal is a sequence of zero or more Unicode characters surrounded by double quotes (").
-In reality, a string literal is just syntactic sugar for a list of characters.
+Technically, strings are not basic values, since they are just syntactic sugar for a list of characters.
 
 $"abc" \rightarrow 'a' :: 'b' :: 'c' :: nil$
+
+\bigskip
 
 Some characters must be escaped in order to insert them into either character or string literals.
 "Escaping" a character means preceding it by the backslash character (\textbackslash).
@@ -1426,6 +1428,8 @@ For character literals, the single quote must be escaped (\textbackslash'), whil
 
 There is also support for ASCII escape codes to insert special characters in literals.
 These are the allowed escape codes and their resulting characters:
+
+\medskip
 
 \begin{tabular}{|l|l|}
   \hline
@@ -1447,17 +1451,77 @@ These are the allowed escape codes and their resulting characters:
   \hline
 \end{tabular}
 
+\bigskip
+
 Any escape code can be used in either character or string literals.
 Furthermore, the special characters can be inserted directly into the literal.
-This means that multi line strings are immediately support by $L1$.
+This means that multi line strings are supported by $L1$.
 This also means that a single quote followed by a new line and a single quote is interpreted as a valid character literal (i.e. '\textbackslash n').
+
+\subsection{Compound Values}
+
+\subsubsection{Tuples}
+
+  Tuples group multiple values, possibly of different types, into a single compound value.
+The minimum size of a tuple is 2, but there is no limit on its maximum size.
+
+Tuples are specified inside parenthesis, with each of its values separated by commas.
+
+\begin{lstlisting}
+    (1, ``hello'')
+    (true, `c', 43)
+\end{lstlisting}
+
+Tuples are immutable, which means they cannot be changed once they are created.
+There is no way to add or remove elements from a tuple.
+
+To access a specific field of a tuple, the projection operation is used.
+Tuples are 0-indexed, so projection is done by specifying the index of the field.
+
+\begin{lstlisting}
+    #0 (1, ``hello'')
+    #2 (true, `c', 43)
+    #3 ('c', false) // Invalid code
+\end{lstlisting}
+
+Tuples are extremely useful as return values for functions that must convey more than one piece of information.
+Since every function can only return one value, tuples can be used to group the different values that the function must return.
+
+\subsubsection{Records}
+
+Records are, like tuples, groupings of multiple values of possibly different types.
+Unlike tuples, however, each value has its unique label.
+There is no size limit on records, and even records with size 1 are valid.
+
+To construct a record, each value must be preceded by a label and a semi-colon.
+Each label-value pair is separated by a comma, and the whole record is enclosed in curly brackets (\{ \}).
+
+\begin{lstlisting}
+  {name: ``Martha'', age: 32}
+  {day: 1, month: 1, year: 2000}
+\end{lstlisting}
+
+Records are, like tuples, immutable.
+To access a specific field of a record, one must use projection.
+There is no inherent order in the values of a record, so the label must be used for projection.
+
+\begin{lstlisting}
+  #name {name: ``Martha'', age: 32}
+  #month {day: 1, month: 1, year: 2000}
+  #name  {day: 1, month: 1, year: 2000} // Invalid code
+\end{lstlisting}
+
+Records are also useful as return values for functions.
+The advantage they have over tuples is that every field has its name.
+This removes ambiguities for values of the same type, such as in the case of a date with 3 integer values.
 
 \subsection{Identifiers}
 
 Identifiers are used to name constants (in let declarations), functions and function arguments.
 When an identifier is expected, the identifier is defined as the longest possible sequence of valid characters.
 Any Unicode character is considered valid, with the exception of the following:
-\\
+
+\medskip
 
 \begin{tabular}{|l|l|l|l|l|l|l|}
   \hline
@@ -1470,11 +1534,13 @@ Any Unicode character is considered valid, with the exception of the following:
   \% & \textbackslash & ' & " & \textbackslash n & \textbackslash r & \textbackslash t\\
   \hline
 \end{tabular}
-\\
-\\
+
+\bigskip
+
 Furthermore, $L1$ has some reserved names that cannot be used by any identifier.
 They are the following:
-\\
+
+\medskip
 
 \begin{tabular}{|l|l|l|l|l|}
   \hline
@@ -1488,7 +1554,7 @@ They are the following:
   \hline
 \end{tabular}
 
-\subsection{Types}
+\subsection{Type Annotations}
 
 \begin{tabular}{|l|l|l|}
   \hline
@@ -1502,14 +1568,27 @@ They are the following:
   \hline
   String & ``abc'', ``'' & This is syntactic sugar for \code{[Char]}\\
   \hline
-  [$Type$] & [1, 2, 3], \code{nil} &\\
+  [$Type$] & [1, 2, 3], \code{nil} & List Type\\
+  \hline
+  ($Type$, ... $Type$) & (1, true, `a') & Tuple Type\\
+  \hline
+  \{id: $Type$, ... id: $Type$\} & \{a: 3, b: false\} & Record Type\\
   \hline
   $Type$ -$>$ $Type$ & & Function Type (see \ref{Function Type})\\
   \hline
 \end{tabular}
 
 \subsection{Comments}
+Comments are text that is ignored by the interpreter.
+They can be used to add notes or reminders for yourself or anyone that reads the source code.
 
+Currently, only single line comments are avaiable.
+They begin with two forward-slashes (//) and continue until the end of the current line
+
+\begin{lstlisting}
+  // This is a comment on its own line.
+  3 + 4 // This line has code and a comment.
+\end{lstlisting}
 
 \subsection{Operators}
 
