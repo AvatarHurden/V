@@ -1335,65 +1335,8 @@ Every expression in $L1$ has a rule for constraint collection, similar to how ev
     {\Gamma \vdash \#l \; e : X_1 \; | \; C_1 \cup \{T_1 = X_2\}}
 
 \newpage
-\section{Concrete Syntax}
 
-{\setlength\tabcolsep{8pt}
-\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
-e &::= &number\\
-    &| &bool\\
-    &| &char\\
-    &| &string\\
-    &| &x\\
-    &| &\texttt{if} \; e \; \texttt{then} \; e \; \texttt{else} \; e\\
-    &| &( \; e \;)\\
-    &| &e \; op \; e\\
-    &| &\backslash parameters \; \texttt{->} \; e\\
-    &| &\texttt{rec} \; x \; parameters \; [: Type] = e\\
-    &| &e \; e\\
-    &| &\texttt{let} \; x \; [: Type] = e \; ; \; e\\
-    &| &\texttt{let} \; [\texttt{rec}] \; x \; [parameters] \; [: Type] = e \; ; \; e\\
-    &| &\texttt{raise}\\
-    &| &\texttt{try} \; e \; \texttt{with} \; e\\
-    &| &[e \{, e\}]\\
-    &| &[]\\
-    &| &\texttt{nil}\\
-    &| &[e \; \texttt{for} \; x \; \texttt{in} \; e ]\\
-    &| &\texttt{head} \; e \\
-    &| &\texttt{tail} \; e \\
-    &| &\texttt{empty} \; e \\
-    &| &- \; e\\
-    &| &\texttt{import} \; string\\
-    &| &\texttt{skip}\\
-    &| &\texttt{input}\\
-    &| &\texttt{ouput} \; e\\
-    \\
-    op &::= &opNum \; | \; opEq \; | \; opIneq \; | \; opBool \; | \; opSugar \; | \; ; \\
-    opNum &::= &+ \; | \; - \; | \; * \; | \; / \; | \; \%\\
-    opEq &::= &= \; | \; !=\\
-    opIneq &::= &< \; | \; <= \; | \; > \; | \; >=\\
-    opBool &::= &|| \; | \; \texttt{\&\&}\\
-    opSugar &::= &!! \; | \; @ \; | \; \$ \; | \; . \; | \; ::\\
-    \\
-    bool &::= &\texttt{true} \; | \; \texttt{false}\\
-    \\
-    number &::= &digit\{digit\}\\
-    digit &::= &0 \; | \; 1 \; | \; 2 \; | \; \cdots \; | \;9\\
-    \\
-    x &::= &(letter \; \{letter \; | \; digit\})_{<reserved>}\\
-    letter &::= & \texttt{ a | b | $\cdots$ | z | A | B | $\cdots$ | Z }\\
-    \\
-    reserved &::= & \texttt{let | true | false | if | then | else }\\
-    && \texttt{rec | nil | head | tail | raise | try}\\
-    && \texttt{skip | output | input | except | for }\\
-    && \texttt{in | empty? | import}\\
-    \\
-    char &::= &\texttt{'} \; (character_{<\backslash \; | \;\texttt{'} \; >} \; | \; space \; | \; escape) \; \texttt{'}\\
-    string &::= &\texttt{"} \; \{character_{<\backslash \; | \;\texttt{"} \; >} \; | \; space \; | \; escape\} \; \texttt{"}\\
-    escape &::= &\backslash \; \texttt{( n | b | r | t | \textbackslash \; | " | ' )}\\
-    character&::= &\texttt{Unicode} \; \texttt{character}\\
-\end{tabular}}
-
-\section{Concrete Syntax}
+\section{Language Guide}
 
 \subsection{Basic Values}
 
@@ -1460,9 +1403,103 @@ This also means that a single quote followed by a new line and a single quote is
 
 \subsection{Compound Values}
 
+\subsubsection{Lists}
+
+Lists are ordered collections of values of the same type.
+There are no limits on the size of a list, even accepting lists with 0 values (the empty list).
+
+\paragraph{Creating Lists}
+
+An empty list can be created using either the \code{nil} keyword or the empty list literal, which is written as \code{[]} (empy square brackets).
+
+To create a list with values, simply enclose the sequence of values, each separated by a comma, between square brackets.
+
+\begin{lstlisting}
+  [] // Empty list
+  [1, 2, 3] // List containing 3 values
+\end{lstlisting}
+
+\paragraph{Expanding Lists}
+
+It is possible to add a value to the start of a list by using the list construction operator (\code{::}).
+The \code{append} function allowing the addition of a value to the end of a list.
+It is also possible to create a new list by using the concatenation operator (\code{@}), which adds two lists together.
+
+\begin{lstlisting}
+  let x = 0 :: [1, 2, 3];
+  // x is equal to [0, 1, 2, 3]
+
+  let y = append 4 [1, 2, 3];
+  // y is equal to [1, 2, 3, 4]
+
+  let z = [1, 2] @ [3, 4];
+  // z is equal to [1, 2, 3, 4]
+\end{lstlisting}
+
+\paragraph{Accessing Lists}
+
+Any element of a list can be accessed by using the index (\code{!!}) operator.
+Lists are 0-indexed, which means the first value of a list is at index 0.
+
+\begin{lstlisting}
+  ["a", "b", "c"] !! 0 // Returns "a"
+\end{lstlisting}
+
+An attempt to access an index outside the range of a list (that is, indexes equal to or greater than the size of the list) will result in a runtime error.
+
+\begin{lstlisting}
+  ["a", "b", "c"] !! 5 // Runtime error
+\end{lstlisting}
+
+There are many other operations available for accessing elements of a list, including \code{head} (returns the first value of a list), \code{last}, \code{filter}, \code{maximum}, etc.
+
+\paragraph{Complex Operations}
+Although the $L1$ language does not directly support complex operations on lists, the standard library (see \ref{Standard Library}) provides a number of functions to manipulate lists.
+Among these are functions like \code{map}, \code{filter}, \code{sort}, \code{fold}, \code{sublist}, which provide basic funcionality for performing computations with lists.
+
+\paragraph{Ranges}
+Ranges allow the easy creation of lists of integers in a arithmetic progression.
+
+There are two variants of ranges, one for simple integer counting and one for more complex progressions.
+
+The first variant specifies the first and last value for the list.
+The list is then composed with every integer number between these values.
+Because of this, the first value must be smaller then the last
+
+\begin{lstlisting}
+  [1..5] // [1,2,3,4,5]
+  [3..7] // [3,4,5,6,7]
+  [5..3] // Invalid
+\end{lstlisting}
+
+The second variants specifies the first, second and last value for the list.
+The increment is the difference between the second and first value of the list, which can even be negative.
+
+The increment is then added to each element until the largest possible value which is smaller than or equal to the last value.
+If the increment is negative, the list stops at the smallest possible value which is larger than or equal to the last value.
+
+\begin{lstlisting}
+  [1,3..10] // [1,3,5,7,9]
+  [5,4..1] // [5,4,3,2,1]
+  [5,3..0] // [5,3,1]
+\end{lstlisting}
+
+\paragraph{Comprehensions}
+List comprehensions are a simple way to transform every value in a list, creating a new list.
+
+In the example below, \code{ls} is a list containing every number from 1 to 10, inclusive.
+Using a list comprehension, \code{new} is a list containing every number from 2 to 11, since the code \code{x+1} is executed for every value in \code{ls}.
+
+\begin{lstlisting}
+  let ls = [1..10];
+  let new = [x+1 for x in ls];
+\end{lstlisting}
+
+
+
 \subsubsection{Tuples}
 
-  Tuples group multiple values, possibly of different types, into a single compound value.
+Tuples group multiple values, possibly of different types, into a single compound value.
 The minimum size of a tuple is 2, but there is no limit on its maximum size.
 
 Tuples are specified inside parenthesis, with each of its values separated by commas.
@@ -1491,9 +1528,9 @@ Since every function can only return one value, tuples can be used to group the 
 
 Records are, like tuples, groupings of multiple values of possibly different types.
 Unlike tuples, however, each value has its unique label.
-There is no size limit on records, and even records with size 1 are valid.
+The smallest size for a record is 1, but there is no limit on its maximum size.
 
-To construct a record, each value must be preceded by a label and a semi-colon.
+To construct a record, each value must be preceded by a label and a colon.
 Each label-value pair is separated by a comma, and the whole record is enclosed in curly brackets (\{ \}).
 
 \begin{lstlisting}
@@ -1537,6 +1574,8 @@ Any Unicode character is considered valid, with the exception of the following:
 
 \bigskip
 
+Numerical digits are not allowed at the start of an identifier, but they can be used in any other position.
+
 Furthermore, $L1$ has some reserved names that cannot be used by any identifier.
 They are the following:
 
@@ -1554,7 +1593,30 @@ They are the following:
   \hline
 \end{tabular}
 
+\subsection{Constants}
+
+Constants are associations of an identifier to a particular value.
+The value associated to a particular identifier cannot be changed after it is declared.
+
+The keyword \code{let} is used to start a constant declaration, and a semicolon ends it.
+It is possible to add a type annotation to make the type of the constant explicitly, but this is not necessary.
+
+Below are examples of constant declarations:
+
+\begin{lstlisting}
+  let name = ``Steve'';
+  let age: Int = 32;
+\end{lstlisting}
+
 \subsection{Type Annotations}
+
+Type annotations are used to explictly state the type of a constant, function argument or function return value.
+They are not necessary for most programs, since the interpreter can infer the type of any expression.
+
+Sometimes, the programmer may want to create artificial constraints on a function argument, and type annotations allow this.
+
+The table below shows every type that can be specified in type annotations.
+These types align with the types available in the $L1$ language, since every type can be used in a type annotation.
 
 \begin{tabular}{|l|l|l|}
   \hline
@@ -1568,6 +1630,8 @@ They are the following:
   \hline
   String & ``abc'', ``'' & This is syntactic sugar for \code{[Char]}\\
   \hline
+  Unit & \code{skip} &\\
+  \hline
   [$Type$] & [1, 2, 3], \code{nil} & List Type\\
   \hline
   ($Type$, ... $Type$) & (1, true, `a') & Tuple Type\\
@@ -1578,21 +1642,50 @@ They are the following:
   \hline
 \end{tabular}
 
-\subsection{Comments}
-Comments are text that is ignored by the interpreter.
-They can be used to add notes or reminders for yourself or anyone that reads the source code.
+\subsection{Conditionals}
 
-Currently, only single line comments are avaiable.
-They begin with two forward-slashes (//) and continue until the end of the current line
+$L1$ provides a conditional expression (\code{if ... then ... else}) to control the flow of a program.
+This expression tests a condition and, if its value is \code{true}, executes the first branch (known as the \code{then} clause).
+If the condition is \code{false}, the expression executes the second branch (the \code{else} clause).
 
 \begin{lstlisting}
-  // This is a comment on its own line.
-  3 + 4 // This line has code and a comment.
+  if b then
+    1+3 // Will execute if b is true
+  else
+    2 // Will execute if b is false
+\end{lstlisting}
+
+The only accepted type for the condition of a conditional is Boolean.
+All types are accepted in the \code{then} and \code{else} branch, but they must be of the same type.
+
+\begin{lstlisting}
+  // This conditional is invalid code, since 4 and "hello" are of different types
+  if true then
+    4
+  else
+    "hello"
+\end{lstlisting}
+
+Unlike imperative languages, every conditional in $L1$ must specify both branches.
+This ensures that the conditional will always return a value.
+
+It is possible to chain multiple conditionals together.
+
+\begin{lstlisting}
+  if grade > 10 then
+    "The grade cannot be higher than 10"
+  else if grade < 0
+    "The grade cannot be lower than 0"
+  else
+    "The grade is valid"
 \end{lstlisting}
 
 \subsection{Operators}
 
-$L1$ provides a number of infix binary operators to manipulate data.
+$L1$ contains a number of infix binary operators to manipulate data.
+
+Along with them, there is only one prefix unary operator, the negation operator.
+This operator is handled differently from a function application, both in its priority and its associativity.
 
 \subsubsection{Priority}
 
@@ -1617,7 +1710,8 @@ There are 2 possible associativities that an operator can have:
 
 Below is a summary of every operator avaiable in the language, along with a small description and their associativities (if any).
 The table is ordered by decreasing priority level (the first operator has the highest priority).
-\\
+
+\medskip
 
 \begin{tabular}{|l|l|l|l|}
   \hline
@@ -1638,6 +1732,8 @@ The table is ordered by decreasing priority level (the first operator has the hi
   3 & \code{x + y} & Addition & Left\\
   \hline
    & \code{x - y} & Subtraction & Left\\
+  \hline
+   & \code{- x} & Unary Negation & None\\
   \hline
   4 & \code{x :: y} & List Construction & Right\\
   \hline
@@ -1736,9 +1832,9 @@ This is useful mostly when passing lambdas as arguments to other functions, sinc
 
 The general syntax of a lambda is as follows:
 
-\begin{lstlisting}
+\begin{lstlisting}[escapechar=&]
 \param1 param2 ... -> body
-\(param1: Type1) (param2: Type2) ... -> body
+\&&(param1: Type1) (param2: Type2) ... -> body
 \end{lstlisting}
 
 A backslash (\textbackslash) indicates the start of a lambda, followed immediately by its parameters.
@@ -1751,12 +1847,12 @@ Because of this, lambdas are usually enclosed in parenthesis to limit their scop
 Below are the same examples shown in the named functions section, but defined using lambda expressions.
 Notice that, without the use of parenthesis to enclose each lambda, the first function would try to include everything inside its body, resulting in a parsing error.
 
-\begin{lstlisting}
+\begin{lstlisting}[escapechar=&]
 \\ add
 (\x y -> x + y)
 
 \\ duplicate
-(\(x: Int) -> x * 2)
+(\&&(x: Int) -> x * 2)
 \end{lstlisting}
 
 \subsubsection{Recursive Lambdas}
@@ -1802,13 +1898,126 @@ The second parameter is an \code{Int}, and the return type is also \code{Int}.
 
 If the parenthesis were ommited, the type would describe a function that takes 3 parameters of type \code{Int}.
 
-
-
 \subsection{Partial Application and Currying}
 
+Technically, every function in $L1$ takes only one parameter.
+When a function is defined as having multiple parameters, it is actually a curried function.
 
-\subsection{Lists}
+As an example, take the following function, which returns the largest of two numbers:
+
+\begin{lstlisting}
+  let max x y =
+    if x > y then
+      x
+    else
+      y
+  ;
+\end{lstlisting}
+
+This appears to be a function that takes two integers and returns an integer.
+In reality, \code{max} is a function that takes one integer and returns another function.
+This returned function takes one integer as a parameter and returns another integer.
+
+This allows what is called \emph{partial application}, which is when a function is called with too few arguments.
+This creates a function that ``fixes'' the applied arguments and returns a function that takes the remaining arguments.
+
+Using the example above, we can write \code{max 5} to create a new function that takes only one argument.
+This function will then return the largest between its argument and the number 5.
+
+It can then be bound to a name, just like any other function, and used elsewhere.
+This is also useful for quickly creating new functions with fixed data or to be passed as arguments.
+
+\begin{lstlisting}
+  let max5 = max 5;
+
+  max5 3 // Returns 5
+  max5 10 // Returns 10
+\end{lstlisting}
 
 \subsection{Input and Output}
+
+There are two functions that provide interaction with the user:
+  \begin{itemize}
+    \item \code{input}, to request a string input from the user
+    \item \code{output}, to print a string a string to an output
+  \end{itemize}
+
+\subsubsection{Input}
+
+\code{input} is a function that takes no arguments and returns a string.
+
+It reads a complete line of text from the standard input.
+A line ends after the users presses the \textbf{Enter} key.
+
+\subsubsection{Output}
+
+\code{output} is a function that takes a string argument and returns \code{skip}.
+The type of this function is, therefore, \code{String -> Unit}.
+It prints the string to the standard output.
+
+This function does not return a useful value, but is used only for its side effect.
+This contrasts with every other aspect of the $L1$ language, since no other operation has side effects and are only used for their return values.
+
+\paragraph{String Conversions}
+
+Since both \code{output} and \code{input} only deal with strings, it is necessary to convert other types to and from strings.
+
+There are available functions to convert integers and booleans into and from strings.
+There are no included functions to convert compound types, but it is possible to create custom ones for each use case.
+
+To convert strings to integers, the function is \code{parseInt}.
+
+To convert integers to strings, the function is \code{printInt}.
+
+To convert strings to booleans, the function is \code{parseBool}.
+
+To convert booleans to strings, the function is \code{printBool}.
+
+\paragraph{Sequencing}
+
+The sequencing operator (\code{>>}) is used to deal with useless values (\code{skip}).
+
+After evaluating its left-hand operand, the operator discards the resulting value.
+It then evaluates and returns the right-hand operand.
+This allows the programmer to use a function that has side-effects without losing the ability to return useful values.
+
+The function below uses the \code{output} function to allow easier debugging of the code.
+When the function is sufficiently tested, the line with the \code{output} can be removed without affecting the rest of the function.
+
+\begin{lstlisting}
+  let double x =
+    output ("The input was " @ printInt x) >>
+    x * 2
+  ;
+\end{lstlisting}
+
+\subsection{Error Handling}
+
+Error handling is the process of dealing with failures in the execution of code.
+While most operations always execute correctly, some can fail for any number of reasons.
+Some examples include dividing by zero and trying to access the head of an empty list.
+
+While most errors will be created by the execution of the code, it is also possible to explictly throw an error.
+This is done by using the \code{raise} keyword.
+This error is propagated throughout the code until it is dealt with.
+
+To deal with an error, one must use a \code{try ... catch ...} expression.
+This expressions attempts to execute the code inside its \code{try} block.
+If the execution results in an error, the result of the execution is discarded, and the code inside the \code{catch} block is executed.
+This means that, if no error is present in the \code{try} block, the code inside the \code{catch} block is not executed.
+
+The values inside a \code{try ... catch ...} must be of the same type.
+
+\subsection{Comments}
+Comments are text that is ignored by the interpreter.
+They can be used to add notes or reminders for yourself or anyone that reads the source code.
+
+Currently, only single line comments are avaiable.
+They begin with two forward-slashes (//) and continue until the end of the current line
+
+\begin{lstlisting}
+  // This is a comment on its own line.
+  3 + 4 // This line has code and a comment.
+\end{lstlisting}
 
 \end{document}
