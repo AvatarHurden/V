@@ -194,11 +194,34 @@ let rec validateTrait trt typ =
             | None ->
                 None, []
         | Orderable | TuplePosition _ -> None, []
-    | VarType (x, traits) ->
-        if List.exists ((=) trt) traits then
-            Some typ, []
-        else
-            Some <| VarType (x, trt::traits), []
+    | VarType (x, traits) ->               
+        match trt with
+        | TuplePosition (i, t) ->
+            let tupleMatch = function
+                | TuplePosition (i', t') when i = i' ->
+                    Some <| Equals (t, t')
+                | _ -> None
+            let constraints = List.choose tupleMatch traits
+            if constraints.IsEmpty then
+                Some <| VarType (x, trt::traits), [] 
+            else
+                Some <| VarType (x, traits), constraints
+        | RecordLabel (name, t) ->
+            let recordMatch = function
+                | RecordLabel (name', t') when name = name' ->
+                    Some <| Equals (t, t')
+                | _ -> None
+            let constraints = List.choose recordMatch traits
+            if constraints.IsEmpty then
+                Some <| VarType (x, trt::traits), []
+            else
+                Some <| VarType (x, traits), constraints
+        | _ ->
+            if List.exists ((=) trt) traits then
+                Some typ, []
+            else
+                Some <| VarType (x, trt::traits), []
+        
 
 let rec validateTraits traits (typ, cons) =
     match typ with
