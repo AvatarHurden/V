@@ -63,6 +63,7 @@ let private associativityOf op =
 
 let private priorityOf op =
     match op with        
+    | Term _ 
     | Infix (Def Application) ->
         0
     | Infix Compose
@@ -95,8 +96,7 @@ let private priorityOf op =
         9
     | Infix Apply ->
         10
-    | Term _ ->
-        raise <| InvalidEntryText "A Term has no priority"
+        
 
 type closings = bool * string list
 
@@ -394,15 +394,21 @@ let rec condenseTerms prev current nexts priority =
         | _ ->
             raiseExp <| sprintf "Infix %A must be preceded by a term" op
 
-// Iterate through list of (Term, Operator), joining into one Term
 let rec unifyTerms (terms: extendedTerm list) priority = 
+    let priorities = 
+            Seq.map (fun x -> priorityOf x) terms |>
+            Seq.distinct |>
+            Seq.sort
+    let func = fun (acc: extendedTerm List) x -> condenseTerms None acc.Head acc.Tail x
+    let terms = Seq.fold func terms priorities
     if terms.Length = 1 then
         match terms.Head with
         | Term t -> t
         | Prefix _ -> raiseExp "Cannot unify to a prefix"
         | Infix _ -> raiseExp "Cannot unify to an infix"
     else
-        unifyTerms (condenseTerms None terms.Head terms.Tail priority) (priority + 1)
+        raiseExp "Unification resulted in more than one term"
+         
 
 //#endregion
     
