@@ -4,6 +4,8 @@ open System.Text.RegularExpressions
 open Definition
 open System
 open stdlib
+open System.Runtime.Serialization.Formatters.Binary
+open System.IO
 
 //#region Helper Types, Modules and Functions
 
@@ -388,11 +390,15 @@ let rec condenseTerms prev current nexts priority =
         | _ ->
             raiseExp <| sprintf "Infix %A must be surrounded by terms" op
     | Infix op ->
-        match prev with
-        | Some (Term x) ->
-            [Term x; current] @ condenseTerms None nexts.Head nexts.Tail priority
+        match prev, nexts with
+        | Some (Term x), head :: tail ->
+            [Term x; current] @ condenseTerms None head tail priority
         | _ ->
-            raiseExp <| sprintf "Infix %A must be preceded by a term" op
+            match op with
+            | Def op ->
+                raiseExp <| sprintf "Infix %A must be surrounded by terms" op
+            | op ->
+                raiseExp <| sprintf "Infix %A must be surrounded by terms" op
 
 // Iterate through list of (Term, Operator), joining into one Term
 let rec unifyTerms (terms: extendedTerm list) priority = 
@@ -440,6 +446,26 @@ let removeComments (text: string) =
     let lines = text.Split('\n') |> Array.toSeq
     let lines = Seq.map (fun (x:string) -> x.Split([|"//"|], StringSplitOptions.None).[0]) lines
     Seq.reduce (fun acc x -> acc + "\n" + x) lines
+    
+let rec goToFinalLet firstLet term =
+    match firstLet with
+    | Let (x, typ, inside, X "x") ->
+        Let (x, typ, inside, term)
+    | Let (x, typ, inside, (Let _ as newLet)) ->
+        Let (x, typ, inside, goToFinalLet newLet term)
+
+let openLib libPath term =
+    let binFormatter = new BinaryFormatter()
+
+    use stream = new FileStream(libPath, FileMode.Open)
+    let fn = binFormatter.Deserialize(stream) :?> Definition.term
+
+    let firstLet = 
+        match fn with
+        | Fn ("x", None, t) -> t
+        | _ -> raiseExp <| sprintf "Library at file %s was compiled incorrectly" libPath
+
+    goToFinalLet firstLet term
 
 let rec parseImport text closings =
     let remaining, libname = 
@@ -449,19 +475,21 @@ let rec parseImport text closings =
             rem.Substring 1, name
         | _ ->
             raiseExp <| sprintf "Must have a string literal at %A" text
+            
+    let rest, finalTerm = parseTerm remaining (false, snd closings)
 
     let libContent =
         let pathName = 
-            if not <| libname.EndsWith ".l1" then
-                libname + ".l1"
+            if not <| libname.EndsWith ".l1b" then
+                libname + ".l1b"
             else
                 libname        
-        if Path.makeAppRelative libname |> IO.File.Exists then
-            Path.makeAppRelative libname |> IO.File.ReadAllText
+        if Path.makeAppRelative pathName |> IO.File.Exists then
+            openLib (Path.makeAppRelative pathName) finalTerm
         else
             raiseExp <| sprintf "Could not find library file at %A" libname
 
-    parseTerm (removeComments libContent + " " + remaining) (false, snd closings)
+    rest, libContent
 
 //#endregion
 

@@ -8,68 +8,145 @@ open Parser
 open Printer
 open Evaluation
 open TypeInference
-open System.Text.RegularExpressions
+open LibParser
+open Argu
 
-let private splitSpaces term =
-    term |> Seq.skipWhile Char.IsWhiteSpace |> String.Concat
+type Compile =
+    | [<MainCommand; Mandatory>] Path of path: string
+    | Lib
+    | Output of path: string
+with
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Path _ -> "The path of the file"
+            | Lib -> "Compile as library."
+            | Output _ -> "Set the output path."
+        
+and Run =
+    | [<MainCommand; Mandatory>] Path of path: string
+    | Pure
+    | ShowTime
+with
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Path _ -> "The path of the file"
+            | Pure -> "Do not load the stdlib"
+            | ShowTime -> "Show the time for parsing, inferring type and evaluating in milliseconds"
+
+and Interactive =
+    | Pure
+with
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Pure -> "Do not load the stdlib"
+
+and Argument =
+    | [<CliPrefix(CliPrefix.None)>] Interactive of ParseResults<Interactive>
+    | [<CliPrefix(CliPrefix.None)>] Compile of ParseResults<Compile>
+    | [<CliPrefix(CliPrefix.None)>] Run of ParseResults<Run>
+with
+    interface IArgParserTemplate with
+        member s.Usage =
+            match s with
+            | Interactive _ -> "Open in interactive mode."
+            | Compile _ -> "Compile Files."
+            | Run _ -> "Run the specified file."
+
+let parser = ArgumentParser.Create<Argument>(programName = "Interpretador_L1.exe")
+
+let runCompile (results: ParseResults<Compile>) =
+    let parser = parser.GetSubCommandParser <@ Compile @>
+    
+    if results.IsUsageRequested then
+        Console.WriteLine (parser.PrintUsage())
+    elif not <| results.Contains <@ Compile.Path @> then
+        Console.WriteLine (parser.PrintUsage("Missing argument <path>"))
+    else
+        let path = results.GetResult <@ Compile.Path @>
+        let isLib = results.Contains <@ Lib @>
+        let outputName = results.TryGetResult <@ Output @>
+        
+        Console.WriteLine path
+        Console.WriteLine isLib
+        Console.WriteLine outputName
+
+let runRun (results: ParseResults<Run>) =
+    let parser = parser.GetSubCommandParser <@ Run @>
+
+    if results.IsUsageRequested then
+        Console.WriteLine (parser.PrintUsage())
+    elif not <| results.Contains <@ Run.Path @> then
+        Console.WriteLine (parser.PrintUsage("Missing argument <path>"))
+    else
+        let path = results.GetResult <@ Run.Path @>
+        let isPure = results.Contains <@ Run.Pure @>
+        let showTime = results.Contains <@ Run.ShowTime @>
+
+        let text = 
+            if IO.File.Exists(path) then
+                path |> IO.File.ReadAllText
+            else
+                printfn "No file \"%s\" found" path
+                exit(0)
+
+        try
+            let stopWatch = System.Diagnostics.Stopwatch.StartNew()
+            let term = if isPure then parsePure text else parse text
+            let parseTime = stopWatch.Elapsed.TotalMilliseconds
+
+            stopWatch.Restart()
+            ignore <| typeInfer term
+            let inferTime = stopWatch.Elapsed.TotalMilliseconds
+        
+            stopWatch.Restart()
+            let evaluated = evaluate term
+            let evalTime = stopWatch.Elapsed.TotalMilliseconds
+
+            evaluated |> printResult |> printfn "%O"
+            printfn "Time to parse = %f" parseTime
+            printfn "Time to infer type = %f" inferTime
+            printfn "Time to evaluate = %f" evalTime
+        with
+        | WrongExpression e -> 
+            printfn "Evaluation error:"
+            Console.WriteLine e
+        | InvalidEntryText e -> 
+            printfn "Parsing error:"
+            Console.WriteLine e
+        | InvalidType e ->
+            printfn "Type system error:"
+            Console.WriteLine e
+
+let runInteractive (results: ParseResults<Interactive>) =
+    let parser = parser.GetSubCommandParser <@ Interactive @>
+
+    if results.IsUsageRequested then
+        Console.WriteLine (parser.PrintUsage())
+    else
+        let isPure = results.Contains <@ Pure @>
+        
+        Console.WriteLine isPure
 
 [<EntryPoint>]
 let main argv = 
 
-    // Para permitir debug (não permite espaços entre parâmetros)
-    let argv = 
-        if argv.Length = 0 then
-            System.Console.ReadLine().Split ' '
+    let results = parser.Parse(raiseOnUsage = false)
+
+    if results.IsUsageRequested then
+        Console.WriteLine (parser.PrintUsage())
+    else
+        if results.Contains <@ Compile @> then
+            runCompile <| results.GetResult <@ Compile @>
+        elif results.Contains <@ Run @> then
+            runRun <| results.GetResult <@ Run @>
+        elif results.Contains <@ Interactive @> then
+            runInteractive <| results.GetResult <@ Interactive @>
         else
-            argv
-            
-    let file = 
-        if argv.Length = 0 then
-            printfn "Missing argument"
-            exit(0)
-        else
-            argv.[0]
-
-    let text = 
-        if IO.File.Exists(file) then
-            file |> IO.File.ReadAllText
-        else
-            printfn "Provided path is invalid"
-            exit(0)
-
-    try
-        let stopWatch = System.Diagnostics.Stopwatch.StartNew()
-
-        let term = parse text
-
-        stopWatch.Stop()
-        printfn "Time to parse = %f" stopWatch.Elapsed.TotalMilliseconds
+            Console.WriteLine (parser.PrintUsage())  
         
-        
-        //printfn "%O" <| toString term
-        
-        stopWatch.Restart()
-
-        typeInfer term |> printfn "Your program is of type:\n\n%A\n\n"
-        
-        stopWatch.Stop()
-        printfn "Time to infer type = %f" stopWatch.Elapsed.TotalMilliseconds
-            
-
-        stopWatch.Restart()
-
-        term |> evaluate |> printResult |> printfn "Your program resulted in:\n\n%O\n"
-        
-        stopWatch.Stop()
-        printfn "Time to evaluate = %f" stopWatch.Elapsed.TotalMilliseconds
-    with
-    | WrongExpression e -> Console.WriteLine e
-    | InvalidEntryText t -> Console.WriteLine t
-    | InvalidType e ->
-        printfn "Your program has invalid type information"
-        Console.WriteLine e
-
-    ignore <| System.Console.ReadLine()
-    0 // return an integer exit code
+    0
 
     
