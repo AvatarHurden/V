@@ -4,8 +4,6 @@ open System.Collections.Generic
 open Definition
 open Printer
 
-exception InvalidType of string
-
 // This is a stand-in for VarType, to avoid having to match types
 //type FreeVar = string * Trait list
 
@@ -163,7 +161,7 @@ let rec validateTrait trt typ =
                 | Some typ', [] -> Some typ'
                 | _ ->
                     sprintf "Validating Equatable resulted in constraint at %A" typ 
-                        |> InvalidType |> raise 
+                        |> TypeException |> raise 
             match mapOption f types with
             | None -> None, []
             | Some types' -> Some <| Type.Tuple types', []
@@ -182,7 +180,7 @@ let rec validateTrait trt typ =
                 | Some typ', [] -> Some (name, typ')
                 | _ ->
                     sprintf "Validating Equatable resulted in constraint at %A" typ 
-                        |> InvalidType |> raise 
+                        |> TypeException |> raise 
             match mapOption f pairs with
             | None -> None, []
             | Some pairs' -> Some <| Type.Record pairs' , []
@@ -261,13 +259,13 @@ let rec unify constraints =
             | VarType (x, traits), t 
             | t, VarType (x, traits) ->
                 if occursIn x t then
-                    sprintf "Circular constraints" |> InvalidType |> raise
+                    sprintf "Circular constraints" |> TypeException |> raise
                 else
                     let t', cons' = validateTraits traits <| (Some t, [])
                     match t' with
                     | None ->
                         sprintf "Can not satisfy traits %A for %A" traits t 
-                            |> InvalidType |> raise
+                            |> TypeException |> raise
                     | Some t' ->
                         let replacedX = substituteInConstraints (TypeSub (x, t')) <| cons' @ rest
                         let unified = 
@@ -283,7 +281,7 @@ let rec unify constraints =
             | Function(s1, s2), Function(t1, t2) -> 
                 unify <| rest @ [Equals (s1, t1); Equals (s2, t2)]
             | _ -> 
-                raise <| InvalidType "Unsolvable constraints"
+                raise <| TypeException "Unsolvable constraints"
 
 //#endregion
 
@@ -347,7 +345,7 @@ let findId id (e: Map<string, EnvAssociation>) =
             let typ' = List.fold (fun acc sub -> substituteInType (NameSub sub) acc) typ newVars
             typ', []
     else
-        sprintf "Identifier %A undefined" id |> InvalidType |> raise
+        sprintf "Identifier %A undefined" id |> TypeException |> raise
 
 // collectConstraints term environment constraints
 let rec collectConstraints term (env: Map<string, EnvAssociation>) =
@@ -425,7 +423,7 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         let typ1, c1 = collectConstraints t1 <| env.Add(id1, Simple fType).Add(id2, Simple paramTyp)
         Function (paramTyp, typ1), c1 @ [Equals (fType, Function (paramTyp, typ1))]
     | RecFn(id1, _, id2, _, t1) as t ->
-        sprintf "Invalid recursive function defintion at %A" t |> InvalidType |> raise
+        sprintf "Invalid recursive function defintion at %A" t |> TypeException |> raise
     | Let(id, Some typ, t1, t2) ->
         let typ1, c1 = collectConstraints t1 env
         let typ2, c2 = collectConstraints t2 <| env.Add(id, Simple typ)
@@ -472,7 +470,7 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         Unit, c1 @ [Equals (typ1, List Char)]
     | Tuple(terms) ->
         if List.length terms < 2 then
-            sprintf "Tuple must have more than 2 components at %A" term |> InvalidType |> raise
+            sprintf "Tuple must have more than 2 components at %A" term |> TypeException |> raise
         let types, constraints = 
             List.unzip <| 
             List.map (fun t -> collectConstraints t env) terms
@@ -480,7 +478,7 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
     | Record(pairs) ->
         let names, types = List.unzip pairs
         if Set(names).Count < List.length names then
-            sprintf "Record has duplicate fields at %A" term |> InvalidType |> raise
+            sprintf "Record has duplicate fields at %A" term |> TypeException |> raise
         let types', constraints = 
             List.unzip <| 
             List.map (fun t -> collectConstraints t env) types

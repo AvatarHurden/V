@@ -59,7 +59,7 @@ map (\x -> x + 1) [1,2,3,4]", List Int)
                 if (f [true]) then
                     f 1
                 else
-                    f 4", Int) |> ignore) |> should throw typeof<InvalidType>
+                    f 4", Int) |> ignore) |> should throw typeof<TypeException>
 
     [<Test>]
     member that.polymorphicHead() =
@@ -84,4 +84,4 @@ else
 	        reduce (\\acc x -> acc + x) [1,2,3]
         else
 	        reduce (\\acc x -> x || acc) [true,false,true]", Int) |> ignore) |> 
-        should throw typeof<InvalidType>
+        should throw typeof<TypeException>

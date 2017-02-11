@@ -2,17 +2,20 @@
 // See the 'F# Tutorial' project for more help.
 
 open System
+open System.IO
 open Definition
 open StringConversion
 open Parser
 open Printer
 open Evaluation
 open TypeInference
-open LibParser
+open Compiler
 open Argu
+open System.Runtime.Serialization
 
 type Compile =
     | [<MainCommand; Mandatory>] Path of path: string
+    | Pure
     | Lib
     | Output of path: string
 with
@@ -20,6 +23,7 @@ with
         member this.Usage =
             match this with
             | Path _ -> "The path of the file"
+            | Pure -> "Do not load the stdlib"
             | Lib -> "Compile as library."
             | Output _ -> "Set the output path."
         
@@ -66,12 +70,20 @@ let runCompile (results: ParseResults<Compile>) =
         Console.WriteLine (parser.PrintUsage("Missing argument <path>"))
     else
         let path = results.GetResult <@ Compile.Path @>
+        let isPure = results.Contains <@ Compile.Pure @>
         let isLib = results.Contains <@ Lib @>
-        let outputName = results.TryGetResult <@ Output @>
+
+        let outputName =
+            results.GetResult (<@ Output @>, IO.Path.ChangeExtension(path, "l1b"))
         
-        Console.WriteLine path
-        Console.WriteLine isLib
-        Console.WriteLine outputName
+        let text = 
+            if IO.File.Exists(path) then
+                path |> IO.File.ReadAllText
+            else
+                printfn "No file \"%s\" found" path
+                exit(0)
+           
+        compileText (if isLib || isPure then parsePure else parse) text isLib outputName
 
 let runRun (results: ParseResults<Run>) =
     let parser = parser.GetSubCommandParser <@ Run @>
@@ -85,40 +97,46 @@ let runRun (results: ParseResults<Run>) =
         let isPure = results.Contains <@ Run.Pure @>
         let showTime = results.Contains <@ Run.ShowTime @>
 
-        let text = 
-            if IO.File.Exists(path) then
-                path |> IO.File.ReadAllText
-            else
-                printfn "No file \"%s\" found" path
-                exit(0)
-
         try
-            let stopWatch = System.Diagnostics.Stopwatch.StartNew()
-            let term = if isPure then parsePure text else parse text
-            let parseTime = stopWatch.Elapsed.TotalMilliseconds
-
-            stopWatch.Restart()
-            ignore <| typeInfer term
-            let inferTime = stopWatch.Elapsed.TotalMilliseconds
-        
-            stopWatch.Restart()
-            let evaluated = evaluate term
-            let evalTime = stopWatch.Elapsed.TotalMilliseconds
-
+            let evaluated = evaluate <| loadTerm path
             evaluated |> printResult |> printfn "%O"
-            printfn "Time to parse = %f" parseTime
-            printfn "Time to infer type = %f" inferTime
-            printfn "Time to evaluate = %f" evalTime
         with
-        | WrongExpression e -> 
-            printfn "Evaluation error:"
-            Console.WriteLine e
-        | InvalidEntryText e -> 
-            printfn "Parsing error:"
-            Console.WriteLine e
-        | InvalidType e ->
-            printfn "Type system error:"
-            Console.WriteLine e
+        | :? SerializationException ->
+
+            let text = 
+                if IO.File.Exists(path) then
+                    path |> IO.File.ReadAllText
+                else
+                    printfn "No file \"%s\" found" path
+                    exit(0)
+
+            try
+                let stopWatch = System.Diagnostics.Stopwatch.StartNew()
+                let term = if isPure then parsePure text else parse text
+                let parseTime = stopWatch.Elapsed.TotalMilliseconds
+
+                stopWatch.Restart()
+                ignore <| typeInfer term
+                let inferTime = stopWatch.Elapsed.TotalMilliseconds
+        
+                stopWatch.Restart()
+                let evaluated = evaluate term
+                let evalTime = stopWatch.Elapsed.TotalMilliseconds
+
+                evaluated |> printResult |> printfn "%O"
+                printfn "Time to parse = %f" parseTime
+                printfn "Time to infer type = %f" inferTime
+                printfn "Time to evaluate = %f" evalTime
+            with
+            | EvalException e -> 
+                printfn "Evaluation error:"
+                Console.WriteLine e
+            | ParseException e -> 
+                printfn "Parsing error:"
+                Console.WriteLine e
+            | TypeException e ->
+                printfn "Type system error:"
+                Console.WriteLine e
 
 let runInteractive (results: ParseResults<Interactive>) =
     let parser = parser.GetSubCommandParser <@ Interactive @>

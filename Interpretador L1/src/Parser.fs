@@ -3,17 +3,15 @@
 open System.Text.RegularExpressions
 open Definition
 open System
-open stdlib
-open System.Runtime.Serialization.Formatters.Binary
 open System.IO
+open Compiler
+open stdlib
 
 //#region Helper Types, Modules and Functions
 
 module Path =
     let appDir = AppDomain.CurrentDomain.SetupInformation.ApplicationBase
     let makeAppRelative fileName = System.IO.Path.Combine(appDir, fileName)
-
-exception InvalidEntryText of string
 
 type associativity =
     | Left
@@ -98,7 +96,7 @@ let private priorityOf op =
     | Infix Apply ->
         10
     | Term _ ->
-        raise <| InvalidEntryText "A Term has no priority"
+        raise <| ParseException "A Term has no priority"
 
 type closings = bool * string list
 
@@ -165,7 +163,7 @@ let private (|Start|_|) start text =
     else
         None
 
-let private raiseExp x = raise <| InvalidEntryText x
+let private raiseExp x = raise <| ParseException x
 
 let rec parseMultipleComponents f text closings =
     match text with
@@ -356,13 +354,13 @@ let rec condenseTerms prev current nexts priority =
             let term = OP (X "negate", Application, y)
             condenseTerms prev (Term term) rest priority
         | Some _, _ ->
-            raise (InvalidEntryText <| sprintf "Prefix %A cannot be preceded by a term" Negate)
+            raise (ParseException <| sprintf "Prefix %A cannot be preceded by a term" Negate)
         | _ ->
             raiseExp <| sprintf "Prefix %A must be followed by a term" Negate
     | Prefix Negate ->
         match prev with
         | Some _ ->
-            raise (InvalidEntryText <| sprintf "Prefix %A cannot be preceded by a term" Negate)
+            raise (ParseException <| sprintf "Prefix %A cannot be preceded by a term" Negate)
         | None ->
             [current] @ condenseTerms None nexts.Head nexts.Tail priority
     | Infix op when priorityOf current = priority ->
@@ -446,26 +444,6 @@ let removeComments (text: string) =
     let lines = text.Split('\n') |> Array.toSeq
     let lines = Seq.map (fun (x:string) -> x.Split([|"//"|], StringSplitOptions.None).[0]) lines
     Seq.reduce (fun acc x -> acc + "\n" + x) lines
-    
-let rec goToFinalLet firstLet term =
-    match firstLet with
-    | Let (x, typ, inside, X "x") ->
-        Let (x, typ, inside, term)
-    | Let (x, typ, inside, (Let _ as newLet)) ->
-        Let (x, typ, inside, goToFinalLet newLet term)
-
-let openLib libPath term =
-    let binFormatter = new BinaryFormatter()
-
-    use stream = new FileStream(libPath, FileMode.Open)
-    let fn = binFormatter.Deserialize(stream) :?> Definition.term
-
-    let firstLet = 
-        match fn with
-        | Fn ("x", None, t) -> t
-        | _ -> raiseExp <| sprintf "Library at file %s was compiled incorrectly" libPath
-
-    goToFinalLet firstLet term
 
 let rec parseImport text closings =
     let remaining, libname = 
@@ -480,14 +458,14 @@ let rec parseImport text closings =
 
     let libContent =
         let pathName = 
-            if not <| libname.EndsWith ".l1b" then
+            if not <| Path.HasExtension libname then
                 libname + ".l1b"
             else
-                libname        
+                libname
         if Path.makeAppRelative pathName |> IO.File.Exists then
-            openLib (Path.makeAppRelative pathName) finalTerm
+            loadLib (Path.makeAppRelative pathName) finalTerm
         else
-            raiseExp <| sprintf "Could not find library file at %A" libname
+            raiseExp <| sprintf "Could not find library file at %A" pathName
 
     rest, libContent
 
