@@ -781,14 +781,15 @@ and parseTerm text closings =
     rem, unifyTerms collected 0
 
 let parse text =
-    let rem, t = parseTerm (removeComments <| stdlib.content + text) (true, [])
+    let rem, t = parseTerm (removeComments text) (true, [])
+    let complete = stdlib.loadCompiled t
     if rem.Length > 0 then
         raiseExp "Something went very wrong with parsing"
     else
-        t
+        complete
 
 let parsePure text =
-    let rem, t = parseTerm (removeComments <| text) (true, [])
+    let rem, t = parseTerm (removeComments text) (true, [])
     if rem.Length > 0 then
         raiseExp "Something went very wrong with parsing"
     else

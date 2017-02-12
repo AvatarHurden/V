@@ -45,6 +45,14 @@ let replaceXLib lib term =
     | Fn ("x", None, t) -> iter t
     | _ -> raise <| ParseException "Not a library"
     
+let loadStdlib (arr: byte[]) nextTerm =
+    let binFormatter = new BinaryFormatter()
+
+    use stream = new MemoryStream(arr)
+    let lib = binFormatter.Deserialize(stream) :?> Definition.term
+    
+    replaceXLib lib nextTerm
+
 let loadLib path nextTerm =
     try 
         let lib = loadTerm path
