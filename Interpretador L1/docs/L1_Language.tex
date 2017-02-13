@@ -2020,4 +2020,39 @@ They begin with two forward-slashes (//) and continue until the end of the curre
   3 + 4 // This line has code and a comment.
 \end{lstlisting}
 
+\subsection{Libraries}
+
+Libraries are collections of constant and function declarations designed to be reused in multiple programs.
+These files can then be compiled to increase loading times when interpreting programs, or be loaded as parseable text files on their own.
+
+To import a library in a program, the following syntax is used:
+
+\begin{lstlisting}
+  import "library"
+\end{lstlisting}
+
+The name of the library must be a string indicating the path of the library file.
+This path can either be relative to the program that is being executed or absolute.
+If a file extension is not provided for the file, it is assumed to be $l1b$, which is the default extension used for compiled $L1$ libraries, or $l1$, which is  the extension for source code files in $L1$.
+
+Libraries can be imported anywhere in a program, and their functions will have their scope limited to wherever they were imported.
+
+In the example below, we have a library with a single function \code{double}.
+This library is then imported inside a function in a program.
+Because the library was imported inside the scope of the function body, none of its functions can be called outside of it.
+
+\begin{lstlisting}
+  // math.l1b
+  let double x = x * 2;
+
+  //----------------
+  // Program.l1
+  let quadruple x =
+    import "math"
+    double (double x) // Valid
+  ;
+
+  double 4 // Invalid
+\end{lstlisting}
+
 \end{document}
