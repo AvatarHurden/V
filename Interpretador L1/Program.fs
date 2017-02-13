@@ -72,16 +72,15 @@ let runCompile (results: ParseResults<Compile>) =
         let path = results.GetResult <@ Compile.Path @>
         let isPure = results.Contains <@ Compile.Pure @>
         let isLib = results.Contains <@ Lib @>
+        
+        if not <| IO.File.Exists(path) then
+            printfn "No file \"%s\" found" path
+            exit(0)
 
         let outputName =
-            results.GetResult (<@ Output @>, IO.Path.ChangeExtension(path, "l1b"))
+            results.GetResult (<@ Output @>, IO.Path.ChangeExtension(path, if isLib then "l1b" else "l1c"))
         
-        let text = 
-            if IO.File.Exists(path) then
-                path |> IO.File.ReadAllText
-            else
-                printfn "No file \"%s\" found" path
-                exit(0)
+        let text = path |> IO.File.ReadAllText
            
         compileText (if isLib || isPure then parsePure else parse) text isLib outputName
 
@@ -97,18 +96,19 @@ let runRun (results: ParseResults<Run>) =
         let isPure = results.Contains <@ Run.Pure @>
         let showTime = results.Contains <@ Run.ShowTime @>
 
+        if not <| IO.File.Exists(path) then
+            printfn "No file \"%s\" found" path
+            exit(0)
+            
         try
             let evaluated = evaluate <| loadTerm path
             evaluated |> printResult |> printfn "%O"
         with
         | :? SerializationException ->
-
-            let text = 
-                if IO.File.Exists(path) then
-                    path |> IO.File.ReadAllText
-                else
-                    printfn "No file \"%s\" found" path
-                    exit(0)
+            
+            let text = path |> IO.File.ReadAllText
+            
+            Parser.baseFolder <- path |> Path.GetFullPath |> Path.GetDirectoryName
 
             try
                 let stopWatch = System.Diagnostics.Stopwatch.StartNew()

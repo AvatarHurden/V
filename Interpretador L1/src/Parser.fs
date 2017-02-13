@@ -6,12 +6,12 @@ open System
 open System.IO
 open Compiler
 open stdlib
+open System.Runtime.Serialization
 
 //#region Helper Types, Modules and Functions
 
-module Path =
-    let appDir = AppDomain.CurrentDomain.SetupInformation.ApplicationBase
-    let makeAppRelative fileName = System.IO.Path.Combine(appDir, fileName)
+let mutable baseFolder = AppDomain.CurrentDomain.SetupInformation.ApplicationBase
+let makeRelative fileName = Path.Combine(baseFolder, fileName)
 
 type associativity =
     | Left
@@ -456,18 +456,29 @@ let rec parseImport text closings =
             
     let rest, finalTerm = parseTerm remaining (false, snd closings)
 
-    let libContent =
-        let pathName = 
-            if not <| Path.HasExtension libname then
-                libname + ".l1b"
+    let pathName =
+        if not <| Path.HasExtension libname then
+            if Path.ChangeExtension(libname, "l1b") |> makeRelative |> File.Exists then
+                Path.ChangeExtension(libname, "l1b") |> makeRelative
+            elif Path.ChangeExtension(libname, "l1") |> makeRelative |> File.Exists then
+               Path.ChangeExtension(libname, "l1") |> makeRelative
             else
-                libname
-        if Path.makeAppRelative pathName |> IO.File.Exists then
-            loadLib (Path.makeAppRelative pathName) finalTerm
+                raiseExp <| sprintf "Could not find library file at %A" libname
         else
-            raiseExp <| sprintf "Could not find library file at %A" pathName
+            if libname |> makeRelative |> File.Exists then
+                libname
+            else
+                raiseExp <| sprintf "Could not find library file at %A" libname
 
-    rest, libContent
+    try
+        let libContent = loadLib (makeRelative pathName) finalTerm
+        rest, libContent
+    with
+    | :? SerializationException ->
+        let content = makeRelative pathName |> IO.File.ReadAllText
+
+        parseTerm (removeComments content + " " + remaining) (false, snd closings)
+
 
 //#endregion
 

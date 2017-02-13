@@ -10,7 +10,7 @@ open System
 let saveTerm term path =
     let binFormatter = new BinaryFormatter()
 
-    use stream = new FileStream (path, FileMode.Create)
+    use stream = new FileStream(path, FileMode.Create)
     binFormatter.Serialize(stream, term)
     stream.Flush()
 
@@ -54,16 +54,12 @@ let loadStdlib (arr: byte[]) nextTerm =
     replaceXLib lib nextTerm
 
 let loadLib path nextTerm =
-    try 
-        let lib = loadTerm path
+    let lib = loadTerm path
 
-        if isValidLib lib then
-            replaceXLib lib nextTerm
-        else
-            raise <| ParseException ("The file at " + path + " is not a library")
-    with
-    | :? SerializationException ->
-        raise <| ParseException ("The file at " + path + " is not a binary file")
+    if isValidLib lib then
+        replaceXLib lib nextTerm
+    else
+        raise <| ParseException ("The file at " + path + " is not a library")
 
 let compileText parseFunction text isLib outputName =
     try 
