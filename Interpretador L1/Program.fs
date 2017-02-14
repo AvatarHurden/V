@@ -18,6 +18,7 @@ type Compile =
     | Pure
     | Lib
     | Output of path: string
+    | ShowTime
 with
     interface IArgParserTemplate with
         member this.Usage =
@@ -26,6 +27,7 @@ with
             | Pure -> "Do not load the stdlib"
             | Lib -> "Compile as library."
             | Output _ -> "Set the output path."
+            | ShowTime -> "Show the time for each operation in milliseconds"
         
 and Run =
     | [<MainCommand; Mandatory>] Path of path: string
@@ -37,7 +39,7 @@ with
             match this with
             | Path _ -> "The path of the file"
             | Pure -> "Do not load the stdlib"
-            | ShowTime -> "Show the time for parsing, inferring type and evaluating in milliseconds"
+            | ShowTime -> "Show the time for each operation in milliseconds"
 
 and Interactive =
     | Pure
@@ -73,6 +75,9 @@ let runCompile (results: ParseResults<Compile>) =
         let isPure = results.Contains <@ Compile.Pure @>
         let isLib = results.Contains <@ Lib @>
         
+        let showTime = results.Contains <@ Compile.ShowTime @>
+        let mutable times = []
+
         if not <| IO.File.Exists(path) then
             printfn "No file \"%s\" found" path
             exit(0)
@@ -80,9 +85,40 @@ let runCompile (results: ParseResults<Compile>) =
         let outputName =
             results.GetResult (<@ Output @>, IO.Path.ChangeExtension(path, if isLib then "l1b" else "l1c"))
         
+        let stopWatch = System.Diagnostics.Stopwatch.StartNew()
         let text = path |> IO.File.ReadAllText
-           
-        compileText (if isLib || isPure then parsePure else parse) text isLib outputName
+        times <- times @ ["read file", stopWatch.Elapsed.TotalMilliseconds]
+        
+        try 
+            let text = if isLib then "\x -> " + text + " x" else text
+            
+            stopWatch.Restart()
+            let term = (if isLib || isPure then parsePure else parse) text
+            times <- times @ ["parse", stopWatch.Elapsed.TotalMilliseconds]
+            
+            stopWatch.Restart()
+            ignore <| typeInfer term
+            times <- times @ ["infer type", stopWatch.Elapsed.TotalMilliseconds]
+
+            if not isLib || isValidLib term then
+                stopWatch.Restart()
+                saveTerm term outputName
+                times <- times @ ["save ", stopWatch.Elapsed.TotalMilliseconds]
+            else
+                printfn "Compiling error:"
+                printfn "A library must only be composed of constant and function declarations"
+
+            if showTime then
+                Console.WriteLine (List.fold (fun acc (x, t) -> acc + sprintf "\nTime to %s = %f" x t) "" times)
+                printfn "\nTotal time = %f" <| List.fold (fun acc (x, t) -> acc + t) 0.0 times
+        with
+        | ParseException e -> 
+            printfn "Parsing error:"
+            Console.WriteLine e
+        | TypeException e ->
+            printfn "Type system error:"
+            Console.WriteLine e
+
 
 let runRun (results: ParseResults<Run>) =
     let parser = parser.GetSubCommandParser <@ Run @>
@@ -94,39 +130,53 @@ let runRun (results: ParseResults<Run>) =
     else
         let path = results.GetResult <@ Run.Path @>
         let isPure = results.Contains <@ Run.Pure @>
+
         let showTime = results.Contains <@ Run.ShowTime @>
+        let mutable times = []
 
         if not <| IO.File.Exists(path) then
             printfn "No file \"%s\" found" path
             exit(0)
             
         try
-            let evaluated = evaluate <| loadTerm path
+            let stopWatch = System.Diagnostics.Stopwatch.StartNew()
+            let term = loadTerm path
+            times <- times @ ["read file", stopWatch.Elapsed.TotalMilliseconds]
+            
+            stopWatch.Restart()
+            let evaluated = evaluate term
+            times <- times @ ["evaluate", stopWatch.Elapsed.TotalMilliseconds]
+
             evaluated |> printResult |> printfn "%O"
+            if showTime then
+                Console.WriteLine (List.fold (fun acc (x, t) -> acc + sprintf "\nTime to %s = %f" x t) "" times)
+                printfn "\nTotal time = %f" <| List.fold (fun acc (x, t) -> acc + t) 0.0 times
         with
         | :? SerializationException ->
             
+            let stopWatch = System.Diagnostics.Stopwatch.StartNew()
             let text = path |> IO.File.ReadAllText
+            times <- times @ ["read file", stopWatch.Elapsed.TotalMilliseconds]
             
             Parser.baseFolder <- path |> Path.GetFullPath |> Path.GetDirectoryName
 
             try
-                let stopWatch = System.Diagnostics.Stopwatch.StartNew()
+                stopWatch.Restart()
                 let term = if isPure then parsePure text else parse text
-                let parseTime = stopWatch.Elapsed.TotalMilliseconds
+                times <- times @ ["parse", stopWatch.Elapsed.TotalMilliseconds]
 
                 stopWatch.Restart()
                 ignore <| typeInfer term
-                let inferTime = stopWatch.Elapsed.TotalMilliseconds
+                times <- times @ ["infer type", stopWatch.Elapsed.TotalMilliseconds]
         
                 stopWatch.Restart()
                 let evaluated = evaluate term
-                let evalTime = stopWatch.Elapsed.TotalMilliseconds
+                times <- times @ ["evaluate", stopWatch.Elapsed.TotalMilliseconds]
 
                 evaluated |> printResult |> printfn "%O"
-                printfn "Time to parse = %f" parseTime
-                printfn "Time to infer type = %f" inferTime
-                printfn "Time to evaluate = %f" evalTime
+                if showTime then
+                    Console.WriteLine (List.fold (fun acc (x, t) -> acc + sprintf "\nTime to %s = %f" x t) "" times)
+                    printfn "\nTotal time = %f" <| List.fold (fun acc (x, t) -> acc + t) 0.0 times
             with
             | EvalException e -> 
                 printfn "Evaluation error:"

@@ -61,25 +61,4 @@ let loadLib path nextTerm =
     else
         raise <| ParseException ("The file at " + path + " is not a library")
 
-let compileText parseFunction text isLib outputName =
-    try 
-        let text = if isLib then "\x -> " + text + " x" else text
-
-        let term = parseFunction text
-        ignore <| typeInfer term
-
-        if not isLib || isValidLib term then
-            saveTerm term outputName
-            //printfn "Saved to file %s" outputName
-        else
-            printfn "Compiling error:"
-            printfn "A library must only be composed of constant and function declarations"
-    with
-    | ParseException e -> 
-        printfn "Parsing error:"
-        Console.WriteLine e
-    | TypeException e ->
-        printfn "Type system error:"
-        Console.WriteLine e
-
 
