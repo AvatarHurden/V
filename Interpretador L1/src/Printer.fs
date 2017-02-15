@@ -140,6 +140,12 @@ let rec printResultList result =
     | ResCons (head, tail) -> printResult head + ", " + printResultList tail
     | t -> sprintf "Result %A is not list to be printed" t
 
+and printResultString result =
+    match result with
+    | ResCons (ResC head, ResNil) -> string head
+    | ResCons (ResC head, tail) -> string head + printResultString tail
+    | t -> sprintf "Result %A is not list to be printed" t
+
 and printResult result =
     match result with
     | ResB true -> "true"
@@ -149,6 +155,7 @@ and printResult result =
     | ResI i -> string i
     | ResRaise -> "raise"
     | ResNil -> "[]"
+    | ResCons (ResC head, tail) -> "\"" + printResultString result + "\""
     | ResCons (head, tail) -> "[" + printResultList result + "]"
     | ResTuple v -> 
         "(" + 

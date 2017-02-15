@@ -13,12 +13,12 @@ type TestIdentParsing() =
     [<Test>]
     member that.emptyIdentifier() =
         (fun () -> parseIdent "" |> ignore) |> 
-            should throw typeof<InvalidEntryText> 
+            should throw typeof<ParseException> 
 
     [<Test>]
     member that.reservedIdentifier() =
         (fun () -> parseIdent "empty? t" |> ignore) |> 
-            should throw typeof<InvalidEntryText> 
+            should throw typeof<ParseException> 
 
     [<Test>]
     member that.spacedIdentifier() =
@@ -34,17 +34,17 @@ type TestTypeParsing() =
     [<Test>]
     member that.emptyType() =
         (fun () -> parseType "" (true, [""]) |> ignore) |>   
-            should throw typeof<InvalidEntryText> 
+            should throw typeof<ParseException> 
 
     [<Test>]
     member that.unclosedType() =
         (fun () -> parseType "[Int" (true, [""]) |> ignore) |> 
-            should throw typeof<InvalidEntryText> 
+            should throw typeof<ParseException> 
 
     [<Test>]
     member that.invalidType() =
         (fun () -> parseType "Inta" (true, [")"]) |> ignore) |> 
-            should throw typeof<InvalidEntryText> 
+            should throw typeof<ParseException> 
 
     [<Test>]
     member that.complexType() =
@@ -93,17 +93,17 @@ type TestIdentTypeParsing() =
     [<Test>]
     member that.emptyString() =
         (fun () -> parseIdentTypePair "" (true, []) |> ignore) |>   
-            should throw typeof<InvalidEntryText> 
+            should throw typeof<ParseException> 
 
     [<Test>]
     member that.wrongSeparator() =
         (fun () -> parseIdentTypePair "x;" (true, ["="]) |> ignore) |> 
-            should throw typeof<InvalidEntryText> 
+            should throw typeof<ParseException> 
 
     [<Test>]
     member that.invalidType() =
         (fun () -> parseIdentTypePair "x:Doble, " (true, [","]) |> ignore) |> 
-            should throw typeof<InvalidEntryText> 
+            should throw typeof<ParseException> 
 
     [<Test>]
     member that.noType() =
@@ -130,7 +130,7 @@ type TestParameterParsing() =
     [<Test>]
     member that.emptyString() =
         (fun () -> parseParameters "" (true, []) |> ignore) |>   
-            should throw typeof<InvalidEntryText> 
+            should throw typeof<ParseException> 
 
     [<Test>]
     member that.noTypes() =
@@ -158,7 +158,7 @@ type TestStringLiteralParsing() =
     [<Test>]
     member that.emptyString() =
         (fun () -> parseStringLiteral "" '"' |> ignore) |>   
-            should throw typeof<InvalidEntryText> 
+            should throw typeof<ParseException> 
 
     [<Test>]
     member that.simple() =
@@ -173,7 +173,7 @@ type TestStringLiteralParsing() =
     [<Test>]
     member that.noClosing() =
         (fun () -> parseStringLiteral "hello governor' said mary" '"' |> ignore) |>   
-            should throw typeof<InvalidEntryText> 
+            should throw typeof<ParseException> 
 
 
 [<TestFixture>]
@@ -182,17 +182,17 @@ type TestCharParsing() =
     [<Test>]
     member that.emptyChar() =
         (fun () -> parseChar "'" |> ignore) |> 
-            should throw typeof<InvalidEntryText> 
+            should throw typeof<ParseException> 
             
     [<Test>]
     member that.longChar() =
         (fun () -> parseChar "sd'" |> ignore) |> 
-            should throw typeof<InvalidEntryText> 
+            should throw typeof<ParseException> 
 
     [<Test>]
     member that.unclosedChar() =
         (fun () -> parseChar "a" |> ignore) |> 
-            should throw typeof<InvalidEntryText> 
+            should throw typeof<ParseException> 
             
     [<Test>]
     member that.simpleChar() =
@@ -214,7 +214,7 @@ type TestStringParsing() =
     [<Test>]
     member that.unclosedString() =
         (fun () -> parseString "aafte" |> ignore) |> 
-            should throw typeof<InvalidEntryText> 
+            should throw typeof<ParseException> 
             
     [<Test>]
     member that.longString() =
@@ -270,6 +270,6 @@ type TestComponentParsing() =
     [<Test>]
     member that.consComponentRecordUnnamed() =
         (fun () -> parseMultipleComponents parseRecordComponent "a :: x }" (true, ["}"]) |> ignore) |> 
-            should throw typeof<InvalidEntryText> 
+            should throw typeof<ParseException> 
          
          

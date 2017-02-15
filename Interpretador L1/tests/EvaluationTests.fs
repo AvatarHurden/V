@@ -28,7 +28,7 @@ let compare (text, term) =
     evaluated |> should equal term
 
 let shouldFail text =
-    (fun () -> parse text |> evaluate |> ignore) |> should throw typeof<WrongExpression> 
+    (fun () -> parse text |> evaluate |> ignore) |> should throw typeof<EvalException> 
 
 [<TestFixture>]
 type TestEval() =

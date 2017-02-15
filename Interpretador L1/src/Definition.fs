@@ -1,5 +1,9 @@
 ﻿module Definition
 
+exception ParseException of string
+exception EvalException of string
+exception TypeException of string
+
 type Trait =
     | Equatable
     | Orderable
@@ -86,4 +90,3 @@ type result =
 and
     env = Map<Ident, result>
 
-exception WrongExpression of string

@@ -3,15 +3,15 @@
 open System.Text.RegularExpressions
 open Definition
 open System
+open System.IO
+open Compiler
 open stdlib
+open System.Runtime.Serialization
 
 //#region Helper Types, Modules and Functions
 
-module Path =
-    let appDir = AppDomain.CurrentDomain.SetupInformation.ApplicationBase
-    let makeAppRelative fileName = System.IO.Path.Combine(appDir, fileName)
-
-exception InvalidEntryText of string
+let mutable baseFolder = AppDomain.CurrentDomain.SetupInformation.ApplicationBase
+let makeRelative fileName = Path.Combine(baseFolder, fileName)
 
 type associativity =
     | Left
@@ -96,7 +96,7 @@ let private priorityOf op =
         9
     | Infix Apply ->
         10
-        
+
 
 type closings = bool * string list
 
@@ -163,7 +163,7 @@ let private (|Start|_|) start text =
     else
         None
 
-let private raiseExp x = raise <| InvalidEntryText x
+let private raiseExp x = raise <| ParseException x
 
 let rec parseMultipleComponents f text closings =
     match text with
@@ -354,13 +354,13 @@ let rec condenseTerms prev current nexts priority =
             let term = OP (X "negate", Application, y)
             condenseTerms prev (Term term) rest priority
         | Some _, _ ->
-            raise (InvalidEntryText <| sprintf "Prefix %A cannot be preceded by a term" Negate)
+            raise (ParseException <| sprintf "Prefix %A cannot be preceded by a term" Negate)
         | _ ->
             raiseExp <| sprintf "Prefix %A must be followed by a term" Negate
     | Prefix Negate ->
         match prev with
         | Some _ ->
-            raise (InvalidEntryText <| sprintf "Prefix %A cannot be preceded by a term" Negate)
+            raise (ParseException <| sprintf "Prefix %A cannot be preceded by a term" Negate)
         | None ->
             [current] @ condenseTerms None nexts.Head nexts.Tail priority
     | Infix op when priorityOf current = priority ->
@@ -388,11 +388,15 @@ let rec condenseTerms prev current nexts priority =
         | _ ->
             raiseExp <| sprintf "Infix %A must be surrounded by terms" op
     | Infix op ->
-        match prev with
-        | Some (Term x) ->
-            [Term x; current] @ condenseTerms None nexts.Head nexts.Tail priority
+        match prev, nexts with
+        | Some (Term x), head :: tail ->
+            [Term x; current] @ condenseTerms None head tail priority
         | _ ->
-            raiseExp <| sprintf "Infix %A must be preceded by a term" op
+            match op with
+            | Def op ->
+                raiseExp <| sprintf "Infix %A must be surrounded by terms" op
+            | op ->
+                raiseExp <| sprintf "Infix %A must be surrounded by terms" op
 
 let rec unifyTerms (terms: extendedTerm list) priority = 
     let priorities = 
@@ -456,18 +460,31 @@ let rec parseImport text closings =
         | _ ->
             raiseExp <| sprintf "Must have a string literal at %A" text
 
-    let libContent =
+    let rest, finalTerm = parseTerm remaining (false, snd closings)
+
         let pathName = 
-            if not <| libname.EndsWith ".l1" then
-                libname + ".l1"
+        if not <| Path.HasExtension libname then
+            if Path.ChangeExtension(libname, "l1b") |> makeRelative |> File.Exists then
+                Path.ChangeExtension(libname, "l1b") |> makeRelative
+            elif Path.ChangeExtension(libname, "l1") |> makeRelative |> File.Exists then
+               Path.ChangeExtension(libname, "l1") |> makeRelative
             else
+                raiseExp <| sprintf "Could not find library file at %A" libname
+            else
+            if libname |> makeRelative |> File.Exists then
                 libname        
-        if Path.makeAppRelative libname |> IO.File.Exists then
-            Path.makeAppRelative libname |> IO.File.ReadAllText
         else
             raiseExp <| sprintf "Could not find library file at %A" libname
 
-    parseTerm (removeComments libContent + " " + remaining) (false, snd closings)
+    try
+        let libContent = loadLib (makeRelative pathName) finalTerm
+        rest, libContent
+    with
+    | :? SerializationException ->
+        let content = makeRelative pathName |> IO.File.ReadAllText
+
+        parseTerm (removeComments content + " " + remaining) (false, snd closings)
+
 
 //#endregion
 
@@ -781,14 +798,15 @@ and parseTerm text closings =
     rem, unifyTerms collected 0
 
 let parse text =
-    let rem, t = parseTerm (removeComments <| stdlib.content + text) (true, [])
+    let rem, t = parseTerm (removeComments text) (true, [])
+    let complete = stdlib.loadCompiled t
     if rem.Length > 0 then
         raiseExp "Something went very wrong with parsing"
     else
-        t
+        complete
 
 let parsePure text =
-    let rem, t = parseTerm (removeComments <| text) (true, [])
+    let rem, t = parseTerm (removeComments text) (true, [])
     if rem.Length > 0 then
         raiseExp "Something went very wrong with parsing"
     else

@@ -46,7 +46,7 @@ let equalsParsed text text' =
 
 let throwsWrongType text =
     let parsed = parsePure text
-    (fun () -> typeInfer parsed |> ignore) |> should throw typeof<InvalidType>
+    (fun () -> typeInfer parsed |> ignore) |> should throw typeof<TypeException>
 
 [<TestFixture>]
 type Remainder() =

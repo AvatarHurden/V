@@ -12,7 +12,7 @@ let compare text term =
     evaluated |> should equal term
     
 let shouldFail text =
-    (fun () -> parse text |> ignore) |> should throw typeof<InvalidEntryText> 
+    (fun () -> parse text |> ignore) |> should throw typeof<ParseException> 
 
 [<TestFixture>]
 type TestInfixParsing() =
