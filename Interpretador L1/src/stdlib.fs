@@ -2597,4 +2597,5 @@ let compiled: byte[] = [|
 |]
 
 let loadCompiled term =
-   loadStdlib compiled term
+   let lib = loadStdlib compiled
+   replaceXLib lib term

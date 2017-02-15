@@ -188,6 +188,52 @@ let runRun (results: ParseResults<Run>) =
                 printfn "Type system error:"
                 Console.WriteLine e
 
+let rec parseItem previous first =
+    
+    if first then 
+        printf "> "
+
+    let line = previous + Console.ReadLine()
+    try
+        let parsed = parsePure line
+        Some parsed
+    with
+    | ParseException e -> 
+        if e.StartsWith "Expected \"" then
+            parseItem line false
+        elif "\x -> " + line + " x" |> parsePure |> isValidLib then
+            Some (parsePure <| "\x -> " + line + " x")
+        else
+            printfn "Parsing error:"
+            Console.WriteLine e
+            None
+
+let rec interactive declarations newTerm =
+    match newTerm with
+    | Some term ->
+        if isValidLib term then
+            let inside = 
+                match term with
+                | Fn(_, _, inside) -> inside
+            let newDecl = Fn ("x", None, replaceXLib declarations inside)
+            interactive newDecl <| parseItem "" true
+        else
+            try
+                let term = replaceXLib declarations term
+                ignore <| typeInfer term
+                let evaluated = evaluate term
+                evaluated |> printResult |> printfn "%O"
+            with
+            | TypeException e ->
+                printfn "Type system error:"
+                Console.WriteLine e
+            | EvalException e -> 
+                printfn "Evaluation error:"
+                Console.WriteLine e
+            interactive declarations <| parseItem "" true
+    | None ->
+        interactive declarations <| parseItem "" true
+
 let runInteractive (results: ParseResults<Interactive>) =
     let parser = parser.GetSubCommandParser <@ Interactive @>
 
@@ -195,8 +241,11 @@ let runInteractive (results: ParseResults<Interactive>) =
         Console.WriteLine (parser.PrintUsage())
     else
         let isPure = results.Contains <@ Pure @>
-        
-        Console.WriteLine isPure
+
+        if isPure then
+            interactive (parsePure <| "\x -> let exit = 0; x") <| parseItem "" true
+        else
+            interactive (loadStdlib stdlib.compiled) <| parseItem "" true
 
 [<EntryPoint>]
 let main argv = 
