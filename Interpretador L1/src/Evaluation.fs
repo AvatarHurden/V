@@ -3,6 +3,8 @@
 open Definition
 open System
 
+//#region String Conversion
+
 let rec private toString term =
     match term with
     | ResCons (ResC c, t2) -> (string c) + (toString t2)
@@ -13,7 +15,71 @@ let rec private fromString string =
     | c::rest -> ResCons (ResC c, fromString rest)
     | [] -> ResNil
 
-and compareEquality t1 t2 =
+//#endregion
+
+//#region Pattern Matching
+
+let rec matchPattern (Var (pattern, _)) result (env: Map<Ident, result>) =
+    match pattern with
+    | XPattern x -> Some <| env.Add(x, result)
+    | IgnorePattern -> Some env  
+    | TuplePattern patterns ->
+        match result with
+        | ResTuple results when results.Length = patterns.Length ->
+            let f acc p r =
+                match acc with
+                | None -> None
+                | Some env -> matchPattern p r env
+            List.fold2 f (Some env) patterns results
+        | ResTuple results ->
+            raise <| EvalException "Tuples do not match in pattern"
+        | _ -> 
+            raise <| EvalException "Invalid result for tuple pattern"
+    | RecordPattern patterns ->
+        match result with
+        | ResRecord results when results.Length = patterns.Length ->
+
+            let existsInPatterns (rName, _) =
+                List.exists (fun (pName, _) -> pName = rName) patterns
+
+            if List.forall existsInPatterns results then
+                let f acc (pName, pValue) =
+                    match acc with
+                    | None -> None
+                    | Some env -> 
+                        let (_, rValue) = List.find (fun (rName, rValue) -> rName = pName) results
+                        matchPattern pValue rValue env
+                List.fold f (Some env) patterns
+            else
+                raise <| EvalException "Records have different fields in pattern"
+        | ResRecord results ->
+            raise <| EvalException "Records have different lengths in pattern"
+        | _ -> 
+            raise <| EvalException "Invalid result for record pattern"
+    | NilPattern ->
+        match result with
+        | ResNil -> Some env
+        | ResCons _ -> None
+        | _ -> 
+            raise <| EvalException "Invalid result for nil pattern"
+    | ConsPattern (p1, p2) ->
+        match result with
+        | ResNil -> None
+        | ResCons (v1, v2) -> 
+            match matchPattern p1 v1 env with
+            | None -> None
+            | Some env -> matchPattern p2 v2 env
+        | _ -> 
+            raise <| EvalException "Invalid result for cons pattern"
+
+let validatePattern pattern result (env: Map<Ident, result>) =
+    matchPattern pattern result env
+        
+//#endregion
+
+//#region Comparisons
+
+let rec compareEquality t1 t2 =
     match t1, t2 with
     | ResRaise, _ -> ResRaise
     | _, ResRaise -> ResRaise
@@ -54,7 +120,7 @@ and compareEquality t1 t2 =
             raise <| EvalException (sprintf "Records %A and %A have different fields" t1 t2)
     | _ , _ -> sprintf "Values %A and %A are not comparable" t1 t2 |> EvalException |> raise  
 
-and compareOrder t1 t2 orderType =
+let rec compareOrder t1 t2 orderType =
     match t1, t2 with
     | ResRaise, _ -> ResRaise
     | _, ResRaise -> ResRaise
@@ -93,8 +159,10 @@ and compareOrder t1 t2 orderType =
         | ResB false, _ -> compareOrder hd1 hd2 orderType
         | _ -> raise <| EvalException "Equal returned a non-expected value"
     | _ , _ -> sprintf "Values %A and %A are not comparable" t1 t2 |> EvalException |> raise  
+    
+//#endregion
 
-and private eval t env =
+let rec private eval t env =
     match t with
     | B b-> ResB b
     | Skip -> ResSkip
@@ -103,14 +171,20 @@ and private eval t env =
     | OP(t1, Application, t2) ->
         match eval t1 env with
         | ResRaise -> ResRaise
-        | ResRecClosure(id1, id2, e, env') as t1' ->
+        | ResRecClosure(id1, pattern, e, env') as t1' ->
             match eval t2 env with
             | ResRaise ->  ResRaise
-            | t2' -> eval e <| env'.Add(id2, t2').Add(id1, t1')
-        | ResClosure(id, e, env') ->
+            | t2' -> 
+                match validatePattern pattern t2' env' with
+                | None -> ResRaise
+                | Some env' -> eval e <| env'.Add(id1, t1')
+        | ResClosure(pattern, e, env') ->
             match eval t2 env with
             | ResRaise -> ResRaise
-            | t2' -> eval e <| env'.Add(id, t2')
+            | t2' -> 
+                match validatePattern pattern t2' env' with
+                | None -> ResRaise
+                | Some env' -> eval e env'
         | t1' -> sprintf "First operand %A is not a function at %A" t1' t |> EvalException |> raise
     | OP(t1, Cons, t2) ->
         match eval t1 env with
@@ -177,12 +251,15 @@ and private eval t env =
         | ResB true -> eval t2 env
         | ResB false -> eval t3 env
         | t1' -> sprintf "Term %A is not a Boolean value at %A" t1' t |> EvalException |> raise
-    | Fn(id, typ, t1) -> ResClosure(id, t1, env)
-    | RecFn(id1, typ1, id2, typ2, t) -> ResRecClosure(id1, id2, t, env)
-    | Let(id, typ, t1, t2) ->
+    | Fn2(pattern, t1) -> ResClosure(pattern, t1, env)
+    | RecFn2(id1, typ1, pattern, t) -> ResRecClosure(id1, pattern, t, env)
+    | Let2(pattern, t1, t2) ->
         match eval t1 env with
         | ResRaise -> ResRaise
-        | t1' -> eval t2 <| env.Add(id, t1')
+        | t1' -> 
+            match validatePattern pattern t1' env with
+            | None -> ResRaise
+            | Some env' -> eval t2 env'
     | Nil -> ResNil
     | IsEmpty(t1) ->
         match eval t1 env with

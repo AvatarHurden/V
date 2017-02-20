@@ -303,6 +303,17 @@ let rec unify constraints =
                 unify <| rest @ [Equals (s1, t1)]
             | Function(s1, s2), Function(t1, t2) -> 
                 unify <| rest @ [Equals (s1, t1); Equals (s2, t2)]
+            | Type.Tuple typs1, Type.Tuple typs2 when typs1.Length = typs2.Length ->
+                unify <| rest @ List.map2 (fun typ1 typ2 -> Equals (typ1, typ2)) typs1 typs2
+            | Type.Record pairs1, Type.Record pairs2 
+                when pairs1.Length = pairs2.Length && 
+                     List.forall (fun (name1, _) -> List.exists (fun (name2, _) -> name2 = name1) pairs2) pairs1 ->
+            
+                let matchNames (name1, typ1) =
+                    let (name2, typ2) = List.find (fun (name2, typ2) -> name1 = name2) pairs2
+                    Equals (typ1, typ2)
+                
+                unify <| rest @ List.map matchNames pairs1
             | _ -> 
                 raise <| TypeException "Unsolvable constraints"
 
@@ -354,6 +365,80 @@ let rec applyUniToEnv env uni: Map<string, EnvAssociation> =
             value
     Map.map f env
 
+//#endregion
+
+//#region Pattern Matching
+
+let rec matchPattern pattern typ (env: Map<Ident, EnvAssociation>) cons =
+    match pattern with
+    | Var (XPattern x, None)-> env.Add(x, Simple typ), cons
+    | Var (XPattern x, Some typ')-> env.Add(x, Simple typ'), Equals (typ', typ) :: cons
+
+    | Var (IgnorePattern, None) -> env, cons
+    | Var (IgnorePattern, Some typ') -> env, Equals (typ', typ) :: cons
+
+    | Var (TuplePattern patterns, typ') ->
+        let tupleTypes = List.map (fun _ -> VarType (getVarType (), [])) patterns
+        let f = fun (env, cons) p t -> matchPattern p t env cons
+        let acc = 
+            match typ' with
+            | Some typ' ->
+                env, Equals (typ', typ) :: Equals (Type.Tuple tupleTypes, typ) :: cons
+            | None ->
+                env, Equals (Type.Tuple tupleTypes, typ) :: cons
+        List.fold2 f acc patterns tupleTypes
+    
+    | Var (RecordPattern patterns, typ') ->
+        let recordTypes = List.map (fun (name, _) -> name, VarType (getVarType (), [])) patterns
+        let f = fun (env, cons) (_, p) (_, t) -> matchPattern p t env cons
+        let acc = 
+            match typ' with
+            | Some typ' ->
+                env, Equals (typ', typ) :: Equals (Type.Record recordTypes, typ) :: cons
+            | None ->
+                env, Equals (Type.Record recordTypes, typ) :: cons
+        List.fold2 f acc patterns recordTypes
+
+    | Var (NilPattern, typ') ->
+        let newTyp = List (VarType (getVarType (), []))
+        let cons' =
+            match typ' with
+            | None ->
+                Equals (newTyp, typ) :: cons
+            | Some typ' ->
+                Equals (newTyp, typ) :: Equals (newTyp, typ') :: cons
+        env, cons'
+
+    | Var (ConsPattern (p1, p2), typ') ->
+        let newTyp = VarType (getVarType (), [])
+        let cons' = 
+            match typ' with
+            | None ->
+                Equals (List newTyp, typ) :: cons
+            | Some typ' ->
+                Equals (List newTyp, typ') :: Equals (List newTyp, typ) :: cons
+        let env', cons' = matchPattern p1 newTyp env cons' 
+        matchPattern p2 (List newTyp) env' cons'
+
+let validatePattern pattern typ (env: Map<Ident, EnvAssociation>) =
+    let rec findIds (Var (pattern, _)) =
+        match pattern with
+        | IgnorePattern
+        | NilPattern -> []
+        | XPattern x -> [x]
+        | TuplePattern patterns ->
+            List.fold (fun acc p -> acc @ findIds p) [] patterns
+        | RecordPattern patterns ->
+            List.fold (fun acc (n, p) -> acc @ findIds p) [] patterns
+        | ConsPattern (p1, p2) ->
+            findIds p1 @ findIds p2
+    let ids = findIds pattern
+    let uniques = ids |> Seq.distinct |> Seq.toList
+    if uniques.Length = ids.Length then
+        matchPattern pattern typ env
+    else
+        raise <| TypeException "A pattern cannot have repeated variable names"
+        
 //#endregion
 
 //#region Constraint Collection Functions
@@ -429,29 +514,21 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         typ2, c1 @ c2 @ c3 @ [Equals (typ1, Bool); Equals (typ2, typ3)]
     | X(id) ->
         findId id env
-    | Fn(id, Some typ, t1) ->
-        let typ1, c1 = collectConstraints t1 <| env.Add(id, Simple typ)
-        Function(typ, typ1), c1
-    | Fn(id, None, t1) ->
+    | Fn2(pattern, t1) ->
         let paramTyp = VarType (getVarType (), [])
-        let typ1, c1 = collectConstraints t1 <| env.Add(id, Simple paramTyp)
-        Function(paramTyp, typ1), c1
-    | RecFn(id1, Some typ1, id2, Some typ2, t1) ->
-        let env1 = env.Add(id1, Simple <| Function(typ2, typ1)).Add(id2, Simple typ2)
-        let typ1', c1 = collectConstraints t1 env1
-        Function (typ2, typ1), c1 @ [Equals (typ1', typ1)]
-    | RecFn(id1, None, id2, None, t1) ->
-        let fType = VarType (getVarType (), [])
+        let env', cons = validatePattern pattern paramTyp env []
+        let typ1, c1 = collectConstraints t1 env'
+        Function(paramTyp, typ1), cons @ c1
+    | RecFn2(id, retType, pattern, t1) ->
         let paramTyp = VarType (getVarType (), [])
-        let typ1, c1 = collectConstraints t1 <| env.Add(id1, Simple fType).Add(id2, Simple paramTyp)
-        Function (paramTyp, typ1), c1 @ [Equals (fType, Function (paramTyp, typ1))]
-    | RecFn(id1, _, id2, _, t1) as t ->
-        sprintf "Invalid recursive function defintion at %A" t |> TypeException |> raise
-    | Let(id, Some typ, t1, t2) ->
-        let typ1, c1 = collectConstraints t1 env
-        let typ2, c2 = collectConstraints t2 <| env.Add(id, Simple typ)
-        typ2, c1 @ c2 @ [Equals (typ, typ1)]
-    | Let(id, None, t1, t2) ->
+        let fType = 
+            match retType with
+            | Some retType -> Function(paramTyp, retType) 
+            | None -> VarType (getVarType (), [])
+        let env', cons = validatePattern pattern paramTyp (env.Add(id, Simple fType)) []
+        let typ1, c1 = collectConstraints t1 env'
+        Function (paramTyp, typ1), cons @ c1 @ [Equals (fType, Function (paramTyp, typ1))]
+    | Let2(pattern, t1, t2) ->
         let typ1, c1 = collectConstraints t1 env
         let uni = unify c1
         let typ1' = applyUniToType typ1 uni
@@ -459,14 +536,17 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         let freeVars = getFreeVars typ1' <| applyUniToEnv env uni
         let isFn = match typ1' with | Function _ -> true | _ -> false
 
-        let assoc = 
+        let env', cons = 
             if freeVars.IsEmpty || not isFn then
-                Simple typ1'
+                validatePattern pattern typ1' env []
             else
-                Universal (freeVars, typ1')
-        let typ2, c2 = collectConstraints t2  <| env.Add(id, assoc)
-
-        typ2, c1 @ c2
+                match pattern with
+                | Var (XPattern x, _) -> env.Add(x, Universal (freeVars, typ1')), []
+                | _ ->
+                    raise <| TypeException "Pattern not allowed for functions"
+        
+        let typ2, c2 = collectConstraints t2 env'
+        typ2, cons @ c1 @ c2
     | Nil ->
         List <| VarType (getVarType (), []), []
     | Head(t1) ->
