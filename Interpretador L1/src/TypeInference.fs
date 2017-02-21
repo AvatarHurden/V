@@ -514,12 +514,12 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         typ2, c1 @ c2 @ c3 @ [Equals (typ1, Bool); Equals (typ2, typ3)]
     | X(id) ->
         findId id env
-    | Fn2(pattern, t1) ->
+    | Fn(pattern, t1) ->
         let paramTyp = VarType (getVarType (), [])
         let env', cons = validatePattern pattern paramTyp env []
         let typ1, c1 = collectConstraints t1 env'
         Function(paramTyp, typ1), cons @ c1
-    | RecFn2(id, retType, pattern, t1) ->
+    | RecFn(id, retType, pattern, t1) ->
         let paramTyp = VarType (getVarType (), [])
         let fType = 
             match retType with
@@ -528,7 +528,7 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         let env', cons = validatePattern pattern paramTyp (env.Add(id, Simple fType)) []
         let typ1, c1 = collectConstraints t1 env'
         Function (paramTyp, typ1), cons @ c1 @ [Equals (fType, Function (paramTyp, typ1))]
-    | Let2(pattern, t1, t2) ->
+    | Let(pattern, t1, t2) ->
         let typ1, c1 = collectConstraints t1 env
         let uni = unify c1
         let typ1' = applyUniToType typ1 uni

@@ -293,8 +293,8 @@ let rec zipWith f x y =
 ;
 
 let unzip ls =
-    let x = map #0 ls;
-    let y = map #1 ls;
+    let x = map (\(x, _) -> x) ls;
+    let y = map (\(_, y) -> y) ls;
     (x, y)
 ;
 

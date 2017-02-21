@@ -99,26 +99,26 @@ type TestMatchInfer() =
     [<Test>]
     member that.simpleUntyped() =
         compareDirect
-            (Let2 (Var(XPattern "x", None), I 3, X "x"))
+            (Let (Var(XPattern "x", None), I 3, X "x"))
             Int
 
     [<Test>]
     member that.simpleTyped() =
         compareDirect
-            (Let2 (Var(XPattern "x", Some Int), I 3, X "x"))
+            (Let (Var(XPattern "x", Some Int), I 3, X "x"))
             Int
 
     [<Test>]
     member that.simpleTypedWrong() =
         shouldFailDirect
-            (Let2 (Var(XPattern "x", Some Char), I 3, X "x"))
+            (Let (Var(XPattern "x", Some Char), I 3, X "x"))
             
     [<Test>]
     member that.simpleTuple() =
         let pattern = Var( TuplePattern(
             [Var(XPattern "x", None); Var(XPattern "y", None)]), None)
         compareDirect
-            (Let2 (pattern, Tuple([I 3; I 4]), OP(X "x", Add, X "y")))
+            (Let (pattern, Tuple([I 3; I 4]), OP(X "x", Add, X "y")))
             (Int)
            
     [<Test>]
@@ -126,7 +126,7 @@ type TestMatchInfer() =
         let pattern = Var( TuplePattern(
             [Var(XPattern "x", None); Var(XPattern "y", None)]), None)
         compareDirect
-            (Let2 (pattern, Tuple([Nil; I 4]), X "x"))
+            (Let (pattern, Tuple([Nil; I 4]), X "x"))
             (List (VarType ("X0", [])))
             
     [<Test>]
@@ -134,7 +134,7 @@ type TestMatchInfer() =
         let pattern = Var( TuplePattern(
             [Var(XPattern "x", Some (List Int)); Var(XPattern "y", None)]), None)
         compareDirect
-            (Let2 (pattern, Tuple([Nil; I 4]), X "x"))
+            (Let (pattern, Tuple([Nil; I 4]), X "x"))
             (List Int)
 
     [<Test>]
@@ -142,7 +142,7 @@ type TestMatchInfer() =
         let pattern = Var( TuplePattern(
             [Var(XPattern "x", None); Var(XPattern "y", None)]), Some <| Type.Tuple [Int; Int])
         compareDirect
-            (Let2 (pattern, Tuple([I 3; I 4]), X "x"))
+            (Let (pattern, Tuple([I 3; I 4]), X "x"))
             (Int)
         
     [<Test>]
@@ -150,14 +150,14 @@ type TestMatchInfer() =
         let pattern = Var( TuplePattern(
             [Var(XPattern "x", None); Var(XPattern "x", None)]), None)
         shouldFailDirect
-            (Let2 (pattern, Tuple([I 3; I 4]), OP(X "x", Add, X "y")))
+            (Let (pattern, Tuple([I 3; I 4]), OP(X "x", Add, X "y")))
 
     [<Test>]
     member that.listHead() =
         let pattern = Var( ConsPattern(
             Var(XPattern "x", None), Var(XPattern "y", None)), None)
         compareDirect
-            (Let2 (pattern, OP(I 3, Cons, OP (I 4, Cons, Nil)), X "x"))
+            (Let (pattern, OP(I 3, Cons, OP (I 4, Cons, Nil)), X "x"))
             (Int)
 
     [<Test>]
@@ -165,7 +165,7 @@ type TestMatchInfer() =
         let pattern = Var( ConsPattern(
             Var(XPattern "x", None), Var(XPattern "y", None)), None)
         compareDirect
-            (Let2 (pattern, OP(I 3, Cons, OP (I 4, Cons, Nil)), X "y"))
+            (Let (pattern, OP(I 3, Cons, OP (I 4, Cons, Nil)), X "y"))
             (List Int)
 
     [<Test>]
@@ -173,7 +173,7 @@ type TestMatchInfer() =
         let pattern = Var( ConsPattern(
             Var(XPattern "x", Some Int), Var(XPattern "y", Some <| List Int)), None)
         compareDirect
-            (Let2 (pattern, OP(I 3, Cons, OP (I 4, Cons, Nil)), X "y"))
+            (Let (pattern, OP(I 3, Cons, OP (I 4, Cons, Nil)), X "y"))
             (List Int)
 
     [<Test>]
@@ -181,7 +181,7 @@ type TestMatchInfer() =
         let pattern = Var( ConsPattern(
             Var(XPattern "x", Some Int), Var(XPattern "y", Some <| List Int)), Some <| List Int)
         compareDirect
-            (Let2 (pattern, OP(I 3, Cons, OP (I 4, Cons, Nil)), X "y"))
+            (Let (pattern, OP(I 3, Cons, OP (I 4, Cons, Nil)), X "y"))
             (List Int)
 
     [<Test>]
@@ -189,7 +189,7 @@ type TestMatchInfer() =
         let pattern = Var( TuplePattern(
             [Var(XPattern "x", Some Int); Var(XPattern "y", Some Char)]), None)
         compareDirect
-            (Fn2 (pattern, Tuple [X "y"; X "x"]))
+            (Fn (pattern, Tuple [X "y"; X "x"]))
             (Function(Type.Tuple [Int; Char], Type.Tuple [Char;Int]))
 
     [<Test>]
@@ -197,7 +197,7 @@ type TestMatchInfer() =
         let pattern = Var( TuplePattern(
             [Var(XPattern "x", Some Int); Var(XPattern "y", Some Char)]), None)
         compareDirect
-            (Fn2 (pattern, X "x"))
+            (Fn (pattern, X "x"))
             (Function(Type.Tuple [Int; Char], Int))
 
     [<Test>]
@@ -205,7 +205,7 @@ type TestMatchInfer() =
         let pattern = Var( ConsPattern(
             Var(XPattern "x", None), Var(XPattern "y", None)), Some <| List Int)
         compareDirect
-            (Fn2 (pattern, Tuple [X "y"; X "x"]))
+            (Fn (pattern, Tuple [X "y"; X "x"]))
             (Function(List Int, Type.Tuple [List Int;Int]))
 
     [<Test>]
@@ -213,5 +213,5 @@ type TestMatchInfer() =
         let pattern = Var( ConsPattern(
             Var(XPattern "x", None), Var(XPattern "y", None)), Some <| List Int)
         compareDirect
-            (OP (Fn2 (pattern, Tuple [X "y"; X "x"]), Application, Nil))
+            (OP (Fn (pattern, Tuple [X "y"; X "x"]), Application, Nil))
             (Type.Tuple [List Int;Int])

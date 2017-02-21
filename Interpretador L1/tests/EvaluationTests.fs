@@ -6,23 +6,6 @@ open Parser
 open Definition
 open Evaluation
 
-let facList =
-    Let("faclist", Some <| Function(Int, List Int), 
-        RecFn("faclist", Some <| List Int, "x", Some Int, 
-            Let ("fac", Some <| Function(Int, Int),
-                RecFn("fac", Some Int, "y", Some Int, 
-                    Cond(
-                        OP(X("y"), Equal, I(0)),
-                         I(1),
-                                OP(X("y"), Multiply, OP(X("fac"), Application, OP(X("y"), Subtract, I(1)))))),
-                    Cond(
-                        OP(X("x"), Equal, I(0)),
-                             Nil,
-                             OP(OP(X("fac"), Application, X("x")), 
-                                Cons, 
-                                    OP(X("faclist"), Application, OP(X("x"), Subtract, I(1))))))),
-                    OP(X("faclist"), Application, I(5)))
-
 let compareDirect term result =
     let evaluated = evaluate term
     evaluated |> should equal result
@@ -45,16 +28,10 @@ type TestEval() =
         let fatMult = OP(X("x"), Multiply, OP(X("fat"), Application, OP(X("x"), Subtract, I(1))))
         let fnTerm = Cond(OP(X("x"), Equal, I(0)), I(1), fatMult)
         let fat = 
-            Let("fat", Some <| Function (Int, Int), 
-                RecFn("fat", Some Int, "x", Some Int, fnTerm), OP(X("fat"), Application, I(5)))
+            Let(Var(XPattern "fat", Some <| Function (Int, Int)), 
+                RecFn("fat", Some Int, Var(XPattern "x", Some Int), fnTerm), OP(X("fat"), Application, I(5)))
 
         evaluate fat |> should equal (ResI(120))
-
-    [<Test>]
-    member that.faclist() =
-        evaluate facList |> should equal <|
-            ResCons(ResI 120, ResCons(ResI 24, ResCons(ResI 6, ResCons(ResI 2, ResCons(ResI 1, ResNil)))))
-           
 
     [<Test>]
     member that.LCM() =
@@ -126,7 +103,7 @@ type TestMatchEval() =
     [<Test>]
     member that.simpleVar() =
         compareDirect
-            (Let2 (Var(XPattern "x", None), I 3, X "x"))
+            (Let (Var(XPattern "x", None), I 3, X "x"))
             (ResI 3)
 
     [<Test>]
@@ -134,7 +111,7 @@ type TestMatchEval() =
         let pattern = Var( TuplePattern(
             [Var(XPattern "x", None); Var(XPattern "y", None)]), None)
         compareDirect
-            (Let2 (pattern, Tuple([I 3; I 4]), OP(X "x", Add, X "y")))
+            (Let (pattern, Tuple([I 3; I 4]), OP(X "x", Add, X "y")))
             (ResI 7)
 
     [<Test>]
@@ -143,7 +120,7 @@ type TestMatchEval() =
             Var(XPattern "x", None), Var( ConsPattern(
                 Var(XPattern "y", None), Var (NilPattern, None)), None)), None)
         compareDirect
-            (Let2 (pattern, OP(I 3, Cons, OP (I 4, Cons, Nil)), OP(X "x", Add, X "y")))
+            (Let (pattern, OP(I 3, Cons, OP (I 4, Cons, Nil)), OP(X "x", Add, X "y")))
             (ResI 7)
 
     [<Test>]
@@ -152,7 +129,7 @@ type TestMatchEval() =
             Var(XPattern "x", None), Var( ConsPattern(
                 Var(XPattern "y", None), Var (NilPattern, None)), None)), None)
         compareDirect
-            (Let2 (pattern, OP(I 3, Cons, OP (I 4, Cons, OP(I 6, Cons, Nil))), OP(X "x", Add, X "y")))
+            (Let (pattern, OP(I 3, Cons, OP (I 4, Cons, OP(I 6, Cons, Nil))), OP(X "x", Add, X "y")))
             (ResRaise)
 
     [<Test>]
@@ -161,7 +138,7 @@ type TestMatchEval() =
             Var(XPattern "x", None), Var( ConsPattern(
                 Var(XPattern "y", None), Var (XPattern "z", None)), None)), None)
         compareDirect
-            (Let2 (pattern, OP(I 3, Cons, OP (I 4, Cons, OP(I 6, Cons, Nil))), X "z"))
+            (Let (pattern, OP(I 3, Cons, OP (I 4, Cons, OP(I 6, Cons, Nil))), X "z"))
             (ResCons (ResI 6, ResNil))
 
     [<Test>]
@@ -169,7 +146,7 @@ type TestMatchEval() =
         let pattern = Var( TuplePattern(
             [Var(XPattern "x", None); Var(XPattern "y", None)]), None)
         compareDirect
-            (OP (Fn2 (pattern, Tuple [X "y"; X "x"]), Application, Tuple [I 3; I 4]))
+            (OP (Fn (pattern, Tuple [X "y"; X "x"]), Application, Tuple [I 3; I 4]))
             (ResTuple [ResI 4; ResI 3])
 
     [<Test>]
@@ -177,7 +154,7 @@ type TestMatchEval() =
         let pattern = Var( RecordPattern(
             ["a", Var(XPattern "x", None); "b", Var(XPattern "y", None)]), None)
         compareDirect
-            (OP (Fn2 (pattern, Tuple [X "y"; X "x"]), 
+            (OP (Fn (pattern, Tuple [X "y"; X "x"]), 
                 Application, 
                 Record ["a", I 3; "b", I 4]))
             (ResTuple [ResI 4; ResI 3])
@@ -187,14 +164,14 @@ type TestMatchEval() =
         let pattern = Var( TuplePattern(
             [Var(XPattern "x", None); Var(XPattern "y", None)]), None)
         shouldFailDirect
-            (OP (Fn2 (pattern, Tuple [X "y"; X "x"]), Application, Tuple [I 3; I 4; I 4]))
+            (OP (Fn (pattern, Tuple [X "y"; X "x"]), Application, Tuple [I 3; I 4; I 4]))
 
     [<Test>]
     member that.FnParamaterListPassingFailingParameter() =
         let pattern = Var( ConsPattern(
             Var(XPattern "x", None), Var(XPattern "y", None)), Some <| List Int)
         compareDirect
-            (OP (Fn2 (pattern, Tuple [X "y"; X "x"]), Application, Nil))
+            (OP (Fn (pattern, Tuple [X "y"; X "x"]), Application, Nil))
             (ResRaise)
 
     [<Test>]
@@ -202,7 +179,7 @@ type TestMatchEval() =
         let pattern = Var( ConsPattern(
             Var(XPattern "x", None), Var(XPattern "y", None)), None)
         compareDirect
-            (OP (RecFn2 ("count", None, pattern, 
+            (OP (RecFn ("count", None, pattern, 
                 Cond(IsEmpty (X "y"), 
                     I 1, 
                     OP(I 1, Add, OP (X "count", Application, X "y")))),
@@ -215,7 +192,7 @@ type TestMatchEval() =
         let pattern = Var( ConsPattern(
             Var(XPattern "x", None), Var(XPattern "y", None)), None)
         compareDirect
-            (OP (RecFn2 ("count", None, pattern, 
+            (OP (RecFn ("count", None, pattern, 
                 Cond(IsEmpty (X "y"), 
                     I 1, 
                     OP(I 1, Add, OP (X "count", Application, X "y")))),

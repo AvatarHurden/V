@@ -71,12 +71,9 @@ type term =
     | OP of term * op * term
     | Cond of term * term * term
     | X of Ident
-    | Fn of Ident * Type option * term
-    | Fn2 of VarPattern * term
-    | RecFn of Ident * (Type option) * Ident * Type option * term
-    | RecFn2 of Ident * (Type option) * VarPattern * term
-    | Let2 of VarPattern * term * term
-    | Let of Ident * (Type option) * term * term
+    | Fn of VarPattern * term
+    | RecFn of Ident * (Type option) * VarPattern * term
+    | Let of VarPattern * term * term
     | Nil
     | IsEmpty of term
     | Head of term

@@ -1318,8 +1318,8 @@ type Unzip() =
     static member func = 
         Map.func + """
 let unzip ls =
-    let x = map #0 ls;
-    let y = map #1 ls;
+    let x = map (\(x, _) -> x) ls;
+    let y = map (\(_, y) -> y) ls;
     (x, y)
 ;
 """
@@ -1328,7 +1328,7 @@ let unzip ls =
     member that.testType() =
         let x1 = VarType ("x", [])
         let x2 = VarType ("z", [])
-        let x3 = VarType ("y", [TuplePosition (1, x2); TuplePosition (0, x1)])
+        let x3 = Type.Tuple [x1; x2]
 
         matchesType (Unzip.func + "unzip") <| 
             Function (List x3, Type.Tuple [List x1; List x2])
@@ -1344,7 +1344,7 @@ let unzip ls =
         
     [<Test>]
     member that.sameSize() =
-        equalsParsed (Unzip.func + "unzip [(1, 'a', 3), (2, 'b', 4)]") <|
+        equalsParsed (Unzip.func + "unzip [(1, 'a'), (2, 'b')]") <|
             "([1,2], ['a', 'b'])"
         
 

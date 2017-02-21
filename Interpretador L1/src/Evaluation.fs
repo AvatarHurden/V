@@ -251,9 +251,9 @@ let rec private eval t env =
         | ResB true -> eval t2 env
         | ResB false -> eval t3 env
         | t1' -> sprintf "Term %A is not a Boolean value at %A" t1' t |> EvalException |> raise
-    | Fn2(pattern, t1) -> ResClosure(pattern, t1, env)
-    | RecFn2(id1, typ1, pattern, t) -> ResRecClosure(id1, pattern, t, env)
-    | Let2(pattern, t1, t2) ->
+    | Fn(pattern, t1) -> ResClosure(pattern, t1, env)
+    | RecFn(id1, typ1, pattern, t) -> ResRecClosure(id1, pattern, t, env)
+    | Let(pattern, t1, t2) ->
         match eval t1 env with
         | ResRaise -> ResRaise
         | t1' -> 

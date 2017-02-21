@@ -214,8 +214,8 @@ let rec interactive declarations newTerm =
         if isValidLib term then
             let inside = 
                 match term with
-                | Fn(_, _, inside) -> inside
-            let newDecl = Fn ("x", None, replaceXLib declarations inside)
+                | Fn(_, inside) -> inside
+            let newDecl = Fn (Var(XPattern "x", None), replaceXLib declarations inside)
             interactive newDecl <| parseItem "" true
         else
             try

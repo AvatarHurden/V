@@ -23,26 +23,26 @@ let loadTerm path =
 let isValidLib term = 
     let rec iter t =
         match t with
-        | Let (x, typ, inside, X "x") ->
+        | Let (_, inside, X "x") ->
             true
-        | Let (x, typ, inside, (Let _ as newLet)) ->
+        | Let (_, inside, (Let _ as newLet)) ->
             iter newLet
         | _ -> false
     match term with
-    | Fn ("x", None, t) -> iter t
+    | Fn (Var(XPattern "x", None), t) -> iter t
     | _ -> false
 
 let replaceXLib lib term = 
     let rec iter t =
         match t with
-        | Let (x, typ, inside, X "x") ->
-            Let (x, typ, inside, term)
-        | Let (x, typ, inside, (Let _ as newLet)) ->
-            Let (x, typ, inside, iter newLet)
+        | Let (p, inside, X "x") ->
+            Let (p, inside, term)
+        | Let (p, inside, (Let _ as newLet)) ->
+            Let (p, inside, iter newLet)
         | _ ->
             raise <| ParseException "Not a library"
     match lib with
-    | Fn ("x", None, t) -> iter t
+    | Fn (Var(XPattern "x", None), t) -> iter t
     | _ -> raise <| ParseException "Not a library"
     
 let loadStdlib (arr: byte[]) =
