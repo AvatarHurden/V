@@ -669,12 +669,13 @@ The following are the rules for the match function:
 \smallskip
 
 \infrule[]
-    {\exists \; i \in \left[1, n\right] \; \; match(p_i, v_i) = false, env_i}
-    {match(\{l_1: p_1, ... l_n: p_n\}, \{l_1: v_1, ... l_n: v_n\}) = false, \{\}}
+    {\exists \; i \in \left[1, n\right]  \; \; \exists \; j \in \left[1, n\right] \; \; l_{1i} = l_{2j} \wedge match(p_i, v_j) = false, env_i}
+    {match(\{l_{11}: p_1, ... l_{1n}: p_n\}, \{l_{21}: v_1, ... l_{2n}: v_n\}) = false, \{\}}
 
 \infrule[]
-    {\forall \; i \in \left[1, n\right] \; \; match(p_i, v_i) = true, env_i}
-    {match(\{l_1: p_1, ... l_n: p_n\}, \{l_1: v_1, ... l_n: v_n\}) = true,  \displaystyle \bigcup_{i=1}^{n} env_i}
+    {\forall \; i \in \left[1, n\right] \; \; \exists \; j \in \left[1, n\right] \; \;
+      l_{1i} = l_{2j} \wedge match(p_i, v_j) = true, env_i}
+    {match(\{l_{11}: p_1, ... l_{1n}: p_n\}, \{l_{21}: v_1, ... l_{2n}: v_n\}) = true,  \displaystyle \bigcup_{i=1}^{n} env_i}
 
 \subsubsection{Big-Step Rules}
 
@@ -1414,7 +1415,7 @@ Every expression in $L1$ has a rule for constraint collection, similar to how ev
 
 \infax[T-Input]
     {\Gamma \vdash \texttt{input} : \mbox{Char} \; list \; | \; \{\}}
-
+	
 \bigskip
 
 \infrule[T-Tuple]
