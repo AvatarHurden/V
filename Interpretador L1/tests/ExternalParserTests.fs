@@ -120,10 +120,6 @@ type TestLetParsing() =
             ResCons (ResC 'a', ResCons (ResC 'h', ResCons (ResC 'i', ResNil)))
         
     [<Test>]
-    member that.maltypedLetFunction() =
-        shouldFail "   let t (f: Int) = (let x: Int = 3;x+4); t"
-        
-    [<Test>]
     member that.incompleteLetFunction() =
         shouldFail "   let  t x = 3+4;"
         
@@ -224,7 +220,7 @@ type TestTupleRecords() =
 
     [<Test>]
     member that.emptyTuple() =
-        compare "(   )" ResNil
+        compare "(   )" ResSkip
         
     [<Test>]
     member that.singletonTerm() =

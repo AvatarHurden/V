@@ -136,20 +136,20 @@ type TestParameterParsing() =
     member that.noTypes() =
         parseParameters "x y z => x+y+z" (true, ["=>"]) |> 
             should equal 
-                (" x+y+z", ["x", (None: Type option); 
-                    "y", (None: Type option); "z", (None: Type option)])
+                (" x+y+z", [Var(XPattern "x", (None: Type option)); 
+                    Var(XPattern "y", (None: Type option)); Var(XPattern "z", (None: Type option))])
 
     [<Test>]
     member that.simpleTypes() =
         parseParameters "(x:Int) (y:Bool) (z:String) => x+y+z" (true, ["=>"]) |> 
-            should equal (" x+y+z", ["x", Some Int; 
-                "y", Some Bool; "z", Some <| List Char])
+            should equal (" x+y+z", [Var(XPattern "x", Some Int); 
+                Var(XPattern "y", Some Bool); Var(XPattern "z", Some <| List Char)])
 
     [<Test>]
     member that.complexTypes() =
         parseParameters "(x:[[Int]]) (y:(Bool->Int)) (z:String) => x+y+z" (true, ["=>"]) |> 
-            should equal (" x+y+z", ["x", List Int |> List |> Some; 
-                "y", Some <| Function (Bool, Int); "z", Some <| List Char])
+            should equal (" x+y+z", [Var(XPattern "x", List Int |> List |> Some); 
+                Var(XPattern "y", Some <| Function (Bool, Int)); Var(XPattern "z", Some <| List Char)])
 
 
 [<TestFixture>]

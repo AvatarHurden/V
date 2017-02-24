@@ -547,14 +547,21 @@ and parseLet text closings =
             true, rest
         | Trimmed rest ->
             false, rest
+    
+    let rest, pattern, parameters = 
+        try
+            let rest, pattern = parsePattern start (false, ["="])
+            rest, pattern, []
+        with
+        | _ ->
+            let rest, pattern = parsePattern start (false, ["="; " "])
+            let rest, parameters = parseParameters rest (false, ["="; ":"])
+            rest, pattern, parameters
 
-    let rest, pattern = parsePattern start (false, ["="; " "])
-    let rest, parameters = parseParameters rest (false, ["="; ":"])
-
-    let rest, pattern = 
-        match parameters with
-        | [] -> parsePattern start (false, ["="])
-        | _ -> rest, pattern
+//    let rest, pattern = 
+//        match parameters with
+//        | [] -> parsePattern start (false, ["="])
+//        | _ -> rest, pattern
 
     let rest, retType =
         match rest with
@@ -593,7 +600,7 @@ and parseLet text closings =
         let recFn = RecFn(id, retType, p, retTerm)
         match recFn with
         | RecFn(id, Some retType, Var (p, Some typ1), retTerm) ->
-            rest, Let(Var(p, Some <| Function(typ1, retType)), recFn, t2)
+            rest, Let(Var(XPattern id, Some <| Function(typ1, retType)), recFn, t2)
         | RecFn(id, None, p, retTerm) ->
             rest, Let(pattern, recFn, t2)
         | _ -> raiseExp <| sprintf "Wrong recurive function at %A" text

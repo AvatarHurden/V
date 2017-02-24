@@ -453,7 +453,7 @@ let findId id (e: Map<string, EnvAssociation>) =
             let typ' = List.fold (fun acc sub -> substituteInType (NameSub sub) acc) typ newVars
             typ', []
     else
-        sprintf "Identifier %A undefined" id |> TypeException |> raise
+        raise (TypeException <| sprintf "Identifier %A undefined" id)
 
 // collectConstraints term environment constraints
 let rec collectConstraints term (env: Map<string, EnvAssociation>) =
