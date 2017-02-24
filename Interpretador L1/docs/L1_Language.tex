@@ -1728,6 +1728,8 @@ Any Unicode character is considered valid, with the exception of the following:
   \hline
   \% & \textbackslash & ' & " & \textbackslash n & \textbackslash r & \textbackslash t\\
   \hline
+  \_\\
+  \hline
 \end{tabular}
 
 \bigskip
@@ -1751,19 +1753,52 @@ They are the following:
   \hline
 \end{tabular}
 
+\subsection{Patterns}
+
+Patterns are rules for deconstructing values and binding their parts to identifiers.
+They can be used in constant declarations and function parameters, simplifying the extraction of data from compound values.
+
+\medskip
+
+\begin{tabular}{|l|l|l|}
+  \hline
+  \textbf{Pattern} & \textbf{Examples} & \textbf{Comments}\\
+  \hline
+  Identifier & x, y, z & Matches any value and binds to the identifier\\
+  \hline
+  Wildcard & _ & Matches and ignores any value\\
+  \hline
+  Tuple & (x, _, y) & Matches tuples with corresponding size\\
+  \hline
+  Record & {a: _, b: (x,y), c: x} & Matches records with corresponding labels\\
+  \hline
+  Nil & nil, [] & Matches the empty list\\
+  \hline
+  Cons & (x,y) :: z & Matches the head and tail of a non-empty list\\
+  \hline
+  List & [x, y, z] & Matches lists of corresponding size\\
+  \hline
+\end{tabular}
+
+\medskip
+
+Compound patterns, such as \code{Tuple}, \code{Record} and \code{List}, are composed of other patterns separated by commas.
+All patterns can have optional type annotations added to explicitly declare their types.
+
 \subsection{Constants}
 
-Constants are associations of an identifier to a particular value.
+Constants are associations of identifiers to values.
 The value associated to a particular identifier cannot be changed after it is declared.
 
 The keyword \code{let} is used to start a constant declaration, and a semicolon ends it.
-It is possible to add a type annotation to make the type of the constant explicitly, but this is not necessary.
+After the \code{let} keyword, any pattern can be used.
 
 Below are examples of constant declarations:
 
 \begin{lstlisting}
   let name = ``Steve'';
   let age: Int = 32;
+  let (x: Int, y) = (4, true);
 \end{lstlisting}
 
 \subsection{Type Annotations}
@@ -1933,9 +1968,9 @@ There are 4 types of functions that a programmer can declare:
 \subsubsection{Named Functions}
 
 These are functions that have a name by which they can be called after their definition.
-After the name, the programmer must specify one or more parameters, which can be either a simple name or a name and type pair.
+After the name, the programmer must specify one or more parameters, which can be any pattern.
+If an explicitly typed pattern is used, it must be enclosed in parenthesis.
 After every argument, the programmer can specify the return type of the function.
-Because of a limitation of the type system, one cannot mix typed and untyped parameters, but this will be fixed in a future version.
 
 The body of a function can use any parameter declared in its definition to compute a return value.
 Since every expression in the language returns a value, any valid expression is accepted as the body of a function.
@@ -1992,11 +2027,10 @@ The general syntax of a lambda is as follows:
 
 \begin{lstlisting}[escapechar=&]
 \param1 param2 ... -> body
-\&&(param1: Type1) (param2: Type2) ... -> body
 \end{lstlisting}
 
 A backslash (\textbackslash) indicates the start of a lambda, followed immediately by its parameters.
-Like in named functions, these can be either typed or untyped, but not mixed.
+Like in named functions, these can be any valid pattern.
 Unlike named functions, however, the return type of a lambda is never specified.
 
 After the parameters, an arrow (->) indicates the start of the function body, which extends as far to the right as possible.
