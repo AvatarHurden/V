@@ -13,6 +13,14 @@ let saveTerm term path =
     use stream = new FileStream(path, FileMode.Create)
     binFormatter.Serialize(stream, term)
     stream.Flush()
+    
+let saveArray term  =
+    let binFormatter = new BinaryFormatter()
+
+    use stream = new MemoryStream()
+    binFormatter.Serialize(stream, term)
+
+    stream.ToArray()
 
 let loadTerm path =
     let binFormatter = new BinaryFormatter()
@@ -20,6 +28,12 @@ let loadTerm path =
     use stream = new FileStream(path, FileMode.Open)
     binFormatter.Deserialize(stream) :?> Definition.term
     
+let loadArray (arr: byte[]) =
+    let binFormatter = new BinaryFormatter()
+
+    use stream = new MemoryStream(arr)
+    binFormatter.Deserialize(stream) :?> Definition.term
+
 let isValidLib term = 
     let rec iter t =
         match t with
@@ -45,12 +59,6 @@ let replaceXLib lib term =
     | Fn (Var(XPattern "x", None), t) -> iter t
     | _ -> raise <| ParseException "Not a library"
     
-let loadStdlib (arr: byte[]) =
-    let binFormatter = new BinaryFormatter()
-
-    use stream = new MemoryStream(arr)
-    binFormatter.Deserialize(stream) :?> Definition.term
-
 let loadLib path nextTerm =
     let lib = loadTerm path
 

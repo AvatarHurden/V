@@ -53,6 +53,7 @@ and Argument =
     | [<CliPrefix(CliPrefix.None)>] Interactive of ParseResults<Interactive>
     | [<CliPrefix(CliPrefix.None)>] Compile of ParseResults<Compile>
     | [<CliPrefix(CliPrefix.None)>] Run of ParseResults<Run>
+    | [<HiddenAttribute>] CompileStdLib
 with
     interface IArgParserTemplate with
         member s.Usage =
@@ -60,6 +61,7 @@ with
             | Interactive _ -> "Open in interactive mode."
             | Compile _ -> "Compile Files."
             | Run _ -> "Run the specified file."
+            | CompileStdLib -> ""
 
 let parser = ArgumentParser.Create<Argument>(programName = "Interpretador_L1.exe")
 
@@ -245,7 +247,39 @@ let runInteractive (results: ParseResults<Interactive>) =
         if isPure then
             interactive (parsePure <| "\x -> let exit = 0; x") <| parseItem "" true
         else
-            interactive (loadStdlib stdlib.compiled) <| parseItem "" true
+            interactive (loadArray stdlib.compiled) <| parseItem "" true
+
+let compileStdlib x =
+    let text = "\x -> " + stdlib.content + " x"
+
+    let term = parsePure text
+    ignore <| typeInfer term
+
+    if isValidLib term then
+        let ar = saveArray term
+        
+        let text = "module stdlib\n\nopen Compiler\n\nlet content = "
+        let text = text + "\"\"\"" + stdlib.content + "\"\"\""
+        
+        let text = text + "\n\nlet compiled: byte[] = [|"
+
+        let f (index, text) (byte: byte) =
+            let hex = String.Format("0x{0:X2}uy;", byte)
+            if index = 16 then
+                0 , text + "\n    " + hex
+            else
+                index + 1, text + " " + hex
+
+        let (_, text) = Array.fold f (16, text) ar
+
+        let text = text.Substring (0, text.Length - 1) + "\n|]\n\n"
+
+        let text = text + """let loadCompiled term =
+    let lib = loadArray compiled
+    replaceXLib lib term"""
+
+        File.WriteAllText("stdlib.fs", text)
+
 
 [<EntryPoint>]
 let main argv = 
@@ -261,6 +295,8 @@ let main argv =
             runRun <| results.GetResult <@ Run @>
         elif results.Contains <@ Interactive @> then
             runInteractive <| results.GetResult <@ Interactive @>
+        elif results.Contains <@ CompileStdLib @> then
+            compileStdlib ()
         else
             Console.WriteLine (parser.PrintUsage())  
         
