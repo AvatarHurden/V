@@ -1770,11 +1770,11 @@ They can be used in constant declarations and function parameters, simplifying t
   \hline
   Tuple & (x, _, y) & Matches tuples with corresponding size\\
   \hline
-  Record & {a: _, b: (x,y), c: x} & Matches records with corresponding labels\\
+  Record & \{a: _, b: (x,y), c: x\} & Matches records with corresponding labels\\
   \hline
   Nil & nil, [] & Matches the empty list\\
   \hline
-  Cons & (x,y) :: z & Matches the head and tail of a non-empty list\\
+  Cons & x :: y & Matches the head and tail of a non-empty list\\
   \hline
   List & [x, y, z] & Matches lists of corresponding size\\
   \hline
@@ -1784,6 +1784,13 @@ They can be used in constant declarations and function parameters, simplifying t
 
 Compound patterns, such as \code{Tuple}, \code{Record} and \code{List}, are composed of other patterns separated by commas.
 All patterns can have optional type annotations added to explicitly declare their types.
+
+\smallskip
+
+One thing to notice is that all patterns related to lists (\code{List}, \code{Cons} and \code{Nil}) can fail.
+If an attempt to match a list fails (e.g matching a non-empty list with \code{Nil}), the expression will raise an exception.
+
+All other patterns are type-safe, which means any errors will be detected at compile-time.
 
 \subsection{Constants}
 
@@ -1976,7 +1983,7 @@ The body of a function can use any parameter declared in its definition to compu
 Since every expression in the language returns a value, any valid expression is accepted as the body of a function.
 The only constraint is that, if the definition specifies a return type, the value must be of that type.
 
-Below are two examples of named functions:
+Below are three examples of named functions:
 
 \begin{lstlisting}
 let add x y =
@@ -1985,6 +1992,10 @@ let add x y =
 
 let duplicate (x: Int): Int =
   x * 2
+;
+
+let addTuple (x, y) =
+  x + y
 ;
 \end{lstlisting}
 
@@ -2045,6 +2056,9 @@ Notice that, without the use of parenthesis to enclose each lambda, the first fu
 
 \\ duplicate
 (\&&(x: Int) -> x * 2)
+
+\\ AddTuple
+(\&&(x, y) -> x + y)
 \end{lstlisting}
 
 \subsubsection{Recursive Lambdas}
