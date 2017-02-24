@@ -305,6 +305,11 @@ and parsePatternValue text closings =
         | [] -> raiseExp <| sprintf "Invalid pattern at %A" text
         | [p] -> rest, p
         | _ -> rest, Var(TuplePattern pairs, None)
+    | Start "{" rest ->
+        let rest, pairs = parseMultipleComponents parseRecordPattern rest (true, ["}"])
+        match pairs with
+        | [] -> raiseExp <| sprintf "Invalid pattern at %A" text
+        | _ -> rest, Var(RecordPattern pairs, None)
     | Start "[" rest ->
         let rest, pairs = parseMultipleComponents parsePattern rest (true, ["]"])
         match pairs with
@@ -313,6 +318,16 @@ and parsePatternValue text closings =
             rest, List.fold (fun acc p -> Var (ConsPattern(p, acc), None)) (Var(NilPattern, None)) pairs
     | Trimmed rest ->
         raiseExp <| sprintf "No pattern to parse at %A" rest
+
+and parseRecordPattern text closings =
+    let rest, label = parseIdent text
+    let rest, pattern = 
+        match rest with
+        | Start ":" rest ->
+            parsePattern rest closings
+        | _ -> 
+            raiseExp <| sprintf "Expected %A, but found %A" closings rest
+    rest, (label, pattern)
 
 let rec parseParameters text closings = 
     match text with
