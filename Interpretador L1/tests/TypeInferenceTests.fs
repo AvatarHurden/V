@@ -12,6 +12,9 @@ let compare (text, typ) =
     let evaluated = typeInfer <| parse text
     evaluated |> should equal typ
 
+let shouldFail text =
+    (fun () -> text |> parse |> typeInfer |> ignore) |> should throw typeof<TypeException> 
+   
 let compareDirect term typ =
     let evaluated = typeInfer term
     evaluated |> should equal typ
@@ -98,120 +101,93 @@ type TestMatchInfer() =
 
     [<Test>]
     member that.simpleUntyped() =
-        compareDirect
-            (Let (Var(XPattern "x", None), I 3, X "x"))
-            Int
+        compare ("let x = 3; x", Int)
 
     [<Test>]
     member that.simpleTyped() =
-        compareDirect
-            (Let (Var(XPattern "x", Some Int), I 3, X "x"))
-            Int
+        compare ("let x: Int = 3; x", Int)
 
     [<Test>]
     member that.simpleTypedWrong() =
-        shouldFailDirect
-            (Let (Var(XPattern "x", Some Char), I 3, X "x"))
+        shouldFail "let x: Char = 3; x"
             
     [<Test>]
     member that.simpleTuple() =
-        let pattern = Var( TuplePattern(
-            [Var(XPattern "x", None); Var(XPattern "y", None)]), None)
-        compareDirect
-            (Let (pattern, Tuple([I 3; I 4]), OP(X "x", Add, X "y")))
-            (Int)
+        compare ("let (x, y) = (3,4); x + y", Int)
            
     [<Test>]
     member that.simpleTupleList() =
-        let pattern = Var( TuplePattern(
-            [Var(XPattern "x", None); Var(XPattern "y", None)]), None)
-        compareDirect
-            (Let (pattern, Tuple([Nil; I 4]), X "x"))
-            (List (VarType ("X0", [])))
+        compare ("let (x, y) = ([], 4); x", (List (VarType ("X0", []))))
             
     [<Test>]
     member that.simpleTupleInternalType() =
-        let pattern = Var( TuplePattern(
-            [Var(XPattern "x", Some (List Int)); Var(XPattern "y", None)]), None)
-        compareDirect
-            (Let (pattern, Tuple([Nil; I 4]), X "x"))
-            (List Int)
+        compare ("let (x: [Int], y) = ([], 4); x", List Int)
 
     [<Test>]
     member that.simpleTupleExternalType() =
-        let pattern = Var( TuplePattern(
-            [Var(XPattern "x", None); Var(XPattern "y", None)]), Some <| Type.Tuple [Int; Int])
-        compareDirect
-            (Let (pattern, Tuple([I 3; I 4]), X "x"))
-            (Int)
+        compare ("let (x, y): (Int, Int) = (3,4); x", Int)
         
     [<Test>]
+    member that.wrongTuple() =
+        shouldFail "let (x, y) = (3,4, 5); x" 
+               
+    [<Test>]
     member that.duplicateVars() =
-        let pattern = Var( TuplePattern(
-            [Var(XPattern "x", None); Var(XPattern "x", None)]), None)
-        shouldFailDirect
-            (Let (pattern, Tuple([I 3; I 4]), OP(X "x", Add, X "y")))
+        shouldFail "let (x, x) = (3,4); x + x"
+    
+    [<Test>]
+    member that.simpleRecord() =
+        compare ("let {a: x, b: y} = {a: 4, b: 5}; x + y", Int)
+
+    [<Test>]
+    member that.simpleRecordTyped() =
+        compare ("let {a: x: Int, b: y} = {a: 4, b: 'c'}; x", Int)
+        
+    [<Test>]
+    member that.wrongRecord() =
+        shouldFail "let {a: x, b: y} = {a: 4, d: 'c'}; x"
+
+    [<Test>]
+    member that.wrongRecord2() =
+        shouldFail "let {a: x, b: y} = {a: 4, b: 4, d: 'c'}; x"
+        
+    [<Test>]
+    member that.wrongRecord3() =
+        shouldFail "let {a: x, b: y} = {a: 4}; x"
 
     [<Test>]
     member that.listHead() =
-        let pattern = Var( ConsPattern(
-            Var(XPattern "x", None), Var(XPattern "y", None)), None)
-        compareDirect
-            (Let (pattern, OP(I 3, Cons, OP (I 4, Cons, Nil)), X "x"))
-            (Int)
+        compare ("let x :: y = [3,4]; x", Int)
 
     [<Test>]
     member that.lisTail() =
-        let pattern = Var( ConsPattern(
-            Var(XPattern "x", None), Var(XPattern "y", None)), None)
-        compareDirect
-            (Let (pattern, OP(I 3, Cons, OP (I 4, Cons, Nil)), X "y"))
-            (List Int)
+        compare ("let x :: y = [3,4]; y", List Int)
 
     [<Test>]
     member that.listTyped() =
-        let pattern = Var( ConsPattern(
-            Var(XPattern "x", Some Int), Var(XPattern "y", Some <| List Int)), None)
-        compareDirect
-            (Let (pattern, OP(I 3, Cons, OP (I 4, Cons, Nil)), X "y"))
-            (List Int)
+        compare ("let (x: Int) :: (y: [Int]) = [3,4]; y", List Int)
 
     [<Test>]
     member that.listTotalTyped() =
-        let pattern = Var( ConsPattern(
-            Var(XPattern "x", Some Int), Var(XPattern "y", Some <| List Int)), Some <| List Int)
-        compareDirect
-            (Let (pattern, OP(I 3, Cons, OP (I 4, Cons, Nil)), X "y"))
-            (List Int)
+        compare ("let  ((x: Int) :: (y: [Int])): [Int] = [3,4]; y", List Int)
 
     [<Test>]
     member that.FnParamaterTuple() =
-        let pattern = Var( TuplePattern(
-            [Var(XPattern "x", Some Int); Var(XPattern "y", Some Char)]), None)
-        compareDirect
-            (Fn (pattern, Tuple [X "y"; X "x"]))
-            (Function(Type.Tuple [Int; Char], Type.Tuple [Char;Int]))
+        compare ("\(x: Int,y: Char) -> (y,x)",
+            (Function(Type.Tuple [Int; Char], Type.Tuple [Char;Int])))
 
     [<Test>]
     member that.FnParamater2Tuple() =
-        let pattern = Var( TuplePattern(
-            [Var(XPattern "x", Some Int); Var(XPattern "y", Some Char)]), None)
-        compareDirect
-            (Fn (pattern, X "x"))
-            (Function(Type.Tuple [Int; Char], Int))
+        compare ("\(x: Int,y: Char) -> x",
+            (Function(Type.Tuple [Int; Char], Int)))
 
     [<Test>]
     member that.FnParamaterList() =
-        let pattern = Var( ConsPattern(
-            Var(XPattern "x", None), Var(XPattern "y", None)), Some <| List Int)
-        compareDirect
-            (Fn (pattern, Tuple [X "y"; X "x"]))
-            (Function(List Int, Type.Tuple [List Int;Int]))
+        compare ("\((x :: y): [Int]) -> (y,x)",
+            (Function(List Int, Type.Tuple [List Int;Int])))
 
     [<Test>]
     member that.FnParamaterListPassingFailingParameter() =
-        let pattern = Var( ConsPattern(
-            Var(XPattern "x", None), Var(XPattern "y", None)), Some <| List Int)
-        compareDirect
-            (OP (Fn (pattern, Tuple [X "y"; X "x"]), Application, Nil))
-            (Type.Tuple [List Int;Int])
+        compare ("(\((x :: y): [Int]) -> (y, x)) []",
+            (Type.Tuple [List Int;Int]))
+    

@@ -61,6 +61,14 @@ type TestLetParsing() =
         compare "   let   t:Int   = let x: Int = 3;x+4; t" <| ResI 7
         
     [<Test>]
+    member that.consLetDeclaration() =
+        compare "   let  x :: (y: Int) :: z : [Int]   = [1,2,3,4]; x + y" <| ResI 3
+        
+    [<Test>]
+    member that.listLetDeclaration() =
+        compare "   let  [x,y,z]: [Int]   = [1,2,3]; x + y + z" <| ResI 6
+
+    [<Test>]
     member that.maltypedLetDeclaration() =
         shouldFail "   let   t: = (let x: Int = 3;x+4); t"
         
@@ -71,7 +79,7 @@ type TestLetParsing() =
     [<Test>]
     member that.incompleteLetDeclaration2() =
         shouldFail "   let   t = 5;"
-
+        
 
     [<Test>]
     member that.simpleLetRec() =
@@ -101,6 +109,10 @@ type TestLetParsing() =
     [<Test>]
     member that.simpleLetFunction() =
         compare "   let t x = x*x; t 4" <| ResI 16
+        
+    [<Test>]
+    member that.PatternedLetFunction() =
+        shouldFail "   let (t,g) x = x*x; t 4"
         
     [<Test>]
     member that.multiParameterLetFunction() =

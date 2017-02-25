@@ -102,100 +102,44 @@ type TestMatchEval() =
 
     [<Test>]
     member that.simpleVar() =
-        compareDirect
-            (Let (Var(XPattern "x", None), I 3, X "x"))
-            (ResI 3)
-
+        compare ("let x = 3; x", ResI 3)
+        
     [<Test>]
     member that.simpleTuple() =
-        let pattern = Var( TuplePattern(
-            [Var(XPattern "x", None); Var(XPattern "y", None)]), None)
-        compareDirect
-            (Let (pattern, Tuple([I 3; I 4]), OP(X "x", Add, X "y")))
-            (ResI 7)
+        compare ("let (x, y) = (3, 4); x", ResI 3)
 
     [<Test>]
     member that.longList() =
-        let pattern = Var( ConsPattern(
-            Var(XPattern "x", None), Var( ConsPattern(
-                Var(XPattern "y", None), Var (NilPattern, None)), None)), None)
-        compareDirect
-            (Let (pattern, OP(I 3, Cons, OP (I 4, Cons, Nil)), OP(X "x", Add, X "y")))
-            (ResI 7)
-
+        compare ("let x :: y :: [] = [3,4]; x + y", ResI 7)
+        
     [<Test>]
     member that.longListInvalid() =
-        let pattern = Var( ConsPattern(
-            Var(XPattern "x", None), Var( ConsPattern(
-                Var(XPattern "y", None), Var (NilPattern, None)), None)), None)
-        compareDirect
-            (Let (pattern, OP(I 3, Cons, OP (I 4, Cons, OP(I 6, Cons, Nil))), OP(X "x", Add, X "y")))
-            (ResRaise)
+        compare ("let x :: y :: [] = [3,4,6]; x + y", ResRaise)
 
     [<Test>]
     member that.longListTail() =
-        let pattern = Var( ConsPattern(
-            Var(XPattern "x", None), Var( ConsPattern(
-                Var(XPattern "y", None), Var (XPattern "z", None)), None)), None)
-        compareDirect
-            (Let (pattern, OP(I 3, Cons, OP (I 4, Cons, OP(I 6, Cons, Nil))), X "z"))
-            (ResCons (ResI 6, ResNil))
-
+        compare ("let x :: y :: z = [3,4,6]; z", (ResCons (ResI 6, ResNil)))
+        
     [<Test>]
     member that.FnParamater() =
-        let pattern = Var( TuplePattern(
-            [Var(XPattern "x", None); Var(XPattern "y", None)]), None)
-        compareDirect
-            (OP (Fn (pattern, Tuple [X "y"; X "x"]), Application, Tuple [I 3; I 4]))
-            (ResTuple [ResI 4; ResI 3])
-
+        compare ("(\(x,y) -> (y,x)) (3,4)", (ResTuple [ResI 4; ResI 3]))
+        
     [<Test>]
     member that.FnParamaterRecord() =
-        let pattern = Var( RecordPattern(
-            ["a", Var(XPattern "x", None); "b", Var(XPattern "y", None)]), None)
-        compareDirect
-            (OP (Fn (pattern, Tuple [X "y"; X "x"]), 
-                Application, 
-                Record ["a", I 3; "b", I 4]))
-            (ResTuple [ResI 4; ResI 3])
+        compare ("(\{a: x, b: y} -> (y,x)) {a: 3, b: 4}", (ResTuple [ResI 4; ResI 3]))
 
     [<Test>]
     member that.FnParamaterFail() =
-        let pattern = Var( TuplePattern(
-            [Var(XPattern "x", None); Var(XPattern "y", None)]), None)
-        shouldFailDirect
-            (OP (Fn (pattern, Tuple [X "y"; X "x"]), Application, Tuple [I 3; I 4; I 4]))
-
+        shouldFail "(\(x, y) -> (y,x)) (3,4,4)"
+       
     [<Test>]
     member that.FnParamaterListPassingFailingParameter() =
-        let pattern = Var( ConsPattern(
-            Var(XPattern "x", None), Var(XPattern "y", None)), Some <| List Int)
-        compareDirect
-            (OP (Fn (pattern, Tuple [X "y"; X "x"]), Application, Nil))
-            (ResRaise)
+        compare ("(\(x :: y) -> (y,x)) []", ResRaise)
 
     [<Test>]
     member that.RecFnParameter() =
-        let pattern = Var( ConsPattern(
-            Var(XPattern "x", None), Var(XPattern "y", None)), None)
-        compareDirect
-            (OP (RecFn ("count", None, pattern, 
-                Cond(IsEmpty (X "y"), 
-                    I 1, 
-                    OP(I 1, Add, OP (X "count", Application, X "y")))),
-                Application,
-                OP (I 3, Cons, OP (I 4, Cons, OP (I 7, Cons, Nil)))))
-            (ResI 3)
+        compare ("(rec count (x :: y) -> if empty? y then 1 else 1 + count y) [3,4,7]", ResI 3)
 
     [<Test>]
     member that.RecFnParameterFail() =
-        let pattern = Var( ConsPattern(
-            Var(XPattern "x", None), Var(XPattern "y", None)), None)
-        compareDirect
-            (OP (RecFn ("count", None, pattern, 
-                Cond(IsEmpty (X "y"), 
-                    I 1, 
-                    OP(I 1, Add, OP (X "count", Application, X "y")))),
-                Application,
-                Nil))
-            (ResRaise)
+        compare ("(rec count (x :: y) -> if empty? y then 1 else 1 + count y) []", ResRaise)

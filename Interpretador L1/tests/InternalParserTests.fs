@@ -151,6 +151,25 @@ type TestParameterParsing() =
             should equal (" x+y+z", [Var(XPattern "x", List Int |> List |> Some); 
                 Var(XPattern "y", Some <| Function (Bool, Int)); Var(XPattern "z", Some <| List Char)])
 
+    [<Test>]
+    member that.recordPatterns() =
+        parseParameters "{a: x, b: y: Int} => x + y" (true, ["=>"]) |>
+            should equal (" x + y", [Var(RecordPattern 
+                ["a", Var(XPattern "x", None);
+                 "b", Var(XPattern "y", Some Int)], None)])
+
+    [<Test>]
+    member that.consPattern() =
+        parseParameters "((x :: y): [Int]) z => x + y + z" (true, ["=>"]) |>
+            should equal (" x + y + z", [Var(ConsPattern (
+                Var(XPattern "x", None),
+                Var(XPattern "y", None)), Some (List Int));
+                Var(XPattern "z", None)])
+        
+    [<Test>]
+    member that.consPatternFailed() =
+        (fun () -> parseParameters "x :: y => x + y" (true, ["=>"]) |> ignore) |>   
+            should throw typeof<ParseException> 
 
 [<TestFixture>]
 type TestStringLiteralParsing() =
