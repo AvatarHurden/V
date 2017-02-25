@@ -188,6 +188,9 @@ let runRun (results: ParseResults<Run>) =
                 printfn "Type system error:"
                 Console.WriteLine e
 
+type options =
+    | ShowType
+
 let rec parseItem previous first =
     
     if first then 
@@ -195,20 +198,25 @@ let rec parseItem previous first =
 
     let line = previous + Console.ReadLine()
     try
-        let parsed = parsePure line
-        Some parsed
+        let actualText, options =
+            if line.StartsWith "<type>" then
+                line.Substring 6, Some ShowType
+            else
+                line, None
+        let parsed = parsePure actualText
+        Some parsed, options
     with
     | ParseException e -> 
         if e.StartsWith "Expected \"" then
             parseItem line false
         elif "\x -> " + line + " x" |> parsePure |> isValidLib then
-            Some (parsePure <| "\x -> " + line + " x")
+            Some (parsePure <| "\x -> " + line + " x"), None
         else
             printfn "Parsing error:"
             Console.WriteLine e
-            None
+            None, None
 
-let rec interactive declarations newTerm =
+let rec interactive declarations (newTerm, option) =
     match newTerm with
     | Some term ->
         if isValidLib term then
@@ -221,8 +229,12 @@ let rec interactive declarations newTerm =
             try
                 let term = replaceXLib declarations term
                 ignore <| typeInfer term
-                let evaluated = evaluate term
-                evaluated |> printResult |> printfn "%O"
+                match option with
+                | Some ShowType ->
+                    term |> typeInfer |> printType |> printfn "%O"
+                | None ->    
+                    let evaluated = evaluate term
+                    evaluated |> printResult |> printfn "%O"
             with
             | TypeException e ->
                 printfn "Type system error:"
