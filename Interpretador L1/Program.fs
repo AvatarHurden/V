@@ -190,6 +190,7 @@ let runRun (results: ParseResults<Run>) =
 
 type options =
     | ShowType
+    | Clear
 
 let rec parseItem previous first =
     
@@ -201,6 +202,8 @@ let rec parseItem previous first =
         let actualText, options =
             if line.StartsWith "<type>" then
                 line.Substring 6, Some ShowType
+            elif line = "<clear>" then
+                "nil", Some Clear
             else
                 line, None
         let parsed = parsePure actualText
@@ -228,11 +231,13 @@ let rec interactive declarations (newTerm, option) =
         else
             try
                 let term = replaceXLib declarations term
-                ignore <| typeInfer term
                 match option with
                 | Some ShowType ->
                     term |> typeInfer |> printType |> printfn "%O"
-                | None ->    
+                | Some Clear ->
+                    ()
+                | _ ->    
+                    ignore <| typeInfer term
                     let evaluated = evaluate term
                     evaluated |> printResult |> printfn "%O"
             with
@@ -242,7 +247,11 @@ let rec interactive declarations (newTerm, option) =
             | EvalException e -> 
                 printfn "Evaluation error:"
                 Console.WriteLine e
-            interactive declarations <| parseItem "" true
+            match option with
+            | Some Clear ->
+                interactive (parsePure <| "\x -> let exit = 0; x") <| parseItem "" true
+            | _ ->
+                interactive declarations <| parseItem "" true
     | None ->
         interactive declarations <| parseItem "" true
 
