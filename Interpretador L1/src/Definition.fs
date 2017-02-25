@@ -49,8 +49,20 @@ type op =
     | And
     | Or
 
+
+    
 type Ident = string
     
+type VarPattern = Var of Pattern * Type option
+
+and Pattern =
+    | XPattern of Ident
+    | IgnorePattern
+    | TuplePattern of VarPattern list
+    | RecordPattern of (string * VarPattern) list
+    | NilPattern
+    | ConsPattern of VarPattern * VarPattern
+
 type term =
     | B of bool
     | Skip
@@ -59,9 +71,9 @@ type term =
     | OP of term * op * term
     | Cond of term * term * term
     | X of Ident
-    | Fn of Ident * (Type option) * term
-    | RecFn of Ident * (Type option) * Ident * (Type option) * term
-    | Let of Ident * (Type option) * term * term
+    | Fn of VarPattern * term
+    | RecFn of Ident * (Type option) * VarPattern * term
+    | Let of VarPattern * term * term
     | Nil
     | IsEmpty of term
     | Head of term
@@ -83,8 +95,8 @@ type result =
     | ResRaise
     | ResNil
     | ResCons of result * result
-    | ResClosure of Ident * term * env
-    | ResRecClosure of Ident * Ident * term * env
+    | ResClosure of VarPattern * term * env
+    | ResRecClosure of Ident * VarPattern * term * env
     | ResTuple of result list
     | ResRecord of (string * result) list
 and

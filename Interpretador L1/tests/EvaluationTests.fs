@@ -6,22 +6,12 @@ open Parser
 open Definition
 open Evaluation
 
-let facList =
-    Let("faclist", Some <| Function(Int, List Int), 
-        RecFn("faclist", Some <| List Int, "x", Some Int, 
-            Let ("fac", Some <| Function(Int, Int),
-                RecFn("fac", Some Int, "y", Some Int, 
-                    Cond(
-                        OP(X("y"), Equal, I(0)),
-                         I(1),
-                                OP(X("y"), Multiply, OP(X("fac"), Application, OP(X("y"), Subtract, I(1)))))),
-                    Cond(
-                        OP(X("x"), Equal, I(0)),
-                             Nil,
-                             OP(OP(X("fac"), Application, X("x")), 
-                                Cons, 
-                                    OP(X("faclist"), Application, OP(X("x"), Subtract, I(1))))))),
-                    OP(X("faclist"), Application, I(5)))
+let compareDirect term result =
+    let evaluated = evaluate term
+    evaluated |> should equal result
+    
+let shouldFailDirect term =
+    (fun () -> term |> evaluate |> ignore) |> should throw typeof<EvalException> 
 
 let compare (text, term) =
     let evaluated = evaluate <| parse text
@@ -38,16 +28,10 @@ type TestEval() =
         let fatMult = OP(X("x"), Multiply, OP(X("fat"), Application, OP(X("x"), Subtract, I(1))))
         let fnTerm = Cond(OP(X("x"), Equal, I(0)), I(1), fatMult)
         let fat = 
-            Let("fat", Some <| Function (Int, Int), 
-                RecFn("fat", Some Int, "x", Some Int, fnTerm), OP(X("fat"), Application, I(5)))
+            Let(Var(XPattern "fat", Some <| Function (Int, Int)), 
+                RecFn("fat", Some Int, Var(XPattern "x", Some Int), fnTerm), OP(X("fat"), Application, I(5)))
 
         evaluate fat |> should equal (ResI(120))
-
-    [<Test>]
-    member that.faclist() =
-        evaluate facList |> should equal <|
-            ResCons(ResI 120, ResCons(ResI 24, ResCons(ResI 6, ResCons(ResI 2, ResCons(ResI 1, ResNil)))))
-           
 
     [<Test>]
     member that.LCM() =
@@ -112,3 +96,50 @@ type TestEquality() =
         compare ("[1,2,3] = [1]", ResB false)
         compare ("[3,4,5] = [3,4,5]", ResB true)
         compare ("[true, false, true] = [true, false, true]", ResB true)
+        
+[<TestFixture>]
+type TestMatchEval() =
+
+    [<Test>]
+    member that.simpleVar() =
+        compare ("let x = 3; x", ResI 3)
+        
+    [<Test>]
+    member that.simpleTuple() =
+        compare ("let (x, y) = (3, 4); x", ResI 3)
+
+    [<Test>]
+    member that.longList() =
+        compare ("let x :: y :: [] = [3,4]; x + y", ResI 7)
+        
+    [<Test>]
+    member that.longListInvalid() =
+        compare ("let x :: y :: [] = [3,4,6]; x + y", ResRaise)
+
+    [<Test>]
+    member that.longListTail() =
+        compare ("let x :: y :: z = [3,4,6]; z", (ResCons (ResI 6, ResNil)))
+        
+    [<Test>]
+    member that.FnParamater() =
+        compare ("(\(x,y) -> (y,x)) (3,4)", (ResTuple [ResI 4; ResI 3]))
+        
+    [<Test>]
+    member that.FnParamaterRecord() =
+        compare ("(\{a: x, b: y} -> (y,x)) {a: 3, b: 4}", (ResTuple [ResI 4; ResI 3]))
+
+    [<Test>]
+    member that.FnParamaterFail() =
+        shouldFail "(\(x, y) -> (y,x)) (3,4,4)"
+       
+    [<Test>]
+    member that.FnParamaterListPassingFailingParameter() =
+        compare ("(\(x :: y) -> (y,x)) []", ResRaise)
+
+    [<Test>]
+    member that.RecFnParameter() =
+        compare ("(rec count (x :: y) -> if empty? y then 1 else 1 + count y) [3,4,7]", ResI 3)
+
+    [<Test>]
+    member that.RecFnParameterFail() =
+        compare ("(rec count (x :: y) -> if empty? y then 1 else 1 + count y) []", ResRaise)

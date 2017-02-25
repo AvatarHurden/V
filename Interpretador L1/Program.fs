@@ -225,8 +225,8 @@ let rec interactive declarations (newTerm, option) =
         if isValidLib term then
             let inside = 
                 match term with
-                | Fn(_, _, inside) -> inside
-            let newDecl = Fn ("x", None, replaceXLib declarations inside)
+                | Fn(_, inside) -> inside
+            let newDecl = Fn (Var(XPattern "x", None), replaceXLib declarations inside)
             interactive newDecl <| parseItem "" true
         else
             try
@@ -266,7 +266,7 @@ let runInteractive (results: ParseResults<Interactive>) =
         if isPure then
             interactive (parsePure <| "\x -> let exit = 0; x") <| parseItem "" true
         else
-            interactive (loadStdlib stdlib.compiled) <| parseItem "" true
+            interactive (loadArray stdlib.compiled) <| parseItem "" true
 
 [<EntryPoint>]
 let main argv = 

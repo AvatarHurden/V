@@ -1,4 +1,4 @@
-﻿module Parser
+module Parser
 
 open System.Text.RegularExpressions
 open Definition
@@ -129,7 +129,7 @@ let private (|Identifier|_|) text =
     | Number rest ->
         None
     | Trimmed rest ->
-        let prohibited = " .,;:+-/*<=>(){}[]%$&|!@#\\'\"\n\r\t".ToCharArray()
+        let prohibited = " _.,;:+-/*<=>(){}[]%$&|!@#\\'\"\n\r\t".ToCharArray()
         let ident = String.Concat (rest |> 
                         Seq.takeWhile (fun x -> not <| Seq.exists ((=) x) prohibited))
         match ident with
@@ -143,14 +143,19 @@ let private (|Identifier|_|) text =
         | _ ->
             Some (ident, rest.Substring ident.Length)
     
-let private (|AnyStart|_|) starts text =
+let private (|AnyStart|_|) (starts: bool * string list) (text: string) =
     let trimmed = splitSpaces text
-    let doesStart, start = matchStart trimmed <| snd starts
+    let doesStart, text, start = 
+        if List.exists ((=) " ") (snd starts) && trimmed.Length <> text.Length then
+            true, text, " "
+        else
+            let doesStart, start = matchStart trimmed <| snd starts
+            doesStart, trimmed, start
     if doesStart then
         if fst starts then
-            Some (trimmed.Substring start.Length, start)
+            Some (text.Substring start.Length, start)
         else
-            Some (trimmed, start)
+            Some (text, start)
     else
         None
         
@@ -265,51 +270,96 @@ let rec parseIdentTypePair text closings =
 
     rest, (id, typ)
 
+let rec parsePattern text closings = 
+    let rest, value = parsePatternValue text closings
+    match rest with
+    | AnyStart closings (rest, start) ->
+        rest, value
+    | Start "::" rest ->
+        let rest, value2 = parsePattern rest closings
+        let rest, typ = 
+            match rest with
+            | ":" -> parseSomeType rest closings
+            | AnyStart closings (rest, start) -> rest, None
+            | Trimmed rest ->
+                raiseExp <| sprintf "Could not parse pattern at %A" rest
+        rest, Var(ConsPattern(value, value2), typ)
+    | Start ":" rest ->
+        let rest, typ = parseSomeType rest closings
+        match value with
+        | Var(p, None) ->
+            rest, Var(p, typ)
+        | Var(p, Some typ') ->
+            raiseExp <| sprintf "Cannot declare type twice for pattern at %A" text
+    | Trimmed rest ->
+        raiseExp <| sprintf "Expected \"%A\" at %A" closings rest
+
+and parsePatternValue text closings = 
+    match text with
+    | Identifier (id, rest) -> rest, Var(XPattern id, None)
+    | Start "_" rest -> rest, Var(IgnorePattern, None)
+    | Start "nil" rest -> rest, Var(NilPattern, None)
+    | Start "(" rest ->
+        let rest, pairs = parseMultipleComponents parsePattern rest (true, [")"])
+        match pairs with
+        | [] -> raiseExp <| sprintf "Invalid pattern at %A" text
+        | [p] -> rest, p
+        | _ -> rest, Var(TuplePattern pairs, None)
+    | Start "{" rest ->
+        let rest, pairs = parseMultipleComponents parseRecordPattern rest (true, ["}"])
+        match pairs with
+        | [] -> raiseExp <| sprintf "Invalid pattern at %A" text
+        | _ -> rest, Var(RecordPattern pairs, None)
+    | Start "[" rest ->
+        let rest, pairs = parseMultipleComponents parsePattern rest (true, ["]"])
+        match pairs with
+        | [] -> rest, Var(NilPattern, None)
+        | _ -> 
+            rest, List.fold (fun acc p -> Var (ConsPattern(p, acc), None)) (Var(NilPattern, None)) pairs
+    | Trimmed rest ->
+        raiseExp <| sprintf "No pattern to parse at %A" rest
+
+and parseRecordPattern text closings =
+    let rest, label = parseIdent text
+    let rest, pattern = 
+        match rest with
+        | Start ":" rest ->
+            parsePattern rest closings
+        | _ -> 
+            raiseExp <| sprintf "Expected %A, but found %A" closings rest
+    rest, (label, pattern)
+
 let rec parseParameters text closings = 
     match text with
     | AnyStart closings (rest, start) ->
         rest, []
     | Trimmed rest ->
-        let rest, curParameter = 
-            match rest with
-            | Start "(" rest ->
-                let rest, (id, typ) = parseIdentTypePair rest (true, [")"])
-                rest, (id, typ)
-            | Trimmed rest ->
-                let rest, id = parseIdent rest
-                rest, (id, None)
+        let rest, curParameter = parsePattern rest (false, " " :: snd closings)
         let rest, otherParameters = parseParameters rest closings
         rest, curParameter :: otherParameters
 
-// Returns a tuple of ((id, type1), (term, type2), where
-// id: Ident of first parameter
-// type1: Type of first parameter
+// Returns a tuple of (p, (term, type2), where
+// p: pattern of first paremeter
 // term: return term of function
 // type2: return type of function
 let rec joinMultiParameters parameters returnTerm returnType =
     match parameters with
     | [] ->
         raiseExp "Must pass at least one parameter"
-    | (id, typ)::[] -> 
-        match typ, returnType with
-        | None, None
-        | Some _, Some _ ->
-            (id, typ), (returnTerm, returnType)
-        | _ ->
-            raiseExp "Either specify all types or none"
+    | (Var _ as p) :: [] -> 
+        p, (returnTerm, returnType)
     | _ ->
         let seq = parameters |> List.toSeq
-        let id, typ = Seq.last seq
+        let p = Seq.last seq
+        let (Var(p', typ)) = p
         let newParams = seq |> Seq.take (parameters.Length - 1) |> Seq.toList
         let newType = 
             match typ, returnType with
-            | None, None ->
-                    None
             | Some t1, Some t2 ->
                 Some <| Function (t1, t2)
-            | _ ->
-                raiseExp "Either specify all types or none"
-        joinMultiParameters newParams (Fn (id, typ, returnTerm)) newType
+            | _, _ ->
+                None
+        joinMultiParameters newParams (Fn (p, returnTerm)) newType
         
 let rec parseStringLiteral (text: string) closing =
     match text.ToCharArray() |> Array.toList with
@@ -382,7 +432,7 @@ let rec condenseTerms prev current nexts priority =
                 | Remainder -> OP (OP (X "remainder", Application, x), Application, y)
                 | Concat -> OP (OP (X "concat", Application, x), Application, y)
                 | Apply -> OP(x, Application, y)
-                | Compose -> Fn ("x", None, OP (x, Application, OP (y, Application, X "x")))
+                | Compose -> Fn (Var(XPattern "x", None), OP (x, Application, OP (y, Application, X "x")))
                 | Index -> OP (OP (X "nth", Application, y), Application, x) 
             condenseTerms None (Term <| term) rest priority
         | _ ->
@@ -491,15 +541,28 @@ let rec parseImport text closings =
 //#region Term parsing        
 
 and parseLet text closings = 
-    let isRec, rest =
+    let isRec, start =
         match text with
         | Start "rec" rest ->
             true, rest
         | Trimmed rest ->
             false, rest
+    
+    let rest, pattern, parameters = 
+        try
+            let rest, pattern = parsePattern start (false, ["="])
+            rest, pattern, []
+        with
+        | _ ->
+            let rest, pattern = parsePattern start (false, ["="; " "])
+            let rest, parameters = parseParameters rest (false, ["="; ":"])
+            rest, pattern, parameters
 
-    let rest, id = parseIdent rest
-    let rest, parameters = parseParameters rest (false, ["="; ":"])
+//    let rest, pattern = 
+//        match parameters with
+//        | [] -> parsePattern start (false, ["="])
+//        | _ -> rest, pattern
+
     let rest, retType =
         match rest with
         | Start ":" rest -> parseSomeType rest (true, ["="])
@@ -511,24 +574,35 @@ and parseLet text closings =
     
     match isRec, parameters with
     | false, [] ->
-        rest, Let(id, retType, retTerm, t2)
+        rest, Let(pattern, retTerm, t2)
     | false, _ ->
-        let (id2, typ1), (retTerm, retType) = joinMultiParameters parameters retTerm retType
-        let fn = Fn(id2, typ1, retTerm)
+        let id =
+            match pattern with
+            | Var (XPattern id, None) -> id
+            | _ ->
+                raiseExp "Functions cannot be named with a pattern at %A" text
+        let p, (retTerm, retType) = joinMultiParameters parameters retTerm retType
+        let (Var(p', typ1)) = p
+        let fn = Fn(p, retTerm)
         match retType, typ1 with
         | Some retType, Some typ1 ->
-            rest, Let(id, Some <| Function(typ1, retType), fn, t2)
-        | None, None ->
-            rest, Let(id, None, fn, t2)
-        | _ -> raiseExp <| sprintf "Wrong function at %A" text
+            rest, Let(Var(XPattern id, Some <| Function(typ1, retType)), fn, t2)
+        | _ ->
+            rest, Let(pattern, fn, t2)
     | true, _ ->
-        let (id2, typ1), (retTerm, retType) = joinMultiParameters parameters retTerm retType
-        let recFn = RecFn(id, retType, id2, typ1, retTerm)
+        let id =
+            match pattern with
+            | Var (XPattern id, None) -> id
+            | _ ->
+                raiseExp "Recursive functions cannot be named with a pattern at %A" text
+        let p, (retTerm, retType) = joinMultiParameters parameters retTerm retType
+        let (Var(p', typ1)) = p
+        let recFn = RecFn(id, retType, p, retTerm)
         match recFn with
-        | RecFn(id, Some retType, id2, Some typ1, retTerm) ->
-            rest, Let(id, Some <| Function(typ1, retType), recFn, t2)
-        | RecFn(id, None, id2, None, retTerm) ->
-            rest, Let(id, None, recFn, t2)
+        | RecFn(id, Some retType, Var (p, Some typ1), retTerm) ->
+            rest, Let(Var(XPattern id, Some <| Function(typ1, retType)), recFn, t2)
+        | RecFn(id, None, p, retTerm) ->
+            rest, Let(pattern, recFn, t2)
         | _ -> raiseExp <| sprintf "Wrong recurive function at %A" text
 
 and parseRecFunction text closings =
@@ -541,9 +615,9 @@ and parseRecFunction text closings =
         | _ -> raiseExp "Expected a \"->\" at %A" text
     let rest, retTerm = parseTerm rest closings
     
-    let (id2, typ1), (retTerm, retType) = joinMultiParameters parameters retTerm retType
+    let p, (retTerm, retType) = joinMultiParameters parameters retTerm retType
 
-    rest, RecFn(id, retType, id2, typ1, retTerm)
+    rest, RecFn(id, retType, p, retTerm)
 
 and parseLambda text closings =
     let rest, parameters = parseParameters text (true, ["->"])
@@ -551,10 +625,11 @@ and parseLambda text closings =
 
     // A function does not need a return type, but I must know if the
     // parameters have a type so that joining them will not cause an error
-    let (paramId, paramTyp), (retTerm, _) = 
-        joinMultiParameters parameters retTerm <| snd parameters.Head
+    let (Var (_, firstType)) = parameters.Head
+    let p, (retTerm, _) = 
+        joinMultiParameters parameters retTerm firstType
 
-    rest, Fn(paramId, paramTyp, retTerm)
+    rest, Fn(p, retTerm)
 
 and parseIf text closings =
     let rest, t1 = parseTerm text (true, ["then"])
@@ -598,13 +673,13 @@ and parseMultiList text closings =
 
 and parseComprehension text closings =
     let rest, t1 = parseTerm text (true, ["for"])
-    let rest, id = parseIdent rest
+    let rest, p = parsePattern rest (false, [" "; "in"])
     let rest, t2 = 
         match rest with
         | Start "in" rest -> parseTerm rest (true, ["]"])
         | _ -> raiseExp <| sprintf "Expected \"in\" at %A" rest
 
-    let f = Fn(id, None, t1)
+    let f = Fn(p, t1)
     rest, OP (OP (X "map", Application, f), Application, t2)
 
 and parseRange text closings = 
@@ -636,7 +711,7 @@ and parseRecord text closings =
     let rest, pairs =
         parseMultipleComponents parseRecordComponent text closings
     match pairs with
-    | [] -> rest, Nil
+    | [] -> rest, Skip
     | _ ->  
         rest, Record pairs
         
@@ -644,7 +719,7 @@ and parseParenthesis text closings =
     let rest, pairs = 
         parseMultipleComponents parseTerm text closings
     match pairs with
-    | [] -> rest, Nil
+    | [] -> rest, Skip
     | [term] -> rest, term
     | _ -> 
         rest, term.Tuple pairs
@@ -655,10 +730,10 @@ and parseProjection (text: string) closings =
     else
         match text with
         | Number (num, rest) ->
-            rest, Fn ("x", None, ProjectIndex (num, X "x"))
+            rest, Fn (Var(XPattern "x", None), ProjectIndex (num, X "x"))
         | Trimmed rest ->
             let rest, label = parseIdent rest
-            rest, Fn ("x", None, ProjectName (label, X "x"))
+            rest, Fn (Var(XPattern "x", None), ProjectName (label, X "x"))
 
 //#endregion
 
@@ -731,16 +806,16 @@ and collectTerms text closings isAfterTerm =
         addToTerms rest (Prefix Negate) closings
     | Start "empty?" rest ->
         addToTerms rest 
-            (Term <| Fn ("x", None, IsEmpty <| X "x")) closings
+            (Term <| Fn (Var(XPattern "x", None), IsEmpty <| X "x")) closings
     | Start "head" rest ->
         addToTerms rest 
-            (Term <| Fn ("x", None, Head <| X "x")) closings
+            (Term <| Fn (Var(XPattern "x", None), Head <| X "x")) closings
     | Start "tail" rest ->
         addToTerms rest 
-            (Term <| Fn ("x", None, Tail <| X "x")) closings
+            (Term <| Fn (Var(XPattern "x", None), Tail <| X "x")) closings
     | Start "output" rest ->
         addToTerms rest 
-            (Term <| Fn ("x", None, Output <| X "x")) closings
+            (Term <| Fn (Var(XPattern "x", None), Output <| X "x")) closings
     | Start "#" rest ->
         let rest, term = parseProjection rest closings
         addToTerms rest (Term term) closings
