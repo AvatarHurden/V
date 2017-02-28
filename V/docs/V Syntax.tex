@@ -13,12 +13,12 @@
 \newcommand\nonter[1]{\ensuremath{#1\negthinspace s}}
 \def\code#1{\begin{footnotesize}\texttt{#1}\end{footnotesize}}
 
-\lstdefinelanguage{L1}{
+\lstdefinelanguage{V}{
   morekeywords = {let, body},
 }
-\lstset{language=L1}
+\lstset{language=V}
 
-  \lstdefinestyle{L1}{
+  \lstdefinestyle{V}{
     basicstyle=\footnotesize\ttfamily,
     numbers=left,
     numberstyle=\tiny\color{gray}\ttfamily,
@@ -37,7 +37,7 @@
   }
 
 \author{Arthur Giesel Vedana}
-\title{L1 Syntax and Documentation}
+\title{V Syntax and Documentation}
 \begin{document}
 
 \maketitle
@@ -50,13 +50,13 @@
 
 \addcontentsline{toc}{section}{Introduction}
 \section*{Introduction}
-The $L1$ programming language is a functional language with eager left-to-right evaluation.
+The $V$ programming language is a functional language with eager left-to-right evaluation.
 It has a simple I/O system supporting only direct string operations.
 It is a trait based strongly and statically typed language supporting both explicit and implicit typing.
 
 
-This document both specifies the $L1$ language and shows its implementation in F\#.
-It is divided into 4 categories:
+This document both specifies the $V$ language and shows its implementation in F\#.
+It is divided into 2 categories:
 \begin{enumerate}
     \item Abstract Syntax and Semantics
 
@@ -64,14 +64,8 @@ It is divided into 4 categories:
         It only contains the bare minimum for the language to function, without any syntactic sugar.
     \item Language Guide
 
-        This is the actual syntax when programming for $L1$.
+        This is the actual syntax when programming in $V$.
         This defines all operators, syntactic sugar and other aspects of the language.
-    \item Implementation
-
-        Technical aspects on how $L1$ is implemented in F\#, showing the interpreter, evaluator and type inference.
-    \item Changelog
-
-        A chronological list of changes made both to the language definition and its implementation.
 \end{enumerate}
 
 \newpage
@@ -82,14 +76,14 @@ It is divided into 4 categories:
 
 \subsubsection{Expressions}
 
-Programs in $L1$ are expressions.
+Programs in $V$ are expressions.
 Each expression is a member of the abstract syntax tree defined below.
 The syntax tree will be constructed in parts, with an explanation of what each expression means and their uses.
 The full syntax tree can be obtained by simply joining all the separate sections.
 
 \paragraph{Constants and Variables}
 
-$L1$ has support for a few basic constants and variables.
+$V$ has support for a few basic constants and variables.
 
 \medskip
 
@@ -140,7 +134,7 @@ e &::= &\cdots&\\
 
 \bigskip
 
-The first expression is the only way to construct a new tuple in $L1$.
+The first expression is the only way to construct a new tuple in $V$.
 
 The second expression is the projection of a specific field of a tuple.
 
@@ -162,13 +156,13 @@ l &::= & \{l_1, l_2, ...\}
 
 \bigskip
 
-The first expression is the only way to construct a new tuple in $L1$.
+The first expression is the only way to construct a new record in $V$.
 
-The second expression is the projection of a specific field of a tuple.
+The second expression is the projection of a specific field of a record.
 
 \paragraph{Lists}
 
-The $L1$ language has built-in lists.
+The $V$ language has built-in lists.
 Each list is an ordered homogeneous finite-length collection of values, meaning that a list contains only elements of the same type.
 There are also basic operations on lists, such as appending, obtaining the first element of a list, etc.
 
@@ -208,7 +202,7 @@ If the list is empty, an exception is raised.
 
 \paragraph{Conditional}
 
-Like most functional languages, $L1$ provides a conditional expression.
+Like most functional languages, $V$ provides a conditional expression.
 This expression, like all others, always returns a value.
 
 \medskip
@@ -221,7 +215,7 @@ e &::= &\cdots\\
 
 \paragraph{Binary Operations}
 
-$L1$ provides a series of binary operations built-in into the language.
+$V$ provides a series of binary operations built-in into the language.
 
 \medskip
 
@@ -304,7 +298,7 @@ The pattern $(p_1, \; \dots \; p_n)$ matches a tuple with exactly $n$ elements, 
 
 \paragraph{Functions}
 
-The expressions below all relate to function and function application in the $L1$ language.
+The expressions below all relate to function and function application in the $V$ language.
 
 \medskip
 
@@ -388,7 +382,7 @@ This is dealt with by the next set of expressions in the language.
 
 \paragraph{Sequence}
 
-Up until now, no expressions in $L1$ had side effects, so all expressions were written to obtain their resulting value.
+Up until now, no expressions in $V$ had side effects, so all expressions were written to obtain their resulting value.
 With the introduction of input and (especially) output expressions, now there exist expressions that are evaluated only for their side effect.
 Because of this, it is import to enable a programmer to ignore the resulting value and continue evaluating other expressions.
 
@@ -411,13 +405,13 @@ It requires that $e_1$ evaluates to no useful value (i.e. evaluates to $skip$).
 
 \subsubsection{Types}
 
-Since $L1$ is strongly typed, every (valid) expression has exactly one type associated with it.
+Since $V$ is strongly typed, every (valid) expression has exactly one type associated with it.
 Some expressions require the programmer to explicitly declare types of identifiers, such as \texttt{let} declarations and functions.
 Other expressions, such as $e_1 = e_2$, or even constants, such as $1$ or $true$, have types implicitly associated with them.
 These types are used by the type system (see \ref{Type System}) to check whether an expression is valid or not, avoiding run-time errors that can be detected at compile time.
 
 \paragraph{Base Types}
-These are all of the base types available in $L1$.
+These are all of the base types available in $V$.
 They are considered constant, and cannot be deconstructed or replaced by other types.
 
 \medskip
@@ -555,17 +549,17 @@ To define the set of types that belong to a record label $\{l: T\}$, the followi
 
 \subsection{Operational Semantics}
 
-The $L1$ language is evaluated using a big-step evaluation with environments.
+The $V$ language is evaluated using a big-step evaluation with environments.
 This evaluation reduces an expression into a value directly, not necessarily having a rule of evaluation for every possible expression.
 To stop programmers from creating programs that cannot be evaluated, a type inference system will be specified later.
 
 \paragraph{Value}
 A value is the result of the evaluation of an expression in big-step.
-This set of values is different from the set of expressions of $L1$, even though they share many similarities.
+This set of values is different from the set of expressions of $V$, even though they share many similarities.
 
 \paragraph{Environment}\label{environment}
 An environment is a mapping of identifiers to values that is extended each time a $let$ declaration in encountered.
-Every expression must be evaluated before being stored in the environment, which means that $L1$ has eager evaluation.
+Every expression must be evaluated before being stored in the environment, which means that $V$ has eager evaluation.
 
 \bigskip
 
@@ -594,7 +588,7 @@ env &::= &\{\} \; | \; \{x \rightarrow v\} \cup env\\
 
 The values $\left\langle p, e, env\right\rangle$ and $\left\langle x, p, e, env\right\rangle$ are closures and recursive closures, respectively.
 They represent the result of evaluating functions and recursive functions, both and store the environment at the moment of evaluation.
-This means that $L1$ has static scope, since closures capture the environment at the moment of evaluation and $L1$ has eager evaluation.
+This means that $V$ has static scope, since closures capture the environment at the moment of evaluation and $V$ has eager evaluation.
 
 Closures also store the pattern for the parameter of the respective function (as $p$), along with the function body (as $e$).
 Recursive closures, besides storing the pattern for the parameter (as $p$) and the function body, also store the name of the function (as $x$).
@@ -773,7 +767,7 @@ If the list evaluates to $nil$, a run-time exception is thrown for both of these
 
 
 \paragraph{Numerical Operations}
-The $L1$ language only supports integers, so all operations are done on integer numbers.
+The $V$ language only supports integers, so all operations are done on integer numbers.
 This means that the division always results in a whole number, truncated towards zero.
 
 \medskip
@@ -1011,7 +1005,7 @@ This means that, if the result of the operation can be determined from the first
     {\mbox{env} \vdash e_1 \wedge e_2 \Downarrow b}
 
 \paragraph{Conditional Expression}
-$L1$ supports conditional expressions, which always return a value, but not conditional statements.
+$V$ supports conditional expressions, which always return a value, but not conditional statements.
 Because of this, all conditional expressions must have both a $then$ and an $else$ branch.
 Evaluation is done only on the condition and the proper branch, avoiding the evaluation of the unused branch.
 
@@ -1083,7 +1077,7 @@ This ensures that the function body can call the recursive function again since 
 
 \paragraph{Let Expressions}
 These expressions are used to associate an identifier with a specific value, allowing the value to be reused throughout the program.
-Since $L1$ is a functional language, these are not variables, and the values assigned to an identifier will be constant (unless the same identifier is used in a new $let$ expression).
+Since $V$ is a functional language, these are not variables, and the values assigned to an identifier will be constant (unless the same identifier is used in a new $let$ expression).
 
 After evaluating the expression that is to be associated to the identifier (that is, $e_1$), resulting in $v$, the $let$ expression evaluates $e_2$.
 For this evaluation, the association of $p$ to $v$ is added to the environment.
@@ -1102,7 +1096,7 @@ The result of this evaluation (that is, $v_2$) is the final result of the evalua
 
 \paragraph{Exceptions}
 
-Some programs can be syntactically correct but still violate the semantics of the $L1$ language, such as a dividing by zero or trying to access the head of an empty list.
+Some programs can be syntactically correct but still violate the semantics of the $V$ language, such as a dividing by zero or trying to access the head of an empty list.
 In these scenarios, the expression is evaluated as the $raise$ value.
 
 Besides violation of semantic rules, the only other expression that evaluates to the $raise$ value is the $raise$ expression, using the following rule:
@@ -1172,13 +1166,13 @@ The only guarantees that exist are that it will be either $nil$ or $c :: v_2$, m
 
 \subsection{Type System}\label{Type System}
 
-$L1$ has a strong and static type inference system that checks a program to decide whether or not it is "`well-typed"'.
-If a program is considered to be well-typed, the type system guarantees that the program will be able to be properly evaluated according to the operational semantics of $L1$.
+$V$ has a strong and static type inference system that checks a program to decide whether or not it is "`well-typed"'.
+If a program is considered to be well-typed, the type system guarantees that the program will be able to be properly evaluated according to the operational semantics of $V$.
 As a side-effect of checking the validity of a program, the type system can also provide the actual type of any implicitly typed expression down to its basic types, be those concrete types or variable types.
 
 \subsubsection{Polymorphism}\label{Polymorphism}
 
-$L1$ has support for parametric Damas\hyp Milner polymorphism.
+$V$ has support for parametric Damas\hyp Milner polymorphism.
 This means that functions can have their types be defined with universal quantifiers, allowing their use with any type.
 
 For instance, take the function $count$, which counts the number of elements in a list.
@@ -1316,7 +1310,7 @@ The following are the rules for the ``match'' function:
     {match(\{l_1: p_1, ... l_n: p_n\}: T_1, T_2) = \{\{l_1: X_1, ... l_n: X_n\} = T_1, T_1 = T_2\} \cup \displaystyle \bigcup_{i=1}^{n} c_i, \displaystyle \bigcup_{i=1}^{n} env_i}
 
 \paragraph{Constraint Collection Rules}
-Every expression in $L1$ has a rule for constraint collection, similar to how every expression has a rule for its semantic evaluation.
+Every expression in $V$ has a rule for constraint collection, similar to how every expression has a rule for its semantic evaluation.
 
 \infax[T-Num]
     {\Gamma \vdash n : \mbox{Int} \; | \; \{\}}
@@ -1498,7 +1492,7 @@ Every expression in $L1$ has a rule for constraint collection, similar to how ev
 
 \subsection{Basic Values}
 
-There are 4 types of basic values available in the $L1$ language:
+There are 4 types of basic values available in the $V$ language:
 
 \begin{enumerate}
   \item Integers
@@ -1556,7 +1550,7 @@ These are the allowed escape codes and their resulting characters:
 
 Any escape code can be used in either character or string literals.
 Furthermore, the special characters can be inserted directly into the literal.
-This means that multi line strings are supported by $L1$.
+This means that multi line strings are supported by $V$.
 This also means that a single quote followed by a new line and a single quote is interpreted as a valid character literal (i.e. '\textbackslash n').
 
 \subsection{Compound Values}
@@ -1612,7 +1606,7 @@ An attempt to access an index outside the range of a list (that is, indexes equa
 There are many other operations available for accessing elements of a list, including \code{head} (returns the first value of a list), \code{last}, \code{filter}, \code{maximum}, etc.
 
 \paragraph{Complex Operations}
-Although the $L1$ language does not directly support complex operations on lists, the standard library (see \ref{Standard Library}) provides a number of functions to manipulate lists.
+Although the $V$ language does not directly support complex operations on lists, the standard library (see \ref{Standard Library}) provides a number of functions to manipulate lists.
 Among these are functions like \code{map}, \code{filter}, \code{sort}, \code{fold}, \code{sublist}, which provide basic funcionality for performing computations with lists.
 
 \paragraph{Ranges}
@@ -1736,7 +1730,7 @@ Any Unicode character is considered valid, with the exception of the following:
 
 Numerical digits are not allowed at the start of an identifier, but they can be used in any other position.
 
-Furthermore, $L1$ has some reserved names that cannot be used by any identifier.
+Furthermore, $V$ has some reserved names that cannot be used by any identifier.
 They are the following:
 
 \medskip
@@ -1816,7 +1810,7 @@ They are not necessary for most programs, since the interpreter can infer the ty
 Sometimes, the programmer may want to create artificial constraints on a function argument, and type annotations allow this.
 
 The table below shows every type that can be specified in type annotations.
-These types align with the types available in the $L1$ language, since every type can be used in a type annotation.
+These types align with the types available in the $V$ language, since every type can be used in a type annotation.
 
 \begin{tabular}{|l|l|l|}
   \hline
@@ -1844,7 +1838,7 @@ These types align with the types available in the $L1$ language, since every typ
 
 \subsection{Conditionals}
 
-$L1$ provides a conditional expression (\code{if ... then ... else}) to control the flow of a program.
+$V$ provides a conditional expression (\code{if ... then ... else}) to control the flow of a program.
 This expression tests a condition and, if its value is \code{true}, executes the first branch (known as the \code{then} clause).
 If the condition is \code{false}, the expression executes the second branch (the \code{else} clause).
 
@@ -1866,7 +1860,7 @@ All types are accepted in the \code{then} and \code{else} branch, but they must 
     "hello"
 \end{lstlisting}
 
-Unlike imperative languages, every conditional in $L1$ must specify both branches.
+Unlike imperative languages, every conditional in $V$ must specify both branches.
 This ensures that the conditional will always return a value.
 
 It is possible to chain multiple conditionals together.
@@ -1882,7 +1876,7 @@ It is possible to chain multiple conditionals together.
 
 \subsection{Operators}
 
-$L1$ contains a number of infix binary operators to manipulate data.
+$V$ contains a number of infix binary operators to manipulate data.
 
 Along with them, there is only one prefix unary operator, the negation operator.
 This operator is handled differently from a function application, both in its priority and its associativity.
@@ -2106,7 +2100,7 @@ If the parenthesis were ommited, the type would describe a function that takes 3
 
 \subsection{Partial Application and Currying}
 
-Technically, every function in $L1$ takes only one parameter.
+Technically, every function in $V$ takes only one parameter.
 When a function is defined as having multiple parameters, it is actually a curried function.
 
 As an example, take the following function, which returns the largest of two numbers:
@@ -2162,7 +2156,7 @@ The type of this function is, therefore, \code{String -> Unit}.
 It prints the string to the standard output.
 
 This function does not return a useful value, but is used only for its side effect.
-This contrasts with every other aspect of the $L1$ language, since no other operation has side effects and are only used for their return values.
+This contrasts with every other aspect of the $V$ language, since no other operation has side effects and are only used for their return values.
 
 \paragraph{String Conversions}
 
@@ -2239,7 +2233,7 @@ To import a library in a program, the following syntax is used:
 
 The name of the library must be a string indicating the path of the library file.
 This path can either be relative to the program that is being executed or absolute.
-If a file extension is not provided for the file, it is assumed to be $l1b$, which is the default extension used for compiled $L1$ libraries, or $l1$, which is  the extension for source code files in $L1$.
+If a file extension is not provided for the file, it is assumed to be $vl$, which is the default extension used for compiled $V$ libraries, or $v$, which is  the extension for source code files in $V$.
 
 Libraries can be imported anywhere in a program, and their functions will have their scope limited to wherever they were imported.
 
@@ -2248,11 +2242,11 @@ This library is then imported inside a function in a program.
 Because the library was imported inside the scope of the function body, none of its functions can be called outside of it.
 
 \begin{lstlisting}
-  // math.l1b
+  // math.vl
   let double x = x * 2;
 
   //----------------
-  // Program.l1
+  // Program.v
   let quadruple x =
     import "math"
     double (double x) // Valid

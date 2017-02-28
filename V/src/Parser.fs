@@ -514,10 +514,10 @@ let rec parseImport text closings =
 
     let pathName = 
         if not <| Path.HasExtension libname then
-            if Path.ChangeExtension(libname, "l1b") |> makeRelative |> File.Exists then
-                Path.ChangeExtension(libname, "l1b") |> makeRelative
-            elif Path.ChangeExtension(libname, "l1") |> makeRelative |> File.Exists then
-               Path.ChangeExtension(libname, "l1") |> makeRelative
+            if Path.ChangeExtension(libname, "vl") |> makeRelative |> File.Exists then
+                Path.ChangeExtension(libname, "vl") |> makeRelative
+            elif Path.ChangeExtension(libname, "v") |> makeRelative |> File.Exists then
+               Path.ChangeExtension(libname, "v") |> makeRelative
             else
                 raiseExp <| sprintf "Could not find library file at %A" libname
         else

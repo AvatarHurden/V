@@ -8,7 +8,7 @@
     <ProjectGuid>0e00b6c1-b392-4451-b668-dcb85424165c</ProjectGuid>
     <OutputType>Exe</OutputType>
     <RootNamespace>Interpretador_L1</RootNamespace>
-    <AssemblyName>Interpretador_L1</AssemblyName>
+    <AssemblyName>Interpretador_AGV</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
