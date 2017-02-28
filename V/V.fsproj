@@ -8,7 +8,7 @@
     <ProjectGuid>0e00b6c1-b392-4451-b668-dcb85424165c</ProjectGuid>
     <OutputType>Exe</OutputType>
     <RootNamespace>Interpretador_L1</RootNamespace>
-    <AssemblyName>Interpretador_L1</AssemblyName>
+    <AssemblyName>V</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
@@ -36,11 +36,15 @@
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <DocumentationFile>bin\Release\Interpretador_L1.XML</DocumentationFile>
+    <DocumentationFile>bin\Release\V.xml</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Test|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <OutputPath>bin\Test\</OutputPath>
   </PropertyGroup>
   <Choose>
     <When Condition="'$(VisualStudioVersion)' == '11.0'">
@@ -60,17 +64,28 @@
     <None Include="App.config" />
     <Content Include="packages.config" />
     <Compile Include="src\Definition.fs" />
+    <Compile Include="src\StringConversion.fs" />
     <Compile Include="src\Evaluation.fs" />
+    <Compile Include="src\Printer.fs" />
+    <Compile Include="src\TypeInference.fs" />
+    <Compile Include="src\Compiler.fs" />
+    <Compile Include="src\compiledStdlib.fs" />
     <Compile Include="src\stdlib.fs" />
     <Compile Include="src\Parser.fs" />
-    <Compile Include="src\TypeInference.fs" />
     <Compile Include="tests\EvaluationTests.fs" />
-    <Compile Include="tests\ParserTests.fs" />
     <Compile Include="tests\TypeInferenceTests.fs" />
+    <Compile Include="tests\stdlibTests.fs" />
+    <Compile Include="tests\InternalParserTests.fs" />
+    <Compile Include="tests\ExternalParserTests.fs" />
     <Compile Include="Program.fs" />
     <None Include="libs\math.l1" />
+    <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="Argu">
+      <HintPath>..\packages\Argu.3.7.0\lib\net40\Argu.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="FSharp.Core">
       <HintPath>..\packages\FSharp.Core.3.1.2.5\lib\net40\FSharp.Core.dll</HintPath>
       <Private>True</Private>
