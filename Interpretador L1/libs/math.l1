@@ -1,9 +1,0 @@
-let rec gcd(x:Int, y: Int): Int {
-    if y = 0 then
-        x
-    else
-        gcd y (x % y) 
-};
-let lcm(x:Int, y: Int): Int {
-    x * y / (gcd x y)
-};

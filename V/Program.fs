@@ -63,7 +63,7 @@ with
             | Run _ -> "Run the specified file."
             | CompileStdLib -> ""
 
-let parser = ArgumentParser.Create<Argument>(programName = "Interpretador_L1.exe")
+let parser = ArgumentParser.Create<Argument>(programName = "V.exe")
 
 let runCompile (results: ParseResults<Compile>) =
     let parser = parser.GetSubCommandParser <@ Compile @>
@@ -85,7 +85,7 @@ let runCompile (results: ParseResults<Compile>) =
             exit(0)
 
         let outputName =
-            results.GetResult (<@ Output @>, IO.Path.ChangeExtension(path, if isLib then "l1b" else "l1c"))
+            results.GetResult (<@ Output @>, IO.Path.ChangeExtension(path, if isLib then "vl" else "vo"))
         
         let stopWatch = System.Diagnostics.Stopwatch.StartNew()
         let text = path |> IO.File.ReadAllText
