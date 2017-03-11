@@ -86,7 +86,7 @@ type term =
     | Record of (string * term) list
     | ProjectIndex of int * term
     | ProjectName of string * term
-
+    
 type result =
     | ResB of bool
     | ResSkip
@@ -102,3 +102,23 @@ type result =
 and
     env = Map<Ident, result>
 
+type partial =
+    | PartB of bool
+    | PartSkip
+    | PartI of int
+    | PartC of char
+    | PartRaise
+    | PartNil
+    | PartCons of term * term * int list
+    | PartClosure of VarPattern * term * int list
+    | PartRecClosure of Ident * VarPattern * term * int list
+    | PartTuple of term list * int list
+    | PartRecord of (string * term) list * int list
+and
+    EnvAssoc =
+    | Thunk of term * int list
+    | Partial of partial
+
+type lazyEnv = (Ident * EnvAssoc) list
+
+let empty = Map.empty
