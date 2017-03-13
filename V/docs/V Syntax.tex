@@ -276,6 +276,9 @@ p &::= &patt\\
     \\
 patt &::= &x\\
     &| &\_\\
+    &| &n\\
+    &| &b\\
+    &| &c\\
     &| &nil\\
     &| &p_1 :: p_2\\
     &| &(p_1, \; \dots \; p_n) & (n\geq2)\\
@@ -291,6 +294,8 @@ This expression works by replacing all occurrences of $x$ by the value of $e_1$ 
 
 The patterns $x$ and $\_$ match any value, with the difference that the second does not bind the value to any identifier.
 This can be used when a value is not wanted, such as an element of a collection.
+
+The patterns $n$, $b$ and $c$ match the equivalent constants for numbers, booleans and characters, respectively.
 
 The pattern $nil$ matches only the empty list, while $p_1 :: p_2$ matches any list with at least one element ($p_1$ matches the head of the list, while $p_2$ matches the tail).
 
@@ -605,7 +610,8 @@ In the first way, the structure of the pattern is different from the value, such
 In this case, the code is invalid and evaluation stops.
 
 In the second way, the structures match, but the actual values do not.
-This happens only in lists, when a $nil$ pattern is matched against a non-empty list value (or vice-versa).
+This happens in lists, when a $nil$ pattern is matched against a non-empty list value (or vice-versa), or with constants ($n$, $b$ and $c$).
+
 In this case, the code is valid, but it will evaluate to $raise$.
 
 \medskip
@@ -624,6 +630,30 @@ The following are the rules for the match function:
 
 \infax[]
     {match(\_, v) = true, \{\}}
+
+\infrule[]
+    {\left\|n_1\right\|=\left\|n_2\right\|}
+    {match(n_1, n_2) = true, \{\}}
+
+\infrule[]
+    {\left\|n_1\right\|\neq\left\|n_2\right\|}
+    {match(n_1, n_2) = false, \{\}}
+
+\infrule[]
+    {\left\|b_1\right\|=\left\|b_2\right\|}
+    {match(b_1, b_2) = true, \{\}}
+
+\infrule[]
+    {\left\|b_1\right\|\neq\left\|b_2\right\|}
+    {match(b_1, b_2) = false, \{\}}
+
+\infrule[]
+    {\left\|c_1\right\|=\left\|c_2\right\|}
+    {match(c_1, c_2) = true, \{\}}
+
+\infrule[]
+    {\left\|c_1\right\|\neq\left\|c_2\right\|}
+    {match(c_1, c_2) = false, \{\}}
 
 \smallskip
 
@@ -1264,6 +1294,24 @@ The following are the rules for the ``match'' function:
     {match(x: T_1, T_2) = \{T_1 = T_2\}, \{x \rightarrow T_1\}}
 
 \infax[]
+    {match(n, T) = \{T = Int\}, \{\}}
+
+\infax[]
+    {match(n: T_1, T_2) = \{T_1 = Int, T_2 = Int\}, \{\}}
+
+\infax[]
+    {match(b, T) = \{T = Bool\}, \{\}}
+
+\infax[]
+    {match(b: T_1, T_2) = \{T_1 = Bool, T_2 = Bool\}, \{\}}
+
+\infax[]
+    {match(c, T) = \{T = Char\}, \{\}}
+
+\infax[]
+    {match(c: T_1, T_2) = \{T_1 = Char, T_2 = Char\}, \{\}}
+
+\infax[]
     {match(_, T) = \{\}, \{\}}
 
 \infax[]
@@ -1760,6 +1808,14 @@ They can be used in constant declarations and function parameters, simplifying t
   \hline
   Identifier & x, y, z & Matches any value and binds to the identifier\\
   \hline
+  Number & 1, 3 & Matches and ignores the number\\
+  \hline
+  Boolean & true, false & Matches and ignores the boolean\\
+  \hline
+  Character & `c', `f' & Matches and ignores the character\\
+  \hline
+  Identifier & x, y, z & Matches any value and binds to the identifier\\
+  \hline
   Wildcard & _ & Matches and ignores any value\\
   \hline
   Tuple & (x, _, y) & Matches tuples with corresponding size\\
@@ -1781,10 +1837,8 @@ All patterns can have optional type annotations added to explicitly declare thei
 
 \smallskip
 
-One thing to notice is that all patterns related to lists (\code{List}, \code{Cons} and \code{Nil}) can fail.
-If an attempt to match a list fails (e.g matching a non-empty list with \code{Nil}), the expression will raise an exception.
-
-All other patterns are type-safe, which means any errors will be detected at compile-time.
+One thing to notice is that all patterns related to lists (\code{List}, \code{Cons} and \code{Nil}) and values (numbers, characters) can fail.
+If an attempt to match a pattern fails (e.g matching a non-empty list with \code{Nil}), the expression will raise an exception.
 
 \subsection{Constants}
 
