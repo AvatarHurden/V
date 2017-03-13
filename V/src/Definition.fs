@@ -53,15 +53,18 @@ type op =
     
 type Ident = string
     
-type VarPattern = Var of Pattern * Type option
+type VarPattern = Pat of Pattern * Type option
 
 and Pattern =
-    | XPattern of Ident
-    | IgnorePattern
-    | TuplePattern of VarPattern list
-    | RecordPattern of (string * VarPattern) list
-    | NilPattern
-    | ConsPattern of VarPattern * VarPattern
+    | XPat of Ident
+    | IgnorePat
+    | BPat of bool
+    | IPat of int
+    | CPat of char
+    | TuplePat of VarPattern list
+    | RecordPat of (string * VarPattern) list
+    | NilPat
+    | ConsPat of VarPattern * VarPattern
 
 type term =
     | B of bool

@@ -136,35 +136,35 @@ type TestParameterParsing() =
     member that.noTypes() =
         parseParameters "x y z => x+y+z" (true, ["=>"]) |> 
             should equal 
-                (" x+y+z", [Var(XPattern "x", (None: Type option)); 
-                    Var(XPattern "y", (None: Type option)); Var(XPattern "z", (None: Type option))])
+                (" x+y+z", [Pat(XPat "x", (None: Type option)); 
+                    Pat(XPat "y", (None: Type option)); Pat(XPat "z", (None: Type option))])
 
     [<Test>]
     member that.simpleTypes() =
         parseParameters "(x:Int) (y:Bool) (z:String) => x+y+z" (true, ["=>"]) |> 
-            should equal (" x+y+z", [Var(XPattern "x", Some Int); 
-                Var(XPattern "y", Some Bool); Var(XPattern "z", Some <| List Char)])
+            should equal (" x+y+z", [Pat(XPat "x", Some Int); 
+                Pat(XPat "y", Some Bool); Pat(XPat "z", Some <| List Char)])
 
     [<Test>]
     member that.complexTypes() =
         parseParameters "(x:[[Int]]) (y:(Bool->Int)) (z:String) => x+y+z" (true, ["=>"]) |> 
-            should equal (" x+y+z", [Var(XPattern "x", List Int |> List |> Some); 
-                Var(XPattern "y", Some <| Function (Bool, Int)); Var(XPattern "z", Some <| List Char)])
+            should equal (" x+y+z", [Pat(XPat "x", List Int |> List |> Some); 
+                Pat(XPat "y", Some <| Function (Bool, Int)); Pat(XPat "z", Some <| List Char)])
 
     [<Test>]
     member that.recordPatterns() =
         parseParameters "{a: x, b: y: Int} => x + y" (true, ["=>"]) |>
-            should equal (" x + y", [Var(RecordPattern 
-                ["a", Var(XPattern "x", None);
-                 "b", Var(XPattern "y", Some Int)], None)])
+            should equal (" x + y", [Pat(RecordPat 
+                ["a", Pat(XPat "x", None);
+                 "b", Pat(XPat "y", Some Int)], None)])
 
     [<Test>]
     member that.consPattern() =
         parseParameters "((x :: y): [Int]) z => x + y + z" (true, ["=>"]) |>
-            should equal (" x + y + z", [Var(ConsPattern (
-                Var(XPattern "x", None),
-                Var(XPattern "y", None)), Some (List Int));
-                Var(XPattern "z", None)])
+            should equal (" x + y + z", [Pat(ConsPat (
+                Pat(XPat "x", None),
+                Pat(XPat "y", None)), Some (List Int));
+                Pat(XPat "z", None)])
         
     [<Test>]
     member that.consPatternFailed() =

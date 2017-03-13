@@ -43,7 +43,7 @@ let isValidLib term =
             iter newLet
         | _ -> false
     match term with
-    | Fn (Var(XPattern "x", None), t) -> iter t
+    | Fn (Pat(XPat "x", None), t) -> iter t
     | _ -> false
 
 let replaceXLib lib term = 
@@ -56,7 +56,7 @@ let replaceXLib lib term =
         | _ ->
             raise <| ParseException "Not a library"
     match lib with
-    | Fn (Var(XPattern "x", None), t) -> iter t
+    | Fn (Pat(XPat "x", None), t) -> iter t
     | _ -> raise <| ParseException "Not a library"
     
 let loadLib path nextTerm =

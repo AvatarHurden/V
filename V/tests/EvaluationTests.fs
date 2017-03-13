@@ -28,8 +28,8 @@ type TestEval() =
         let fatMult = OP(X("x"), Multiply, OP(X("fat"), Application, OP(X("x"), Subtract, I(1))))
         let fnTerm = Cond(OP(X("x"), Equal, I(0)), I(1), fatMult)
         let fat = 
-            Let(Var(XPattern "fat", Some <| Function (Int, Int)), 
-                RecFn("fat", Some Int, Var(XPattern "x", Some Int), fnTerm), OP(X("fat"), Application, I(5)))
+            Let(Pat(XPat "fat", Some <| Function (Int, Int)), 
+                RecFn("fat", Some Int, Pat(XPat "x", Some Int), fnTerm), OP(X("fat"), Application, I(5)))
 
         evaluate fat |> should equal (ResI(120))
 
@@ -103,7 +103,17 @@ type TestMatchEval() =
     [<Test>]
     member that.simpleVar() =
         compare ("let x = 3; x", ResI 3)
-        
+    
+    [<Test>]
+    member that.simpleBool() =
+        compare ("let x = true;
+            let true = true; x", ResB true)
+       
+    [<Test>]
+    member that.wrongBool() =
+        compare ("let x = true;
+            let false = true; x", ResRaise)
+
     [<Test>]
     member that.simpleTuple() =
         compare ("let (x, y) = (3, 4); x", ResI 3)
