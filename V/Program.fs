@@ -8,6 +8,7 @@ open StringConversion
 open Parser
 open Printer
 open Evaluation
+open LazyEvaluation
 open TypeInference
 open Compiler
 open Argu
@@ -297,6 +298,40 @@ let compileStdlib x =
 
 [<EntryPoint>]
 let main argv = 
+
+//    let t = "
+//    let f = 4;
+//    let (x,y) = (f,f+2);
+//    x + y" |> parsePure |> evaluate
+
+    
+//    let t = "
+//    let x = 4;
+//    let f = (\y -> y + x);
+//    let x = 3;
+//    x + f x" |> parsePure |> evaluate
+    
+//    let t = "
+//        let a = 1;
+//        let x = a :: x;
+//        let a = 3;
+//        let y :: z = x;
+//        z" |> parsePure |> evaluate
+//
+//    let t = "
+//        let f = (\y -> y + a);
+//        f (1 :: y)" |> parsePure |> evaluate
+//
+//    let t = 
+//        Let (Var(XPattern "x", None), OP(I 1, Cons, X "x"),
+//        Let (Var(XPattern "y", None), OP(I 2, Cons, Nil),
+//            Head (Tail (X "x")))) |> evaluate
+//
+//    let t = "let x = 1 :: nil;
+//    let a :: b = x;
+//    let f = (\y -> y + a);
+//    let a = 3;
+//    f a" |> parsePure |> evaluate
 
     let results = parser.Parse(raiseOnUsage = false)
 

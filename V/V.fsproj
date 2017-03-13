@@ -78,6 +78,7 @@
     <Compile Include="tests\stdlibTests.fs" />
     <Compile Include="tests\InternalParserTests.fs" />
     <Compile Include="tests\ExternalParserTests.fs" />
+    <Compile Include="tests\LazyEvaluationTests.fs" />
     <Compile Include="Program.fs" />
     <None Include="libs\math.l1" />
     <None Include="README.md" />

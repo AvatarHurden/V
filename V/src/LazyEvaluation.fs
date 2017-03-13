@@ -20,10 +20,11 @@ let setValue partial n env =
             (id, assoc)
     List.mapi f env
 
-let rec lazyMatchPattern (Var (pattern, _)) term (env: lazyEnv) indexes =
+let rec lazyMatchPattern (Var (pattern, _)) term (env: lazyEnv) indexes isRec  =
     match pattern with
     | XPattern x -> 
-        Some <| (x, Thunk (term, indexes)) :: env, [env.Length]
+        let indexes' = if isRec then env.Length :: indexes else indexes
+        Some <| (x, Thunk (term, indexes')) :: env, [env.Length]
     | IgnorePattern -> Some env, []
     | TuplePattern patterns ->
         match lazyEval term env indexes with
@@ -31,8 +32,11 @@ let rec lazyMatchPattern (Var (pattern, _)) term (env: lazyEnv) indexes =
             let f acc p r =
                 match acc with
                 | None, _ -> acc
-                | Some env', indexes' -> lazyMatchPattern p r env' indexes'
-            List.fold2 f (Some env', indexes') patterns results
+                | Some env', indexes' -> 
+                    let env', addedIndexes = lazyMatchPattern p r env' indexes' isRec
+                    env', addedIndexes @ indexes'
+            let env', allIndexes = List.fold2 f (Some env', indexes') patterns results
+            env', List.filter (fun index -> not <| List.exists ((=) index) indexes') allIndexes
         | PartTuple _, env ->
             raise <| EvalException "Tuples do not match in pattern"
         | _ -> 
@@ -50,8 +54,10 @@ let rec lazyMatchPattern (Var (pattern, _)) term (env: lazyEnv) indexes =
                     | None, _ -> acc
                     | Some env', indexes' ->
                         let (_, rValue) = List.find (fun (rName, rValue) -> rName = pName) results
-                        lazyMatchPattern pValue rValue env' indexes' 
-                List.fold f (Some env', indexes') patterns
+                        let env', addedIndexes = lazyMatchPattern pValue rValue env' indexes' isRec
+                        env', addedIndexes @ indexes'
+                let env', allIndexes = List.fold f (Some env', indexes') patterns
+                env', List.filter (fun index -> not <| List.exists ((=) index) indexes') allIndexes
             else
                 raise <| EvalException "Records have different fields in pattern"
         | PartRecord _, env' ->
@@ -68,10 +74,10 @@ let rec lazyMatchPattern (Var (pattern, _)) term (env: lazyEnv) indexes =
         match lazyEval term env indexes with
         | PartNil, env' -> None, []
         | PartCons (v1, v2, internalIndexes), env' -> 
-            match lazyMatchPattern p1 v1 env' internalIndexes with
+            match lazyMatchPattern p1 v1 env' internalIndexes isRec with
             | None, added -> None, added
             | Some env, added -> 
-                let env', added' = lazyMatchPattern p2 v2 env (internalIndexes @ added)
+                let env', added' = lazyMatchPattern p2 v2 env (internalIndexes @ added) isRec
                 env', added' @ added
         | _ -> 
             raise <| EvalException "Invalid result for cons pattern"
@@ -221,30 +227,30 @@ and lazyEval (term: term) env indexes: partial * lazyEnv =
         | t', _ -> sprintf "Term %A is not a list at %A" t' term |> EvalException |> raise
     
     | Let (p, t1, t2) ->
-        match lazyMatchPattern p t1 env indexes with
+        match lazyMatchPattern p t1 env indexes true with
         | Some env', added -> 
             let v, env'' = lazyEval t2 env' (indexes @ added)
-            v, remove added env''
+            v, env''
         | None, added -> PartRaise, env
 
     | OP (t1, Application, t2) ->
         let v, env' = lazyEval t1 env indexes
         match v with
         | PartRaise -> PartRaise, env'
-        | PartClosure (pattern, t1', size) ->
-            match lazyMatchPattern pattern t2 env' indexes with
+        | PartClosure (pattern, t1', indexes') ->
+            match lazyMatchPattern pattern t2 env' indexes false with
             | None, added  -> PartRaise, env'
             | Some internEnv, added -> 
-                let v, internEnv' = lazyEval t1' internEnv (size @ added)
-                v, remove added internEnv'
-        | PartRecClosure (f, pattern, t1', indexes') ->
-            match lazyMatchPattern pattern t2 env' indexes with
+                let v, internEnv' = lazyEval t1' internEnv (indexes' @ added)
+                v, internEnv'
+        | PartRecClosure (f, pattern, t1', indexes') as t' ->
+            match lazyMatchPattern pattern t2 env' indexes false with
             | None, _ -> PartRaise, env'
             | Some internEnv, added ->
-                let added' = internEnv.Length :: added
-                let internEnv' = (f, Thunk (t1', indexes')) :: internEnv
-                let v, internEnv' = lazyEval t1' internEnv (indexes' @ added')
-                v, remove added' internEnv'
+//                let added' = internEnv.Length :: added
+//                let internEnv' = (f, Partial <| PartRecClosure (f, pattern, t1', internEnv.Length :: indexes')) :: internEnv
+                let v, internEnv' = lazyEval t1' internEnv (indexes' @ added)
+                v, internEnv'
         | t1' -> sprintf "First operand %A is not a function at %A" t1' term |> EvalException |> raise
 
     | OP (t1, Equal, t2) ->
@@ -344,5 +350,39 @@ and lazyEval (term: term) env indexes: partial * lazyEnv =
     | Output _ ->
         raise <| EvalException "IO is not supported in lazy evaluation"
 
+let rec fullyEvaluate t env indexes =
+    match lazyEval t env indexes with
+    | PartB b, _ -> ResB b
+    | PartSkip, _ -> ResSkip
+    | PartI i, _ -> ResI i
+    | PartC c, _ -> ResC c
+    | PartRaise, _ -> ResRaise
+    | PartNil, _ -> ResNil
+    | PartCons (t1, t2, indexes'), env' ->
+        match fullyEvaluate t1 env' indexes', fullyEvaluate t2 env' indexes' with
+        | ResRaise, _ -> ResRaise
+        | _, ResRaise -> ResRaise
+        | r1, r2 -> ResCons(r1, r2)
+    | PartClosure (p, term, _), _ -> ResClosure (p, term, Map.empty)
+    | PartRecClosure (x, p, term, _), _ -> ResRecClosure (x, p, term, Map.empty)
+    | PartTuple (terms, indexes'), env' ->
+        let f t =
+            match fullyEvaluate t env' indexes' with
+            | ResRaise -> None
+            | t' -> Some t'
+
+        match mapOption f terms with
+        | None -> ResRaise
+        | Some results -> ResTuple results
+    | PartRecord (pairs, indexes'), env' ->
+        let f (name, t) =
+            match fullyEvaluate t env' indexes' with
+            | ResRaise -> None
+            | t' -> Some (name, t')
+
+        match mapOption f pairs with
+        | None -> ResRaise
+        | Some results -> ResRecord results
+
 let lazyEvaluate t =
-    fst <| lazyEval t [] []
+    fullyEvaluate t [] []
