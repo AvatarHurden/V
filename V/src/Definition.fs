@@ -76,6 +76,7 @@ type term =
     | X of Ident
     | Fn of VarPattern * term
     | RecFn of Ident * (Type option) * VarPattern * term
+    | Match of term * (VarPattern * term option * term) list
     | Let of VarPattern * term * term
     | Nil
     | IsEmpty of term

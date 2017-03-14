@@ -113,7 +113,13 @@ type TestMatchEval() =
     member that.wrongBool() =
         compare ("let x = true;
             let false = true; x", ResRaise)
-
+            
+    [<Test>]
+    member that.matchWrongNumber() =
+        compare ("let x = 2;
+            let (3,y) = (x,3);
+            y
+            ", ResRaise)
     [<Test>]
     member that.simpleTuple() =
         compare ("let (x, y) = (3, 4); x", ResI 3)

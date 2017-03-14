@@ -103,15 +103,6 @@ type closings = bool * string list
 let private splitSpaces term =
     term |> Seq.skipWhile Char.IsWhiteSpace |> String.Concat
 
-let rec private matchStart (text: string) matches =
-    match matches with
-    | [] -> 
-        false, ""
-    | x::rest when text.StartsWith(x) ->
-        true, x
-    | x::rest ->
-        matchStart text rest
-        
 let private (|Trimmed|) text =
     splitSpaces text
 
@@ -135,7 +126,7 @@ let private (|Identifier|_|) text =
         match ident with
         | "let" | "true" | "false" | "if" | "then" | "else" 
         | "fn" | "rec"| "nil" | "head" | "tail" | "raise" 
-        | "skip" | "output" | "input"
+        | "skip" | "output" | "input" | "match" | "with"
         | "try" | "except" | "for" | "in" | "empty?" | "import" ->
             None
         | "" ->
@@ -143,21 +134,34 @@ let private (|Identifier|_|) text =
         | _ ->
             Some (ident, rest.Substring ident.Length)
     
-let private (|AnyStart|_|) (starts: bool * string list) (text: string) =
-    let trimmed = splitSpaces text
-    let doesStart, text, start = 
-        if List.exists ((=) " ") (snd starts) && trimmed.Length <> text.Length then
-            true, text, " "
-        else
-            let doesStart, start = matchStart trimmed <| snd starts
-            doesStart, trimmed, start
-    if doesStart then
-        if fst starts then
-            Some (text.Substring start.Length, start)
-        else
-            Some (text, start)
-    else
+type Start =
+    | Space
+    | EndOfString
+    | S of string
+
+let rec private matchStart (text: string) matches =
+    match matches with
+    | [] -> 
         None
+    | Space :: rest when Char.IsWhiteSpace (text.Chars 0) ->
+        Some (Space, text)
+    | EndOfString :: rest when text.Length = 0 ->
+        Some (EndOfString, text)
+    | S x :: rest when (splitSpaces text).StartsWith(x) ->
+        Some (S x, splitSpaces text)
+    | _ :: rest ->
+        matchStart text rest
+            
+let private (|AnyStart|_|) (starts: bool * Start list) (text: string) =
+    match matchStart text <| snd starts with
+    | None -> None
+    | Some (S start, text) ->
+        if fst starts then
+            Some (text.Substring start.Length, S start)
+        else
+            Some (text, S start)
+    | Some (start, text) ->
+        Some (splitSpaces text, start)
         
 // If string starts with 'start' (after removing any leading whitespace),
 // returns the remaining string after removing 'start' (and whitespace)
@@ -175,7 +179,7 @@ let rec parseMultipleComponents f text closings =
     | AnyStart closings (t, start) ->
         t, []
     | Trimmed rest -> 
-        let removedFirst, ret = f rest (false, snd closings @ [","])
+        let removedFirst, ret = f rest (false, snd closings @ [S ","])
 
         let rest =
             match removedFirst with
@@ -252,11 +256,11 @@ let rec parseType text closings =
     let remainingText, typ1 = 
         match text with
         | Start "(" rest ->
-            parseTupleType rest (true, [")"])
+            parseTupleType rest (true, [S ")"])
         | Start "{" rest ->
-            parseRecordType rest (true, ["}"])
+            parseRecordType rest (true, [S "}"])
         | Start "[" rest ->
-            let remaining, t = parseType rest (true, ["]"])
+            let remaining, t = parseType rest (true, [S "]"])
             remaining, List t
         | Start "Int" rest ->
             rest, Int
@@ -359,21 +363,34 @@ and parsePatternValue text closings =
         | C c -> rest, Pat(CPat c, None)
         | _ -> raiseExp <| sprintf "ParseChar didn't return a char at %A" text
 
+    | Start "\"" rest ->
+        let rest, term = parseString rest
+        let rec iter t =
+            match t with
+            | OP (C c, Cons, t') ->
+                Pat (ConsPat(Pat (CPat c, None), iter t'), None)
+            | Nil ->
+                Pat(NilPat, None)
+            | _ ->
+                raiseExp <| sprintf "ParseString didn't return a string at %A" text
+        let pat = iter term
+        rest, pat
+
     | Start "_" rest -> rest, Pat(IgnorePat, None)
     | Start "nil" rest -> rest, Pat(NilPat, None)
     | Start "(" rest ->
-        let rest, pairs = parseMultipleComponents parsePattern rest (true, [")"])
+        let rest, pairs = parseMultipleComponents parsePattern rest (true, [S ")"])
         match pairs with
         | [] -> raiseExp <| sprintf "Invalid pattern at %A" text
         | [p] -> rest, p
         | _ -> rest, Pat(TuplePat pairs, None)
     | Start "{" rest ->
-        let rest, pairs = parseMultipleComponents parseRecordPattern rest (true, ["}"])
+        let rest, pairs = parseMultipleComponents parseRecordPattern rest (true, [S "}"])
         match pairs with
         | [] -> raiseExp <| sprintf "Invalid pattern at %A" text
         | _ -> rest, Pat(RecordPat pairs, None)
     | Start "[" rest ->
-        let rest, pairs = parseMultipleComponents parsePattern rest (true, ["]"])
+        let rest, pairs = parseMultipleComponents parsePattern rest (true, [S "]"])
         match pairs with
         | [] -> rest, Pat(NilPat, None)
         | _ -> 
@@ -396,7 +413,7 @@ let rec parseParameters text closings =
     | AnyStart closings (rest, start) ->
         rest, []
     | Trimmed rest ->
-        let rest, curParameter = parsePattern rest (false, " " :: snd closings)
+        let rest, curParameter = parsePattern rest (false, Space :: snd closings)
         let rest, otherParameters = parseParameters rest closings
         rest, curParameter :: otherParameters
 
@@ -550,6 +567,36 @@ let rec parseImport text closings =
 
 //#region Term parsing        
 
+and parseMatchComponents text closings =
+    match text with
+    | AnyStart closings (t, start) ->
+        t, []
+    | Start "|" rest ->
+        let rest, patter = parsePattern rest (false, [S "when"; S "->"])
+        let rest, cond = 
+            match rest with
+            | Start "when" rest ->
+                let rest, cond = parseTerm rest (true, [S "->"])
+                rest, Some cond
+            | Start "->" rest ->
+                rest, None
+        let rest, ret = parseTerm rest (false, S "|" :: snd closings)
+        let single = (patter, cond, ret)
+        let rest, components = parseMatchComponents rest closings
+        rest, single :: components
+    | Trimmed rest ->
+        rest, []
+
+and parseMatch text closings =
+    let rest, t1 = parseTerm text (true, [S "with"])
+
+    let rest, patterns = parseMatchComponents rest (false, snd closings)
+
+    if patterns.Length = 0 then
+        raiseExp <| sprintf "Match expression requires at least one pattern at %A" text
+    else
+        rest, Match (t1, patterns)
+
 and parseLet text closings = 
     let isRec, start =
         match text with
@@ -560,26 +607,21 @@ and parseLet text closings =
     
     let rest, pattern, parameters = 
         try
-            let rest, pattern = parsePattern start (false, ["="])
+            let rest, pattern = parsePattern start (false, [S "="])
             rest, pattern, []
         with
         | _ ->
-            let rest, pattern = parsePattern start (false, ["="; " "])
-            let rest, parameters = parseParameters rest (false, ["="; ":"])
+            let rest, pattern = parsePattern start (false, [S "="; Space])
+            let rest, parameters = parseParameters rest (false, [S "="; S ":"])
             rest, pattern, parameters
-
-//    let rest, pattern = 
-//        match parameters with
-//        | [] -> parsePattern start (false, ["="])
-//        | _ -> rest, pattern
 
     let rest, retType =
         match rest with
-        | Start ":" rest -> parseSomeType rest (true, ["="])
+        | Start ":" rest -> parseSomeType rest (true, [S "="])
         | Start "=" rest -> rest, None
         | _ -> raiseExp "Expected a \"=\" at %A" text
 
-    let rest, retTerm = parseTerm rest (true, [";"])
+    let rest, retTerm = parseTerm rest (true, [S ";"])
     let rest, t2 = parseTerm rest (false, snd closings)
     
     match isRec, parameters with
@@ -617,10 +659,10 @@ and parseLet text closings =
 
 and parseRecFunction text closings =
     let rest, id = parseIdent text
-    let rest, parameters = parseParameters rest (false, ["->"; ":"])
+    let rest, parameters = parseParameters rest (false, [S "->"; S ":"])
     let rest, retType =
         match rest with
-        | Start ":" rest -> parseSomeType rest (true, ["->"])
+        | Start ":" rest -> parseSomeType rest (true, [S "->"])
         | Start "->" rest -> rest, None
         | _ -> raiseExp "Expected a \"->\" at %A" text
     let rest, retTerm = parseTerm rest closings
@@ -630,7 +672,7 @@ and parseRecFunction text closings =
     rest, RecFn(id, retType, p, retTerm)
 
 and parseLambda text closings =
-    let rest, parameters = parseParameters text (true, ["->"])
+    let rest, parameters = parseParameters text (true, [S "->"])
     let rest, retTerm = parseTerm rest (false, snd closings)
 
     // A function does not need a return type, but I must know if the
@@ -642,14 +684,14 @@ and parseLambda text closings =
     rest, Fn(p, retTerm)
 
 and parseIf text closings =
-    let rest, t1 = parseTerm text (true, ["then"])
-    let rest, t2 = parseTerm rest (true, ["else"])
+    let rest, t1 = parseTerm text (true, [S "then"])
+    let rest, t2 = parseTerm rest (true, [S "else"])
     let rest, t3 = parseTerm rest (false, snd closings)
    
     rest, Cond(t1, t2, t3)
 
 and parseTry text closings =
-    let rest, t1 = parseTerm text (true, ["except"])
+    let rest, t1 = parseTerm text (true, [S "except"])
     let rest, t2 = parseTerm rest (false, snd closings)
 
     rest, Try(t1, t2)
@@ -658,10 +700,10 @@ and parseList text closings =
     match text with
     | Start "]" rest -> rest, Nil
     | Trimmed rest ->
-        let rest, t = parseTerm rest (false, [",";"..";"for";"]"])
+        let rest, t = parseTerm rest (false, [S ","; S ".."; S "for"; S "]"])
         match rest with
         | Start "," rest -> 
-            let rest, t2 = parseTerm rest (false, [",";"..";"]"])
+            let rest, t2 = parseTerm rest (false, [S ","; S ".."; S "]"])
             match rest with
             | Start ".." rest -> parseRange text closings
             | Trimmed rest -> parseMultiList text closings
@@ -671,7 +713,7 @@ and parseList text closings =
         | Trimmed rest -> raiseExp <| sprintf "Expected \",\" at %A" rest
 
 and parseMultiList text closings =
-    let rest, t = parseTerm text (false, [",";"]"])
+    let rest, t = parseTerm text (false, [ S ","; S "]"])
     match rest with
     | Start "," rest -> 
         let rest, t2 = parseMultiList rest closings
@@ -682,26 +724,26 @@ and parseMultiList text closings =
         raiseExp <| sprintf "Expected \"]\" at %A" rest
 
 and parseComprehension text closings =
-    let rest, t1 = parseTerm text (true, ["for"])
-    let rest, p = parsePattern rest (false, [" "; "in"])
+    let rest, t1 = parseTerm text (true, [S "for"])
+    let rest, p = parsePattern rest (false, [S " "; S "in"])
     let rest, t2 = 
         match rest with
-        | Start "in" rest -> parseTerm rest (true, ["]"])
+        | Start "in" rest -> parseTerm rest (true, [S "]"])
         | _ -> raiseExp <| sprintf "Expected \"in\" at %A" rest
 
     let f = Fn(p, t1)
     rest, OP (OP (X "map", Application, f), Application, t2)
 
 and parseRange text closings = 
-    let rest, first = parseTerm text (false, [",";".."])
+    let rest, first = parseTerm text (false, [S ","; S ".."])
     let rest, increment =
         match rest with
         | Start "," rest -> 
-            let rest, second = parseTerm rest (true, [".."])
+            let rest, second = parseTerm rest (true, [S ".."])
             rest, OP(second, Subtract, first)
         | Start ".." rest -> rest, I 1
         | Trimmed rest -> raiseExp <| sprintf "Expected \"..\" at %A" rest
-    let rest, last = parseTerm rest (true, ["]"])
+    let rest, last = parseTerm rest (true, [S "]"])
     
     rest, OP (OP (OP (X "range", Application, first), Application, last), Application, increment)
 
@@ -763,10 +805,10 @@ and collectTerms text closings isAfterTerm =
     | AnyStart closings (t, start) ->
         t, []
     | Start "(" rest ->
-        let rest, term = parseParenthesis rest (true, [")"])
+        let rest, term = parseParenthesis rest (true, [S ")"])
         addToTerms rest (Term term) closings
     | Start "{" rest ->
-        let rest, term = parseRecord rest (true, ["}"])
+        let rest, term = parseRecord rest (true, [S "}"])
         addToTerms rest (Term term) closings
     // Matching value terms
     | Number (num, rest) ->
@@ -793,6 +835,9 @@ and collectTerms text closings isAfterTerm =
         addToTerms rem (Term term) closings
     | Start "let" rest ->
         let rem, term = parseLet rest closings
+        addToTerms rem (Term term) closings
+    | Start "match" rest ->
+        let rem, term = parseMatch rest closings
         addToTerms rem (Term term) closings
     | Start "rec" rest ->
         let rem, term = parseRecFunction rest closings
@@ -883,7 +928,7 @@ and parseTerm text closings =
     rem, unifyTerms collected 0
 
 let parse text =
-    let rem, t = parseTerm (removeComments text) (true, [])
+    let rem, t = parseTerm (removeComments text) (true, [EndOfString])
     let complete = stdlib.loadCompiled t
     if rem.Length > 0 then
         raiseExp "Something went very wrong with parsing"
@@ -891,7 +936,7 @@ let parse text =
         complete
 
 let parsePure text =
-    let rem, t = parseTerm (removeComments text) (true, [])
+    let rem, t = parseTerm (removeComments text) (true, [EndOfString])
     if rem.Length > 0 then
         raiseExp "Something went very wrong with parsing"
     else
