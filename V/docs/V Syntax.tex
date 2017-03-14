@@ -301,6 +301,27 @@ The pattern $nil$ matches only the empty list, while $p_1 :: p_2$ matches any li
 
 The pattern $(p_1, \; \dots \; p_n)$ matches a tuple with exactly $n$ elements, and $\{l_1: p_1, \; \dots \; l_n: p_n\}$ matches a record with fields $l_1, \; \dots \; l_n$.
 
+\paragraph{Match Expression}
+
+This expression attempts to match a value against multiple patterns, returning the correponding result expression if a match is found.
+
+\medskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+e &::= &\cdots\\
+    &| &\texttt{match} \; e \; \texttt{with} \; match_1, ... \; match_n& (n\geq1)\\
+    \\
+match &::= &p \rightarrow e\\
+    &| &p \; \texttt{when} \; e_1 \rightarrow e_2\\
+\end{tabular}}
+
+\bigskip
+
+A match expression can have any non-zero number of patterns, and they are tested from top to bottom. The first pattern that succesfully matches the input expression interrupts the matching process, and its corresponding result expression is returned.
+
+It is possible to add an extra condition that needs to be satisfied to a pattern by using the \texttt{when} keyword, followed by a test expression. This expression has access to any variables declared in its pattern, and is only evaluated if the matching succeeds.
+
 \paragraph{Functions}
 
 The expressions below all relate to function and function application in the $V$ language.
