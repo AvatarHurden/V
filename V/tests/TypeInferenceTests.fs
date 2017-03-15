@@ -116,10 +116,6 @@ type TestMatchInfer() =
         compare ("let (x, y) = (3,4); x + y", Int)
            
     [<Test>]
-    member that.simpleTupleList() =
-        compare ("let (x, y) = ([], 4); x", (List (VarType ("X0", []))))
-            
-    [<Test>]
     member that.simpleTupleInternalType() =
         compare ("let (x: [Int], y) = ([], 4); x", List Int)
 
@@ -191,3 +187,23 @@ type TestMatchInfer() =
         compare ("(\((x :: y): [Int]) -> (y, x)) []",
             (Type.Tuple [List Int;Int]))
     
+    [<Test>]
+    member that.differentTypesMatch() =
+        shouldFail "let empty2 x =
+	match x with
+	| [] -> true
+	| x :: xs when x = 'c' -> true
+	| x :: xs when x < 3 -> false
+;
+empty2 [1,2,3]
+"
+
+    [<Test>]
+    member that.emptyFunction() =
+        compare ("let empty2 x =
+	match x with
+	| [] -> true
+	| x :: xs -> false
+;
+empty2 []
+", Bool)

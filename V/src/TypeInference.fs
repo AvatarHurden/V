@@ -540,6 +540,20 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         let env', cons = validatePattern pattern paramTyp (env.Add(id, Simple fType)) []
         let typ1, c1 = collectConstraints t1 env'
         Function (paramTyp, typ1), cons @ c1 @ [Equals (fType, Function (paramTyp, typ1))]
+    | Match (t1, patterns) ->
+        let typ1, c1 = collectConstraints t1 env
+        let retTyp = VarType (getVarType (), [])
+        let f acc (pattern, condition, result) =
+            let env', consPattern = validatePattern pattern typ1 env []
+            let consCondition =
+                match condition with
+                | None -> []
+                | Some cond ->
+                    let typCond, consCond = collectConstraints cond env'
+                    consCond @ [Equals (typCond, Bool)]
+            let typRes, consRes = collectConstraints result env'
+            acc @ consPattern @ consCondition @ consRes @ [Equals (typRes, retTyp)]
+        retTyp, List.fold f c1 patterns
     | Let(pattern, t1, t2) ->
         let typ1, c1 = collectConstraints t1 env
         let uni = unify c1

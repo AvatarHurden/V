@@ -145,7 +145,7 @@ let rec private matchStart (text: string) matches =
         None
     | Space :: rest when Char.IsWhiteSpace (text.Chars 0) ->
         Some (Space, text)
-    | EndOfString :: rest when text.Length = 0 ->
+    | EndOfString :: rest when (splitSpaces text).Length = 0 ->
         Some (EndOfString, text)
     | S x :: rest when (splitSpaces text).StartsWith(x) ->
         Some (S x, splitSpaces text)

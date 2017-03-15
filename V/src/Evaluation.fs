@@ -268,6 +268,28 @@ let rec private eval t env =
         | t1' -> sprintf "Term %A is not a Boolean value at %A" t1' t |> EvalException |> raise
     | Fn(pattern, t1) -> ResClosure(pattern, t1, env)
     | RecFn(id1, typ1, pattern, t) -> ResRecClosure(id1, pattern, t, env)
+    | Match (t1, patterns) ->
+        match eval t1 env with
+        | ResRaise -> ResRaise
+        | t1' ->
+            let f acc (pattern, condition, result) =
+                match acc with
+                | Some x -> Some x
+                | None ->
+                    match validatePattern pattern t1' env with
+                    | None -> None
+                    | Some env' ->
+                        match condition with
+                        | None -> Some <| eval result env'
+                        | Some cond ->
+                            match eval cond env' with
+                            | ResRaise -> Some ResRaise
+                            | ResB true -> Some <| eval result env'
+                            | ResB false -> None
+                            | _ -> sprintf "Match condition %A returned a non-boolean at %A" cond t |> EvalException |> raise
+            match List.fold f None patterns with
+            | None -> ResRaise
+            | Some v -> v
     | Let(pattern, t1, t2) ->
         match eval t1 env with
         | ResRaise -> ResRaise
