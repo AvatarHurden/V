@@ -298,24 +298,6 @@ let rec private eval t env =
             | None -> ResRaise
             | Some env' -> eval t2 env'
     | Nil -> ResNil
-    | IsEmpty(t1) ->
-        match eval t1 env with
-        | ResRaise -> ResRaise
-        | ResNil -> ResB true
-        | ResCons (_, _) -> ResB false
-        | t1' -> sprintf "Term %A is not a list at %A" t1' t |> EvalException |> raise
-    | Head(t1) -> 
-        match eval t1 env with
-        | ResRaise -> ResRaise
-        | ResCons (head, tail) -> head
-        | ResNil -> ResRaise
-        | t1' -> sprintf "Term %A is not a list at %A" t1' t |> EvalException |> raise
-    | Tail(t1) -> 
-        match eval t1 env with
-        | ResRaise -> ResRaise
-        | ResCons (head, tail) -> tail
-        | ResNil -> ResRaise
-        | t1' -> sprintf "Term %A is not a list at %A" t1' t |> EvalException |> raise
     | Raise -> ResRaise
     | Try(t1, t2) ->
         match eval t1 env with

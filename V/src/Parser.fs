@@ -125,9 +125,9 @@ let private (|Identifier|_|) text =
                         Seq.takeWhile (fun x -> not <| Seq.exists ((=) x) prohibited))
         match ident with
         | "let" | "true" | "false" | "if" | "then" | "else" 
-        | "rec"| "nil" | "head" | "tail" | "raise"  | "when"
+        | "rec"| "nil" | "raise"  | "when"
         | "skip" | "output" | "input" | "match" | "with"
-        | "try" | "except" | "for" | "in" | "empty?" | "import" ->
+        | "try" | "except" | "for" | "in" | "import" ->
             None
         | "" ->
             None
@@ -859,15 +859,6 @@ and collectTerms text closings isAfterTerm =
     // Matching prefix operators
     | Start "-" rest when not isAfterTerm ->
         addToTerms rest (Prefix Negate) closings
-    | Start "empty?" rest ->
-        addToTerms rest 
-            (Term <| Fn (Pat(XPat "x", None), IsEmpty <| X "x")) closings
-    | Start "head" rest ->
-        addToTerms rest 
-            (Term <| Fn (Pat(XPat "x", None), Head <| X "x")) closings
-    | Start "tail" rest ->
-        addToTerms rest 
-            (Term <| Fn (Pat(XPat "x", None), Tail <| X "x")) closings
     | Start "output" rest ->
         addToTerms rest 
             (Term <| Fn (Pat(XPat "x", None), Output <| X "x")) closings

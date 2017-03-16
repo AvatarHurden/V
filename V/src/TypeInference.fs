@@ -575,17 +575,6 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         typ2, cons @ c1 @ c2
     | Nil ->
         List <| VarType (getVarType (), []), []
-    | Head(t1) ->
-        let typ1, c1 = collectConstraints t1 env
-        let x = VarType (getVarType (), [])
-        x, c1 @ [Equals (typ1, List x)]
-    | Tail(t1) ->
-        let typ1, c1 = collectConstraints t1 env
-        let x = VarType (getVarType (), [])
-        List x, c1 @ [Equals (typ1, List x)]
-    | IsEmpty(t1) ->
-        let typ1, c1 = collectConstraints t1 env
-        Bool, c1 @ [Equals (typ1, List <| VarType (getVarType (), []))]
     | Raise ->
         VarType (getVarType (), []), []
     | Try(t1, t2) ->

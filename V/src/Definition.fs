@@ -79,9 +79,6 @@ type term =
     | Match of term * (VarPattern * term option * term) list
     | Let of VarPattern * term * term
     | Nil
-    | IsEmpty of term
-    | Head of term
-    | Tail of term
     | Raise
     | Try of term * term
     | Output of term

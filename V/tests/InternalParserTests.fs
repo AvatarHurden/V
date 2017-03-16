@@ -16,11 +16,6 @@ type TestIdentParsing() =
             should throw typeof<ParseException> 
 
     [<Test>]
-    member that.reservedIdentifier() =
-        (fun () -> parseIdent "empty? t" |> ignore) |> 
-            should throw typeof<ParseException> 
-
-    [<Test>]
     member that.spacedIdentifier() =
         parseIdent "  x   = t+3" |> should equal ("   = t+3", "x")
 

@@ -226,16 +226,96 @@ let xor t1 t2 =
     member that.xorFalseTrue() =
         equals (Xor.func + "xor false true") <| ResB true
 
+[<TestFixture>]
+type Head() =
 
+    static member func = """
+let head (x :: xs) = x;
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x1 = VarType ("x", [])
+        matchesType (Head.func + "head") <| 
+            Function (List x1, x1)
+
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (Head.func + "head 4 [true]")
+
+    [<Test>]
+    member that.empty() =
+        equalsParsed (Head.func + "head []") "raise"
+        
+    [<Test>]
+    member that.firstString() =
+        equalsParsed (Head.func + "head \"hi\"") "'h'"
+        
+
+[<TestFixture>]
+type Tail() =
+
+    static member func = """
+let tail (x :: xs) = xs;
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x1 = VarType ("x", [])
+        matchesType (Tail.func + "tail") <| 
+            Function (List x1, List x1)
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (Tail.func + "tail 4")
+
+    [<Test>]
+    member that.empty() =
+        equalsParsed (Tail.func + "tail []") "raise"
+        
+    [<Test>]
+    member that.firstString() =
+        equalsParsed (Tail.func + "tail \"hi\"") "\"i\""
+     
+      
+[<TestFixture>]
+type Empty() =
+
+    static member func = """
+let empty? x =
+    match x with
+    | [] -> true
+    | _ -> false
+;
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x1 = VarType ("x", [])
+        matchesType (Empty.func + "empty?") <| 
+            Function (List x1, Bool)
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (Empty.func + "empty? 4")
+
+    [<Test>]
+    member that.empty() =
+        equalsParsed (Empty.func + "empty? []") "true"
+        
+    [<Test>]
+    member that.firstString() =
+        equalsParsed (Empty.func + "empty? \"hi\"") "false"
+        
+        
 [<TestFixture>]
 type Append() =
 
     static member func = """
 let rec append x ls =
-	if empty? ls then
-		x::ls
-	else
-		(head ls)::(append x (tail ls))
+    match ls with
+    | [] -> [x]
+    | l :: ls -> l :: append x ls 
 ;
 """
 
@@ -274,10 +354,9 @@ type Concat() =
 
     static member func = """
 let rec concat ls1 ls2 =
-	if empty? ls1 then
-		ls2
-	else
-		(head ls1)::(concat (tail ls1) ls2)
+    match ls1 with
+    | [] -> ls2
+    | x :: xs -> x :: concat xs ls2
 ;
 """
 
@@ -320,12 +399,9 @@ type Last() =
 
     static member func = """
 let rec last ls =
-	if empty? ls then
-		raise
-	else if empty? (tail ls) then
-		head ls
-	else
-		last (tail ls)
+    match ls with
+    | [x] -> x
+    | _ :: xs -> last xs
 ;
 """
 
@@ -357,12 +433,9 @@ type Init() =
 
     static member func = """
 let rec init ls =
-	if empty? ls then
-		raise
-	else if empty? (tail ls) then
-		nil
-	else
-		(head ls)::(init (tail ls))
+    match ls with
+    | [x] -> []
+    | x :: xs -> x :: init xs
 ;
 """
 
@@ -393,10 +466,9 @@ type Length() =
 
     static member func = """
 let rec length ls =
-	if empty? ls then
-		0
-	else
-		1 + length (tail ls)
+    match ls with
+    | [] -> 0
+    | _ :: xs -> 1 + length xs
 ;
 """
 
@@ -428,9 +500,9 @@ type Range() =
     static member func = """
 let rec range start finish inc =
     if (inc > 0 && start <= finish) || (inc < 0 && start >= finish) then
-		start::(range (start+inc) finish inc)
+        start::(range (start+inc) finish inc)
     else
-        nil
+        []
 ;
 """
 
@@ -473,11 +545,10 @@ type Reverse() =
     static member func = """
 let reverse ls =
     let rec f lsOld lsNew =
-        if empty? lsOld then
-            lsNew
-        else
-            f (tail lsOld) ((head lsOld)::lsNew)
-	;
+        match lsOld with
+        | [] -> lsNew
+        | x :: xs -> f xs $ x :: lsNew
+    ;
     f ls []
 ;
 """
@@ -515,17 +586,16 @@ type Map() =
 
     static member func = """
 let rec map f ls =
-    if empty? ls then
-        nil
-    else
-        (f (head ls))::(map f (tail ls))
+    match ls with
+    | [] -> []
+    | x :: xs -> f x :: map f xs
 ;
 """
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType ("x", [])
-        let x2 = VarType ("y", [])
+        let x1 = VarType ("y", [])
+        let x2 = VarType ("x", [])
         matchesType (Map.func + "map") <| 
             Function (Function (x2, x1), Function (List x2, List x1))
      
@@ -559,17 +629,16 @@ type Fold() =
 
     static member func = """
 let rec fold f acc ls =
-    if empty? ls then
-        acc
-    else
-        fold f (f acc (head ls)) (tail ls)
+    match ls with
+    | [] -> acc
+    | x :: xs -> fold f (f acc x) xs
 ;
 """
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType ("x", [])
-        let x2 = VarType ("y", [])
+        let x2 = VarType ("x", [])
+        let x1 = VarType ("y", [])
         matchesType (Fold.func + "fold") <| 
             Function (Function (x2, Function (x1, x2)), Function (x2, Function (List x1, x2)))
      
@@ -604,12 +673,7 @@ type Reduce() =
 
     static member func = 
         Fold.func + """
-let reduce f ls =
-    if empty? ls then
-        raise
-    else
-        fold f (head ls) (tail ls)
-;
+let reduce f (x :: xs) = fold f x xs;
 """
 
     [<Test>]
@@ -643,12 +707,10 @@ type All() =
     static member func = 
         Not.func + """
 let rec all pred ls =
-	if empty? ls then
-		true
-	else if not . pred $ head ls then
-        false
-	else
-		all pred $ tail ls 
+    match ls with
+    | [] -> true
+    | x :: _ when not $ pred x -> false
+    | _ :: xs -> all pred xs
 ;
 """
 
@@ -681,12 +743,10 @@ type Any() =
 
     static member func = """
 let rec any pred ls =
-	if empty? ls then
-		false
-	else if pred $ head ls then
-		true
-	else
-		any pred $ tail ls
+    match ls with
+    | [] -> false
+    | x :: _ when pred x -> true
+    | _ :: xs -> any pred xs
 ;
 """
 
@@ -787,13 +847,11 @@ let minimum ls =
 type Take() =
 
     static member func = """
-let rec take x ls =
-    if x < 0 then
-        raise
-	else if (x = 0) || (empty? ls) then
-		nil
-	else
-		(head ls)::(take (x-1) $ tail ls)
+let rec take n ls =
+    match (n, ls) with
+    | (0, _) -> []
+    | (n, []) when n > 0 -> []
+    | (n, x :: xs) when n > 0 -> x :: take (n-1) xs 
 ;
 """
 
@@ -833,13 +891,11 @@ let rec take x ls =
 type Drop() =
 
     static member func = """
-let rec drop x ls =
-    if x < 0 then
-        raise
-    else if empty? ls || x = 0 then
-        ls    
-    else
-        drop (x-1) (tail ls)
+let rec drop n ls =
+    match (n, ls) with
+    | (0, ls) -> ls
+    | (n, []) when n > 0 -> []
+    | (n, x :: xs) when n > 0 -> drop (n-1) xs
 ;
 """
 
@@ -881,12 +937,10 @@ type TakeWhile() =
     static member func = 
         Not.func + """
 let rec takeWhile pred ls =
-	if empty? ls then
-		nil
-	else if not . pred $ head ls then
-		nil
-	else
-		(head ls)::(takeWhile pred $ tail ls)
+    match ls with
+    | [] -> []
+    | x :: xs when not $ pred x -> []
+    | x :: xs -> x :: takeWhile pred xs
 ;
 """
 
@@ -924,12 +978,10 @@ type DropWhile() =
     static member func = 
         Not.func + """
 let rec dropWhile pred ls =
-    if empty? ls then
-        []
-    else if not . pred $ head ls then
-        ls
-    else
-        dropWhile pred $ tail ls
+    match ls with
+    | [] -> []
+    | x :: xs when not $ pred x -> ls
+    | _ :: xs -> dropWhile pred xs
 ;
 """
 
@@ -1012,13 +1064,11 @@ type Exists() =
 
     static member func = """
 let rec exists t ls =
-    if empty? ls then
-        false
-    else if t = (head ls) then
-        true
-    else
-        exists t $ tail ls
-;      
+    match ls with
+    | [] -> false
+    | x :: _ when x = t -> true
+    | _ :: xs -> exists t xs
+;
 """
 
     [<Test>]
@@ -1055,13 +1105,11 @@ type Filter() =
 
     static member func = """
 let rec filter pred ls =
-	if empty? ls then
-		nil
-	else if pred $ head ls then
-		head ls::(filter pred $ tail ls)
-	else
-		filter pred $ tail ls
-; 
+    match ls with
+    | [] -> []
+    | x :: xs when pred x -> x :: filter pred xs
+    | _ :: xs -> filter pred xs
+;
 """
 
     [<Test>]
@@ -1098,13 +1146,11 @@ type IndexOf() =
         Negate.func + """
 let indexOf t ls =
     let rec f index ls =
-	    if empty? ls then
-		    -1
-	    else if t = (head ls) then
-		    index
-        else
-            f (index+1) (tail ls)
-	;
+        match ls with
+        | [] -> -1
+        | x :: _ when t = x -> index
+        | _ :: xs -> f (index + 1) xs
+    ;
     f 0 ls
 ;
 """
@@ -1143,12 +1189,9 @@ type Nth() =
 
     static member func = """
 let rec nth index ls =
-    if empty? ls || index < 0 then 
-        raise
-    else if index = 0 then
-        head ls
-    else
-        nth (index - 1) (tail ls)
+    match (index, ls) with
+    | (0, x :: _) -> x
+    | (n, _ :: xs) when n > 0 -> nth (n-1) xs
 ;
 """
 
@@ -1187,14 +1230,12 @@ type Sort() =
     static member func = 
         Filter.func + Concat.func + """
 let rec sort ls =
-    if empty? ls then
-        nil
-    else
-        let first = head ls;
-        let rest = tail ls;
-        (sort $ filter (\x -> x <= first) rest) 
-        @ [first] @ 
-        (sort $ filter (\x -> x > first) rest)
+    match ls with
+    | [] -> []
+    | pivot :: xs ->
+        (sort $ filter (\x -> x <= pivot) xs)
+        @ [pivot] @
+        (sort $ filter (\x -> x > pivot) xs)
 ;
 """
 
@@ -1233,10 +1274,10 @@ type Zip() =
 
     static member func = """
 let rec zip x y =
-    if empty? x || empty? y then
-        nil
-    else
-        (head x, head y) :: zip (tail x) (tail y)
+    match (x, y) with
+    | ([], _) -> []
+    | (_, []) -> []
+    | (x :: xs, y :: ys) -> (x, y) :: zip xs ys
 ;
 """
 
@@ -1274,17 +1315,18 @@ type ZipWith() =
 
     static member func = """
 let rec zipWith f x y =
-    if empty? x || empty? y then
-        nil
-    else
-        f (head x) (head y) :: zipWith f (tail x) (tail y)
+    match (x, y) with
+    | ([], _) -> []
+    | (_, []) -> []
+    | (x :: xs, y :: ys) -> f x y :: zipWith f xs ys
 ;
+
 """
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType ("x", [])
-        let x2 = VarType ("y", [])
+        let x1 = VarType ("y", [])
+        let x2 = VarType ("x", [])
         let x3 = VarType ("z", [])
 
         matchesType (ZipWith.func + "zipWith") <| 
@@ -1354,29 +1396,28 @@ type ParseInt() =
     static member func = 
         Negate.func + Reverse.func + """
 let parseInt (s: String): Int =
-    if empty? s then
-        raise
-    else
+    match s with
+    | x :: xs ->
         let rec f (s: String): Int =
-            if empty? s then
-                0
-            else 
-                let x = 
-                    if head s = '0' then 0
-                    else if head s = '1' then 1
-                    else if head s = '2' then 2
-                    else if head s = '3' then 3
-                    else if head s = '4' then 4
-                    else if head s = '5' then 5
-                    else if head s = '6' then 6
-                    else if head s = '7' then 7
-                    else if head s = '8' then 8
-                    else if head s = '9' then 9
-                    else raise;
-            x + 10 * f (tail s)
+            match s with
+            | [] -> 0
+            | x :: xs ->
+                let n = 
+                    match x with
+                    | '0' -> 0
+                    | '1' -> 1
+                    | '2' -> 2
+                    | '3' -> 3
+                    | '4' -> 4
+                    | '5' -> 5
+                    | '6' -> 6
+                    | '7' -> 7
+                    | '8' -> 8
+                    | '9' -> 9;
+                n + 10 * f xs
         ;
-        if head s = '-' then
-            negate (f (reverse (tail s)))
+        if x = '-' then
+            negate . f . reverse $ xs
         else
             f (reverse s)
 ;
@@ -1418,24 +1459,25 @@ type PrintInt() =
         Negate.func + Remainder.func + Concat.func + """
 let rec printInt (i: Int): String =
     let printDigit d =
-        if d = 0 then "0"
-        else if d = 1 then "1"
-        else if d = 2 then "2"
-        else if d = 3 then "3"
-        else if d = 4 then "4"
-        else if d = 5 then "5"
-        else if d = 6 then "6"
-        else if d = 7 then "7"
-        else if d = 8 then "8"
-        else "9"
+        match d with
+        | 0 -> "0"
+        | 1 -> "1"
+        | 2 -> "2"
+        | 3 -> "3"
+        | 4 -> "4"
+        | 5 -> "5"
+        | 6 -> "6"
+        | 7 -> "7"
+        | 8 -> "8"
+        | 9 -> "9"
     ;
     if i < 0 then   
         '-' :: printInt (-i)
     else if i < 10 then
         printDigit i
     else 
-        let c = printDigit (i % 10);     
-        (printInt (i/10)) @ c
+        let c = printDigit (i % 10);
+        printInt (i/10) @ c
 ;
 """
 
