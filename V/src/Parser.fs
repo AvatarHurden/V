@@ -125,7 +125,7 @@ let private (|Identifier|_|) text =
                         Seq.takeWhile (fun x -> not <| Seq.exists ((=) x) prohibited))
         match ident with
         | "let" | "true" | "false" | "if" | "then" | "else" 
-        | "fn" | "rec"| "nil" | "head" | "tail" | "raise" 
+        | "rec"| "nil" | "head" | "tail" | "raise"  | "when"
         | "skip" | "output" | "input" | "match" | "with"
         | "try" | "except" | "for" | "in" | "empty?" | "import" ->
             None

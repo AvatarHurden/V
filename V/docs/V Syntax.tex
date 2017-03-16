@@ -14,7 +14,7 @@
 \def\code#1{\begin{footnotesize}\texttt{#1}\end{footnotesize}}
 
 \lstdefinelanguage{V}{
-  morekeywords = {let, body},
+  morekeywords = {let, body, match, with, if, then, else},
 }
 \lstset{language=V}
 
@@ -1876,9 +1876,11 @@ They are the following:
   \hline
   let & nil & empty? & head & tail\\
   \hline
-  rec & raise & try & except & 	import\\
+  rec & raise & try & except & import\\
   \hline
   skip & input & output & for & in\\
+  \hline
+  match & with & when\\
   \hline
 \end{tabular}
 
@@ -2014,6 +2016,24 @@ It is possible to chain multiple conditionals together.
   else
     "The grade is valid"
 \end{lstlisting}
+
+\subsection{Match Expressions}
+
+Match expressions are another way to control the flow of a program based on comparison with a list of patterns.
+Any number (greater or equal to 1) of patterns can be specified, and each one has a corresponding result expression.
+
+\begin{lstlisting}
+  match value with
+  | pattern1 -> result-expression1
+  | pattern2 when condition -> result-expression2
+  ...
+\end{lstlisting}
+
+Each pattern is tested from top to bottom, stopping the comparison as soon as a valid match is found.
+When this happens, the corresponding result expression is evaluated and returned.
+
+It is also possible to specify an aditional condition that must be satisfied for a pattern to be accepted.
+This condition can use any identifiers declared in its corresponding pattern, and it is not evaluated unless the pattern pattern returns a correct match.
 
 \subsection{Operators}
 
