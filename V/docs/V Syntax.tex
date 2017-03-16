@@ -6,9 +6,14 @@
 \usepackage{array}
 \usepackage{txfonts}
 \usepackage{syntax}
+\usepackage{titlesec}
+
 \usepackage{hyperref}
 \usepackage{lib/bcprules}
 \usepackage{hyphenat}
+
+\usepackage[USenglish]{babel}
+\usepackage[useregional]{datetime2}
 
 \newcommand\nonter[1]{\ensuremath{#1\negthinspace s}}
 \def\code#1{\begin{footnotesize}\texttt{#1}\end{footnotesize}}
@@ -66,6 +71,10 @@ It is divided into 2 categories:
 
         This is the actual syntax when programming in $V$.
         This defines all operators, syntactic sugar and other aspects of the language.
+
+    \item Changelog
+
+         Lists the changes done to the language in each version.
 \end{enumerate}
 
 \newpage
@@ -2415,5 +2424,21 @@ Because the library was imported inside the scope of the function body, none of 
 
   double 4 // Invalid
 \end{lstlisting}
+
+\section{Changelog}
+\selectlanguage{USenglish}
+
+\titlespacing\subsection{0pt}{0pt}{0pt}
+
+\subsection*{v0.2}
+{\small\DTMdisplaydate{2017}{3}{16}{-1}}
+
+\paragraph{Additions}
+
+\begin{itemize}
+  \item Match Expressions
+
+      This is a structure to control the flow of a program by attempting to match a value against a list of patterns.
+\end{itemize}
 
 \end{document}
