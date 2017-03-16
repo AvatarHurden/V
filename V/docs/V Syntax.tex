@@ -1145,6 +1145,54 @@ The result of this evaluation (that is, $v_2$) is the final result of the evalua
 
 \bigskip
 
+\paragraph{Match Expression}
+
+The match expression receives a input value and a list of $match$, attempting to pattern match against each one.
+The first $match$ which returns a positive result is considered valid, and its corresponding expression is evaluted as the result of the whole expression.
+
+If no $match$ returns a positive result, the whole expression evaluates to $raise$.
+
+\medskip
+
+\infrule[BS-Match]
+    {\mbox{env} \vdash e \Downarrow v\\
+    \exists j \in \left[1..n\right] multiMatch(v, \mbox{env}, match_j) = true, v_j\\
+    \forall k \in \left[1..j\right) multiMatch(v, \mbox{env}, match_k) = false, v_k}
+    {\mbox{env} \vdash \texttt{match} \; e \; \texttt{with} \; match_1, ... \; match_n \Downarrow v_j}
+
+\infrule[BS-Match2]
+    {\mbox{env} \vdash e \Downarrow v \\
+    \forall j \in \left[1..n\right] multiMatch(v, \mbox{env}, match_j) = false, v_j}
+    {\mbox{env} \vdash \texttt{match} \; e \; \texttt{with} \; match_1, ... \; match_n \Downarrow raise}
+
+\medskip
+
+In order to properly evaluate a match expression, it is necessary to define an auxiliary function, here called $multiMatch$.
+This function receives an input value, an environment and a $match$.
+
+If the $match$ has a conditional expression, it must evaluate to $true$ for the match to be considered valid.
+
+\infrule[]
+  {match(p, v) = false, env_1}
+  {multiMatch(v, \mbox{env}, p \rightarrow e) = false, v}
+
+\infrule[]
+  {match(p, v) = true, env_1 \andalso \mbox{env} \cup env_1 \vdash e \Downarrow v_2}
+  {multiMatch(v, \mbox{env}, p \rightarrow e) = true, v_2}
+
+\infrule[]
+  {match(p, v) = false, env_1}
+  {multiMatch(v, \mbox{env}, p \; \mbox{when} \; e_1 \rightarrow e_2) = false, v}
+
+\infrule[]
+  {match(p, v) = true, env_1 \andalso \mbox{env} \cup env_1 \vdash e_1 \Downarrow false}
+  {multiMatch(v, \mbox{env}, p \; \mbox{when} \; e_1 \rightarrow e_2) = false, v}
+
+\infrule[]
+  {match(p, v) = true, env_1 \andalso \mbox{env} \cup env_1 \vdash e_1 \Downarrow true\\
+  \mbox{env} \cup env_1 \vdash e_2 \Downarrow v_2}
+  {multiMatch(v, \mbox{env}, p \; \mbox{when} \; e_1 \rightarrow e_2) = true, v_2}
+
 \paragraph{Exceptions}
 
 Some programs can be syntactically correct but still violate the semantics of the $V$ language, such as a dividing by zero or trying to access the head of an empty list.
@@ -1529,6 +1577,24 @@ Every expression in $V$ has a rule for constraint collection, similar to how eve
     {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso match(p, T_1) = C, env\\
     env \cup \Gamma \vdash e_2 : T_2 \; | \; C_2}
     {\Gamma \vdash \texttt{let} \; p = e_1 \; \texttt{in} \; e_2 : T_2 \; | \; C \cup C_1 \cup C_2}
+
+\bigskip
+
+\infrule[T-Match]
+    {\Gamma \vdash e : T \; | \; C \andalso X_1 \; is \; new\\
+    \forall j \in \left[1..n\right] multiMatch(T, X_1, \Gamma, match_j) = C_j}
+    {\Gamma \vdash \texttt{match} \; e \; \texttt{with} \; match_1, ... \; match_n : X_1 \; | \; C \cup \displaystyle \bigcup_{i=1}^{n} C_i}
+
+\medskip
+
+\infrule[]
+  {match(p, T_1) = C, \Gamma_1 \andalso \Gamma_1 \cup \Gamma \vdash e : T_3 \; | \; C_3}
+  {multiMatch(T_1, T_2, \Gamma, p \rightarrow e) = C \cup C_3 \cup \{T_3 = T_2\}}
+
+\infrule[]
+  {match(p, T_1) = C, \Gamma_1 \andalso \Gamma_1 \cup \Gamma \vdash e_1 : T_3 \; | \; C_3 \andalso \Gamma_1 \cup \Gamma \vdash e_2 : T_4 \; | \; C_4}
+  {multiMatch(T_1, T_2, \Gamma, p \; \mbox{when} \; e_1 \rightarrow e_2) = C \cup C_3 \cup C_4 \cup \{T_3 = Bool, T_4 = T_2}
+
 
 \bigskip
 
