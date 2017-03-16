@@ -182,9 +182,6 @@ There are also basic operations on lists, such as appending, obtaining the first
 e &::= &\cdots\\
     &| &nil\\
     &| &e_1 :: e_2\\
-    &| &\texttt{isempty} \; e\\
-    &| &\texttt{hd} \; e\\
-    &| &\texttt{tl} \; e\\
 \end{tabular}}
 
 \bigskip
@@ -195,19 +192,6 @@ It is the only zero-length list possible, and all other lists are constructed on
 \medskip
 
 The second expression is the append operation, adding $e_1$ to the front of the list $e_2$.
-
-\medskip
-
-The last three expressions are operations on lists.
-
-The first one tests whether $e$ is the empty list (i.e. $nil$), returning true if positive and false if negative.
-
-The second one returns the first element of a non-empty list.
-If the list is empty, an exception is raised.
-
-The third one returns the list obtained by removing the first element of a non-empty list.
-If the list is empty, an exception is raised.
-
 
 \paragraph{Conditional}
 
@@ -794,36 +778,6 @@ The append operation ($::$) accepts any value as its first operand ($e_1$), but 
 \infrule[BS-List2]
     {\mbox{env} \vdash e_1 \Downarrow v \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
     {\mbox{env} \vdash e_1 :: e_2 \Downarrow v :: (v_1 :: v_2)}
-
-The $isempty$ expression returns $true$ if and only if its operand ($e_1$) evaluates to the empty list ($nil$).
-
-\infrule[BS-EmptyTrue]
-    {\mbox{env} \vdash e_1 \Downarrow nil}
-    {\mbox{env} \vdash \texttt{isempty} \; e_1 \Downarrow true}
-
-\infrule[BS-EmptyFalse]
-    {\mbox{env} \vdash e_1 \Downarrow v_1::v_2}
-    {\mbox{env} \vdash \texttt{isempty} \; e_1 \Downarrow false}
-
-The $head$ expression attempts to obtain the first element of a non-empty list.
-The $tail$ expression is the mirror of the $head$ expression, removing the first element of the list and returning the remaining list.
-If the list evaluates to $nil$, a run-time exception is thrown for both of these expressions.
-
-\infrule[BS-Head]
-    {\mbox{env} \vdash e_1 \Downarrow v_1::v_2}
-    {\mbox{env} \vdash \texttt{hd} \; e_1 \Downarrow v_1}
-
-\infrule[BS-HeadEmpty]
-    {\mbox{env} \vdash e_1 \Downarrow nil}
-    {\mbox{env} \vdash \texttt{hd} \; e_1 \Downarrow raise}
-
-\infrule[BS-Tail]
-    {\mbox{env} \vdash e_1 \Downarrow v_1::v_2}
-    {\mbox{env} \vdash \texttt{tl} \; e_1 \Downarrow v_2}
-
-\infrule[BS-TailEmpty]
-    {\mbox{env} \vdash e_1 \Downarrow nil}
-    {\mbox{env} \vdash \texttt{tl} \; e_1 \Downarrow raise}
 
 
 \paragraph{Numerical Operations}
@@ -1483,18 +1437,6 @@ Every expression in $V$ has a rule for constraint collection, similar to how eve
 \infrule[T-List]
     {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2\; | \; C_2}
     {\Gamma \vdash e_1 :: e_2 : T_1 \; list \; | \; C_1 \cup C_2 \cup \{T_1 \; list = T_2\}}
-
-\infrule[T-Empty]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso X_1 \; is \; new}
-    {\Gamma \vdash \texttt{isempty} \; e_1 : \mbox{Bool} \; | \; C_1 \cup \{T_1 = X_1 \; list\}}
-
-\infrule[T-Head]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso X_1 \; is \; new}
-    {\Gamma \vdash \texttt{hd} \; e_1 : X_1 \; | \; C_1 \cup \{T_1 = X_1 \; list\}}
-
-\infrule[T-Tail]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso X_1 \; is \; new}
-    {\Gamma \vdash \texttt{tl} \; e_1 : X_1 \; list \; | \; C_1 \cup \{T_1 = X_1 \; list\}}
 
 \bigskip
 
@@ -2439,6 +2381,16 @@ Because the library was imported inside the scope of the function body, none of 
   \item Match Expressions
 
       This is a structure to control the flow of a program by attempting to match a value against a list of patterns.
+\end{itemize}
+
+\paragraph{Changes}
+
+\begin{itemize}
+  \item List Operations
+
+      The list operations \code{hd}, \code{tl} and \code{isempty} have been removed from the language defition.
+
+      They have been added to the stdlib, and use pattern matching to recreate their funcionality.
 \end{itemize}
 
 \end{document}
