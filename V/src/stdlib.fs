@@ -49,43 +49,43 @@ let xor t1 t2 =
 // Basic List functions
 // ====================
 
+let head (x :: xs) = x;
+let tail (x :: xs) = xs;
+
+let empty? x =
+    match x with
+    | [] -> true
+    | _ -> false
+;
+
 let rec append x ls =
-    if empty? ls then
-        x::ls
-    else
-        (head ls)::(append x (tail ls))
+    match ls with
+    | [] -> [x]
+    | l :: ls -> l :: append x ls 
 ;
 
 let rec concat ls1 ls2 =
-    if empty? ls1 then
-        ls2
-    else
-        (head ls1)::(concat (tail ls1) ls2)
+    match ls1 with
+    | [] -> ls2
+    | x :: xs -> x :: concat xs ls2
 ;
 
 let rec last ls =
-    if empty? ls then
-        raise
-    else if empty? (tail ls) then
-        head ls
-    else
-        last (tail ls)
+    match ls with
+    | [x] -> x
+    | _ :: xs -> last xs
 ;
 
 let rec init ls =
-    if empty? ls then
-        raise
-    else if empty? (tail ls) then
-        nil
-    else
-        (head ls)::(init (tail ls))
+    match ls with
+    | [x] -> []
+    | x :: xs -> x :: init xs
 ;
 
 let rec length ls =
-    if empty? ls then
-        0
-    else
-        1 + length (tail ls)
+    match ls with
+    | [] -> 0
+    | _ :: xs -> 1 + length xs
 ;
 
 
@@ -97,7 +97,7 @@ let rec range start finish inc =
     if (inc > 0 && start <= finish) || (inc < 0 && start >= finish) then
         start::(range (start+inc) finish inc)
     else
-        nil
+        []
 ;
 
 // =============================
@@ -106,19 +106,17 @@ let rec range start finish inc =
 
 let reverse ls =
     let rec f lsOld lsNew =
-        if empty? lsOld then
-            lsNew
-        else
-            f (tail lsOld) ((head lsOld)::lsNew)
+        match lsOld with
+        | [] -> lsNew
+        | x :: xs -> f xs $ x :: lsNew
     ;
     f ls []
 ;
 
 let rec map f ls =
-    if empty? ls then
-        nil
-    else
-        (f (head ls))::(map f (tail ls))
+    match ls with
+    | [] -> []
+    | x :: xs -> f x :: map f xs
 ;
 
 
@@ -127,35 +125,25 @@ let rec map f ls =
 // ========================
 
 let rec fold f acc ls =
-    if empty? ls then
-        acc
-    else
-        fold f (f acc (head ls)) (tail ls)
+    match ls with
+    | [] -> acc
+    | x :: xs -> fold f (f acc x) xs
 ;
 
-let reduce f ls =
-    if empty? ls then
-        raise
-    else
-        fold f (head ls) (tail ls)
-;
+let reduce f (x :: xs) = fold f x xs;
 
 let rec all pred ls =
-    if empty? ls then
-        true
-    else if not . pred $ head ls then
-        false
-    else
-        all pred $ tail ls 
+    match ls with
+    | [] -> true
+    | x :: _ when not $ pred x -> false
+    | _ :: xs -> all pred xs
 ;
 
 let rec any pred ls =
-    if empty? ls then
-        false
-    else if pred $ head ls then
-        true
-    else
-        any pred $ tail ls
+    match ls with
+    | [] -> false
+    | x :: _ when pred x -> true
+    | _ :: xs -> any pred xs
 ;
 
 let maximum ls =
@@ -170,40 +158,32 @@ let minimum ls =
 // Sublist functions
 // =================
 
-let rec take x ls =
-    if x < 0 then
-        raise
-    else if (x = 0) || (empty? ls) then
-        nil
-    else
-        (head ls)::(take (x-1) $ tail ls)
+let rec take n ls =
+    match (n, ls) with
+    | (0, _) -> []
+    | (n, []) when n > 0 -> []
+    | (n, x :: xs) when n > 0 -> x :: take (n-1) xs 
 ;
 
-let rec drop x ls =
-    if x < 0 then
-        raise
-    else if empty? ls || x = 0 then
-        ls    
-    else
-        drop (x-1) (tail ls)
+let rec drop n ls =
+    match (n, ls) with
+    | (0, ls) -> ls
+    | (n, []) when n > 0 -> []
+    | (n, x :: xs) when n > 0 -> drop (n-1) xs
 ;
 
 let rec takeWhile pred ls =
-    if empty? ls then
-        nil
-    else if not . pred $ head ls then
-        nil
-    else
-        (head ls)::(takeWhile pred $ tail ls)
+    match ls with
+    | [] -> []
+    | x :: xs when not $ pred x -> []
+    | x :: xs -> x :: takeWhile pred xs
 ;
 
 let rec dropWhile pred ls =
-    if empty? ls then
-        []
-    else if not . pred $ head ls then
-        ls
-    else
-        dropWhile pred $ tail ls
+    match ls with
+    | [] -> []
+    | x :: xs when not $ pred x -> ls
+    | _ :: xs -> dropWhile pred xs
 ;
 
 let sublist start size ls =
@@ -218,21 +198,17 @@ let sublist start size ls =
 // =====================
 
 let rec exists t ls =
-    if empty? ls then
-        false
-    else if t = (head ls) then
-        true
-    else
-        exists t $ tail ls
+    match ls with
+    | [] -> false
+    | x :: _ when x = t -> true
+    | _ :: xs -> exists t xs
 ;
 
 let rec filter pred ls =
-    if empty? ls then
-        nil
-    else if pred $ head ls then
-        head ls::(filter pred $ tail ls)
-    else
-        filter pred $ tail ls
+    match ls with
+    | [] -> []
+    | x :: xs when pred x -> x :: filter pred xs
+    | _ :: xs -> filter pred xs
 ;
 
 // =======================
@@ -241,23 +217,18 @@ let rec filter pred ls =
 
 let indexOf t ls =
     let rec f index ls =
-        if empty? ls then
-            -1
-        else if t = (head ls) then
-            index
-        else
-            f (index+1) (tail ls)
+        match ls with
+        | [] -> -1
+        | x :: _ when t = x -> index
+        | _ :: xs -> f (index + 1) xs
     ;
     f 0 ls
 ;
 
 let rec nth index ls =
-    if empty? ls || index < 0 then 
-        raise
-    else if index = 0 then
-        head ls
-    else
-        nth (index - 1) (tail ls)
+    match (index, ls) with
+    | (0, x :: _) -> x
+    | (n, _ :: xs) when n > 0 -> nth (n-1) xs
 ;
 
 // ======================
@@ -265,14 +236,12 @@ let rec nth index ls =
 // ======================
 
 let rec sort ls =
-    if empty? ls then
-        nil
-    else
-        let first = head ls;
-        let rest = tail ls;
-        (sort $ filter (\x -> x <= first) rest) 
-        @ [first] @ 
-        (sort $ filter (\x -> x > first) rest)
+    match ls with
+    | [] -> []
+    | pivot :: xs ->
+        (sort $ filter (\x -> x <= pivot) xs)
+        @ [pivot] @
+        (sort $ filter (\x -> x > pivot) xs)
 ;
 
 // ======================
@@ -280,17 +249,17 @@ let rec sort ls =
 // ======================
 
 let rec zip x y =
-    if empty? x || empty? y then
-        nil
-    else
-        (head x, head y) :: zip (tail x) (tail y)
+    match (x, y) with
+    | ([], _) -> []
+    | (_, []) -> []
+    | (x :: xs, y :: ys) -> (x, y) :: zip xs ys
 ;
 
 let rec zipWith f x y =
-    if empty? x || empty? y then
-        nil
-    else
-        f (head x) (head y) :: zipWith f (tail x) (tail y)
+    match (x, y) with
+    | ([], _) -> []
+    | (_, []) -> []
+    | (x :: xs, y :: ys) -> f x y :: zipWith f xs ys
 ;
 
 let unzip ls =
@@ -304,45 +273,45 @@ let unzip ls =
 // ===========================
 
 let parseInt (s: String): Int =
-    if empty? s then
-        raise
-    else
+    match s with
+    | x :: xs ->
         let rec f (s: String): Int =
-            if empty? s then
-                0
-            else 
-                let x = 
-                    if head s = '0' then 0
-                    else if head s = '1' then 1
-                    else if head s = '2' then 2
-                    else if head s = '3' then 3
-                    else if head s = '4' then 4
-                    else if head s = '5' then 5
-                    else if head s = '6' then 6
-                    else if head s = '7' then 7
-                    else if head s = '8' then 8
-                    else if head s = '9' then 9
-                    else raise;
-            x + 10 * f (tail s)
+            match s with
+            | [] -> 0
+            | x :: xs ->
+                let n = 
+                    match x with
+                    | '0' -> 0
+                    | '1' -> 1
+                    | '2' -> 2
+                    | '3' -> 3
+                    | '4' -> 4
+                    | '5' -> 5
+                    | '6' -> 6
+                    | '7' -> 7
+                    | '8' -> 8
+                    | '9' -> 9;
+                n + 10 * f xs
         ;
-        if head s = '-' then
-            negate (f (reverse (tail s)))
+        if x = '-' then
+            negate . f . reverse $ xs
         else
             f (reverse s)
 ;
 
 let rec printInt (i: Int): String =
     let printDigit d =
-        if d = 0 then "0"
-        else if d = 1 then "1"
-        else if d = 2 then "2"
-        else if d = 3 then "3"
-        else if d = 4 then "4"
-        else if d = 5 then "5"
-        else if d = 6 then "6"
-        else if d = 7 then "7"
-        else if d = 8 then "8"
-        else "9"
+        match d with
+        | 0 -> "0"
+        | 1 -> "1"
+        | 2 -> "2"
+        | 3 -> "3"
+        | 4 -> "4"
+        | 5 -> "5"
+        | 6 -> "6"
+        | 7 -> "7"
+        | 8 -> "8"
+        | 9 -> "9"
     ;
     if i < 0 then   
         '-' :: printInt (-i)
@@ -350,7 +319,7 @@ let rec printInt (i: Int): String =
         printDigit i
     else 
         let c = printDigit (i % 10);
-        (printInt (i/10)) @ c
+        printInt (i/10) @ c
 ;
 
 let parseBool (s: String): Bool =

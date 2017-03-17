@@ -16,11 +16,6 @@ type TestIdentParsing() =
             should throw typeof<ParseException> 
 
     [<Test>]
-    member that.reservedIdentifier() =
-        (fun () -> parseIdent "empty? t" |> ignore) |> 
-            should throw typeof<ParseException> 
-
-    [<Test>]
     member that.spacedIdentifier() =
         parseIdent "  x   = t+3" |> should equal ("   = t+3", "x")
 
@@ -33,58 +28,58 @@ type TestTypeParsing() =
 
     [<Test>]
     member that.emptyType() =
-        (fun () -> parseType "" (true, [""]) |> ignore) |>   
+        (fun () -> parseType "" (true, [S ""]) |> ignore) |>   
             should throw typeof<ParseException> 
 
     [<Test>]
     member that.unclosedType() =
-        (fun () -> parseType "[Int" (true, [""]) |> ignore) |> 
+        (fun () -> parseType "[Int" (true, [S ""]) |> ignore) |> 
             should throw typeof<ParseException> 
 
     [<Test>]
     member that.invalidType() =
-        (fun () -> parseType "Inta" (true, [")"]) |> ignore) |> 
+        (fun () -> parseType "Inta" (true, [S ")"]) |> ignore) |> 
             should throw typeof<ParseException> 
 
     [<Test>]
     member that.complexType() =
-        parseType "([Int]->[Bool])->Int  =  3;" (true, ["="]) |> 
+        parseType "([Int]->[Bool])->Int  =  3;" (true, [S "="]) |> 
             should equal ("  3;", Function(Function(List Int, List Bool), Int))
 
     [<Test>]
     member that.spacedType() =
-        parseType "  Int   ->   String  ) 4" (true, [")"]) |> 
+        parseType "  Int   ->   String  ) 4" (true, [S ")"]) |> 
             should equal (" 4", Function(Int, List Char))
 
     [<Test>]
     member that.emptyClosing() =
-        parseType "  Int   ->   String  ) 4" (true, [""]) |> 
+        parseType "  Int   ->   String  ) 4" (true, [S ""]) |> 
             should equal ("->   String  ) 4", Int)
 
     [<Test>]
     member that.emptyClosingParenthesis() =
-        parseType " ( Int   ->   String  ) 4" (true, [""]) |> 
+        parseType " ( Int   ->   String  ) 4" (true, [S ""]) |> 
             should equal ("4", Function(Int, List Char))
 
     [<Test>]
     member that.tupleType() =
-        parseType " ( Int, Bool  ) 4" (true, [""]) |> 
+        parseType " ( Int, Bool  ) 4" (true, [S ""]) |> 
             should equal ("4", Type.Tuple [Int; Bool])
             
     [<Test>]
     member that.tupleUnitType() =
-        parseType " (   ) 4" (true, [""]) |> 
+        parseType " (   ) 4" (true, [S ""]) |> 
             should equal ("4", Unit)
 
     [<Test>]
     member that.recordType() =
-        parseType " {a: Bool , b: (Int, Char)} 4" (true, [""]) |> 
+        parseType " {a: Bool , b: (Int, Char)} 4" (true, [S ""]) |> 
             should equal ("4", 
                 Type.Record ["a", Bool; "b", Type.Tuple [Int; Char]])
                 
     [<Test>]
     member that.recordUnitType() =
-        parseType " { } 4" (true, [""]) |> 
+        parseType " { } 4" (true, [S ""]) |> 
             should equal ("4", Unit)
 
 [<TestFixture>]
@@ -97,27 +92,27 @@ type TestIdentTypeParsing() =
 
     [<Test>]
     member that.wrongSeparator() =
-        (fun () -> parseIdentTypePair "x;" (true, ["="]) |> ignore) |> 
+        (fun () -> parseIdentTypePair "x;" (true, [S "="]) |> ignore) |> 
             should throw typeof<ParseException> 
 
     [<Test>]
     member that.invalidType() =
-        (fun () -> parseIdentTypePair "x:Doble, " (true, [","]) |> ignore) |> 
+        (fun () -> parseIdentTypePair "x:Doble, " (true, [S ","]) |> ignore) |> 
             should throw typeof<ParseException> 
 
     [<Test>]
     member that.noType() =
-        parseIdentTypePair "x = 3" (true, ["="]) |> 
+        parseIdentTypePair "x = 3" (true, [S "="]) |> 
             should equal (" 3", ("x", (None: Type option)))
 
     [<Test>]
     member that.simpleType() =
-        parseIdentTypePair "x:Int = 3" (true, ["="]) |> 
+        parseIdentTypePair "x:Int = 3" (true, [S "="]) |> 
             should equal (" 3", ("x", Some Int))
 
     [<Test>]
     member that.complexType() =
-        parseIdentTypePair "x:[[Int]->[(Bool->String)]] = 3" (true, ["="]) |> 
+        parseIdentTypePair "x:[[Int]->[(Bool->String)]] = 3" (true, [S "="]) |> 
             should equal 
                 (" 3", ("x", 
                     Some <| 
@@ -134,41 +129,41 @@ type TestParameterParsing() =
 
     [<Test>]
     member that.noTypes() =
-        parseParameters "x y z => x+y+z" (true, ["=>"]) |> 
+        parseParameters "x y z => x+y+z" (true, [S "=>"]) |> 
             should equal 
-                (" x+y+z", [Var(XPattern "x", (None: Type option)); 
-                    Var(XPattern "y", (None: Type option)); Var(XPattern "z", (None: Type option))])
+                (" x+y+z", [Pat(XPat "x", (None: Type option)); 
+                    Pat(XPat "y", (None: Type option)); Pat(XPat "z", (None: Type option))])
 
     [<Test>]
     member that.simpleTypes() =
-        parseParameters "(x:Int) (y:Bool) (z:String) => x+y+z" (true, ["=>"]) |> 
-            should equal (" x+y+z", [Var(XPattern "x", Some Int); 
-                Var(XPattern "y", Some Bool); Var(XPattern "z", Some <| List Char)])
+        parseParameters "(x:Int) (y:Bool) (z:String) => x+y+z" (true, [S "=>"]) |> 
+            should equal (" x+y+z", [Pat(XPat "x", Some Int); 
+                Pat(XPat "y", Some Bool); Pat(XPat "z", Some <| List Char)])
 
     [<Test>]
     member that.complexTypes() =
-        parseParameters "(x:[[Int]]) (y:(Bool->Int)) (z:String) => x+y+z" (true, ["=>"]) |> 
-            should equal (" x+y+z", [Var(XPattern "x", List Int |> List |> Some); 
-                Var(XPattern "y", Some <| Function (Bool, Int)); Var(XPattern "z", Some <| List Char)])
+        parseParameters "(x:[[Int]]) (y:(Bool->Int)) (z:String) => x+y+z" (true, [S "=>"]) |> 
+            should equal (" x+y+z", [Pat(XPat "x", List Int |> List |> Some); 
+                Pat(XPat "y", Some <| Function (Bool, Int)); Pat(XPat "z", Some <| List Char)])
 
     [<Test>]
     member that.recordPatterns() =
-        parseParameters "{a: x, b: y: Int} => x + y" (true, ["=>"]) |>
-            should equal (" x + y", [Var(RecordPattern 
-                ["a", Var(XPattern "x", None);
-                 "b", Var(XPattern "y", Some Int)], None)])
+        parseParameters "{a: x, b: y: Int} => x + y" (true, [S "=>"]) |>
+            should equal (" x + y", [Pat(RecordPat 
+                ["a", Pat(XPat "x", None);
+                 "b", Pat(XPat "y", Some Int)], None)])
 
     [<Test>]
     member that.consPattern() =
-        parseParameters "((x :: y): [Int]) z => x + y + z" (true, ["=>"]) |>
-            should equal (" x + y + z", [Var(ConsPattern (
-                Var(XPattern "x", None),
-                Var(XPattern "y", None)), Some (List Int));
-                Var(XPattern "z", None)])
+        parseParameters "((x :: y): [Int]) z => x + y + z" (true, [S "=>"]) |>
+            should equal (" x + y + z", [Pat(ConsPat (
+                Pat(XPat "x", None),
+                Pat(XPat "y", None)), Some (List Int));
+                Pat(XPat "z", None)])
         
     [<Test>]
     member that.consPatternFailed() =
-        (fun () -> parseParameters "x :: y => x + y" (true, ["=>"]) |> ignore) |>   
+        (fun () -> parseParameters "x :: y => x + y" (true, [S "=>"]) |> ignore) |>   
             should throw typeof<ParseException> 
 
 [<TestFixture>]
@@ -250,45 +245,45 @@ type TestComponentParsing() =
 
     [<Test>]
     member that.noComponent() =
-        let t = parseMultipleComponents parseTerm "  )" (true, [")"])
+        let t = parseMultipleComponents parseTerm "  )" (true, [S ")"])
         let s: string * term list = "", []
         t |> should equal s 
 
     [<Test>]
     member that.singleComponent() =
-        parseMultipleComponents parseTerm " 3 )" (true, [")"]) |> 
+        parseMultipleComponents parseTerm " 3 )" (true, [S ")"]) |> 
             should equal ("", [I 3])
 
     [<Test>]
     member that.doubleComponent() =
-        parseMultipleComponents parseTerm " 3, 'c' )" (true, [")"]) |> 
+        parseMultipleComponents parseTerm " 3, 'c' )" (true, [S ")"]) |> 
             should equal ("", [I 3; C 'c'])
     
     [<Test>]
     member that.namedSingleComponent() =
-        parseMultipleComponents parseRecordComponent " a : x }" (true, ["}"]) |> 
+        parseMultipleComponents parseRecordComponent " a : x }" (true, [S "}"]) |> 
             should equal ("", [("a", X "x")])
 
     [<Test>]
     member that.namedDoubleComponent() =
-        parseMultipleComponents parseRecordComponent " a : x, b: 3 }" (true, ["}"]) |> 
+        parseMultipleComponents parseRecordComponent " a : x, b: 3 }" (true, [S "}"]) |> 
             should equal ("", [("a", X "x"); ("b", I 3)])
 
     [<Test>]
     member that.consComponent() =
-        let t = parseMultipleComponents parseTerm " a :: x )" (true, [")"])
+        let t = parseMultipleComponents parseTerm " a :: x )" (true, [S ")"])
         let s = ("", [OP (X "a", Cons, X "x")])
         t |> should equal s   
        
     [<Test>]
     member that.consComponentRecord() =
-        let t = parseMultipleComponents parseRecordComponent "b : a :: x }" (true, ["}"])
+        let t = parseMultipleComponents parseRecordComponent "b : a :: x }" (true, [S "}"])
         let s = ("", ["b", OP (X "a", Cons, X "x")])
         t |> should equal s
 
     [<Test>]
     member that.consComponentRecordUnnamed() =
-        (fun () -> parseMultipleComponents parseRecordComponent "a :: x }" (true, ["}"]) |> ignore) |> 
+        (fun () -> parseMultipleComponents parseRecordComponent "a :: x }" (true, [S "}"]) |> ignore) |> 
             should throw typeof<ParseException> 
          
          

@@ -19,11 +19,26 @@ let rec private fromString string =
 
 //#region Pattern Matching
 
-let rec matchPattern (Var (pattern, _)) result (env: Map<Ident, result>) =
+let rec matchPattern (Pat (pattern, _)) result (env: Map<Ident, result>) =
     match pattern with
-    | XPattern x -> Some <| env.Add(x, result)
-    | IgnorePattern -> Some env  
-    | TuplePattern patterns ->
+    | XPat x -> Some <| env.Add(x, result)
+    | IgnorePat -> Some env  
+    | BPat b ->
+        match result with
+        | ResB b' when b' = b -> Some env
+        | ResB _ -> None
+        | _ -> raise <| EvalException "Boolean does not match in pattern"
+    | IPat i ->
+        match result with
+        | ResI i' when i' = i -> Some env
+        | ResI _ -> None
+        | _ -> raise <| EvalException "Integer does not match in pattern"
+    | CPat c ->
+        match result with
+        | ResC c' when c' = c -> Some env
+        | ResC _ -> None
+        | _ -> raise <| EvalException "Integer does not match in pattern"
+    | TuplePat patterns ->
         match result with
         | ResTuple results when results.Length = patterns.Length ->
             let f acc p r =
@@ -35,7 +50,7 @@ let rec matchPattern (Var (pattern, _)) result (env: Map<Ident, result>) =
             raise <| EvalException "Tuples do not match in pattern"
         | _ -> 
             raise <| EvalException "Invalid result for tuple pattern"
-    | RecordPattern patterns ->
+    | RecordPat patterns ->
         match result with
         | ResRecord results when results.Length = patterns.Length ->
 
@@ -56,13 +71,13 @@ let rec matchPattern (Var (pattern, _)) result (env: Map<Ident, result>) =
             raise <| EvalException "Records have different lengths in pattern"
         | _ -> 
             raise <| EvalException "Invalid result for record pattern"
-    | NilPattern ->
+    | NilPat ->
         match result with
         | ResNil -> Some env
         | ResCons _ -> None
         | _ -> 
             raise <| EvalException "Invalid result for nil pattern"
-    | ConsPattern (p1, p2) ->
+    | ConsPat (p1, p2) ->
         match result with
         | ResNil -> None
         | ResCons (v1, v2) -> 
@@ -253,6 +268,28 @@ let rec private eval t env =
         | t1' -> sprintf "Term %A is not a Boolean value at %A" t1' t |> EvalException |> raise
     | Fn(pattern, t1) -> ResClosure(pattern, t1, env)
     | RecFn(id1, typ1, pattern, t) -> ResRecClosure(id1, pattern, t, env)
+    | Match (t1, patterns) ->
+        match eval t1 env with
+        | ResRaise -> ResRaise
+        | t1' ->
+            let f acc (pattern, condition, result) =
+                match acc with
+                | Some x -> Some x
+                | None ->
+                    match validatePattern pattern t1' env with
+                    | None -> None
+                    | Some env' ->
+                        match condition with
+                        | None -> Some <| eval result env'
+                        | Some cond ->
+                            match eval cond env' with
+                            | ResRaise -> Some ResRaise
+                            | ResB true -> Some <| eval result env'
+                            | ResB false -> None
+                            | _ -> sprintf "Match condition %A returned a non-boolean at %A" cond t |> EvalException |> raise
+            match List.fold f None patterns with
+            | None -> ResRaise
+            | Some v -> v
     | Let(pattern, t1, t2) ->
         match eval t1 env with
         | ResRaise -> ResRaise
@@ -261,24 +298,6 @@ let rec private eval t env =
             | None -> ResRaise
             | Some env' -> eval t2 env'
     | Nil -> ResNil
-    | IsEmpty(t1) ->
-        match eval t1 env with
-        | ResRaise -> ResRaise
-        | ResNil -> ResB true
-        | ResCons (_, _) -> ResB false
-        | t1' -> sprintf "Term %A is not a list at %A" t1' t |> EvalException |> raise
-    | Head(t1) -> 
-        match eval t1 env with
-        | ResRaise -> ResRaise
-        | ResCons (head, tail) -> head
-        | ResNil -> ResRaise
-        | t1' -> sprintf "Term %A is not a list at %A" t1' t |> EvalException |> raise
-    | Tail(t1) -> 
-        match eval t1 env with
-        | ResRaise -> ResRaise
-        | ResCons (head, tail) -> tail
-        | ResNil -> ResRaise
-        | t1' -> sprintf "Term %A is not a list at %A" t1' t |> EvalException |> raise
     | Raise -> ResRaise
     | Try(t1, t2) ->
         match eval t1 env with

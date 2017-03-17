@@ -371,13 +371,22 @@ let rec applyUniToEnv env uni: Map<string, EnvAssociation> =
 
 let rec matchPattern pattern typ (env: Map<Ident, EnvAssociation>) cons =
     match pattern with
-    | Var (XPattern x, None)-> env.Add(x, Simple typ), cons
-    | Var (XPattern x, Some typ')-> env.Add(x, Simple typ'), Equals (typ', typ) :: cons
+    | Pat (XPat x, None)-> env.Add(x, Simple typ), cons
+    | Pat (XPat x, Some typ')-> env.Add(x, Simple typ'), Equals (typ', typ) :: cons
 
-    | Var (IgnorePattern, None) -> env, cons
-    | Var (IgnorePattern, Some typ') -> env, Equals (typ', typ) :: cons
+    | Pat (IgnorePat, None) -> env, cons
+    | Pat (IgnorePat, Some typ') -> env, Equals (typ', typ) :: cons
 
-    | Var (TuplePattern patterns, typ') ->
+    | Pat (BPat b, None) -> env, Equals (typ, Bool) :: cons
+    | Pat (BPat b, Some typ') -> env, Equals (typ, Bool) :: Equals (typ', Bool) :: cons
+    
+    | Pat (IPat i, None) -> env, Equals (typ, Int) :: cons
+    | Pat (IPat i, Some typ') -> env, Equals (typ, Int) :: Equals (typ', Int) :: cons
+    
+    | Pat (CPat c, None) -> env, Equals (typ, Char) :: cons
+    | Pat (CPat c, Some typ') -> env, Equals (typ, Char) :: Equals (typ', Char) :: cons
+
+    | Pat (TuplePat patterns, typ') ->
         let tupleTypes = List.map (fun _ -> VarType (getVarType (), [])) patterns
         let f = fun (env, cons) p t -> matchPattern p t env cons
         let acc = 
@@ -388,7 +397,7 @@ let rec matchPattern pattern typ (env: Map<Ident, EnvAssociation>) cons =
                 env, Equals (Type.Tuple tupleTypes, typ) :: cons
         List.fold2 f acc patterns tupleTypes
     
-    | Var (RecordPattern patterns, typ') ->
+    | Pat (RecordPat patterns, typ') ->
         let recordTypes = List.map (fun (name, _) -> name, VarType (getVarType (), [])) patterns
         let f = fun (env, cons) (_, p) (_, t) -> matchPattern p t env cons
         let acc = 
@@ -399,7 +408,7 @@ let rec matchPattern pattern typ (env: Map<Ident, EnvAssociation>) cons =
                 env, Equals (Type.Record recordTypes, typ) :: cons
         List.fold2 f acc patterns recordTypes
 
-    | Var (NilPattern, typ') ->
+    | Pat (NilPat, typ') ->
         let newTyp = List (VarType (getVarType (), []))
         let cons' =
             match typ' with
@@ -409,7 +418,7 @@ let rec matchPattern pattern typ (env: Map<Ident, EnvAssociation>) cons =
                 Equals (newTyp, typ) :: Equals (newTyp, typ') :: cons
         env, cons'
 
-    | Var (ConsPattern (p1, p2), typ') ->
+    | Pat (ConsPat (p1, p2), typ') ->
         let newTyp = VarType (getVarType (), [])
         let cons' = 
             match typ' with
@@ -421,16 +430,19 @@ let rec matchPattern pattern typ (env: Map<Ident, EnvAssociation>) cons =
         matchPattern p2 (List newTyp) env' cons'
 
 let validatePattern pattern typ (env: Map<Ident, EnvAssociation>) =
-    let rec findIds (Var (pattern, _)) =
+    let rec findIds (Pat (pattern, _)) =
         match pattern with
-        | IgnorePattern
-        | NilPattern -> []
-        | XPattern x -> [x]
-        | TuplePattern patterns ->
+        | IgnorePat
+        | NilPat
+        | BPat _
+        | IPat _
+        | CPat _ -> []
+        | XPat x -> [x]
+        | TuplePat patterns ->
             List.fold (fun acc p -> acc @ findIds p) [] patterns
-        | RecordPattern patterns ->
+        | RecordPat patterns ->
             List.fold (fun acc (n, p) -> acc @ findIds p) [] patterns
-        | ConsPattern (p1, p2) ->
+        | ConsPat (p1, p2) ->
             findIds p1 @ findIds p2
     let ids = findIds pattern
     let uniques = ids |> Seq.distinct |> Seq.toList
@@ -528,6 +540,20 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         let env', cons = validatePattern pattern paramTyp (env.Add(id, Simple fType)) []
         let typ1, c1 = collectConstraints t1 env'
         Function (paramTyp, typ1), cons @ c1 @ [Equals (fType, Function (paramTyp, typ1))]
+    | Match (t1, patterns) ->
+        let typ1, c1 = collectConstraints t1 env
+        let retTyp = VarType (getVarType (), [])
+        let f acc (pattern, condition, result) =
+            let env', consPattern = validatePattern pattern typ1 env []
+            let consCondition =
+                match condition with
+                | None -> []
+                | Some cond ->
+                    let typCond, consCond = collectConstraints cond env'
+                    consCond @ [Equals (typCond, Bool)]
+            let typRes, consRes = collectConstraints result env'
+            acc @ consPattern @ consCondition @ consRes @ [Equals (typRes, retTyp)]
+        retTyp, List.fold f c1 patterns
     | Let(pattern, t1, t2) ->
         let typ1, c1 = collectConstraints t1 env
         let uni = unify c1
@@ -541,7 +567,7 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
                 validatePattern pattern typ1' env []
             else
                 match pattern with
-                | Var (XPattern x, _) -> env.Add(x, Universal (freeVars, typ1')), []
+                | Pat (XPat x, _) -> env.Add(x, Universal (freeVars, typ1')), []
                 | _ ->
                     raise <| TypeException "Pattern not allowed for functions"
         
@@ -549,17 +575,6 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         typ2, cons @ c1 @ c2
     | Nil ->
         List <| VarType (getVarType (), []), []
-    | Head(t1) ->
-        let typ1, c1 = collectConstraints t1 env
-        let x = VarType (getVarType (), [])
-        x, c1 @ [Equals (typ1, List x)]
-    | Tail(t1) ->
-        let typ1, c1 = collectConstraints t1 env
-        let x = VarType (getVarType (), [])
-        List x, c1 @ [Equals (typ1, List x)]
-    | IsEmpty(t1) ->
-        let typ1, c1 = collectConstraints t1 env
-        Bool, c1 @ [Equals (typ1, List <| VarType (getVarType (), []))]
     | Raise ->
         VarType (getVarType (), []), []
     | Try(t1, t2) ->
