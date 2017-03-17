@@ -54,6 +54,7 @@ and Argument =
     | [<CliPrefix(CliPrefix.None)>] Compile of ParseResults<Compile>
     | [<CliPrefix(CliPrefix.None)>] Run of ParseResults<Run>
     | [<HiddenAttribute>] CompileStdLib
+    | [<HiddenAttribute>] WriteTests
 with
     interface IArgParserTemplate with
         member s.Usage =
@@ -62,6 +63,7 @@ with
             | Compile _ -> "Compile Files."
             | Run _ -> "Run the specified file."
             | CompileStdLib -> ""
+            | WriteTests -> ""
 
 let parser = ArgumentParser.Create<Argument>(programName = "V.exe")
 
@@ -228,7 +230,7 @@ let rec interactive declarations (newTerm, option) =
             let inside = 
                 match term with
                 | Fn(_, inside) -> inside
-            let newDecl = Fn (Var(XPattern "x", None), replaceXLib declarations inside)
+            let newDecl = Fn (Pat(XPat "x", None), replaceXLib declarations inside)
             interactive newDecl <| parseItem "" true
         else
             try
@@ -253,7 +255,7 @@ let rec interactive declarations (newTerm, option) =
             | Some Clear ->
                 interactive (parsePure <| "\x -> let exit = 0; x") <| parseItem "" true
             | _ ->
-            interactive declarations <| parseItem "" true
+                interactive declarations <| parseItem "" true
     | None ->
         interactive declarations <| parseItem "" true
 
@@ -295,6 +297,83 @@ let compileStdlib x =
 
         File.WriteAllText("compiledStdlib.fs", text)
 
+let rec parseFullTerm declarations (newTerm, _) =
+    match newTerm with
+    | None ->
+        parseFullTerm declarations <| parseItem "" true
+    | Some term ->
+        if isValidLib term then
+            let inside = 
+                match term with
+                | Fn(_, inside) -> inside
+            let newDecl = Fn (Pat(XPat "x", None), replaceXLib declarations inside)
+            parseFullTerm newDecl <| parseItem "" true
+        else
+            replaceXLib declarations term
+
+let rec getTermText x =
+    let text = Console.ReadLine ()
+    if text.Length = 0 then
+        text
+    else
+        text + "\n" + getTermText ()
+
+let rec writeTests x =
+    Console.WriteLine "Select what to test:"
+    Console.WriteLine "1 - Type"
+    Console.WriteLine "2 - Result"
+    //Console.WriteLine "3 - Type and Result"
+    Console.WriteLine "4 - Exit"
+
+    let option = Console.ReadLine()
+    match option with
+    | "4" -> ()
+    | "1" | "2" -> 
+
+        Console.WriteLine "Insert the name of the test: "
+
+        let name = Console.ReadLine ()
+        
+        Console.WriteLine "Insert the expression (empty line finishes):"
+
+        let termText = getTermText ()
+        
+        Console.WriteLine termText
+        let term = parse termText
+        
+        Console.WriteLine ()
+        Console.WriteLine "What should the correct result be?"
+        Console.WriteLine "0 - A result"
+        Console.WriteLine "1 - An error"
+
+        let text =
+            match Console.ReadLine () with
+            | "0" ->
+                let result = 
+                    if option = "1" then
+                        sprintf "%A" <| typeInfer term
+                    else
+                        sprintf "%A" <| evaluate term
+                Console.WriteLine "The provided result is: "
+                Console.WriteLine (sprintf "%AO" result)
+                sprintf "
+    [<Test>]
+    member that.%O() =
+        compare (%A, %O)\n" name termText result
+            | "1" -> 
+                sprintf "
+    [<Test>]
+    member that.%O() =
+        shouldFail %A\n" name termText
+            | _ -> ""
+  
+        File.AppendAllText("tests.txt", text)
+        writeTests ()
+    | _ ->
+        Console.WriteLine "Wrong Key"
+        writeTests ()
+
+
 [<EntryPoint>]
 let main argv = 
 
@@ -311,9 +390,11 @@ let main argv =
             runInteractive <| results.GetResult <@ Interactive @>
         elif results.Contains <@ CompileStdLib @> then
             compileStdlib ()
+        elif results.Contains <@ WriteTests @> then
+            writeTests ()
         else
             Console.WriteLine (parser.PrintUsage())  
-        
+    
     0
 
     
