@@ -8,6 +8,7 @@
 \usepackage{syntax}
 \usepackage{titlesec}
 
+\usepackage[dvipsnames]{xcolor}
 \usepackage{hyperref}
 \usepackage{lib/bcprules}
 \usepackage{hyphenat}
@@ -2400,23 +2401,26 @@ Because the library was imported inside the scope of the function body, none of 
 \titlespacing\subsection{0pt}{0pt}{0pt}
 
 \subsection*{v0.2}
-{\small\DTMdisplaydate{2017}{3}{16}{-1}}
+{\small\DTMdisplaydate{2017}{3}{18}{-1}}
 
-\paragraph{Additions}
+\paragraph{\large Additions}
 
 \begin{itemize}
-  \item Match Expressions
+  \item \textbf{Match Expressions} \; \; {\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System} \colorbox{lightgray}{Concrete Syntax}}
 
       This is a structure to control the flow of a program by attempting to match a value against a list of patterns.
+
+  \item \textbf{Prefix Notation for Operators} \; \; {\small\colorbox{lightgray}{Concrete Syntax}}
+
+      Wrapping any infix operator in parenthesis turns it into a function that takes two parameters.
 \end{itemize}
 
 \paragraph{Changes}
 
 \begin{itemize}
-  \item List Operations
+  \item \textbf{List Operations} \; \; {\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System} \colorbox{lightgray}{Concrete Syntax}}
 
       The list operations \code{hd}, \code{tl} and \code{isempty} have been removed from the language defition.
-
       They have been added to the stdlib, and use pattern matching to recreate their funcionality.
 \end{itemize}
 
