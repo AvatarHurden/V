@@ -247,9 +247,9 @@ let rec sort ls =
     match ls with
     | [] -> []
     | pivot :: xs ->
-        (sort $ filter (\x -> x <= pivot) xs)
+        (sort $ filter ((>) pivot) xs)
         @ [pivot] @
-        (sort $ filter (\x -> x > pivot) xs)
+        (sort $ filter ((<=) pivot) xs)
 ;
 
 // ======================

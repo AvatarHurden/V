@@ -1276,14 +1276,14 @@ let rec nth index ls =
 type Sort() =
 
     static member func = 
-        Filter.func + Concat.func + Apply.func + """
+        Filter.func + Concat.func + Apply.func + Flip.func + """
 let rec sort ls =
     match ls with
     | [] -> []
     | pivot :: xs ->
-        (sort $ filter (\x -> x <= pivot) xs)
+        (sort $ filter ((>) pivot) xs)
         @ [pivot] @
-        (sort $ filter (\x -> x > pivot) xs)
+        (sort $ filter ((<=) pivot) xs)
 ;
 """
 
