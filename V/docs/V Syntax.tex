@@ -2067,6 +2067,33 @@ The table is ordered by decreasing priority level (the first operator has the hi
   \hline
 \end{tabular}
 
+\subsubsection{Operators as Functions}
+
+It is possible to use any operator as a function by wrapping it in parenthesis.
+The left-hand operand becomes the first argument of the function, and the right-hand operand becomes the second argument.
+
+This is useful mainly when passing operators as arguments to functions.
+
+\begin{lstlisting}
+  // Both expressions are equivalent
+  zipWith (\x y -> x + y) [1,2,3] [3,2,1]
+  zipWith (+) [1,2,3] [3,2,1]
+
+  // Adds 2 to every element in the list
+  map ((+) 2) [1,2,3]
+\end{lstlisting}
+
+As is shown in the last example, it is possible to provide the left-hand operand to obtain a partially applied function.
+If one wishes to provide the right-hand operand instead, it is possible to use the \code{flip} function, which changes the order of a function that takes two parameters.
+
+\begin{lstlisting}
+  // Divides 2 by every value in the list
+  map ((/) 2) [1,2,3]
+
+  // Divides every value in the list by 2
+  map (flip (/) 2) [1,2,3]
+\end{lstlisting}
+
 \subsection{Functions}
 
 There are 4 types of functions that a programmer can declare:
