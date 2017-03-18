@@ -486,8 +486,8 @@ let rec condenseTerms prev current nexts priority =
                 | Def op -> OP (x, op, y)
                 | Remainder -> OP (OP (X "remainder", Application, x), Application, y)
                 | Concat -> OP (OP (X "concat", Application, x), Application, y)
-                | Apply -> OP(x, Application, y)
-                | Compose -> Fn (Pat(XPat "x", None), OP (x, Application, OP (y, Application, X "x")))
+                | Apply -> OP (OP (X "apply", Application, x), Application, y)
+                | Compose -> OP (OP (X "compose", Application, x), Application, y)
                 | Index -> OP (OP (X "nth", Application, y), Application, x) 
             condenseTerms None (Term <| term) rest priority
         | _ ->
@@ -503,7 +503,7 @@ let rec condenseTerms prev current nexts priority =
             | op ->
                 raiseExp <| sprintf "Infix %A must be surrounded by terms" op
 
-let rec unifyTerms (terms: extendedTerm list) priority = 
+let rec unifyTerms (terms: extendedTerm list) = 
     let priorities = 
             Seq.map (fun x -> priorityOf x) terms |>
             Seq.distinct |>
@@ -514,7 +514,7 @@ let rec unifyTerms (terms: extendedTerm list) priority =
         match terms.Head with
         | Term t -> t
         | Prefix _ -> raiseExp "Cannot unify to a prefix"
-        | Infix _ -> raiseExp "Cannot unify to an infix"
+        | Infix _ -> raiseExp "Cannot unify to a infix"
     else
         raiseExp "Unification resulted in more than one term"
          
@@ -769,12 +769,25 @@ and parseRecord text closings =
         
 and parseParenthesis text closings =
     let rest, pairs = 
-        parseMultipleComponents parseTerm text closings
+        parseMultipleComponents (fun x y -> collectTerms x y false) text closings
     match pairs with
     | [] -> rest, Skip
-    | [term] -> rest, term
+    | [terms] -> 
+        match terms with
+        | [Infix op] ->
+            match op with
+            | Def op ->
+                rest, Fn(Pat(XPat "x", None), Fn(Pat(XPat "y", None), OP(X "x", op, X "y")))
+            | Remainder -> rest, X "remainder"
+            | Concat -> rest, X "concat"
+            | Apply -> rest, X "apply" 
+            | Compose -> rest, X "compose"
+            | Index -> rest, X "nth" 
+        | [Prefix Negate] ->
+            rest, Fn(Pat(XPat "x", None), Fn(Pat(XPat "y", None), OP(X "x", Subtract, X "y")))
+        | _ -> rest, unifyTerms terms
     | _ -> 
-        rest, term.Tuple pairs
+        rest, term.Tuple <| List.map unifyTerms pairs
         
 and parseProjection (text: string) closings =
     if Char.IsWhiteSpace text.[0] then
@@ -916,7 +929,7 @@ and parseTerm text closings =
     let rem, collected = collectTerms text closings false
     if collected.Length = 0 then
         raiseExp <| sprintf "Must have at least one term to process at %A" text
-    rem, unifyTerms collected 0
+    rem, unifyTerms collected
 
 let parse text =
     let rem, t = parseTerm (removeComments text) (true, [EndOfString])

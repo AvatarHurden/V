@@ -5,6 +5,14 @@ open compiledStdlib
 
 let content = """
 
+// ==================
+// Function functions
+// ==================
+
+let flip f x y = f y x;
+let apply f x = f x;
+let compose f g x = f (g x);
+
 // ====================
 // Arithmetic functions
 // ====================
