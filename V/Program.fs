@@ -379,6 +379,8 @@ let main argv =
 
     let results = parser.Parse(raiseOnUsage = false)
 
+    let t = parse "4 `remainder` 2"
+
     if results.IsUsageRequested then
         Console.WriteLine (parser.PrintUsage())
     else

@@ -21,6 +21,7 @@ type associativity =
 type infixOP =
     // Infix operators
     | Def of op
+    | BackTicked of string
     | Apply
     | Compose
     | Index
@@ -44,6 +45,7 @@ let private associativityOf op =
     | Def And
     | Def Or ->
         Right
+    | BackTicked _
     | Def Add
     | Def Subtract
     | Def Multiply
@@ -66,6 +68,7 @@ let private priorityOf op =
     | Term _ 
     | Infix (Def Application) ->
         0
+    | Infix (BackTicked _)
     | Infix Compose
     | Infix Index ->
         1
@@ -120,7 +123,7 @@ let private (|Identifier|_|) text =
     | Number rest ->
         None
     | Trimmed rest ->
-        let prohibited = " _.,;:+-/*<=>(){}[]%$&|!@#\\'\"\n\r\t".ToCharArray()
+        let prohibited = " `_.,;:+-/*<=>(){}[]%$&|!@#\\'\"\n\r\t".ToCharArray()
         let ident = String.Concat (rest |> 
                         Seq.takeWhile (fun x -> not <| Seq.exists ((=) x) prohibited))
         match ident with
@@ -484,6 +487,7 @@ let rec condenseTerms prev current nexts priority =
             let term = 
                 match op with
                 | Def op -> OP (x, op, y)
+                | BackTicked s -> OP (OP (X s, Application, x), Application, y)
                 | Remainder -> OP (OP (X "remainder", Application, x), Application, y)
                 | Concat -> OP (OP (X "concat", Application, x), Application, y)
                 | Apply -> OP (OP (X "apply", Application, x), Application, y)
@@ -778,6 +782,7 @@ and parseParenthesis text closings =
             match op with
             | Def op ->
                 rest, Fn(Pat(XPat "x", None), Fn(Pat(XPat "y", None), OP(X "x", op, X "y")))
+            | BackTicked s -> rest, X s
             | Remainder -> rest, X "remainder"
             | Concat -> rest, X "concat"
             | Apply -> rest, X "apply" 
@@ -813,6 +818,11 @@ and addToTerms string extendedTerm closings =
 // Iterate through the string, collecting single terms and operators
 and collectTerms text closings isAfterTerm = 
     match text with
+    | Start "`" rest ->
+        let rest, id = parseIdent rest
+        if rest.Chars 0 <> '`' then
+            raiseExp <| sprintf "Expected ` at %A" text
+        addToTerms (rest.Substring 1) (Infix <| BackTicked id) closings
     | Identifier (ident, rest) ->
         addToTerms rest (Term <| X ident) closings
     | AnyStart closings (t, start) ->

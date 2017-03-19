@@ -8,6 +8,7 @@
 \usepackage{syntax}
 \usepackage{titlesec}
 
+\usepackage{upquote}
 \usepackage[dvipsnames]{xcolor}
 \usepackage{hyperref}
 \usepackage{lib/bcprules}
@@ -1809,7 +1810,7 @@ Any Unicode character is considered valid, with the exception of the following:
   \hline
   \% & \textbackslash & ' & " & \textbackslash n & \textbackslash r & \textbackslash t\\
   \hline
-  \_\\
+  \_ & \lq\\
   \hline
 \end{tabular}
 
@@ -2094,6 +2095,19 @@ If one wishes to provide the right-hand operand instead, it is possible to use t
   // Divides every value in the list by 2
   map (flip (/) 2) [1,2,3]
 \end{lstlisting}
+
+\subsubsection{Functions as Operators}
+
+Wrapping a function name in backticks (\lq) will turn it into an infix binary operator.
+The first parameter of the function will become the left-hand operand, while the second parameter will become the right-hand operand.
+
+\begin{lstlisting}[escapechar=']
+  4 `add`'' 5
+  add 4 5
+\end{lstlisting}
+
+It is possible to use this with functions that take more than 2 parameters, but then it becomes necessary to use parenthesis to pass the remaning parameters.
+This greatly reduces the readability of the code, and is therefore not encouraged.
 
 \subsection{Functions}
 
@@ -2413,6 +2427,10 @@ Because the library was imported inside the scope of the function body, none of 
   \item \textbf{Prefix Notation for Operators} \; \; {\small\colorbox{lightgray}{Concrete Syntax}}
 
       Wrapping any infix operator in parenthesis turns it into a function that takes two parameters.
+
+  \item \textbf{Infix Notation for Functions} \; \; {\small\colorbox{lightgray}{Concrete Syntax}}
+
+      Wrapping any function name in backticks (\lq) turns it into a binary operator.
 \end{itemize}
 
 \paragraph{Changes}
