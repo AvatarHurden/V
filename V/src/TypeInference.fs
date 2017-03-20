@@ -581,11 +581,6 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         let typ1, c1 = collectConstraints t1 env
         let typ2, c2 = collectConstraints t2 env
         typ2, c1 @ c2 @ [Equals (typ1, typ2)]
-    | Input ->
-        List Char, []
-    | Output(t1) ->
-        let typ1, c1 = collectConstraints t1 env
-        Unit, c1 @ [Equals (typ1, List Char)]
     | Tuple(terms) ->
         if List.length terms < 2 then
             sprintf "Tuple must have more than 2 components at %A" term |> TypeException |> raise

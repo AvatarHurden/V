@@ -940,8 +940,6 @@ and collectTerms text closings isAfterTerm =
     | Start "[" rest ->
         let rem, term = parseList rest closings
         addToTerms rem (Term term) closings
-    | Start "input" rest ->
-        addToTerms rest (Term Input) closings
     | Operator true (op, opString, rest) ->
         match op with
         | Def Subtract when not isAfterTerm ->
@@ -951,9 +949,6 @@ and collectTerms text closings isAfterTerm =
     // List cons is special, since : is not allowed in operators
     | Start "::" rest ->
         addToTerms rest (Infix <| Def Cons) closings
-    | Start "output" rest ->
-        addToTerms rest 
-            (Term <| Fn (Pat(XPat "x", None), Output <| X "x")) closings
     | Start "#" rest ->
         let rest, term = parseProjection rest closings
         addToTerms rest (Term term) closings

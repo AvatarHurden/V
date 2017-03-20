@@ -81,8 +81,6 @@ type term =
     | Nil
     | Raise
     | Try of term * term
-    | Output of term
-    | Input
     | Tuple of term list
     | Record of (string * term) list
     | ProjectIndex of int * term

@@ -69,6 +69,7 @@ type Apply() =
 
     static member func = """
 let apply f x = f x;
+let ($) = apply;
 """
 
     [<Test>]
@@ -84,6 +85,7 @@ type Compose() =
 
     static member func = """
 let compose f g x = f (g x);
+let (.) = compose;
 """
 
     [<Test>]
@@ -99,14 +101,8 @@ let compose f g x = f (g x);
 type Remainder() =
 
     static member func = """
-let rec remainder x y =
-    if y = 0 then  
-        raise
-    else if x<y then
-        x
-    else
-        remainder (x-y) y
-;
+let rec remainder x y = x - (x/y)*y;
+let (%) = remainder;
 """
 
     [<Test>]
@@ -405,6 +401,7 @@ let rec concat ls1 ls2 =
     | [] -> ls2
     | x :: xs -> x :: concat xs ls2
 ;
+let (@) = concat;
 """
 
     [<Test>]
@@ -1241,6 +1238,7 @@ let rec nth index ls =
     | (0, x :: _) -> x
     | (n, _ :: xs) when n > 0 -> nth (n-1) xs
 ;
+let (!!) = nth;
 """
 
     [<Test>]

@@ -303,14 +303,6 @@ let rec private eval t env =
         match eval t1 env with
         | ResRaise -> eval t2 env
         | t1' -> t1'
-    | Input ->
-        Console.ReadLine().ToCharArray() |> Array.toList |> fromString
-    | Output(t1) ->
-        match eval t1 env with
-        | ResRaise -> ResRaise
-        | ResCons (ResC c, t) as t1' -> printf "%s" <| toString t1'; ResSkip
-        | ResNil -> printfn ""; ResSkip
-        | t1' -> sprintf "Term %A is not a string at %A" t1' t |> EvalException |> raise
     | Tuple(terms) ->
         if List.length terms < 2 then
             sprintf "Tuple must have more than 2 components at %A" t |> EvalException |> raise
