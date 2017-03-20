@@ -21,12 +21,7 @@ type associativity =
 type infixOP =
     // Infix operators
     | Def of op
-    | BackTicked of string
-    | Apply
-    | Compose
-    | Index
-    | Remainder
-    | Concat
+    | Custom of string
 
 type prefixOP =
     | Negate
@@ -38,20 +33,20 @@ type extendedTerm =
 
 let private associativityOf op =
     match op with
-    | Concat
-    | Apply
-    | Compose
+    | Custom "@"
+    | Custom "$"
+    | Custom "."
     | Def Cons
     | Def And
     | Def Or ->
         Right
-    | BackTicked _
+    | Custom _
     | Def Add
     | Def Subtract
     | Def Multiply
     | Def Divide
-    | Remainder 
-    | Index
+    | Custom "%" 
+    | Custom "!!"
     | Def Application 
     | Def Sequence ->
         Left
@@ -68,13 +63,12 @@ let private priorityOf op =
     | Term _ 
     | Infix (Def Application) ->
         0
-    | Infix (BackTicked _)
-    | Infix Compose
-    | Infix Index ->
+    | Infix (Custom ".")
+    | Infix (Custom "!!") ->
         1
     | Infix (Def Multiply)
     | Infix (Def Divide) 
-    | Infix Remainder ->
+    | Infix (Custom "%")  ->
         2
     | Prefix Negate
     | Infix (Def Add)
@@ -82,7 +76,7 @@ let private priorityOf op =
         3
     | Infix (Def Cons) ->
         4
-    | Infix Concat ->
+    | Infix (Custom "@") ->
         5
     | Infix (Def LessOrEqual)
     | Infix (Def LessThan)
@@ -97,11 +91,28 @@ let private priorityOf op =
         8
     | Infix (Def Sequence) ->
         9
-    | Infix Apply ->
+    | Infix (Custom "$") ->
         10
+    | Infix (Custom _) ->
+        1
 
 
+type InterfaceElement =
+    | IdentifierEl of string
+    | OperatorEl of string * priority:int * associativity 
+
+type State = InterfaceElement list
+type ParserText = string * int
+
+type ParserResult<'a> =
+    | Success of ParserText * State * 'a
+    | Failure of position:int * message:string
+    
 type closings = bool * string list
+
+type ParserInput = ParserText * State * closings
+
+
 
 let private splitSpaces term =
     term |> Seq.skipWhile Char.IsWhiteSpace |> String.Concat
@@ -118,24 +129,68 @@ let private (|Number|_|) text =
     else
         None
 
-let private (|Identifier|_|) text =
+let private (|Operator|_|) acceptDefined text =
     match text with
     | Number rest ->
         None
     | Trimmed rest ->
-        let prohibited = " `_.,;:+-/*<=>(){}[]%$&|!@#\\'\"\n\r\t".ToCharArray()
-        let ident = String.Concat (rest |> 
-                        Seq.takeWhile (fun x -> not <| Seq.exists ((=) x) prohibited))
-        match ident with
-        | "let" | "true" | "false" | "if" | "then" | "else" 
-        | "rec"| "nil" | "raise"  | "when"
-        | "skip" | "output" | "input" | "match" | "with"
-        | "try" | "except" | "for" | "in" | "import" ->
+        let accepted = "?!%$&*+-./<=>@^|~".ToCharArray()
+        let opString = String.Concat (rest |> 
+                        Seq.takeWhile (fun x -> Seq.exists ((=) x) accepted))
+
+        if String.IsNullOrEmpty opString then
             None
-        | "" ->
+        else
+            let op =
+                match opString with
+                | ">>" -> Def Sequence
+                | "+" -> Def Add
+                | "-" -> Def Subtract
+                | "*" -> Def Multiply
+                | "/" -> Def Divide
+                | "<=" -> Def LessOrEqual
+                | "<" -> Def LessThan
+                | "=" -> Def Equal
+                | "!=" -> Def Different
+                | ">=" -> Def GreaterOrEqual
+                | ">" -> Def GreaterThan
+                | "::" -> Def Cons
+                | "&&" -> Def And
+                | "||" -> Def Or
+                | c -> Custom c
+        
+            if not acceptDefined then
+                match op with
+                | Custom c -> Some (op, opString, rest.Substring opString.Length)
+                | op -> None
+            else
+                Some (op, opString, rest.Substring opString.Length)
+
+let private (|Identifier|_|) text =
+    match text with
+    | Number rest ->
+        None
+    | Trimmed rest when rest.Length > 0 ->
+        let prohibited = Array.toList <| " `_.,;:+-/*<=>(){}[]%$&|!@#\\'\"\n\r\t".ToCharArray()
+        let firstProhibited = '?' :: prohibited
+
+        if Seq.exists ((=) (rest.Chars 0)) firstProhibited then
             None
-        | _ ->
-            Some (ident, rest.Substring ident.Length)
+        else
+            let ident = String.Concat (rest.Substring 1 |> 
+                            Seq.takeWhile (fun x -> not <| Seq.exists ((=) x) prohibited))
+            let ident = Char.ToString (rest.Chars 0) + ident
+            match ident with
+            | "let" | "true" | "false" | "if" | "then" | "else" 
+            | "rec"| "nil" | "raise"  | "when"
+            | "skip" | "output" | "input" | "match" | "with"
+            | "try" | "except" | "for" | "in" | "import" ->
+                None
+            | "" ->
+                None
+            | _ ->
+                Some (ident, rest.Substring ident.Length)
+    | _ -> None
     
 type Start =
     | Space
@@ -254,6 +309,13 @@ let parseIdent text =
         rest, ident
     | Trimmed rest ->
         raiseExp <| sprintf "Did not find a valid identifier at %A" text
+
+let parseOperator text acceptDefined = 
+    match text with
+    | Operator acceptDefined (op, opString, rest) ->
+        rest, op, opString
+    | Trimmed rest ->
+        raiseExp <| sprintf "Did not find a valid operator at %A" text
 
 let rec parseType text closings =
     let remainingText, typ1 = 
@@ -487,12 +549,7 @@ let rec condenseTerms prev current nexts priority =
             let term = 
                 match op with
                 | Def op -> OP (x, op, y)
-                | BackTicked s -> OP (OP (X s, Application, x), Application, y)
-                | Remainder -> OP (OP (X "remainder", Application, x), Application, y)
-                | Concat -> OP (OP (X "concat", Application, x), Application, y)
-                | Apply -> OP (OP (X "apply", Application, x), Application, y)
-                | Compose -> OP (OP (X "compose", Application, x), Application, y)
-                | Index -> OP (OP (X "nth", Application, y), Application, x) 
+                | Custom s -> OP (OP (X s, Application, x), Application, y)
             condenseTerms None (Term <| term) rest priority
         | _ ->
             raiseExp <| sprintf "Infix %A must be surrounded by terms" op
@@ -615,9 +672,20 @@ and parseLet text closings =
             rest, pattern, []
         with
         | _ ->
-            let rest, pattern = parsePattern start (false, [S "="; Space])
-            let rest, parameters = parseParameters rest (false, [S "="; S ":"])
-            rest, pattern, parameters
+            match start with
+            | Identifier (id, rest) ->
+                let rest, parameters = parseParameters rest (false, [S "="; S ":"])
+                rest, Pat(XPat id, None), parameters
+            | Start "(" rest ->
+                let rest, op, opString = parseOperator rest false
+                match rest with
+                | Start ")" rest ->
+                    let rest, parameters = parseParameters rest (false, [S "="; S ":"])
+                    rest, Pat(XPat opString, None), parameters
+                | Trimmed rest ->
+                    raiseExp <| sprintf "Expected closing parenthesis at %A" rest
+            | Trimmed rest ->
+                raiseExp <| sprintf "Expected identifier at %A" rest
 
     let rest, retType =
         match rest with
@@ -781,13 +849,8 @@ and parseParenthesis text closings =
         | [Infix op] ->
             match op with
             | Def op ->
-                rest, Fn(Pat(XPat "x", None), Fn(Pat(XPat "y", None), OP(X "x", op, X "y")))
-            | BackTicked s -> rest, X s
-            | Remainder -> rest, X "remainder"
-            | Concat -> rest, X "concat"
-            | Apply -> rest, X "apply" 
-            | Compose -> rest, X "compose"
-            | Index -> rest, X "nth" 
+                rest, Fn(Pat(XPat "x", None), Fn(Pat(XPat "y", None), OP(X "x", op, X "y"))) 
+            | Custom s -> rest, X s
         | [Prefix Negate] ->
             rest, Fn(Pat(XPat "x", None), Fn(Pat(XPat "y", None), OP(X "x", Subtract, X "y")))
         | _ -> rest, unifyTerms terms
@@ -818,15 +881,15 @@ and addToTerms string extendedTerm closings =
 // Iterate through the string, collecting single terms and operators
 and collectTerms text closings isAfterTerm = 
     match text with
-    | Start "`" rest ->
-        let rest, id = parseIdent rest
-        if rest.Chars 0 <> '`' then
-            raiseExp <| sprintf "Expected ` at %A" text
-        addToTerms (rest.Substring 1) (Infix <| BackTicked id) closings
     | Identifier (ident, rest) ->
         addToTerms rest (Term <| X ident) closings
     | AnyStart closings (t, start) ->
         t, []
+    | Start "`" rest ->
+        let rest, id = parseIdent rest
+        if rest.Chars 0 <> '`' then
+            raiseExp <| sprintf "Expected ` at %A" text
+        addToTerms (rest.Substring 1) (Infix <| Custom id) closings
     | Start "(" rest ->
         let rest, term = parseParenthesis rest (true, [S ")"])
         addToTerms rest (Term term) closings
@@ -879,55 +942,21 @@ and collectTerms text closings isAfterTerm =
         addToTerms rem (Term term) closings
     | Start "input" rest ->
         addToTerms rest (Term Input) closings
-    // Matching prefix operators
-    | Start "-" rest when not isAfterTerm ->
-        addToTerms rest (Prefix Negate) closings
+    | Operator true (op, opString, rest) ->
+        match op with
+        | Def Subtract when not isAfterTerm ->
+            addToTerms rest (Prefix Negate) closings
+        | _ ->
+            addToTerms rest (Infix op) closings
+    // List cons is special, since : is not allowed in operators
+    | Start "::" rest ->
+        addToTerms rest (Infix <| Def Cons) closings
     | Start "output" rest ->
         addToTerms rest 
             (Term <| Fn (Pat(XPat "x", None), Output <| X "x")) closings
     | Start "#" rest ->
         let rest, term = parseProjection rest closings
         addToTerms rest (Term term) closings
-    // Matching infix operators
-    | Start ">>" rest ->
-        addToTerms rest (Infix <| Def Sequence) closings
-    | Start "!!" rest ->
-        addToTerms rest (Infix Index) closings  
-    | Start "%" rest ->
-        addToTerms rest (Infix Remainder) closings        
-    | Start "@" rest ->
-        addToTerms rest (Infix Concat) closings
-    | Start "+" rest ->
-        addToTerms rest (Infix <| Def Add) closings
-    | Start "-" rest when isAfterTerm ->
-        addToTerms rest (Infix <| Def Subtract) closings
-    | Start "*" rest ->
-        addToTerms rest (Infix <| Def Multiply) closings
-    | Start "/" rest ->
-        addToTerms rest (Infix <| Def Divide) closings
-    | Start "<=" rest ->
-        addToTerms rest (Infix <| Def LessOrEqual) closings
-    | Start "<" rest ->
-        addToTerms rest (Infix <| Def LessThan) closings
-    | Start "=" rest ->
-        addToTerms rest (Infix <| Def Equal) closings
-    | Start "!=" rest ->
-        addToTerms rest (Infix <| Def Different) closings
-    | Start ">=" rest ->
-        addToTerms rest (Infix <| Def GreaterOrEqual) closings
-    | Start ">" rest ->
-        addToTerms rest (Infix <| Def GreaterThan) closings
-    // Right associative operators
-    | Start "$" rest ->
-        addToTerms rest (Infix Apply) closings
-    | Start "." rest ->
-        addToTerms rest (Infix Compose) closings
-    | Start "::" rest ->
-        addToTerms rest (Infix <| Def Cons) closings
-    | Start "&&" rest ->
-        addToTerms rest (Infix <| Def And) closings
-    | Start "||" rest ->
-        addToTerms rest (Infix <| Def Or) closings
     | _ when (snd closings).IsEmpty ->
         "", []
     | _ ->
