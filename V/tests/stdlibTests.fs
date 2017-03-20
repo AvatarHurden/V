@@ -69,6 +69,7 @@ type Apply() =
 
     static member func = """
 let apply f x = f x;
+let ($) = apply;
 """
 
     [<Test>]
@@ -84,6 +85,7 @@ type Compose() =
 
     static member func = """
 let compose f g x = f (g x);
+let (.) = compose;
 """
 
     [<Test>]
@@ -99,14 +101,8 @@ let compose f g x = f (g x);
 type Remainder() =
 
     static member func = """
-let rec remainder x y =
-    if y = 0 then  
-        raise
-    else if x<y then
-        x
-    else
-        remainder (x-y) y
-;
+let rec remainder x y = x - (x/y)*y;
+let (%) = remainder;
 """
 
     [<Test>]
@@ -255,7 +251,6 @@ let xor t1 t2 =
     member that.wrongParameter() =
         throwsWrongType (Xor.func + "xor true 4")
         throwsWrongType (Xor.func + "xor \"string\" true")
-        throwsWrongType (Xor.func + "xor false skip")
 
     [<Test>]
     member that.xorTrueFalse() =
@@ -381,7 +376,7 @@ let rec append x ls =
     member that.wrongParameter() =
         throwsWrongType (Append.func + "append 4 [true]")
         throwsWrongType (Append.func + "append \"string\" \"hi\"")
-        throwsWrongType (Append.func + "append skip [1,2,3]")
+        throwsWrongType (Append.func + "append true [1,2,3]")
 
     [<Test>]
     member that.toEmpty() =
@@ -405,6 +400,7 @@ let rec concat ls1 ls2 =
     | [] -> ls2
     | x :: xs -> x :: concat xs ls2
 ;
+let (@) = concat;
 """
 
     [<Test>]
@@ -460,7 +456,7 @@ let rec last ls =
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (Last.func + "last 4")
-        throwsWrongType (Last.func + "last skip")
+        throwsWrongType (Last.func + "last true")
 
     [<Test>]
     member that.empty() =
@@ -840,7 +836,6 @@ let maximum ls =
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (Maximum.func + "maximum [true,false,true]")
-        throwsWrongType (Maximum.func + "maximum [skip]")
         throwsWrongType (Maximum.func + "maximum 3")
 
     [<Test>]
@@ -875,7 +870,6 @@ let minimum ls =
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (Minimum.func + "minimum [true,false,true]")
-        throwsWrongType (Minimum.func + "minimum [skip]")
         throwsWrongType (Minimum.func + "minimum 3")
 
     [<Test>]
@@ -1129,7 +1123,7 @@ let rec exists t ls =
     member that.wrongParameter() =
         throwsWrongType (Exists.func + "exists 'c' [1,2,3]")
         throwsWrongType (Exists.func + "exists (\x -> x) []")
-        throwsWrongType (Exists.func + "exists skip [skip,skip]")
+        throwsWrongType (Exists.func + "exists true [2,6]")
         
     [<Test>]
     member that.emptyList() =
@@ -1213,7 +1207,7 @@ let indexOf t ls =
     member that.wrongParameter() =
         throwsWrongType (IndexOf.func + "indexOf 'c' [1,2,3]")
         throwsWrongType (IndexOf.func + "indexOf (\x -> x) []")
-        throwsWrongType (IndexOf.func + "indexOf skip [skip,skip]")
+        throwsWrongType (IndexOf.func + "indexOf 1 [true,false]")
         
     [<Test>]
     member that.emptyList() =
@@ -1241,6 +1235,7 @@ let rec nth index ls =
     | (0, x :: _) -> x
     | (n, _ :: xs) when n > 0 -> nth (n-1) xs
 ;
+let (!!) = nth;
 """
 
     [<Test>]

@@ -15,7 +15,6 @@ and Type =
     | Int
     | Bool
     | Char
-    | Unit
     | Function of Type * Type
     | List of Type
     | Tuple of Type list
@@ -45,7 +44,6 @@ type op =
     | GreaterThan
     | Application
     | Cons
-    | Sequence
     | And
     | Or
 
@@ -68,7 +66,6 @@ and Pattern =
 
 type term =
     | B of bool
-    | Skip
     | I of int
     | C of char
     | OP of term * op * term
@@ -81,8 +78,6 @@ type term =
     | Nil
     | Raise
     | Try of term * term
-    | Output of term
-    | Input
     | Tuple of term list
     | Record of (string * term) list
     | ProjectIndex of int * term
@@ -90,7 +85,6 @@ type term =
 
 type result =
     | ResB of bool
-    | ResSkip
     | ResI of int
     | ResC of char
     | ResRaise

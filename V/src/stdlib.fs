@@ -13,11 +13,15 @@ let flip f x y = f y x;
 let apply f x = f x;
 let compose f g x = f (g x);
 
+let ($) = apply;
+let (.) = compose;
+
 // ====================
 // Arithmetic functions
 // ====================
 
 let remainder x y = x - (x/y)*y;
+let (%) = remainder;
 
 let negate x = 0 - x;
 
@@ -70,6 +74,7 @@ let rec concat ls1 ls2 =
     | [] -> ls2
     | x :: xs -> x :: concat xs ls2
 ;
+let (@) = concat;
 
 let rec last ls =
     match ls with
@@ -232,6 +237,8 @@ let rec nth index ls =
     | (n, _ :: xs) when n > 0 -> nth (n-1) xs
 ;
 
+let (!!) = nth;
+
 // ======================
 // List sorting functions
 // ======================
@@ -338,18 +345,6 @@ let printBool (b: Bool): String =
     else
         "false"
 ;
-
-
-// =========
-// Operators
-// =========
-
-let (%) = remainder;
-let (@) = concat;
-let ($) = apply;
-let (.) = compose;
-let (!!) = nth;
-
 """
 
 let compiled = compiled

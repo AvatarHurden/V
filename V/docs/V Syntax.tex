@@ -378,52 +378,6 @@ The first expression simply evaluates to an exception that will be propagated to
 The second expression evaluated $e_1$ and, if an exception is encountered, evaluates $e_2$.
 If the evaluation of $e_1$ does not encounter an exception, the resulting value is used, and $e_2$ is discarded.
 
-\paragraph{Input and Ouput}
-
-These expressions allow a program to interact with a user.
-Because of this, they are inherently non-deterministic.
-
-\medskip
-
-{\setlength\tabcolsep{8pt}
-\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
-e &::= &\cdots\\
-    &| &\texttt{input}\\
-    &| &\texttt{output} \; e\\
-\end{tabular}}
-
-\bigskip
-
-The \texttt{input} expression receives a line of text from the user.
-It always evaluates to a list of characters, but the length of this list is only known at run-time.
-
-The \texttt{output} expression prints a list of characters to the user.
-It is only evaluated for its side-effect of printing the list, resulting in a useless value.
-This is dealt with by the next set of expressions in the language.
-
-\paragraph{Sequence}
-
-Up until now, no expressions in $V$ had side effects, so all expressions were written to obtain their resulting value.
-With the introduction of input and (especially) output expressions, now there exist expressions that are evaluated only for their side effect.
-Because of this, it is import to enable a programmer to ignore the resulting value and continue evaluating other expressions.
-
-\medskip
-
-{\setlength\tabcolsep{8pt}
-\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
-e &::= &\cdots\\
-    &| &skip\\
-    &| &e_1 \; ; \; e_2\\
-\end{tabular}}
-
-\bigskip
-
-The first new expression ($skip$) is an empty value, always meant to be ignored.
-It is the result of evaluating an \texttt{output} expression and any other expression that is only evaluated for its side-effects.
-
-The second expression evaluates $e_1$, ignores its results and evaluates $e_2$.
-It requires that $e_1$ evaluates to no useful value (i.e. evaluates to $skip$).
-
 \subsubsection{Types}
 
 Since $V$ is strongly typed, every (valid) expression has exactly one type associated with it.
@@ -442,7 +396,6 @@ They are considered constant, and cannot be deconstructed or replaced by other t
     T &::= &\mbox{Int}\\
     &| &\mbox{Bool}\\
     &| &\mbox{Char}\\
-    &| &\mbox{Unit} \\
 \end{tabular}}
 
 \paragraph{Parametric Types}
@@ -598,7 +551,6 @@ env &::= &\{\} \; | \; \{x \rightarrow v\} \cup env\\
     &| &nil\\
     &| &v_1 :: v_2\\
     &| &raise\\
-    &| &skip\\
     &| &(v_1, \; \dots \; v_n) & (n\geq2)\\
     &| &\{l_1: v_1, \; \dots \; l_n: v_n\} & (n\geq1)\\
     &| &\left\langle p, e, env\right\rangle\\
@@ -1192,41 +1144,6 @@ Its evaluation rules are the following:
     {\mbox{env} \vdash e_1 \Downarrow v}
     {\mbox{env} \vdash \texttt{try} \; e_1 \; \texttt{with} \; e_2 \Downarrow v}
 
-\paragraph{Sequential Evaluation}
-The expression $e_1 \; ; \; e_2$ is used when the expression $e_1$ is only evaluated for its side effects, without any regard for its resulting value.
-
-\infrule[BS-Sequential]
-    {\mbox{env} \vdash e_1 \Downarrow skip \andalso \mbox{env} \vdash e_2 \Downarrow v}
-    {\mbox{env} \vdash e_1 \; ; \; e_2 \Downarrow v}
-
-The value $skip$ can be obtained either by the expression $skip$
-
-\infax[BS-Skip]
-    {\mbox{env} \vdash skip \Downarrow skip}
-
-or by evaluating other expressions (such as $output \; e$, as shown below).
-
-\paragraph{Input and Output}
-Since both input and output deal with side effects, specifying their evaluation rules is tricky.
-
-The $output$ expression does not evaluate to any significant value, so we represent it with the value $skip$.
-
-\infrule[BS-OutputEmpty]
-    {\mbox{env} \vdash e \Downarrow nil}
-    {\mbox{env} \vdash \texttt{output} \; e \Downarrow skip}
-
-\infrule[BS-Output]
-    {\mbox{env} \vdash e \Downarrow c :: v_1 \andalso \mbox{env} \vdash output \; v_1 \Downarrow skip}
-    {\mbox{env} \vdash \texttt{output} \; e \Downarrow skip}
-
-This cannot be represented in the semantic rules, but the value $c$ that results from evaluating $e$ in rule \textbf{BS-Output} is printed on the output stream (typically the console).
-The rule \textbf{BS-OutputEmpty} prints a newline character on the output stream, effectively making $output$ similar to "`printLine"' found in other languages.
-
-The $input$ expression does evaluate to a significant value, but the value is non-deterministic since it depends on the input of a user.
-The only guarantees that exist are that it will be either $nil$ or $c :: v_2$, making this similar to "`readLine"' found in other languages.
-
-\infax[BS-Input]
-    {\mbox{env} \vdash \texttt{input} \Downarrow v}
 
 \subsection{Type System}\label{Type System}
 
@@ -1403,9 +1320,6 @@ Every expression in $V$ has a rule for constraint collection, similar to how eve
 \infax[T-Char]
     {\Gamma \vdash c : \mbox{Char} \; | \; \{\}}
 
-\infax[T-Skip]
-    {\Gamma \vdash skip : \mbox{Unit} \; | \; \{\}}
-
 \infrule[T-Ident]
     {\Gamma \left(x\right) = T}
     {\Gamma \vdash x : T \; | \; \{\}}
@@ -1558,21 +1472,6 @@ Every expression in $V$ has a rule for constraint collection, similar to how eve
 \infrule[T-Try]
     {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2}
     {\Gamma \vdash \texttt{try} \; e_1 \; \texttt{with} \; e_2 : T_2 \; | \; C_1 \cup C_2 \cup \{T_1 = T_2\}}
-
-\bigskip
-
-\infrule[T-Sequential]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2}
-    {\Gamma \vdash e_1 \; ; \; e_2 : T_2 \; | \; C_1 \cup C_2 \cup \{T_1 = \mbox{Unit}\}}
-
-\bigskip
-
-\infrule[T-Output]
-    {\Gamma \vdash e : T \; | \; C}
-    {\Gamma \vdash \texttt{output} \; e : Unit \; | \; C \cup \{T = \mbox{Char} \; list\}}
-
-\infax[T-Input]
-    {\Gamma \vdash \texttt{input} : \mbox{Char} \; list \; | \; \{\}}
 
 \newpage
 
@@ -1831,9 +1730,9 @@ They are the following:
   \hline
   rec & raise & try & except & import\\
   \hline
-  skip & input & output & for & in\\
+  skip & for & in & match & with\\
   \hline
-  match & with & when\\
+  when\\
   \hline
 \end{tabular}
 
@@ -1919,8 +1818,6 @@ These types align with the types available in the $V$ language, since every type
   Char & `c', ` ' &\\
   \hline
   String & ``abc'', ``'' & This is syntactic sugar for \code{[Char]}\\
-  \hline
-  Unit & \code{skip} &\\
   \hline
   [$Type$] & [1, 2, 3], \code{nil} & List Type\\
   \hline
@@ -2063,9 +1960,7 @@ The table is ordered by decreasing priority level (the first operator has the hi
   \hline
   8 & \code{x || y} & Logical OR & Right\\
   \hline
-  9 & \code{x >> y} & Sequential Evaluation & Left\\
-  \hline
-  10 & \code{x \$ y} & Function Application & Right\\
+  9 & \code{x \$ y} & Function Application & Right\\
   \hline
 \end{tabular}
 
@@ -2314,33 +2209,7 @@ This is also useful for quickly creating new functions with fixed data or to be 
   max5 10 // Returns 10
 \end{lstlisting}
 
-\subsection{Input and Output}
-
-There are two functions that provide interaction with the user:
-  \begin{itemize}
-    \item \code{input}, to request a string input from the user
-    \item \code{output}, to print a string a string to an output
-  \end{itemize}
-
-\subsubsection{Input}
-
-\code{input} is a function that takes no arguments and returns a string.
-
-It reads a complete line of text from the standard input.
-A line ends after the users presses the \textbf{Enter} key.
-
-\subsubsection{Output}
-
-\code{output} is a function that takes a string argument and returns \code{skip}.
-The type of this function is, therefore, \code{String -> Unit}.
-It prints the string to the standard output.
-
-This function does not return a useful value, but is used only for its side effect.
-This contrasts with every other aspect of the $V$ language, since no other operation has side effects and are only used for their return values.
-
 \paragraph{String Conversions}
-
-Since both \code{output} and \code{input} only deal with strings, it is necessary to convert other types to and from strings.
 
 There are available functions to convert integers and booleans into and from strings.
 There are no included functions to convert compound types, but it is possible to create custom ones for each use case.
@@ -2352,24 +2221,6 @@ To convert integers to strings, the function is \code{printInt}.
 To convert strings to booleans, the function is \code{parseBool}.
 
 To convert booleans to strings, the function is \code{printBool}.
-
-\paragraph{Sequencing}
-
-The sequencing operator (\code{>>}) is used to deal with useless values (\code{skip}).
-
-After evaluating its left-hand operand, the operator discards the resulting value.
-It then evaluates and returns the right-hand operand.
-This allows the programmer to use a function that has side-effects without losing the ability to return useful values.
-
-The function below uses the \code{output} function to allow easier debugging of the code.
-When the function is sufficiently tested, the line with the \code{output} can be removed without affecting the rest of the function.
-
-\begin{lstlisting}
-  let double x =
-    output ("The input was " @ printInt x) >>
-    x * 2
-  ;
-\end{lstlisting}
 
 \subsection{Error Handling}
 
@@ -2473,5 +2324,20 @@ Because the library was imported inside the scope of the function body, none of 
       The list operations \code{hd}, \code{tl} and \code{isempty} have been removed from the language defition.
       They have been added to the stdlib, and use pattern matching to recreate their funcionality.
 \end{itemize}
+
+\paragraph{Removals}
+
+\begin{itemize}
+  \item \textbf{Input and Output} \; \; {\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System} \colorbox{lightgray}{Concrete Syntax}}
+
+      Removed the input and output expressions.
+      This was done because they are not compatible with the functional nature of V.
+      IO will (probably) be added again in the future, but for now it must be removed.
+
+  \item \textbf{Sequence Operator, Skip and Unit} \; \; {\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System} \colorbox{lightgray}{Concrete Syntax}}
+
+      Since these are not used by any expressions, they have been removed.
+\end{itemize}
+
 
 \end{document}

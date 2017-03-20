@@ -39,7 +39,6 @@ and printType typ =
     | Bool -> "Bool"
     | Char -> "Char"
     | List Char -> "String"
-    | Unit -> "Unit"
     | Function(t1, t2) ->  
         match t1 with
         | Function(_,_) -> 
@@ -69,7 +68,6 @@ and printResult result =
     match result with
     | ResB true -> "true"
     | ResB false -> "false"
-    | ResSkip -> "skip"
     | ResC c -> string c
     | ResI i -> string i
     | ResRaise -> "raise"
