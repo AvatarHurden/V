@@ -2109,6 +2109,32 @@ The first parameter of the function will become the left-hand operand, while the
 It is possible to use this with functions that take more than 2 parameters, but then it becomes necessary to use parenthesis to pass the remaning parameters.
 This greatly reduces the readability of the code, and is therefore not encouraged.
 
+\subsubsection{Defining new Operators}
+
+Is is possible to define new operators to be used like regular operators.
+The syntax for this is the same as creating a new function, but the operator must be enclosed in parenthesis.
+
+\begin{lstlisting}[]
+  let (%+) x y = x % y + 1;
+
+  5 %+ 4 // 2
+\end{lstlisting}
+
+Any operator defined like this will have priority 1 and be left associative.
+The following are the list of characters allowed for operators.
+
+\smallskip
+
+\begin{tabular}{|l|l|l|l|l|l|l|}
+  \hline
+  ? & ! & \% & \& & * & +\\
+  \hline
+  - & . & / & $<$ & = & $>$\\
+  \hline
+  @ & \textasciicircum & $|$ & $\sim$\\
+  \hline
+\end{tabular}
+
 \subsection{Functions}
 
 There are 4 types of functions that a programmer can declare:
@@ -2415,7 +2441,7 @@ Because the library was imported inside the scope of the function body, none of 
 \titlespacing\subsection{0pt}{0pt}{0pt}
 
 \subsection*{v0.2}
-{\small\DTMdisplaydate{2017}{3}{18}{-1}}
+{\small\DTMdisplaydate{2017}{3}{20}{-1}}
 
 \paragraph{\large Additions}
 
@@ -2431,6 +2457,12 @@ Because the library was imported inside the scope of the function body, none of 
   \item \textbf{Infix Notation for Functions} \; \; {\small\colorbox{lightgray}{Concrete Syntax}}
 
       Wrapping any function name in backticks (\lq) turns it into a binary operator.
+
+  \item \textbf{Creating new Operators} \; \; {\small\colorbox{lightgray}{Concrete Syntax}}
+
+      When declaring a function, wrapping a name in parenthesis makes it a operator.
+      Only a small number of characters are allowed for operator names, and any operator created will have a fixed associativity (left) and priority (1).
+
 \end{itemize}
 
 \paragraph{Changes}
