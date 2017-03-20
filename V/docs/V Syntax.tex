@@ -378,29 +378,6 @@ The first expression simply evaluates to an exception that will be propagated to
 The second expression evaluated $e_1$ and, if an exception is encountered, evaluates $e_2$.
 If the evaluation of $e_1$ does not encounter an exception, the resulting value is used, and $e_2$ is discarded.
 
-\paragraph{Sequence}
-
-Up until now, no expressions in $V$ had side effects, so all expressions were written to obtain their resulting value.
-With the introduction of input and (especially) output expressions, now there exist expressions that are evaluated only for their side effect.
-Because of this, it is import to enable a programmer to ignore the resulting value and continue evaluating other expressions.
-
-\medskip
-
-{\setlength\tabcolsep{8pt}
-\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
-e &::= &\cdots\\
-    &| &skip\\
-    &| &e_1 \; ; \; e_2\\
-\end{tabular}}
-
-\bigskip
-
-The first new expression ($skip$) is an empty value, always meant to be ignored.
-It is the result of evaluating an \texttt{output} expression and any other expression that is only evaluated for its side-effects.
-
-The second expression evaluates $e_1$, ignores its results and evaluates $e_2$.
-It requires that $e_1$ evaluates to no useful value (i.e. evaluates to $skip$).
-
 \subsubsection{Types}
 
 Since $V$ is strongly typed, every (valid) expression has exactly one type associated with it.
@@ -419,7 +396,6 @@ They are considered constant, and cannot be deconstructed or replaced by other t
     T &::= &\mbox{Int}\\
     &| &\mbox{Bool}\\
     &| &\mbox{Char}\\
-    &| &\mbox{Unit} \\
 \end{tabular}}
 
 \paragraph{Parametric Types}
@@ -575,7 +551,6 @@ env &::= &\{\} \; | \; \{x \rightarrow v\} \cup env\\
     &| &nil\\
     &| &v_1 :: v_2\\
     &| &raise\\
-    &| &skip\\
     &| &(v_1, \; \dots \; v_n) & (n\geq2)\\
     &| &\{l_1: v_1, \; \dots \; l_n: v_n\} & (n\geq1)\\
     &| &\left\langle p, e, env\right\rangle\\
@@ -1169,19 +1144,6 @@ Its evaluation rules are the following:
     {\mbox{env} \vdash e_1 \Downarrow v}
     {\mbox{env} \vdash \texttt{try} \; e_1 \; \texttt{with} \; e_2 \Downarrow v}
 
-\paragraph{Sequential Evaluation}
-The expression $e_1 \; ; \; e_2$ is used when the expression $e_1$ is only evaluated for its side effects, without any regard for its resulting value.
-
-\infrule[BS-Sequential]
-    {\mbox{env} \vdash e_1 \Downarrow skip \andalso \mbox{env} \vdash e_2 \Downarrow v}
-    {\mbox{env} \vdash e_1 \; ; \; e_2 \Downarrow v}
-
-The value $skip$ can be obtained either by the expression $skip$
-
-\infax[BS-Skip]
-    {\mbox{env} \vdash skip \Downarrow skip}
-
-or by evaluating other expressions (such as $output \; e$, as shown below).
 
 \subsection{Type System}\label{Type System}
 
@@ -1358,9 +1320,6 @@ Every expression in $V$ has a rule for constraint collection, similar to how eve
 \infax[T-Char]
     {\Gamma \vdash c : \mbox{Char} \; | \; \{\}}
 
-\infax[T-Skip]
-    {\Gamma \vdash skip : \mbox{Unit} \; | \; \{\}}
-
 \infrule[T-Ident]
     {\Gamma \left(x\right) = T}
     {\Gamma \vdash x : T \; | \; \{\}}
@@ -1513,12 +1472,6 @@ Every expression in $V$ has a rule for constraint collection, similar to how eve
 \infrule[T-Try]
     {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2}
     {\Gamma \vdash \texttt{try} \; e_1 \; \texttt{with} \; e_2 : T_2 \; | \; C_1 \cup C_2 \cup \{T_1 = T_2\}}
-
-\bigskip
-
-\infrule[T-Sequential]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2}
-    {\Gamma \vdash e_1 \; ; \; e_2 : T_2 \; | \; C_1 \cup C_2 \cup \{T_1 = \mbox{Unit}\}}
 
 \newpage
 
@@ -1866,8 +1819,6 @@ These types align with the types available in the $V$ language, since every type
   \hline
   String & ``abc'', ``'' & This is syntactic sugar for \code{[Char]}\\
   \hline
-  Unit & \code{skip} &\\
-  \hline
   [$Type$] & [1, 2, 3], \code{nil} & List Type\\
   \hline
   ($Type$, ... $Type$) & (1, true, `a') & Tuple Type\\
@@ -2009,9 +1960,7 @@ The table is ordered by decreasing priority level (the first operator has the hi
   \hline
   8 & \code{x || y} & Logical OR & Right\\
   \hline
-  9 & \code{x >> y} & Sequential Evaluation & Left\\
-  \hline
-  10 & \code{x \$ y} & Function Application & Right\\
+  9 & \code{x \$ y} & Function Application & Right\\
   \hline
 \end{tabular}
 
@@ -2384,6 +2333,10 @@ Because the library was imported inside the scope of the function body, none of 
       Removed the input and output expressions.
       This was done because they are not compatible with the functional nature of V.
       IO will (probably) be added again in the future, but for now it must be removed.
+
+  \item \textbf{Sequence Operator, Skip and Unit} \; \; {\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System} \colorbox{lightgray}{Concrete Syntax}}
+
+      Since these are not used by any expressions, they have been removed.
 \end{itemize}
 
 
