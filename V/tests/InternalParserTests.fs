@@ -68,8 +68,8 @@ type TestTypeParsing() =
             
     [<Test>]
     member that.tupleUnitType() =
-        parseType " (   ) 4" (true, [S ""]) |> 
-            should equal ("4", Unit)
+        (fun () -> parseType " (   ) 4" (true, [S ""]) |> ignore) |> 
+            should throw typeof<ParseException> 
 
     [<Test>]
     member that.recordType() =
@@ -79,8 +79,8 @@ type TestTypeParsing() =
                 
     [<Test>]
     member that.recordUnitType() =
-        parseType " { } 4" (true, [S ""]) |> 
-            should equal ("4", Unit)
+        (fun () -> parseType " { } 4" (true, [S ""]) |> ignore) |> 
+            should throw typeof<ParseException> 
 
 [<TestFixture>]
 type TestIdentTypeParsing() =

@@ -47,8 +47,7 @@ let private associativityOf op =
     | Def Divide
     | Custom "%" 
     | Custom "!!"
-    | Def Application 
-    | Def Sequence ->
+    | Def Application ->
         Left
     | Def Equal
     | Def Different
@@ -89,10 +88,8 @@ let private priorityOf op =
         7
     | Infix (Def Or) ->
         8
-    | Infix (Def Sequence) ->
-        9
     | Infix (Custom "$") ->
-        10
+        9
     | Infix (Custom _) ->
         1
 
@@ -143,7 +140,6 @@ let private (|Operator|_|) acceptDefined text =
         else
             let op =
                 match opString with
-                | ">>" -> Def Sequence
                 | "+" -> Def Add
                 | "-" -> Def Subtract
                 | "*" -> Def Multiply
@@ -333,8 +329,6 @@ let rec parseType text closings =
             rest, Bool
         | Start "Char" rest ->
             rest, Definition.Char
-        | Start "Unit" rest ->
-            rest, Unit
         | Start "String" rest ->
             rest, List Definition.Char
         | Trimmed rest ->
@@ -363,7 +357,7 @@ and parseTupleType text closings =
     let rest, pairs = 
         parseMultipleComponents parseType text closings
     match pairs with
-    | [] -> rest, Unit
+    | [] -> raiseExp <| sprintf "Tuple type must contain at least 2 components at %A" text
     | [typ] -> rest, typ
     | _ -> 
         rest, Type.Tuple pairs
@@ -372,7 +366,7 @@ and parseRecordType text closings =
     let rest, pairs =
         parseMultipleComponents parseRecordTypeComponent text closings
     match pairs with
-    | [] -> rest, Unit
+    | [] -> raiseExp <| sprintf "Record type must contain at least 1 component at %A" text
     | _ ->  
         rest, Type.Record pairs
         
@@ -835,7 +829,7 @@ and parseRecord text closings =
     let rest, pairs =
         parseMultipleComponents parseRecordComponent text closings
     match pairs with
-    | [] -> rest, Skip
+    | [] -> raiseExp <| sprintf "Record must contain at least 1 component at %A" text
     | _ ->  
         rest, Record pairs
         
@@ -843,7 +837,7 @@ and parseParenthesis text closings =
     let rest, pairs = 
         parseMultipleComponents (fun x y -> collectTerms x y false) text closings
     match pairs with
-    | [] -> rest, Skip
+    | [] -> raiseExp <| sprintf "Tuple must contain at least 2 components at %A" text
     | [terms] -> 
         match terms with
         | [Infix op] ->
@@ -907,8 +901,6 @@ and collectTerms text closings isAfterTerm =
         addToTerms rest (Term Raise) closings
     | Start "nil" rest ->
         addToTerms rest (Term Nil) closings
-    | Start "skip" rest ->
-        addToTerms rest (Term Skip) closings
     | Start "\"" rest ->
         let rem, term = parseString rest
         addToTerms rem (Term term) closings

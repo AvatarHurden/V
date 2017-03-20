@@ -232,7 +232,7 @@ type TestTupleRecords() =
 
     [<Test>]
     member that.emptyTuple() =
-        compare "(   )" ResSkip
+        shouldFail "(   )"
         
     [<Test>]
     member that.singletonTerm() =

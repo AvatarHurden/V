@@ -251,7 +251,6 @@ let xor t1 t2 =
     member that.wrongParameter() =
         throwsWrongType (Xor.func + "xor true 4")
         throwsWrongType (Xor.func + "xor \"string\" true")
-        throwsWrongType (Xor.func + "xor false skip")
 
     [<Test>]
     member that.xorTrueFalse() =
@@ -377,7 +376,7 @@ let rec append x ls =
     member that.wrongParameter() =
         throwsWrongType (Append.func + "append 4 [true]")
         throwsWrongType (Append.func + "append \"string\" \"hi\"")
-        throwsWrongType (Append.func + "append skip [1,2,3]")
+        throwsWrongType (Append.func + "append true [1,2,3]")
 
     [<Test>]
     member that.toEmpty() =
@@ -457,7 +456,7 @@ let rec last ls =
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (Last.func + "last 4")
-        throwsWrongType (Last.func + "last skip")
+        throwsWrongType (Last.func + "last true")
 
     [<Test>]
     member that.empty() =
@@ -837,7 +836,6 @@ let maximum ls =
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (Maximum.func + "maximum [true,false,true]")
-        throwsWrongType (Maximum.func + "maximum [skip]")
         throwsWrongType (Maximum.func + "maximum 3")
 
     [<Test>]
@@ -872,7 +870,6 @@ let minimum ls =
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (Minimum.func + "minimum [true,false,true]")
-        throwsWrongType (Minimum.func + "minimum [skip]")
         throwsWrongType (Minimum.func + "minimum 3")
 
     [<Test>]
@@ -1126,7 +1123,7 @@ let rec exists t ls =
     member that.wrongParameter() =
         throwsWrongType (Exists.func + "exists 'c' [1,2,3]")
         throwsWrongType (Exists.func + "exists (\x -> x) []")
-        throwsWrongType (Exists.func + "exists skip [skip,skip]")
+        throwsWrongType (Exists.func + "exists true [2,6]")
         
     [<Test>]
     member that.emptyList() =
@@ -1210,7 +1207,7 @@ let indexOf t ls =
     member that.wrongParameter() =
         throwsWrongType (IndexOf.func + "indexOf 'c' [1,2,3]")
         throwsWrongType (IndexOf.func + "indexOf (\x -> x) []")
-        throwsWrongType (IndexOf.func + "indexOf skip [skip,skip]")
+        throwsWrongType (IndexOf.func + "indexOf 1 [true,false]")
         
     [<Test>]
     member that.emptyList() =

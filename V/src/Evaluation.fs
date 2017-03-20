@@ -180,7 +180,6 @@ let rec compareOrder t1 t2 orderType =
 let rec private eval t env =
     match t with
     | B b-> ResB b
-    | Skip -> ResSkip
     | I i -> ResI i
     | C c -> ResC c
     | OP(t1, Application, t2) ->
@@ -210,11 +209,6 @@ let rec private eval t env =
             | ResCons(_, _) as t2' -> ResCons(t1', t2')
             | ResNil -> ResCons(t1', ResNil)
             | t2' -> sprintf "Term %A is not a list at %A" t2' t |> EvalException |> raise
-    | OP(t1, Sequence, t2) ->
-        match eval t1 env with
-        | ResRaise -> ResRaise
-        | ResSkip -> eval t2 env
-        | t1' -> sprintf "First operand %A is not skip at %A" t1' t |> EvalException |> raise
     | OP(t1, Equal, t2) ->
         compareEquality (eval t1 env) (eval t2 env)
     | OP(t1, Different, t2) ->

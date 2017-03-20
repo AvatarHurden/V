@@ -36,8 +36,7 @@ let rec getFreeVars typ env =
         match typ with
         | Int
         | Bool
-        | Char
-        | Unit -> []
+        | Char -> []
         | List(t1) -> getFreeVars t1 env
         | Function(t1, t2) -> getFreeVars t1 env @ getFreeVars t2 env
         | Type.Tuple(types) -> 
@@ -77,7 +76,6 @@ let rec substituteInType (sub: Substitution) typ' =
     | Int -> Int
     | Bool -> Bool
     | Char -> Char
-    | Unit -> Unit
     | List(s1) -> List(substituteInType sub s1)
     | Function(s1, s2) -> Function(substituteInType sub s1, substituteInType sub s2)
     | Type.Tuple(types) ->
@@ -136,10 +134,6 @@ let rec validateTrait trt typ =
     | Char ->
         match trt with
         | Orderable | Equatable -> Some Char, []
-        | TuplePosition _ | RecordLabel _ -> None, []
-    | Unit ->
-        match trt with
-        | Orderable | Equatable
         | TuplePosition _ | RecordLabel _ -> None, []
     | Function (typ1, typ2) ->
         match trt with
@@ -256,8 +250,7 @@ let rec occursIn x typ =
     match typ with
     | Int
     | Bool 
-    | Char
-    | Unit -> false
+    | Char -> false
     | List(t1) -> occursIn x t1
     | Function(t1, t2) -> occursIn x t1 || occursIn x t2
     | Type.Tuple(types) ->
@@ -325,7 +318,6 @@ let rec applyUniToType typ (unified: Unified) =
     | Int -> Int
     | Bool -> Bool
     | Char -> Char
-    | Unit -> Unit
     | List(t1) -> 
         List(applyUniToType t1 unified)
     | Function(t1, t2) -> 
@@ -478,8 +470,6 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         Int, []
     | C(c) ->
         Char, []
-    | Skip ->
-        Unit, []
     | OP(t1, Application, t2) ->
         let typ1, c1 = collectConstraints t1 env
         let typ2, c2 = collectConstraints t2 env
@@ -489,10 +479,6 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         let typ1, c1 = collectConstraints t1 env
         let typ2, c2 = collectConstraints t2 env
         typ1 |> List, c1 @ c2 @ [Equals (List typ1, typ2)]
-    | OP(t1, Sequence, t2) ->
-        let typ1, c1 = collectConstraints t1 env
-        let typ2, c2 = collectConstraints t2 env
-        typ2, c1 @ c2 @ [Equals (typ1, Unit)]
     | OP(t1, Equal, t2) 
     | OP(t1, Different, t2) ->
         let typ1, c1 = collectConstraints t1 env
