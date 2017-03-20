@@ -378,7 +378,7 @@ let rec writeTests x =
 let main argv = 
 
     let results = parser.Parse(raiseOnUsage = false)
-
+     
     if results.IsUsageRequested then
         Console.WriteLine (parser.PrintUsage())
     else

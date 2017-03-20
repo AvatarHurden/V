@@ -49,6 +49,53 @@ let throwsWrongType text =
     (fun () -> typeInfer parsed |> ignore) |> should throw typeof<TypeException>
 
 [<TestFixture>]
+type Flip() =
+
+    static member func = """
+let flip f x y = f y x;
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x1 = VarType ("y", [])
+        let x2 = VarType ("x", [])
+        let x3 = VarType ("z", [])
+        matchesType (Flip.func + "flip") <| 
+            Function (Function (x1, Function(x2, x3)), 
+                Function(x2, Function(x1, x3)))
+
+[<TestFixture>]
+type Apply() =
+
+    static member func = """
+let apply f x = f x;
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x1 = VarType ("x", [])
+        let x2 = VarType ("y", [])
+        matchesType (Apply.func + "apply") <| 
+            Function (Function (x1, x2), 
+                Function(x1, x2))
+
+[<TestFixture>]
+type Compose() =
+
+    static member func = """
+let compose f g x = f (g x);
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x1 = VarType ("y", [])
+        let x2 = VarType ("z", [])
+        let x3 = VarType ("x", [])     
+        matchesType (Compose.func + "compose") <| 
+            Function (Function (x1, x2), 
+                Function (Function(x3, x1), Function (x3, x2)))
+
+[<TestFixture>]
 type Remainder() =
 
     static member func = """
@@ -542,7 +589,8 @@ let rec range start finish inc =
 [<TestFixture>]
 type Reverse() =
 
-    static member func = """
+    static member func = 
+        Apply.func + """
 let reverse ls =
     let rec f lsOld lsNew =
         match lsOld with
@@ -705,7 +753,7 @@ let reduce f (x :: xs) = fold f x xs;
 type All() =
 
     static member func = 
-        Not.func + """
+        Not.func + Apply.func + """
 let rec all pred ls =
     match ls with
     | [] -> true
@@ -935,7 +983,7 @@ let rec drop n ls =
 type TakeWhile() =
 
     static member func = 
-        Not.func + """
+        Not.func + Apply.func + """
 let rec takeWhile pred ls =
     match ls with
     | [] -> []
@@ -976,7 +1024,7 @@ let rec takeWhile pred ls =
 type DropWhile() =
 
     static member func = 
-        Not.func + """
+        Not.func + Apply.func + """
 let rec dropWhile pred ls =
     match ls with
     | [] -> []
@@ -1017,7 +1065,7 @@ let rec dropWhile pred ls =
 type Sublist() =
 
     static member func = 
-        Take.func + Drop.func + Length.func + """
+        Take.func + Drop.func + Length.func + Apply.func + """
 let sublist start size ls =
     if start < 0 || size > length ls then
         raise
@@ -1228,14 +1276,14 @@ let rec nth index ls =
 type Sort() =
 
     static member func = 
-        Filter.func + Concat.func + """
+        Filter.func + Concat.func + Apply.func + Flip.func + """
 let rec sort ls =
     match ls with
     | [] -> []
     | pivot :: xs ->
-        (sort $ filter (\x -> x <= pivot) xs)
+        (sort $ filter ((>) pivot) xs)
         @ [pivot] @
-        (sort $ filter (\x -> x > pivot) xs)
+        (sort $ filter ((<=) pivot) xs)
 ;
 """
 
@@ -1394,7 +1442,7 @@ let unzip ls =
 type ParseInt() =
 
     static member func = 
-        Negate.func + Reverse.func + """
+        Negate.func + Reverse.func + Compose.func + Apply.func + """
 let parseInt (s: String): Int =
     match s with
     | x :: xs ->

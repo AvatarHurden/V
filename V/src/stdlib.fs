@@ -5,18 +5,19 @@ open compiledStdlib
 
 let content = """
 
+// ==================
+// Function functions
+// ==================
+
+let flip f x y = f y x;
+let apply f x = f x;
+let compose f g x = f (g x);
+
 // ====================
 // Arithmetic functions
 // ====================
 
-let rec remainder x y =
-    if y = 0 then  
-        raise
-    else if x<y then
-        x
-    else
-        remainder (x-y) y
-;
+let remainder x y = x - (x/y)*y;
 
 let negate x = 0 - x;
 
@@ -239,9 +240,9 @@ let rec sort ls =
     match ls with
     | [] -> []
     | pivot :: xs ->
-        (sort $ filter (\x -> x <= pivot) xs)
+        (sort $ filter ((>) pivot) xs)
         @ [pivot] @
-        (sort $ filter (\x -> x > pivot) xs)
+        (sort $ filter ((<=) pivot) xs)
 ;
 
 // ======================
@@ -337,6 +338,17 @@ let printBool (b: Bool): String =
     else
         "false"
 ;
+
+
+// =========
+// Operators
+// =========
+
+let (%) = remainder;
+let (@) = concat;
+let ($) = apply;
+let (.) = compose;
+let (!!) = nth;
 
 """
 

@@ -8,6 +8,8 @@
 \usepackage{syntax}
 \usepackage{titlesec}
 
+\usepackage{upquote}
+\usepackage[dvipsnames]{xcolor}
 \usepackage{hyperref}
 \usepackage{lib/bcprules}
 \usepackage{hyphenat}
@@ -1808,7 +1810,7 @@ Any Unicode character is considered valid, with the exception of the following:
   \hline
   \% & \textbackslash & ' & " & \textbackslash n & \textbackslash r & \textbackslash t\\
   \hline
-  \_\\
+  \_ & \lq\\
   \hline
 \end{tabular}
 
@@ -2064,6 +2066,72 @@ The table is ordered by decreasing priority level (the first operator has the hi
   9 & \code{x >> y} & Sequential Evaluation & Left\\
   \hline
   10 & \code{x \$ y} & Function Application & Right\\
+  \hline
+\end{tabular}
+
+\subsubsection{Operators as Functions}
+
+It is possible to use any operator as a function by wrapping it in parenthesis.
+The left-hand operand becomes the first argument of the function, and the right-hand operand becomes the second argument.
+
+This is useful mainly when passing operators as arguments to functions.
+
+\begin{lstlisting}
+  // Both expressions are equivalent
+  zipWith (\x y -> x + y) [1,2,3] [3,2,1]
+  zipWith (+) [1,2,3] [3,2,1]
+
+  // Adds 2 to every element in the list
+  map ((+) 2) [1,2,3]
+\end{lstlisting}
+
+As is shown in the last example, it is possible to provide the left-hand operand to obtain a partially applied function.
+If one wishes to provide the right-hand operand instead, it is possible to use the \code{flip} function, which changes the order of a function that takes two parameters.
+
+\begin{lstlisting}
+  // Divides 2 by every value in the list
+  map ((/) 2) [1,2,3]
+
+  // Divides every value in the list by 2
+  map (flip (/) 2) [1,2,3]
+\end{lstlisting}
+
+\subsubsection{Functions as Operators}
+
+Wrapping a function name in backticks (\lq) will turn it into an infix binary operator.
+The first parameter of the function will become the left-hand operand, while the second parameter will become the right-hand operand.
+
+\begin{lstlisting}[escapechar=']
+  4 `add`'' 5
+  add 4 5
+\end{lstlisting}
+
+It is possible to use this with functions that take more than 2 parameters, but then it becomes necessary to use parenthesis to pass the remaning parameters.
+This greatly reduces the readability of the code, and is therefore not encouraged.
+
+\subsubsection{Defining new Operators}
+
+Is is possible to define new operators to be used like regular operators.
+The syntax for this is the same as creating a new function, but the operator must be enclosed in parenthesis.
+
+\begin{lstlisting}[]
+  let (%+) x y = x % y + 1;
+
+  5 %+ 4 // 2
+\end{lstlisting}
+
+Any operator defined like this will have priority 1 and be left associative.
+The following are the list of characters allowed for operators.
+
+\smallskip
+
+\begin{tabular}{|l|l|l|l|l|l|l|}
+  \hline
+  ? & ! & \% & \& & * & +\\
+  \hline
+  - & . & / & $<$ & = & $>$\\
+  \hline
+  @ & \textasciicircum & $|$ & $\sim$\\
   \hline
 \end{tabular}
 
@@ -2373,23 +2441,36 @@ Because the library was imported inside the scope of the function body, none of 
 \titlespacing\subsection{0pt}{0pt}{0pt}
 
 \subsection*{v0.2}
-{\small\DTMdisplaydate{2017}{3}{16}{-1}}
+{\small\DTMdisplaydate{2017}{3}{20}{-1}}
 
-\paragraph{Additions}
+\paragraph{\large Additions}
 
 \begin{itemize}
-  \item Match Expressions
+  \item \textbf{Match Expressions} \; \; {\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System} \colorbox{lightgray}{Concrete Syntax}}
 
       This is a structure to control the flow of a program by attempting to match a value against a list of patterns.
+
+  \item \textbf{Prefix Notation for Operators} \; \; {\small\colorbox{lightgray}{Concrete Syntax}}
+
+      Wrapping any infix operator in parenthesis turns it into a function that takes two parameters.
+
+  \item \textbf{Infix Notation for Functions} \; \; {\small\colorbox{lightgray}{Concrete Syntax}}
+
+      Wrapping any function name in backticks (\lq) turns it into a binary operator.
+
+  \item \textbf{Creating new Operators} \; \; {\small\colorbox{lightgray}{Concrete Syntax}}
+
+      When declaring a function, wrapping a name in parenthesis makes it a operator.
+      Only a small number of characters are allowed for operator names, and any operator created will have a fixed associativity (left) and priority (1).
+
 \end{itemize}
 
 \paragraph{Changes}
 
 \begin{itemize}
-  \item List Operations
+  \item \textbf{List Operations} \; \; {\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System} \colorbox{lightgray}{Concrete Syntax}}
 
       The list operations \code{hd}, \code{tl} and \code{isempty} have been removed from the language defition.
-
       They have been added to the stdlib, and use pattern matching to recreate their funcionality.
 \end{itemize}
 
