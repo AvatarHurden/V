@@ -1,9 +1,27 @@
 ﻿module Parser2
 
 open FParsec
+open System.Collections.Generic
 open Definition
 
-type UserState = unit
+//#region Helper Types
+
+type extendedOP =
+    | Def of Definition.op
+    | Custom of string
+
+type Fixity =
+    | Prefix of int * func:string
+    | Infix of int * Associativity * extendedOP
+
+type OperatorSpec =
+    | OpSpec of fix:Fixity * string:string
+
+
+type UserState = 
+    {operators: OperatorSpec list}
+    
+//#endregion
 
 let ws = spaces
 
@@ -12,7 +30,7 @@ let ws = spaces
 let pBool = (stringReturn "true"  (B true))
             <|> (stringReturn "false" (B false))
 
-let pNum = pint32 |>> (fun ui -> I <| int(ui))
+let pNum = puint32 |>> (fun ui -> I <| int(ui))
 
 let pNil = (stringReturn "nil" Nil)
             <|> (pstring "[" >>. ws >>. stringReturn "]" Nil)
@@ -69,15 +87,9 @@ let pIdentifier: Parser<string, UserState> =
             stream.BacktrackTo(state)
             Reply(Error, expected <| sprintf "identifier ('%O' is a reserved keyword)" reply.Result)
 
+//#endregion
 
-let manyApplication p =
-  // the compiler expands the call to Inline.Many to an optimized sequence parser
-  Inline.Many(elementParser = p,
-              stateFromFirstElement = (fun x -> x),
-              foldState = (fun acc x -> OP(acc, Application, x)),
-              resultFromState = (fun acc -> acc))
-
-let pTerm, pTermRef = createParserForwardedToRef<term, unit>()
+let pTerm, pTermRef = createParserForwardedToRef<term, UserState>()
 
 let pParen =
     between (pstring "(" >>. ws) (pstring ")" >>. ws) 
@@ -103,20 +115,65 @@ let pValue = choice [pIdentifier |>> X;
                         pParen;
                         pBrackets]
 
+//#region Expression Parsing
 
-let opp = new OperatorPrecedenceParser<term,unit,unit>()
-let expr = opp.ExpressionParser
-let term = manyApplication (pValue .>> ws)
-opp.TermParser <- term
+let defaultOPs =[
+    OpSpec (Infix  (2, Associativity.Left , Def Multiply      ), "*" );
+    OpSpec (Infix  (2, Associativity.Left , Def Divide        ), "/" );
+     
+    OpSpec (Prefix (3,                     "negate"          ), "-" ); 
+    OpSpec (Infix  (3, Associativity.Left , Def Add           ), "+" );
+    OpSpec (Infix  (3, Associativity.Left , Def Subtract      ), "-" );
 
-opp.AddOperator(InfixOperator("*", ws, 2, Associativity.Left, fun x y -> OP(x, Multiply, y)))
-opp.AddOperator(InfixOperator("&&", ws, 7, Associativity.Right, fun x y -> OP(x, And, y)))
+    OpSpec (Infix  (4, Associativity.Right, Def Cons          ), "::");
 
+    OpSpec (Infix  (6, Associativity.None , Def LessOrEqual   ), "<=");
+    OpSpec (Infix  (6, Associativity.None , Def LessThan      ), "<" );
+    OpSpec (Infix  (6, Associativity.None , Def Equal         ), "=" );
+    OpSpec (Infix  (6, Associativity.None , Def Different     ), "!=");
+    OpSpec (Infix  (6, Associativity.None , Def GreaterThan   ), ">" );
+    OpSpec (Infix  (6, Associativity.None , Def GreaterOrEqual), ">=");
+ 
+    OpSpec (Infix  (7, Associativity.Right, Def And           ), "&&");
+    OpSpec (Infix  (8, Associativity.Right, Def Or            ), "||")]
 
+let defaultUserState =
+    {operators = defaultOPs}
 
-do pTermRef := expr .>> ws
+let toOPP x: Operator<term, unit, UserState> = 
+    match x with
+    | OpSpec (Prefix (pri, func), string) -> 
+        upcast PrefixOperator(string, ws, 9-pri, false, fun x -> OP (X func, Application, x))
+            : Operator<term, unit, UserState>
+    | OpSpec (Infix (pri, assoc, Def op), string) ->
+        upcast InfixOperator(string, ws, 9-pri, assoc, fun x y -> OP(x, op, y))
+            : Operator<term, unit, UserState>
+    | OpSpec (Infix (pri, assoc, Custom op), string) ->
+        upcast InfixOperator(string, ws, 9-pri, assoc, fun x y -> OP (OP (X op, Application, x), Application, y))
+            : Operator<term, unit, UserState>
+
+let manyApplication p =
+  Inline.Many(elementParser = p,
+              stateFromFirstElement = (fun x -> x),
+              foldState = (fun acc x -> OP(acc, Application, x)),
+              resultFromState = (fun acc -> acc))
+
+let getExpressionParser state =
+    let operators = state.operators
+    let opp = new OperatorPrecedenceParser<term,unit,UserState>()
+    let expr = opp.ExpressionParser
+    opp.TermParser <- manyApplication (pValue .>> ws)
+
+    for op in operators do
+        opp.AddOperator <| toOPP op
+    opp.ExpressionParser
+
+do pTermRef := 
+    fun stream ->
+        let expr = getExpressionParser (stream.UserState)
+        (expr .>> ws) stream
 
 let pProgram = ws >>. pTerm .>> eof
 
 let parse text =
-    run pProgram text
+    runParserOnString pProgram defaultUserState "" text
