@@ -72,7 +72,7 @@ let isAsciiIdStart c =
     isAsciiLetter c || c = '_'
 
 let isAsciiIdContinue c =
-    isAsciiLetter c || isDigit c || c = '_' || c = '\''
+    isAsciiLetter c || isDigit c || c = '_' || c = '\'' || c = '?'
     
 
 let pIdentifier: Parser<string, UserState> =
@@ -86,21 +86,43 @@ let pIdentifier: Parser<string, UserState> =
             stream.BacktrackTo(state)
             Reply(Error, expected <| sprintf "identifier ('%O' is a reserved keyword)" reply.Result)
 
+let pOperator = many1Chars (anyOf "?!%$&*+-./<=>@^|~") |>>
+                    (function
+                    | "+" -> Def Add
+                    | "-" -> Def Subtract
+                    | "*" -> Def Multiply
+                    | "/" -> Def Divide
+                    | "<=" -> Def LessOrEqual
+                    | "<" -> Def LessThan
+                    | "=" -> Def Equal
+                    | "!=" -> Def Different
+                    | ">=" -> Def GreaterOrEqual
+                    | ">" -> Def GreaterThan
+                    | "::" -> Def Cons
+                    | "&&" -> Def And
+                    | "||" -> Def Or
+                    | c -> Custom c)
+
 //#endregion
 
 let pTerm, pTermRef = createParserForwardedToRef<term, UserState>()
 
 let pParen =
-    between (pstring "(" >>. ws) (pstring ")" >>. ws) 
-        <| sepBy1 pTerm (pstring "," .>> ws) |>>
+    let pPrefixOP = 
+        pOperator |>>
             (function
-            | [x] -> x
-            | xs -> Tuple xs)
+            | Def op ->
+                Fn(Pat(XPat "x", None), Fn(Pat(XPat "y", None), OP(X "x", op, X "y")))
+            | Custom c ->
+                X c)
+    let pTuple = sepBy1 pTerm (pstring "," .>> ws) |>> (function | [x] -> x | xs -> Tuple xs)
+
+    between (pstring "(" >>. ws) (pstring ")" >>. ws) (pPrefixOP <|> pTuple)
 
 let pRecordComp =
     tuple2 (pIdentifier .>> ws .>> pstring ":" .>> ws) pTerm
 
-let pBrackets =
+let pRecord =
     between (pstring "{" >>. ws) (pstring "}" >>. ws) 
         <| sepBy1 pRecordComp (pstring "," .>> ws) |>> Record
 
@@ -131,7 +153,7 @@ let pValue = choice [pIdentifier |>> X;
                         pChar;
                         pString;
                         pParen;
-                        pBrackets;
+                        pRecord;
                         pList;
                         pIf;
                         pTry]
@@ -161,17 +183,17 @@ let defaultOPs =[
 let defaultUserState =
     {operators = defaultOPs}
 
-let toOPP x: Operator<term, unit, UserState> = 
+let toOPP x: Operator<term, string, UserState> = 
     match x with
     | OpSpec (Prefix (pri, func), string) -> 
-        upcast PrefixOperator(string, ws, 9-pri, false, fun x -> OP (X func, Application, x))
-            : Operator<term, unit, UserState>
+        upcast PrefixOperator(string, ws >>. preturn "", 9-pri, false, fun x -> OP (X func, Application, x))
+            : Operator<term, string, UserState>
     | OpSpec (Infix (pri, assoc, Def op), string) ->
-        upcast InfixOperator(string, ws, 9-pri, assoc, fun x y -> OP(x, op, y))
-            : Operator<term, unit, UserState>
+        upcast InfixOperator(string, ws >>. preturn "", 9-pri, assoc, fun x y -> OP(x, op, y))
+            : Operator<term, string, UserState>
     | OpSpec (Infix (pri, assoc, Custom op), string) ->
-        upcast InfixOperator(string, ws, 9-pri, assoc, fun x y -> OP (OP (X op, Application, x), Application, y))
-            : Operator<term, unit, UserState>
+        upcast InfixOperator(string, ws >>. preturn "", 9-pri, assoc, fun x y -> OP (OP (X op, Application, x), Application, y))
+            : Operator<term, string, UserState>
 
 let manyApplication p =
   Inline.Many(elementParser = p,
@@ -181,12 +203,14 @@ let manyApplication p =
 
 let getExpressionParser state =
     let operators = state.operators
-    let opp = new OperatorPrecedenceParser<term,unit,UserState>()
+    let opp = new OperatorPrecedenceParser<term,string,UserState>()
     let expr = opp.ExpressionParser
     opp.TermParser <- manyApplication (pValue .>> ws)
 
     for op in operators do
         opp.AddOperator <| toOPP op
+    opp.AddOperator (InfixOperator("`", pIdentifier .>> pstring "`" .>> ws, 9, Associativity.Left,
+                        (), (fun id x y -> OP (OP (X id, Application, x), Application, y))))
     opp.ExpressionParser
 
 do pTermRef := 
