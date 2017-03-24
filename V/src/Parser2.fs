@@ -33,7 +33,6 @@ let pBool = (stringReturn "true"  (B true))
 let pNum = puint32 |>> (fun ui -> I <| int(ui))
 
 let pNil = (stringReturn "nil" Nil)
-            <|> (pstring "[" >>. ws >>. stringReturn "]" Nil)
 
 let pRaise = stringReturn "raise" Raise
 
@@ -105,6 +104,25 @@ let pBrackets =
     between (pstring "{" >>. ws) (pstring "}" >>. ws) 
         <| sepBy1 pRecordComp (pstring "," .>> ws) |>> Record
 
+let pList =
+    let fold ls =
+        let rev = List.rev ls
+        List.fold (fun acc x -> OP (x, Cons, acc)) Nil rev
+
+    between (pstring "[" >>. ws) (pstring "]" >>. ws)
+        <| sepBy pTerm (pstring "," .>> ws) |>> fold
+
+let pIf =
+    let first = pstring "if" >>. ws >>. pTerm
+    let second = pstring "then" >>. ws >>. pTerm
+    let third = pstring "else" >>. ws >>. pTerm
+    pipe3 first second third (fun x y z -> Cond(x, y, z))
+    
+let pTry =
+    let first = pstring "try" >>. ws >>. pTerm
+    let second = pstring "except" >>. ws >>. pTerm
+    pipe2 first second (fun x y -> Try(x, y))
+
 let pValue = choice [pIdentifier |>> X;
                         pBool;
                         pNum;
@@ -113,7 +131,10 @@ let pValue = choice [pIdentifier |>> X;
                         pChar;
                         pString;
                         pParen;
-                        pBrackets]
+                        pBrackets;
+                        pList;
+                        pIf;
+                        pTry]
 
 //#region Expression Parsing
 
