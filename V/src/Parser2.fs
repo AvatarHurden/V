@@ -1,7 +1,6 @@
 ﻿module Parser2
 
 open FParsec
-open System.Collections.Generic
 open Definition
 
 //#region Helper Types
@@ -125,7 +124,15 @@ do pTypeRef :=
     let fold ls =
         let rev = List.rev ls
         List.reduce (fun acc x -> Function(x, acc)) rev
-    sepBy1 (pTypeValue .>> ws) (pstring "->" >>. ws) |>> fold
+    fun stream ->
+        let state = stream.State
+        let reply = (sepBy1 (pTypeValue .>> ws) 
+                        (pstring "->" >>. ws) |>> fold) stream
+        if reply.Status <> Ok then
+            stream.BacktrackTo state
+            (pTypeValue .>> ws) stream
+        else
+            reply
 
 //#endregion
 
@@ -190,15 +197,18 @@ let pConsPattern =
 do pPatternRef := 
     fun stream ->
         let state = stream.State
-        let reply = tuple2 (pPatternValue .>> ws) (opt (pstring ":" >>. ws >>. pType)) stream
-        if reply.Status <> Ok then
-            stream.BacktrackTo(state)
+        let firstReply = pPatternValue .>> ws <| stream
+        let afterFirstState = stream.State
+        let secondReply = (pstring ":" >>. ws >>. pType) stream
+        if firstReply.Status <> Ok || secondReply.Status <> Ok then
+            stream.BacktrackTo state
             pConsPattern stream
         else
-            match reply.Result with
-            | Pat (p, None), typ -> Reply(Pat(p, typ))
+            match firstReply.Result, secondReply.Result with
+            | Pat (p, None), typ -> Reply(Pat(p, Some typ))
             | Pat (p, Some _), typ -> 
-                Reply(Error, unexpected "type declaration")
+                stream.BacktrackTo afterFirstState
+                Reply(Error, unexpected "repeated type declaration")
 
 //#region Basic Value Parsing
 
@@ -248,6 +258,64 @@ let pList =
 
 //#endregion
 
+//#region Parse Functions and Declarations
+
+let pParameter =
+    let tupled = pParenPattern .>> ws
+    let enclosed = (pstring "(" >>. ws >>. pPattern .>> pstring ")" .>> ws)
+    let normal = pPatternValue .>> ws
+    tupled <|> enclosed <|> normal
+
+let joinParameters (parameters: VarPattern list) returnTerm (returnType: Type option) =
+        let rec namesIn (Pat (pattern, _)) =
+            match pattern with
+            | IgnorePat
+            | NilPat
+            | BPat _
+            | IPat _
+            | CPat _ -> []
+            | XPat x -> [x]
+            | TuplePat patterns ->
+                List.fold (fun acc p -> acc @ namesIn p) [] patterns
+            | RecordPat patterns ->
+                List.fold (fun acc (n, p) -> acc @ namesIn p) [] patterns
+            | ConsPat (p1, p2) ->
+                namesIn p1 @ namesIn p2
+        let ids = List.concat <| List.map namesIn parameters
+        let uniques = ids |> Seq.distinct |> Seq.toList
+
+        if uniques.Length <> ids.Length then
+            None
+        else
+            
+            let f p ((func, funcType: Type option) as acc) = 
+                match p with
+                | Pat (_, typ) when funcType.IsNone || typ.IsNone ->
+                    Fn(p, func), None
+                | Pat(_, Some typ) ->
+                    Fn(p, func), Some <| Function(typ, funcType.Value) 
+
+            Some <| List.foldBack f parameters (returnTerm, returnType)
+    
+let pLambda: Parser<term, UserState> =
+    fun stream ->
+        let replyParams = (pstring "\\" >>. ws >>. (sepBy1 pParameter (spaces1))) stream
+        let state = stream.State
+        let replyTerm = (pstring "->" >>. ws >>. pTerm) stream
+        if replyParams.Status <> Ok || replyTerm.Status <> Ok then
+             Reply(Error, mergeErrors replyParams.Error replyTerm.Error)
+        else
+            let (parameters, term) = (replyParams.Result, replyTerm.Result)
+            match joinParameters parameters term None with
+            | None -> 
+                stream.BacktrackTo state
+                Reply(Error, unexpected "a name is bound more than once")
+            | Some t -> Reply(fst t)
+           
+//#endregion
+
+//#region Parse Branching Expressions
+
 let pIf =
     let first = pstring "if" >>. ws >>. pTerm
     let second = pstring "then" >>. ws >>. pTerm
@@ -269,6 +337,8 @@ let pMatch =
     pipe2 first (many1 triplets)
         <| (fun x triplets -> Match(x, triplets))
 
+//#endregion
+
 let pValue = choice [pIdentifier |>> X;
                         pBool;
                         pNum;
@@ -281,7 +351,8 @@ let pValue = choice [pIdentifier |>> X;
                         pList;
                         pIf;
                         pTry;
-                        pMatch]
+                        pMatch;
+                        pLambda]
 
 //#region Expression Parsing
 
