@@ -13,3 +13,6 @@
       "../src/Parser.fs"
       "../src/Parser2.fs"
       "../Program.fs"
+
+open FParsec;;
+open Parser2;;
