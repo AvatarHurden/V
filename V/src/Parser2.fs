@@ -5,6 +5,11 @@ open Definition
 
 //#region Helper Types
 
+type DeclarationContainer =
+    | ConstantDeclaration of VarPattern
+    | NamedFunctionDeclaration of bool * string * VarPattern list * Type option
+    | LambdaDeclaration of VarPattern list
+
 type extendedOP =
     | Def of Definition.op
     | Custom of string
@@ -297,15 +302,34 @@ let pParameter =
     let normal = pPatternValue .>> ws
     tupled <|> enclosed <|> normal
 
-let joinParameters (parameters: VarPattern list) returnTerm (returnType: Type option) =
+let joinParameters letName returnTerm =
     let f p (func, funcType: Type option) = 
         match p with
         | Pat(_, Some typ) when funcType.IsSome ->
             Fn(p, func), Some <| Function(typ, funcType.Value) 
         | Pat (_, _) ->
             Fn(p, func), None
+    
+    match letName with
+    | ConstantDeclaration p -> 
+        p, returnTerm
+    | LambdaDeclaration parameters ->
+        Pat(XPat "", None), fst <| List.foldBack f parameters (returnTerm, None)
+    | NamedFunctionDeclaration (isRec, name, parameters, returnType) -> 
+        let head = parameters.Head
+        let retTerm, retTyp = 
+            List.foldBack f parameters.Tail (returnTerm, returnType)
 
-    List.foldBack f parameters (returnTerm, returnType)
+        let fnTyp = 
+            match head with
+            | Pat(_, Some typ) when retTyp.IsSome -> 
+                Some <| Function(typ, retTyp.Value)
+            | Pat(_, _) -> None
+
+        if isRec then
+            Pat(XPat name, fnTyp), RecFn(name, retTyp, head, retTerm)
+        else
+            Pat(XPat name, fnTyp), Fn(head, retTerm)
 
 let pLambda: Parser<term, UserState> =
     fun stream ->
@@ -320,109 +344,56 @@ let pLambda: Parser<term, UserState> =
                 Reply(Error, replyTerm.Error)
             else
                 let (parameters, term) = (replyParams.Result, replyTerm.Result)
-                Reply(fst (joinParameters parameters term None))
+                Reply(snd (joinParameters (LambdaDeclaration parameters) term))
 
-let pSimpleLet: Parser<term, UserState> =
+let pOperatorName =
     fun stream ->
-        let nameReply = (pstring "let" >>. ws >>. pPattern) stream
-        if nameReply.Status <> Ok then
-            Reply(Error, nameReply.Error)
+        let reply = 
+            between (pstring "(" >>. ws) (pstring ")" >>. ws)
+                (pCustomOperator .>> ws) <| stream
+        if reply.Status <> Ok then
+            reply
         else
+            let userState = stream.UserState
+            let name = reply.Result
+            let newOp = OpSpec(Infix (9, Associativity.Left, Custom name), name)
+            let newOps = newOp :: userState.operators
+            stream.UserState <- {userState with operators = newOps}
+            reply
+
+let pFunctionName =
+    tuple4
+        (opt (pstring "rec" >>. ws) |>> (fun x -> x.IsSome))
+        ((pIdentifier .>> ws) <|> pOperatorName) 
+        (many1 pParameter)
+        (opt (pstring ":" >>. ws >>. pType))
+         |>> NamedFunctionDeclaration
+
+let pConstantName =
+    pPattern |>> ConstantDeclaration
+
+let pLet: Parser<term, UserState> =
+    fun stream ->
+        let nameParser =
+            (attempt (pConstantName .>> pstring "=")) 
+                <|> (pFunctionName .>> pstring "=")
+        let reply = pstring "let" >>. ws >>. nameParser <| stream
+        if reply.Status <> Ok then
+            Reply(Error, reply.Error)
+        else
+            let name = reply.Result
             let userState = stream.UserState
             stream.UserState <- {userState with identifiersInPattern = Set[]}
             let termReply = 
-                tuple2 (pstring "=" >>. ws >>. pTerm) 
-                    (pstring ";" >>. ws >>. pTerm) stream
+                (tuple2
+                    (ws >>. pTerm)
+                    (pstring ";" >>. ws >>. pTerm)) stream
             if termReply.Status <> Ok then
                 Reply(Error, termReply.Error)
             else
-                let (name, (term1, term2)) = (nameReply.Result, termReply.Result)
-                Reply(Let(name, term1, term2))
-
-//let pOperatorDecl =
-//    fun stream ->
-//        let reply = 
-//            tuple5
-//            ((pstring "let" >>. ws >>. opt (pstring "rec" >>. spaces1)) |>> (fun x -> x.IsSome))
-//            (pstring "(" >>. ws >>. pCustomOperator .>> ws .>> pstring ")" .>> ws)
-//            (many pParameter)
-//            (opt (pstring ":" >>. ws >>. pType))
-//            (tuple2 (pstring "=" >>. ws >>. pTerm)
-//                (pstring ";" >>. ws >>. pTerm)) stream
-//        if reply.Status Status <> Ok then
-//            Reply(Error, reply.Error)
-//        else
-//            let isRec name parameters typOption (t1, t2) = reply.Status
-//            let fn, fnTyp = joinParameters parameters t1 typOption
-//            let actualFn =
-//                if isRec then
-//                    )
-
-//let pOperatorDecl: Parser<term, UserState> =
-//    fun stream ->
-//        let recReply = pstring "let" >>. ws >>. (opt (pstring "rec" >>. spaces1)) <| stream
-//        if recReply.Status <> Ok then
-//            Reply(Error, recReply.Error)
-//        else
-//            let pName = 
-//                (pstring "(" >>. ws >>. pOperator .>> ws .>> pstring ")" .>> ws)
-//                    |>> (function | Def op -> None | Custom c -> Some (XPat c))
-//            let nameReply = tuple2 pName (opt (pstring ":" >>. ws >>. pType)) <| stream
-//            if nameReply.Status <> Ok then
-//                Reply(Error, nameReply.Error)
-//            else
-//                match nameReply.Result with
-//                | None, _ -> Reply(Error, unexpected "Cannot redefine built-in operators")
-//                | Some pat, typ ->
-//                    let name = Pat(pat, typ)
-//                    let resReply = 
-//                        (tuple2 (pstring "=" >>. ws >>. pTerm .>> pstring ";" .>> ws) pTerm) <| stream
-//                    if resReply.Status <> Ok then
-//                        Reply(Error, resReply.Error)
-//                    else
-//                        let t1, t2 = resReply.Result
-//                        match joinParameters
-
-//let pLet: Parser<term, UserState> =
-//    fun stream ->
-//        let recReply = pstring "let" >>. ws >>. (opt (pstring "rec" >>. spaces1)) <| stream
-//        if recReply.Status <> Ok then
-//            Reply(Error, recReply.Error)
-//        else
-//            let isRec = recReply.Result.IsSome
-//            let pOPDef = 
-//                (pstring "(" >>. ws >>. pOperator .>> ws .>> pstring ")" .>> ws)
-//                    |>> (function | Def op -> None | Custom c -> Some (Pat (XPat c, None)))
-//            let pName = (pIdentifier .>> ws) |>> (fun id -> Some (Pat (XPat id, None)))
-//            let pLetType = opt (pstring ":" >>. ws >>. pType)
-//            let pLetPattern = pPattern |>> Some
-//            let pLetParameter = many pParameter
-
-//            let parameterReply = 
-//                if isRec then
-//                    (tuple3 (pOPDef <|> pName) pLetParameter pLetType) stream
-//                else
-//                    (tuple3 (pOPDef <|> pName <|> pLetPattern) (preturn []) pLetType) stream
-            
-//            if parameterReply.Status <> Ok then
-//                Reply(Error, parameterReply.Error)
-//            else
-//                let name, parameters, typ = parameterReply.Result
-//                let resReply = 
-//                    (tuple2 (pstring "=" >>. ws >>. pTerm .>> pstring ";" .>> ws) pTerm) <| stream
-//                if resReply.Status <> Ok then
-//                    Reply(Error, resReply.Error)
-//                else
-//                    let t1, t2 = resReply.Result
-//                    match joinParameters parameters t1 typ with
-//                    | None -> 
-//                        Reply(Error, unexpected "a name is bound more than once")
-//                    | Some t -> 
-//                        match name with
-//                        | Some name ->
-//                            Reply(Let(name, fst t, t2))
-//                        | None ->
-//                            Reply(Error, unexpected "Cannot redefine built-in operators")
+                let (term1, term2) = termReply.Result
+                let p, fn = joinParameters name term1 
+                Reply(Let(p, fn, term2))
 
 //#endregion
 
@@ -465,29 +436,29 @@ let pValue = choice [pIdentifier |>> X;
                         pTry;
                         pMatch;
                         pLambda;
-                        pSimpleLet]
+                        pLet]
 
 //#region Expression Parsing
 
 let defaultOPs =[
-    OpSpec (Infix  (2, Associativity.Left , Def Multiply      ), "*" );
-    OpSpec (Infix  (2, Associativity.Left , Def Divide        ), "/" );
+    OpSpec (Infix  (8, Associativity.Left , Def Multiply      ), "*" );
+    OpSpec (Infix  (8, Associativity.Left , Def Divide        ), "/" );
      
-    OpSpec (Prefix (3,                     "negate"          ), "-" ); 
-    OpSpec (Infix  (3, Associativity.Left , Def Add           ), "+" );
-    OpSpec (Infix  (3, Associativity.Left , Def Subtract      ), "-" );
+    OpSpec (Prefix (7,                     "negate"          ), "-" ); 
+    OpSpec (Infix  (7, Associativity.Left , Def Add           ), "+" );
+    OpSpec (Infix  (7, Associativity.Left , Def Subtract      ), "-" );
 
-    OpSpec (Infix  (4, Associativity.Right, Def Cons          ), "::");
+    OpSpec (Infix  (6, Associativity.Right, Def Cons          ), "::");
 
-    OpSpec (Infix  (6, Associativity.None , Def LessOrEqual   ), "<=");
-    OpSpec (Infix  (6, Associativity.None , Def LessThan      ), "<" );
-    OpSpec (Infix  (6, Associativity.None , Def Equal         ), "=" );
-    OpSpec (Infix  (6, Associativity.None , Def Different     ), "!=");
-    OpSpec (Infix  (6, Associativity.None , Def GreaterThan   ), ">" );
-    OpSpec (Infix  (6, Associativity.None , Def GreaterOrEqual), ">=");
+    OpSpec (Infix  (4, Associativity.None , Def LessOrEqual   ), "<=");
+    OpSpec (Infix  (4, Associativity.None , Def LessThan      ), "<" );
+    OpSpec (Infix  (4, Associativity.None , Def Equal         ), "=" );
+    OpSpec (Infix  (4, Associativity.None , Def Different     ), "!=");
+    OpSpec (Infix  (4, Associativity.None , Def GreaterThan   ), ">" );
+    OpSpec (Infix  (4, Associativity.None , Def GreaterOrEqual), ">=");
  
-    OpSpec (Infix  (7, Associativity.Right, Def And           ), "&&");
-    OpSpec (Infix  (8, Associativity.Right, Def Or            ), "||")]
+    OpSpec (Infix  (3, Associativity.Right, Def And           ), "&&");
+    OpSpec (Infix  (2, Associativity.Right, Def Or            ), "||")]
 
 let defaultUserState =
     {operators = defaultOPs;
@@ -496,13 +467,13 @@ let defaultUserState =
 let toOPP x: Operator<term, string, UserState> = 
     match x with
     | OpSpec (Prefix (pri, func), string) -> 
-        upcast PrefixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", 9-pri, false, fun x -> OP (X func, Application, x))
+        upcast PrefixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, false, fun x -> OP (X func, Application, x))
             : Operator<term, string, UserState>
     | OpSpec (Infix (pri, assoc, Def op), string) ->
-        upcast InfixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", 9-pri, assoc, fun x y -> OP(x, op, y))
+        upcast InfixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, assoc, fun x y -> OP(x, op, y))
             : Operator<term, string, UserState>
     | OpSpec (Infix (pri, assoc, Custom op), string) ->
-        upcast InfixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", 9-pri, assoc, fun x y -> OP (OP (X op, Application, x), Application, y))
+        upcast InfixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, assoc, fun x y -> OP (OP (X op, Application, x), Application, y))
             : Operator<term, string, UserState>
 
 let manyApplication p =
