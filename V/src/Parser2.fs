@@ -28,7 +28,9 @@ type UserState =
     
 //#endregion
 
-let ws = spaces
+let pComment = pstring "//" >>. skipRestOfLine true
+
+let ws = many (spaces1 <|> pComment)
 
 //#region Identifier and Operator Parsing
 
@@ -413,9 +415,23 @@ let pTry =
 let pMatch = 
     let first = pstring "match" >>. ws >>. pTerm .>> pstring "with" .>> ws
     let triplets = 
-        tuple3 (pstring "|" >>. ws >>. pPattern) 
-                (opt (pstring "when" >>. ws >>. pTerm))
-                (pstring "->" >>. ws >>. pTerm)
+        fun stream ->
+            let replyPattern = 
+                (pstring "|" >>. ws >>. pPattern) <| stream
+            if replyPattern.Status <> Ok then
+                Reply(Error, replyPattern.Error)
+            else
+                let userState = stream.UserState
+                stream.UserState <- {userState with identifiersInPattern = Set[]}
+                let replyRest = 
+                    tuple2 
+                        (opt (pstring "when" >>. ws >>. pTerm))
+                        (pstring "->" >>. ws >>. pTerm) <| stream
+                if replyRest.Status <> Ok then
+                    Reply(Error, replyRest.Error)
+                else
+                    let comp1, (comp2, comp3) = replyPattern.Result, replyRest.Result
+                    Reply((comp1, comp2, comp3))
 
     pipe2 first (many1 triplets)
         <| (fun x triplets -> Match(x, triplets))
