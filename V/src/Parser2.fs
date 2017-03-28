@@ -317,6 +317,8 @@ let joinParameters letName returnTerm =
         p, returnTerm
     | LambdaDeclaration parameters ->
         Pat(XPat "", None), fst <| List.foldBack f parameters (returnTerm, None)
+    | NamedFunctionDeclaration (isRec, name, [], returnType) -> 
+        Pat(XPat name, returnType), returnTerm
     | NamedFunctionDeclaration (isRec, name, parameters, returnType) -> 
         let head = parameters.Head
         let retTerm, retTyp = 
@@ -367,7 +369,7 @@ let pFunctionName =
     tuple4
         (opt (pstring "rec" >>. ws) |>> (fun x -> x.IsSome))
         ((pIdentifier .>> ws) <|> pOperatorName) 
-        (many1 pParameter)
+        (many pParameter)
         (opt (pstring ":" >>. ws >>. pType))
          |>> NamedFunctionDeclaration
 
