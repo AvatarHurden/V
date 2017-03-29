@@ -1895,7 +1895,7 @@ This operator is handled differently from a function application, both in its pr
 \subsubsection{Priority}
 
 Every operator is ordered within a priority system, in which operators at a higher priority level are evaluated first.
-The levels are ordered in an inverse numerical system (i.e. priority 0 is the highest level).
+The levels are ordered in numerical order (i.e. priority 9 is the highest level).
 For different operators at the same priority level, the evaluation is always done from left to right.
 
 \subsubsection{Associativity}
@@ -1922,29 +1922,29 @@ The table is ordered by decreasing priority level (the first operator has the hi
   \hline
   \textbf{Priority} & \textbf{Operator} & \textbf{Meaning} & \textbf{Associativity}\\
   \hline
-  0 & \code{f x} & Function Application & Left\\
+  10 & \code{f x} & Function Application & Left\\
   \hline
-  1 & \code{f . g} & Function Composition & Right\\
+  9 & \code{f . g} & Function Composition & Right\\
   \hline
    & \code{x !! y} & List Indexing & Left\\
   \hline
-  2 & \code{x * y} & Multiplication & Left\\
+  8 & \code{x * y} & Multiplication & Left\\
   \hline
    & \code{x / y} & Division & Left\\
   \hline
    & \code{x \% y} & Remainder & Left\\
   \hline
-  3 & \code{x + y} & Addition & Left\\
+  7 & \code{x + y} & Addition & Left\\
   \hline
    & \code{x - y} & Subtraction & Left\\
   \hline
    & \code{- x} & Unary Negation & None\\
   \hline
-  4 & \code{x :: y} & List Construction & Right\\
+  6 & \code{x :: y} & List Construction & Right\\
   \hline
   5 & \code{x @ y} & List Concatenation & Right\\
   \hline
-  6 & \code{x == y} & Equals & None\\
+  4 & \code{x == y} & Equals & None\\
   \hline
    & \code{x != y} & Not Equals & None\\
   \hline
@@ -1956,11 +1956,11 @@ The table is ordered by decreasing priority level (the first operator has the hi
   \hline
    & \code{x <= y} & Less Than Or Equal & None\\
   \hline
-  7 & \code{x \&\& y} & Logical AND & Right\\
+  3 & \code{x \&\& y} & Logical AND & Right\\
   \hline
-  8 & \code{x || y} & Logical OR & Right\\
+  2 & \code{x || y} & Logical OR & Right\\
   \hline
-  9 & \code{x \$ y} & Function Application & Right\\
+  1 & \code{x \$ y} & Function Application & Right\\
   \hline
 \end{tabular}
 
@@ -2015,7 +2015,18 @@ The syntax for this is the same as creating a new function, but the operator mus
   5 %+ 4 // 2
 \end{lstlisting}
 
-Any operator defined like this will have priority 1 and be left associative.
+When declaring an operator, it is possible to also define its associativity and priority.
+This is done by using the keywords \code{infixl} (left associative), \code{infixr} (right associative) and \code{infix} (non-associative), followed by a number from 1 to 9.
+
+\begin{lstlisting}[]
+  let infixl 1 ($) f x = f x;
+  let f x = x + 2;
+
+  f $ 4 // 6
+\end{lstlisting}
+
+If the associativity and priority information is not provided, the operator will have priority 1 and be left associative.
+
 The following are the list of characters allowed for operators.
 
 \smallskip
@@ -2292,7 +2303,7 @@ Because the library was imported inside the scope of the function body, none of 
 \titlespacing\subsection{0pt}{0pt}{0pt}
 
 \subsection*{v0.2}
-{\small\DTMdisplaydate{2017}{3}{20}{-1}}
+{\small\DTMdisplaydate{2017}{3}{28}{-1}}
 
 \paragraph{\large Additions}
 
@@ -2312,7 +2323,7 @@ Because the library was imported inside the scope of the function body, none of 
   \item \textbf{Creating new Operators} \; \; {\small\colorbox{lightgray}{Concrete Syntax}}
 
       When declaring a function, wrapping a name in parenthesis makes it a operator.
-      Only a small number of characters are allowed for operator names, and any operator created will have a fixed associativity (left) and priority (1).
+      Only a small number of characters are allowed for operator names, and it is possible to define the associativity and priority of the newly created operator (if this information is ommited, the default values are left associative and priority 9).
 
 \end{itemize}
 
