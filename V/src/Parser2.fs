@@ -37,7 +37,8 @@ let ws = many (spaces1 <|> pComment)
 let keywords = 
     Set["let"; "true"  ; "false"; "if"  ; "then"  ; "else";
         "rec"; "nil"   ; "raise"; "when"; "match" ; "with";
-        "try"; "except"; "for"  ; "in"  ; "import"]
+        "try"; "except"; "for"  ; "in"  ; "import"; "infix";
+        "infixl"; "infixr"]
 
 let isAsciiIdStart c =
     isAsciiLetter c || c = '_'
@@ -352,18 +353,31 @@ let pLambda: Parser<term, UserState> =
 
 let pOperatorName =
     fun stream ->
+        let explicit =
+            tuple2
+                ((stringReturn "infixl" Associativity.Left <|> 
+                    stringReturn "infixr" Associativity.Right <|> 
+                    stringReturn "infix" Associativity.None) .>> ws)
+                (anyOf "0123456789" .>> ws |>> (fun x -> int x - int '0'))
         let reply = 
-            between (pstring "(" >>. ws) (pstring ")" >>. ws)
-                (pCustomOperator .>> ws) <| stream
+            (tuple2
+                (opt explicit)
+                (between (pstring "(" >>. ws) (pstring ")" >>. ws)
+                    (pCustomOperator .>> ws))) <| stream
         if reply.Status <> Ok then
-            reply
+            Reply(Error, reply.Error)
         else
             let userState = stream.UserState
-            let name = reply.Result
-            let newOp = OpSpec(Infix (9, Associativity.Left, Custom name), name)
+            let explicit, name = reply.Result
+            let newOp =
+                match explicit with
+                | Some (assoc, prec) ->
+                    OpSpec(Infix (prec, assoc, Custom name), name)
+                | None ->
+                    OpSpec(Infix (9, Associativity.Left, Custom name), name)
             let newOps = newOp :: userState.operators
             stream.UserState <- {userState with operators = newOps}
-            reply
+            Reply(name)
 
 let pFunctionName =
     tuple4
