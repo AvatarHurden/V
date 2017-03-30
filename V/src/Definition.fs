@@ -46,8 +46,6 @@ type op =
     | Cons
     | And
     | Or
-
-
     
 type Ident = string
     
@@ -97,3 +95,25 @@ type result =
 and
     env = Map<Ident, result>
 
+
+type extendedOP =
+    | Def of op
+    | Custom of string
+
+type Assoc =
+    | Left
+    | Right
+    | Non
+
+type Fixity =
+    | Prefix of int * func:string
+    | Infix of int * Assoc * extendedOP
+
+type OperatorSpec =
+    | OpSpec of fix:Fixity * string:string
+
+type LibComponent = VarPattern * term
+
+type Library =
+    {terms: LibComponent list;
+    operators: OperatorSpec list}

@@ -10,17 +10,6 @@ type DeclarationContainer =
     | NamedFunctionDeclaration of bool * string * VarPattern list * Type option
     | LambdaDeclaration of VarPattern list
 
-type extendedOP =
-    | Def of Definition.op
-    | Custom of string
-
-type Fixity =
-    | Prefix of int * func:string
-    | Infix of int * Associativity * extendedOP
-
-type OperatorSpec =
-    | OpSpec of fix:Fixity * string:string
-
 
 type UserState = 
     {operators: OperatorSpec list;
@@ -355,9 +344,9 @@ let pOperatorName =
     fun stream ->
         let explicit =
             tuple2
-                ((stringReturn "infixl" Associativity.Left <|> 
-                    stringReturn "infixr" Associativity.Right <|> 
-                    stringReturn "infix" Associativity.None) .>> ws)
+                ((stringReturn "infixl" Left <|> 
+                    stringReturn "infixr" Right <|> 
+                    stringReturn "infix" Non) .>> ws)
                 (anyOf "0123456789" .>> ws |>> (fun x -> int x - int '0'))
         let reply = 
             (tuple2
@@ -374,7 +363,7 @@ let pOperatorName =
                 | Some (assoc, prec) ->
                     OpSpec(Infix (prec, assoc, Custom name), name)
                 | None ->
-                    OpSpec(Infix (9, Associativity.Left, Custom name), name)
+                    OpSpec(Infix (9, Left, Custom name), name)
             let newOps = newOp :: userState.operators
             stream.UserState <- {userState with operators = newOps}
             Reply(name)
@@ -473,39 +462,44 @@ let pValue = choice [pIdentifier |>> X;
 //#region Expression Parsing
 
 let defaultOPs =[
-    OpSpec (Infix  (8, Associativity.Left , Def Multiply      ), "*" );
-    OpSpec (Infix  (8, Associativity.Left , Def Divide        ), "/" );
+    OpSpec (Infix  (8, Left , Def Multiply      ), "*" );
+    OpSpec (Infix  (8, Left , Def Divide        ), "/" );
      
-    OpSpec (Prefix (7,                     "negate"          ), "-" ); 
-    OpSpec (Infix  (7, Associativity.Left , Def Add           ), "+" );
-    OpSpec (Infix  (7, Associativity.Left , Def Subtract      ), "-" );
+    OpSpec (Prefix (7,       "negate"          ), "-" ); 
+    OpSpec (Infix  (7, Left , Def Add           ), "+" );
+    OpSpec (Infix  (7, Left , Def Subtract      ), "-" );
 
-    OpSpec (Infix  (6, Associativity.Right, Def Cons          ), "::");
+    OpSpec (Infix  (6, Right, Def Cons          ), "::");
 
-    OpSpec (Infix  (4, Associativity.None , Def LessOrEqual   ), "<=");
-    OpSpec (Infix  (4, Associativity.None , Def LessThan      ), "<" );
-    OpSpec (Infix  (4, Associativity.None , Def Equal         ), "=" );
-    OpSpec (Infix  (4, Associativity.None , Def Different     ), "!=");
-    OpSpec (Infix  (4, Associativity.None , Def GreaterThan   ), ">" );
-    OpSpec (Infix  (4, Associativity.None , Def GreaterOrEqual), ">=");
+    OpSpec (Infix  (4, Non  , Def LessOrEqual   ), "<=");
+    OpSpec (Infix  (4, Non  , Def LessThan      ), "<" );
+    OpSpec (Infix  (4, Non  , Def Equal         ), "=" );
+    OpSpec (Infix  (4, Non  , Def Different     ), "!=");
+    OpSpec (Infix  (4, Non  , Def GreaterThan   ), ">" );
+    OpSpec (Infix  (4, Non  , Def GreaterOrEqual), ">=");
  
-    OpSpec (Infix  (3, Associativity.Right, Def And           ), "&&");
-    OpSpec (Infix  (2, Associativity.Right, Def Or            ), "||")]
+    OpSpec (Infix  (3, Right, Def And           ), "&&");
+    OpSpec (Infix  (2, Right, Def Or            ), "||")]
 
 let defaultUserState =
     {operators = defaultOPs;
     identifiersInPattern = Set[]}
 
 let toOPP x: Operator<term, string, UserState> = 
+    let updateAssoc = 
+        function 
+        | Left -> Associativity.Left 
+        | Right -> Associativity.Right 
+        | Non -> Associativity.None
     match x with
     | OpSpec (Prefix (pri, func), string) -> 
         upcast PrefixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, false, fun x -> OP (X func, Application, x))
             : Operator<term, string, UserState>
     | OpSpec (Infix (pri, assoc, Def op), string) ->
-        upcast InfixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, assoc, fun x y -> OP(x, op, y))
+        upcast InfixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, updateAssoc assoc, fun x y -> OP(x, op, y))
             : Operator<term, string, UserState>
     | OpSpec (Infix (pri, assoc, Custom op), string) ->
-        upcast InfixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, assoc, fun x y -> OP (OP (X op, Application, x), Application, y))
+        upcast InfixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, updateAssoc assoc, fun x y -> OP (OP (X op, Application, x), Application, y))
             : Operator<term, string, UserState>
 
 let manyApplication p =
@@ -535,5 +529,39 @@ do pTermRef :=
 
 let pProgram = ws >>. pTerm .>> eof
 
-let parse text =
-    runParserOnString pProgram defaultUserState "" text
+let parse2 text =
+    let res = runParserOnString pProgram defaultUserState "" text
+    match res with
+    | Success (a, _, _) -> a
+    | Failure (err, _, _) -> raise (ParseException err)
+
+
+let pLibComponent: Parser<LibComponent, UserState> =
+    fun stream ->
+        let nameParser =
+            (attempt (pConstantName .>> pstring "=")) 
+                <|> (pFunctionName .>> pstring "=")
+        let reply = pstring "let" >>. ws >>. nameParser <| stream
+        if reply.Status <> Ok then
+            Reply(Error, reply.Error)
+        else
+            let name = reply.Result
+            let userState = stream.UserState
+            stream.UserState <- {userState with identifiersInPattern = Set[]}
+            let termReply = (ws >>. pTerm .>> pstring ";" .>> ws) stream
+            if termReply.Status <> Ok then
+                Reply(Error, termReply.Error)
+            else
+                let term1 = termReply.Result
+                let p, fn = joinParameters name term1 
+                Reply((p, fn))
+
+let pLibrary = ws >>. many1 pLibComponent .>> eof
+   
+let parseLib text =
+    let res = runParserOnString pLibrary defaultUserState "" text
+    match res with
+    | Failure (err, _, _) -> raise (ParseException err)
+    | Success (terms, state, _) ->
+        let ops = List.filter (fun op -> not <| List.exists ((=) op) defaultOPs) state.operators
+        {terms = terms; operators=ops}

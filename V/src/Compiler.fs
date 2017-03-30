@@ -7,13 +7,16 @@ open Definition
 open TypeInference
 open System
 
-let saveTerm term path =
+let private save value path =
     let binFormatter = new BinaryFormatter()
 
     use stream = new FileStream(path, FileMode.Create)
-    binFormatter.Serialize(stream, term)
+    binFormatter.Serialize(stream, value)
     stream.Flush()
-    
+
+let saveTerm (term: term) path = save term path
+let saveLib (lib: Library) path = save lib path
+
 let saveArray term  =
     let binFormatter = new BinaryFormatter()
 
@@ -33,6 +36,7 @@ let loadArray (arr: byte[]) =
 
     use stream = new MemoryStream(arr)
     binFormatter.Deserialize(stream) :?> Definition.term
+
 
 let isValidLib term = 
     let rec iter t =
