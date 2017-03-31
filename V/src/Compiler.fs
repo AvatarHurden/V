@@ -7,6 +7,9 @@ open Definition
 open TypeInference
 open System
 
+let mutable baseFolder = AppDomain.CurrentDomain.SetupInformation.ApplicationBase
+let makeRelative fileName = Path.Combine(baseFolder, fileName)
+
 let private save value path =
     let binFormatter = new BinaryFormatter()
 
@@ -25,11 +28,35 @@ let saveArray term  =
 
     stream.ToArray()
 
-let loadTerm path =
+let private load<'T> path =
     let binFormatter = new BinaryFormatter()
 
     use stream = new FileStream(path, FileMode.Open)
-    binFormatter.Deserialize(stream) :?> Definition.term
+    binFormatter.Deserialize(stream) :?> 'T
+
+let loadTerm = load<Definition.term>
+let loadLib2 path = 
+
+    let relative = makeRelative path
+
+    let pathName = 
+        if not <| Path.HasExtension relative then
+            if Path.ChangeExtension(relative, "vl") |> File.Exists then
+                Path.ChangeExtension(relative, "vl")
+            elif Path.ChangeExtension(relative, "v") |> File.Exists then
+               Path.ChangeExtension(relative, "v")
+            else
+                raise (LibNotFound <| sprintf "Could not find library file at %A" path)
+        else
+            if relative |> File.Exists then
+                relative     
+            else
+                raise (LibNotFound <| sprintf "Could not find library file at %A" path)
+    try
+        load<Definition.Library> pathName
+    with
+    | :? SerializationException ->
+        raise <| UncompiledLib (File.ReadAllText pathName)
     
 let loadArray (arr: byte[]) =
     let binFormatter = new BinaryFormatter()
@@ -62,7 +89,7 @@ let replaceXLib lib term =
     match lib with
     | Fn (Pat(XPat "x", None), t) -> iter t
     | _ -> raise <| ParseException "Not a library"
-    
+
 let loadLib path nextTerm =
     let lib = loadTerm path
 

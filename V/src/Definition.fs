@@ -4,6 +4,9 @@ exception ParseException of string
 exception EvalException of string
 exception TypeException of string
 
+exception LibNotFound of string
+exception UncompiledLib of string
+
 type Trait =
     | Equatable
     | Orderable

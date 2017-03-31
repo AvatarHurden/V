@@ -2,6 +2,7 @@
 
 open FParsec
 open Definition
+open Compiler
 
 //#region Helper Types
 
@@ -15,6 +16,31 @@ type UserState =
     {operators: OperatorSpec list;
     identifiersInPattern: Set<string>}
     
+
+let defaultOPs =[
+    OpSpec (Infix  (8, Left , Def Multiply      ), "*" );
+    OpSpec (Infix  (8, Left , Def Divide        ), "/" );
+     
+    OpSpec (Prefix (7,       "negate"          ), "-" ); 
+    OpSpec (Infix  (7, Left , Def Add           ), "+" );
+    OpSpec (Infix  (7, Left , Def Subtract      ), "-" );
+
+    OpSpec (Infix  (6, Right, Def Cons          ), "::");
+
+    OpSpec (Infix  (4, Non  , Def LessOrEqual   ), "<=");
+    OpSpec (Infix  (4, Non  , Def LessThan      ), "<" );
+    OpSpec (Infix  (4, Non  , Def Equal         ), "=" );
+    OpSpec (Infix  (4, Non  , Def Different     ), "!=");
+    OpSpec (Infix  (4, Non  , Def GreaterThan   ), ">" );
+    OpSpec (Infix  (4, Non  , Def GreaterOrEqual), ">=");
+ 
+    OpSpec (Infix  (3, Right, Def And           ), "&&");
+    OpSpec (Infix  (2, Right, Def Or            ), "||")]
+
+let defaultUserState =
+    {operators = defaultOPs;
+    identifiersInPattern = Set[]}
+
 //#endregion
 
 let pComment = pstring "//" >>. skipRestOfLine true
@@ -443,6 +469,69 @@ let pMatch =
 
 //#endregion
 
+//#region Library Parsing
+
+let pLibComponent: Parser<LibComponent, UserState> =
+    fun stream ->
+        let nameParser =
+            (attempt (pConstantName .>> pstring "=")) 
+                <|> (pFunctionName .>> pstring "=")
+        let reply = pstring "let" >>. ws >>. nameParser <| stream
+        if reply.Status <> Ok then
+            Reply(Error, reply.Error)
+        else
+            let name = reply.Result
+            let userState = stream.UserState
+            stream.UserState <- {userState with identifiersInPattern = Set[]}
+            let termReply = (ws >>. pTerm .>> pstring ";" .>> ws) stream
+            if termReply.Status <> Ok then
+                Reply(Error, termReply.Error)
+            else
+                let term1 = termReply.Result
+                let p, fn = joinParameters name term1 
+                Reply((p, fn))
+
+let pLibrary =
+    fun stream ->
+        let reply = ws >>. many1 pLibComponent .>> eof <| stream
+        if reply.Status <> Ok then
+            Reply(Error, reply.Error)
+        else
+            let state = stream.UserState
+            let terms = reply.Result
+            let ops = List.filter (fun op -> not <| List.exists ((=) op) defaultOPs) state.operators
+            Reply({terms = terms; operators=ops})
+
+let pImport: Parser<term, UserState> =
+    fun stream ->
+        let reply = 
+            pstring "import" >>. ws >>.
+                (between (pstring "\"") (pstring "\"" .>> ws) 
+                    (manyChars ((pEscapeChar <|> pNonEscapeChar '"')))) <| stream
+        if reply.Status <> Ok then
+            Reply(Error, reply.Error)
+        else
+            let libReply = 
+                try
+                    Reply(loadLib2 reply.Result)
+                with
+                | UncompiledLib text ->
+                    match runParserOnString pLibrary defaultUserState "" text with
+                    | Success(lib, _, _) -> Reply(lib)
+                    | Failure(_, error, _) -> 
+                        Reply(Error, mergeErrors error.Messages (messageError <| "The error was at library " + reply.Result))
+                | :? LibNotFound ->
+                    Reply(Error, messageError <| sprintf "Could not find library file at %A" reply.Result)
+            if libReply.Status <> Ok then
+                Reply(Error, libReply.Error)
+            else
+                let lib = libReply.Result
+                let newOps = lib.operators @ stream.UserState.operators
+                stream.UserState <- {stream.UserState with operators = newOps}
+                pTerm |>> List.foldBack (fun (p, def) acc -> Let(p, def, acc)) lib.terms <| stream
+
+//#endregion
+
 let pValue = choice [pIdentifier |>> X;
                         pBool;
                         pNum;
@@ -457,33 +546,16 @@ let pValue = choice [pIdentifier |>> X;
                         pTry;
                         pMatch;
                         pLambda;
-                        pLet]
+                        pLet;
+                        pImport]
 
 //#region Expression Parsing
 
-let defaultOPs =[
-    OpSpec (Infix  (8, Left , Def Multiply      ), "*" );
-    OpSpec (Infix  (8, Left , Def Divide        ), "/" );
-     
-    OpSpec (Prefix (7,       "negate"          ), "-" ); 
-    OpSpec (Infix  (7, Left , Def Add           ), "+" );
-    OpSpec (Infix  (7, Left , Def Subtract      ), "-" );
-
-    OpSpec (Infix  (6, Right, Def Cons          ), "::");
-
-    OpSpec (Infix  (4, Non  , Def LessOrEqual   ), "<=");
-    OpSpec (Infix  (4, Non  , Def LessThan      ), "<" );
-    OpSpec (Infix  (4, Non  , Def Equal         ), "=" );
-    OpSpec (Infix  (4, Non  , Def Different     ), "!=");
-    OpSpec (Infix  (4, Non  , Def GreaterThan   ), ">" );
-    OpSpec (Infix  (4, Non  , Def GreaterOrEqual), ">=");
- 
-    OpSpec (Infix  (3, Right, Def And           ), "&&");
-    OpSpec (Infix  (2, Right, Def Or            ), "||")]
-
-let defaultUserState =
-    {operators = defaultOPs;
-    identifiersInPattern = Set[]}
+let manyApplication p =
+  Inline.Many(elementParser = p,
+              stateFromFirstElement = (fun x -> x),
+              foldState = (fun acc x -> OP(acc, Application, x)),
+              resultFromState = (fun acc -> acc))
 
 let toOPP x: Operator<term, string, UserState> = 
     let updateAssoc = 
@@ -501,12 +573,6 @@ let toOPP x: Operator<term, string, UserState> =
     | OpSpec (Infix (pri, assoc, Custom op), string) ->
         upcast InfixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, updateAssoc assoc, fun x y -> OP (OP (X op, Application, x), Application, y))
             : Operator<term, string, UserState>
-
-let manyApplication p =
-  Inline.Many(elementParser = p,
-              stateFromFirstElement = (fun x -> x),
-              foldState = (fun acc x -> OP(acc, Application, x)),
-              resultFromState = (fun acc -> acc))
 
 let getExpressionParser state =
     let operators = state.operators
@@ -535,33 +601,9 @@ let parse2 text =
     | Success (a, _, _) -> a
     | Failure (err, _, _) -> raise (ParseException err)
 
-
-let pLibComponent: Parser<LibComponent, UserState> =
-    fun stream ->
-        let nameParser =
-            (attempt (pConstantName .>> pstring "=")) 
-                <|> (pFunctionName .>> pstring "=")
-        let reply = pstring "let" >>. ws >>. nameParser <| stream
-        if reply.Status <> Ok then
-            Reply(Error, reply.Error)
-        else
-            let name = reply.Result
-            let userState = stream.UserState
-            stream.UserState <- {userState with identifiersInPattern = Set[]}
-            let termReply = (ws >>. pTerm .>> pstring ";" .>> ws) stream
-            if termReply.Status <> Ok then
-                Reply(Error, termReply.Error)
-            else
-                let term1 = termReply.Result
-                let p, fn = joinParameters name term1 
-                Reply((p, fn))
-
-let pLibrary = ws >>. many1 pLibComponent .>> eof
-   
 let parseLib text =
     let res = runParserOnString pLibrary defaultUserState "" text
     match res with
     | Failure (err, _, _) -> raise (ParseException err)
-    | Success (terms, state, _) ->
-        let ops = List.filter (fun op -> not <| List.exists ((=) op) defaultOPs) state.operators
-        {terms = terms; operators=ops}
+    | Success (lib, state, _) -> lib
+
