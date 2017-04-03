@@ -6,17 +6,30 @@ open Compiler
 
 //#region Helper Types
 
-type DeclarationContainer =
+type private DeclarationContainer =
     | ConstantDeclaration of VarPattern
     | NamedFunctionDeclaration of bool * string * VarPattern list * Type option
     | LambdaDeclaration of VarPattern list
     | RecLambdaDeclaration of string * VarPattern list * Type option
 
-
 type UserState = 
     {operators: OperatorSpec list;
     identifiersInPattern: Set<string>}
-    
+
+    member this.resetIdentifiers = 
+        {this with identifiersInPattern = Set[]}
+
+    member this.addIdentifier id =
+        let ids = this.identifiersInPattern
+        {this with identifiersInPattern = ids.Add id}
+
+    member this.addOperator op =
+       let ops = this.operators
+       {this with operators = op :: ops}
+
+    member this.addOperators ops =
+      let ops' = this.operators
+      {this with operators = ops @ ops'}
 
 let defaultOPs =[
     OpSpec (Infix  (8, Left , Def Multiply      ), "*" );
@@ -44,9 +57,12 @@ let defaultUserState =
 
 //#endregion
 
-let pComment = pstring "//" >>. skipRestOfLine true
+let private pComment = pstring "//" >>. skipRestOfLine true
 
-let ws = many (spaces1 <|> pComment)
+let private ws = many (spaces1 <|> pComment)
+
+let private pBetween s1 s2 p = 
+    between (pstring s1 .>> ws) (pstring s2 .>> ws) p
 
 //#region Identifier and Operator Parsing
 
@@ -56,14 +72,14 @@ let keywords =
         "try"; "except"; "for"  ; "in"  ; "import"; "infix";
         "infixl"; "infixr"]
 
-let isAsciiIdStart c =
+let private isAsciiIdStart c =
     isAsciiLetter c || c = '_'
 
-let isAsciiIdContinue c =
+let private isAsciiIdContinue c =
     isAsciiLetter c || isDigit c || c = '_' || c = '\'' || c = '?'
     
 
-let pIdentifier: Parser<string, UserState> =
+let private pIdentifier: Parser<string, UserState> =
     fun stream ->
         let state = stream.State
         let reply = identifier (IdentifierOptions(isAsciiIdStart = isAsciiIdStart,
@@ -74,24 +90,25 @@ let pIdentifier: Parser<string, UserState> =
             stream.BacktrackTo(state)
             Reply(Error, expected <| sprintf "identifier ('%O' is a reserved keyword)" reply.Result)
 
-let pOperator = many1Chars (anyOf "?!%$&*+-./<=>@^|~") |>>
-                    (function
-                    | "+" -> Def Add
-                    | "-" -> Def Subtract
-                    | "*" -> Def Multiply
-                    | "/" -> Def Divide
-                    | "<=" -> Def LessOrEqual
-                    | "<" -> Def LessThan
-                    | "=" -> Def Equal
-                    | "!=" -> Def Different
-                    | ">=" -> Def GreaterOrEqual
-                    | ">" -> Def GreaterThan
-                    | "::" -> Def Cons
-                    | "&&" -> Def And
-                    | "||" -> Def Or
-                    | c -> Custom c)
+let private pOperator = 
+    many1Chars (anyOf "?!%$&*+-./<=>@^|~") |>>
+        (function
+        | "+" -> Def Add
+        | "-" -> Def Subtract
+        | "*" -> Def Multiply
+        | "/" -> Def Divide
+        | "<=" -> Def LessOrEqual
+        | "<" -> Def LessThan
+        | "=" -> Def Equal
+        | "!=" -> Def Different
+        | ">=" -> Def GreaterOrEqual
+        | ">" -> Def GreaterThan
+        | "::" -> Def Cons
+        | "&&" -> Def And
+        | "||" -> Def Or
+        | c -> Custom c)
 
-let pCustomOperator: Parser<string, UserState> = 
+let private pCustomOperator: Parser<string, UserState> = 
     fun stream ->
         let state = stream.State
         let reply = pOperator stream
@@ -108,49 +125,45 @@ let pCustomOperator: Parser<string, UserState> =
 
 //#region String Value Parsing
 
-let pNonEscapeChar quote = satisfy (fun c -> c <> quote && c <> '\\')
-let pEscapeChar = 
+let private pNonEscapeChar quote = satisfy (fun c -> c <> quote && c <> '\\')
+let private pEscapeChar = 
     let codes = ['b';  'n';  'r';  't';  '\\'; '"'; '\'']
     let repls = ['\b'; '\n'; '\r'; '\t'; '\\'; '\"'; ''']
     let funEscape code repl = pchar code >>. preturn repl
     pchar '\\' >>. choice (Seq.map2 funEscape codes repls)
 
-let pChar = 
+let private pChar = 
     between (pstring "\'") (pstring "\'") 
         ((pEscapeChar <|> pNonEscapeChar '\'' <?> "character") |>> C)
 
-let pString = 
-    let fold s =
-        let rev = List.rev s
-        List.fold (fun acc x -> OP (C x, Cons, acc)) Nil rev
-
+let private pString = 
     between (pstring "\"") (pstring "\"") 
-        (many ((pEscapeChar <|> pNonEscapeChar '"'))) |>> fold
+        (many ((pEscapeChar <|> pNonEscapeChar '"'))) 
+        |>> fun l -> List.foldBack (fun x acc -> OP (C x, Cons, acc)) l Nil
 
 //#endregion   
 
 //#region Type Parsing
 
-let pType, pTypeRef = createParserForwardedToRef<Type, UserState>()
+let private pType, private pTypeRef = createParserForwardedToRef<Type, UserState>()
 
-let pIntType = stringReturn "Int" Int
-let pBoolType = stringReturn "Bool" Bool
-let pCharType = stringReturn "Char" Char
-let pStringType = stringReturn "String" (List Definition.Char)
+let private pIntType = stringReturn "Int" Int
+let private pBoolType = stringReturn "Bool" Bool
+let private pCharType = stringReturn "Char" Char
+let private pStringType = stringReturn "String" (List Definition.Char)
 
-let pParenType = 
-    between (pstring "(" >>. ws) (pstring ")" >>. ws)
-        <| sepBy1 pType (pstring "," .>> ws) |>> (function | [x] -> x | xs -> Type.Tuple xs)
+let private pParenType = 
+    pBetween "(" ")" (sepBy1 pType (pstring "," .>> ws))
+        |>> (function | [x] -> x | xs -> Type.Tuple xs)
 
-let pRecordCompType = tuple2 (pIdentifier .>> ws .>> pstring ":" .>> ws) pType
+let private pRecordCompType = tuple2 (pIdentifier .>> ws .>> pstring ":" .>> ws) pType
 
-let pRecordType =
-    between (pstring "{" >>. ws) (pstring "}" >>. ws) 
-        <| sepBy1 pRecordCompType (pstring "," .>> ws) |>> Type.Record
+let private pRecordType =
+    pBetween "{" "}" (sepBy1 pRecordCompType (pstring "," .>> ws)) |>> Type.Record
 
-let pListType = between (pstring "[" >>. ws) (pstring "]" >>. ws) pType |>> List
+let private pListType = pBetween "[" "]" pType |>> List
 
-let pTypeValue = choice [pParenType;
+let private pTypeValue = choice [pParenType;
                         pRecordType;
                         pIntType;
                         pBoolType;
@@ -159,9 +172,7 @@ let pTypeValue = choice [pParenType;
                         pListType]
 
 do pTypeRef :=
-    let fold ls =
-        let rev = List.rev ls
-        List.reduce (fun acc x -> Function(x, acc)) rev
+    let fold = List.reduceBack (fun x acc -> Function(x, acc))
     fun stream ->
         let state = stream.State
         let reply = (sepBy1 (pTypeValue .>> ws) 
@@ -176,9 +187,9 @@ do pTypeRef :=
 
 //#region Pattern Parsing
 
-let pPattern, pPatternRef = createParserForwardedToRef<VarPattern, UserState>()
+let private pPattern, private pPatternRef = createParserForwardedToRef<VarPattern, UserState>()
 
-let pIdentPattern: Parser<VarPattern, UserState> = 
+let private pIdentPattern: Parser<VarPattern, UserState> = 
     fun stream ->
         let state = stream.State
         let reply = pIdentifier stream
@@ -189,49 +200,49 @@ let pIdentPattern: Parser<VarPattern, UserState> =
             let id = reply.Result
             let identifiers = userState.identifiersInPattern
             if not (identifiers.Contains id) then 
-                let newIds = identifiers.Add id
-                stream.UserState <- {userState with identifiersInPattern = newIds}
+                stream.UserState <- stream.UserState.addIdentifier id
                 Reply(Pat(XPat id, None))
             else
                 stream.BacktrackTo state
                 Reply(Error, expected ("identifier (" + id + " is already bound)"))
 
-let pIgnorePattern = stringReturn "_" <| Pat(IgnorePat, None)
+let private pIgnorePattern = stringReturn "_" <| Pat(IgnorePat, None)
 
-let pBoolPattern = (stringReturn "true" <| Pat(BPat true, None))
-                    <|> (stringReturn "false" <| Pat(BPat false, None))
-let pNumPattern = puint32 |>> fun ui -> Pat(IPat (int ui), None)
-let pNilPattern = stringReturn "nil" <| Pat(NilPat, None)
+let private pBoolPattern = 
+        (stringReturn "true" <| Pat(BPat true, None))
+            <|> (stringReturn "false" <| Pat(BPat false, None))
+let private pNumPattern = puint32 |>> fun ui -> Pat(IPat (int ui), None)
+let private pNilPattern = stringReturn "nil" <| Pat(NilPat, None)
 
-let pCharPattern = pChar |>> function | C c -> Pat(CPat c, None)
-let pStringPattern = 
+let private pCharPattern = 
+    pChar |>> 
+         function | C c -> Pat(CPat c, None)
+                  | _ -> raise <| invalidArg "char" "Parsing char did not return char"
+let private pStringPattern = 
     let convert term =
         let rec t = 
             function
             | OP (C c, Cons, t') -> Pat (ConsPat(Pat (CPat c, None), t t'), None)
             | Nil -> Pat(NilPat, None)
+            | _ -> raise <| invalidArg "string" "Parsing string did not return string"
         t term 
     pString |>> convert 
 
-let pParenPattern = 
-    between (pstring "(" >>. ws) (pstring ")" >>. ws)
-        <| sepBy1 pPattern (pstring "," .>> ws) |>> (function | [x] -> x | xs -> Pat(TuplePat xs, None))
+let private pParenPattern = 
+    pBetween "(" ")" (sepBy1 pPattern (pstring "," .>> ws))
+        |>> (function | [x] -> x | xs -> Pat(TuplePat xs, None))
 
-let pRecordCompPattern = tuple2 (pIdentifier .>> ws .>> pstring ":" .>> ws) pPattern
+let private pRecordCompPattern = tuple2 (pIdentifier .>> ws .>> pstring ":" .>> ws) pPattern
 
-let pRecordPattern =
-    between (pstring "{" >>. ws) (pstring "}" >>. ws) 
-        <| sepBy1 pRecordCompPattern (pstring "," .>> ws) |>> (fun x -> Pat(RecordPat x, None))
+let private pRecordPattern =
+    pBetween "{" "}" (sepBy1 pRecordCompPattern (pstring "," .>> ws))
+        |>> (fun x -> Pat(RecordPat x, None))
 
-let pListPattern =
-    let fold ls =
-        let rev = List.rev ls
-        List.fold (fun acc p -> Pat (ConsPat(p, acc), None)) (Pat(NilPat, None)) rev
+let private pListPattern =
+    pBetween "[" "]" (sepBy pPattern (pstring "," .>> ws)) 
+        |>> fun l -> List.foldBack (fun p acc -> Pat (ConsPat(p, acc), None)) l (Pat(NilPat, None))
 
-    between (pstring "[" >>. ws) (pstring "]" >>. ws)
-        <| sepBy pPattern (pstring "," .>> ws) |>> fold
-
-let pPatternValue = choice [pIgnorePattern;
+let private pPatternValue = choice [pIgnorePattern;
                             pIdentPattern;
                             pCharPattern;
                             pStringPattern;
@@ -242,7 +253,7 @@ let pPatternValue = choice [pIgnorePattern;
                             pRecordPattern;
                             pListPattern]
 
-let pConsPattern =
+let private pConsPattern =
     let reduce ls =
         let rev = List.rev ls
         List.reduce (fun acc p -> Pat (ConsPat(p, acc), None)) rev
@@ -267,16 +278,17 @@ do pPatternRef :=
 
 //#region Basic Value Parsing
 
-let pBool = (stringReturn "true"  (B true))
-            <|> (stringReturn "false" (B false))
+let private pBool = 
+    (stringReturn "true"  (B true))
+        <|> (stringReturn "false" (B false))
 
-let pNum = puint32 |>> fun ui -> I <| int(ui)
+let private pNum = puint32 |>> fun ui -> I <| int(ui)
 
-let pNil = stringReturn "nil" Nil
+let private pNil = stringReturn "nil" Nil
 
-let pRaise = stringReturn "raise" Raise
+let private pRaise = stringReturn "raise" Raise
 
-let pProjection = 
+let private pProjection = 
     pstring "#" >>. 
         ((puint32 |>> (fun x -> Choice1Of2 (int x)))
         <|> (pIdentifier |>> Choice2Of2)) |>>
@@ -286,50 +298,44 @@ let pProjection =
 
 //#endregion   
 
-let pTerm, pTermRef = createParserForwardedToRef<term, UserState>()
+let private pTerm, private pTermRef = createParserForwardedToRef<term, UserState>()
 
 //#region Compound Value Parsing (Tuple, Record, List)
 
-let pParen =
+let private pParen =
     let pTuple = sepBy1 pTerm (pstring "," .>> ws) |>> (function | [x] -> x | xs -> Tuple xs)
 
-    let pPrefixOP = 
-        pstring "(" >>. ws >>. pOperator .>> ws .>> pstring ")" .>> ws
+    let pPrefixOP =
+        pBetween "(" ")" (pOperator .>> ws)
             |>> (function
                   | Def op ->
                       Fn(Pat(XPat "x", None), Fn(Pat(XPat "y", None), OP(X "x", op, X "y")))
                   | Custom c ->
                       X c)
 
-    attempt pPrefixOP <|>
-        between (pstring "(" >>. ws) (pstring ")" >>. ws) pTuple
+    attempt pPrefixOP <|> pBetween "(" ")" pTuple
 
-let pRecordComp =
+let private pRecordComp =
     tuple2 (pIdentifier .>> ws .>> pstring ":" .>> ws) pTerm
 
-let pRecord =
-    between (pstring "{" >>. ws) (pstring "}" >>. ws) 
-        <| sepBy1 pRecordComp (pstring "," .>> ws) |>> Record
+let private pRecord =
+    pBetween "{" "}" (sepBy1 pRecordComp (pstring "," .>> ws)) |>> Record
 
-let pList =
-    let fold ls =
-        let rev = List.rev ls
-        List.fold (fun acc x -> OP (x, Cons, acc)) Nil rev
-
-    between (pstring "[" >>. ws) (pstring "]" >>. ws)
-        <| sepBy pTerm (pstring "," .>> ws) |>> fold
+let private pList =
+    pBetween "[" "]" (sepBy pTerm (pstring "," .>> ws))
+    |>> fun l -> List.foldBack (fun x acc -> OP (x, Cons, acc)) l Nil
 
 //#endregion
 
-//#region Parse Functions and Declarations
+//#region Parse Functions
 
-let pParameter =
+let private pParameter =
     let tupled = pParenPattern .>> ws
-    let enclosed = (pstring "(" >>. ws >>. pPattern .>> pstring ")" .>> ws)
+    let enclosed = pBetween "(" ")" pPattern
     let normal = pPatternValue .>> ws
     tupled <|> enclosed <|> normal
 
-let joinParameters letName returnTerm =
+let private joinParameters letName returnTerm =
     let f p (func, funcType: Type option) = 
         match p with
         | Pat(_, Some typ) when funcType.IsSome ->
@@ -337,26 +343,7 @@ let joinParameters letName returnTerm =
         | Pat (_, _) ->
             Fn(p, func), None
     
-    match letName with
-    | ConstantDeclaration p -> 
-        p, returnTerm
-    | LambdaDeclaration parameters ->
-        Pat(XPat "", None), fst <| List.foldBack f parameters (returnTerm, None)
-    | NamedFunctionDeclaration (isRec, name, [], returnType) -> 
-        Pat(XPat name, returnType), returnTerm
-    | RecLambdaDeclaration (name, parameters, returnType) ->
-        let head = parameters.Head
-        let retTerm, retTyp = 
-            List.foldBack f parameters.Tail (returnTerm, returnType)
-
-        let fnTyp = 
-            match head with
-            | Pat(_, Some typ) when retTyp.IsSome -> 
-                Some <| Function(typ, retTyp.Value)
-            | Pat(_, _) -> None
-
-        Pat(XPat name, fnTyp), RecFn(name, retTyp, head, retTerm)
-    | NamedFunctionDeclaration (isRec, name, parameters, returnType) -> 
+    let join isRec name (parameters: VarPattern list) returnType = 
         let head = parameters.Head
         let retTerm, retTyp = 
             List.foldBack f parameters.Tail (returnTerm, returnType)
@@ -372,14 +359,25 @@ let joinParameters letName returnTerm =
         else
             Pat(XPat name, fnTyp), Fn(head, retTerm)
 
-let pLambda: Parser<term, UserState> =
+    match letName with
+    | ConstantDeclaration p -> 
+        p, returnTerm
+    | LambdaDeclaration parameters ->
+        Pat(XPat "", None), fst <| List.foldBack f parameters (returnTerm, None)
+    | NamedFunctionDeclaration (isRec, name, [], returnType) -> 
+        Pat(XPat name, returnType), returnTerm
+    | RecLambdaDeclaration (name, parameters, returnType) ->
+        join true name parameters returnType
+    | NamedFunctionDeclaration (isRec, name, parameters, returnType) -> 
+        join isRec name parameters returnType
+
+let private pLambda: Parser<term, UserState> =
     fun stream ->
         let replyParams = (pstring "\\" >>. ws >>. (many1 pParameter)) stream
         if replyParams.Status <> Ok then
             Reply(Error, replyParams.Error )
         else
-            let userState = stream.UserState
-            stream.UserState <- {userState with identifiersInPattern = Set[]}
+            stream.UserState <- stream.UserState.resetIdentifiers
             let replyTerm = (pstring "->" >>. ws >>. pTerm) stream
             if replyTerm.Status <> Ok then
                 Reply(Error, replyTerm.Error)
@@ -387,7 +385,7 @@ let pLambda: Parser<term, UserState> =
                 let (parameters, term) = (replyParams.Result, replyTerm.Result)
                 Reply(snd (joinParameters (LambdaDeclaration parameters) term))
 
-let pRecLambda: Parser<term, UserState> =
+let private pRecLambda: Parser<term, UserState> =
     fun stream ->
         let replyParams = 
             tuple3 
@@ -397,8 +395,7 @@ let pRecLambda: Parser<term, UserState> =
         if replyParams.Status <> Ok then
             Reply(Error, replyParams.Error)
         else 
-            let userState = stream.UserState
-            stream.UserState <- {userState with identifiersInPattern = Set[]}
+            stream.UserState <- stream.UserState.resetIdentifiers
             let replyTerm = (pstring "->" >>. ws >>. pTerm) stream
             if replyTerm.Status <> Ok then
                 Reply(Error, replyTerm.Error)
@@ -406,7 +403,11 @@ let pRecLambda: Parser<term, UserState> =
                 let (parameters, term) = (replyParams.Result, replyTerm.Result)
                 Reply(snd (joinParameters (RecLambdaDeclaration parameters) term))
 
-let pOperatorName =
+//#endregion
+
+//#region Library Parsing
+
+let private pOperatorName =
     fun stream ->
         let explicit =
             tuple2
@@ -417,12 +418,10 @@ let pOperatorName =
         let reply = 
             (tuple2
                 (opt explicit)
-                (between (pstring "(" >>. ws) (pstring ")" >>. ws)
-                    (pCustomOperator .>> ws))) <| stream
+                (pBetween "(" ")" (pCustomOperator .>> ws))) <| stream
         if reply.Status <> Ok then
             Reply(Error, reply.Error)
         else
-            let userState = stream.UserState
             let explicit, name = reply.Result
             let newOp =
                 match explicit with
@@ -430,11 +429,10 @@ let pOperatorName =
                     OpSpec(Infix (prec, assoc, Custom name), name)
                 | None ->
                     OpSpec(Infix (9, Left, Custom name), name)
-            let newOps = newOp :: userState.operators
-            stream.UserState <- {userState with operators = newOps}
+            stream.UserState <- stream.UserState.addOperator newOp
             Reply(name)
 
-let pFunctionName =
+let private pFunctionName =
     tuple4
         (opt (pstring "rec" >>. ws) |>> (fun x -> x.IsSome))
         ((pIdentifier .>> ws) <|> pOperatorName) 
@@ -442,10 +440,10 @@ let pFunctionName =
         (opt (pstring ":" >>. ws >>. pType))
          |>> NamedFunctionDeclaration
 
-let pConstantName =
+let private pConstantName =
     pPattern |>> ConstantDeclaration
 
-let pLet: Parser<term, UserState> =
+let private pLibComponent: Parser<LibComponent, UserState> =
     fun stream ->
         let nameParser =
             (attempt (pConstantName .>> pstring "=")) 
@@ -455,74 +453,7 @@ let pLet: Parser<term, UserState> =
             Reply(Error, reply.Error)
         else
             let name = reply.Result
-            let userState = stream.UserState
-            stream.UserState <- {userState with identifiersInPattern = Set[]}
-            let termReply = 
-                (tuple2
-                    (ws >>. pTerm)
-                    (pstring ";" >>. ws >>. pTerm)) stream
-            if termReply.Status <> Ok then
-                Reply(Error, termReply.Error)
-            else
-                let (term1, term2) = termReply.Result
-                let p, fn = joinParameters name term1 
-                Reply(Let(p, fn, term2))
-
-//#endregion
-
-//#region Parse Branching Expressions
-
-let pIf =
-    let first = pstring "if" >>. ws >>. pTerm
-    let second = pstring "then" >>. ws >>. pTerm
-    let third = pstring "else" >>. ws >>. pTerm
-    pipe3 first second third (fun x y z -> Cond(x, y, z))
-    
-let pTry =
-    let first = pstring "try" >>. ws >>. pTerm
-    let second = pstring "except" >>. ws >>. pTerm
-    pipe2 first second (fun x y -> Try(x, y))
-
-let pMatch = 
-    let first = pstring "match" >>. ws >>. pTerm .>> pstring "with" .>> ws
-    let triplets = 
-        fun stream ->
-            let replyPattern = 
-                (pstring "|" >>. ws >>. pPattern) <| stream
-            if replyPattern.Status <> Ok then
-                Reply(Error, replyPattern.Error)
-            else
-                let userState = stream.UserState
-                stream.UserState <- {userState with identifiersInPattern = Set[]}
-                let replyRest = 
-                    tuple2 
-                        (opt (pstring "when" >>. ws >>. pTerm))
-                        (pstring "->" >>. ws >>. pTerm) <| stream
-                if replyRest.Status <> Ok then
-                    Reply(Error, replyRest.Error)
-                else
-                    let comp1, (comp2, comp3) = replyPattern.Result, replyRest.Result
-                    Reply((comp1, comp2, comp3))
-
-    pipe2 first (many1 triplets)
-        <| (fun x triplets -> Match(x, triplets))
-
-//#endregion
-
-//#region Library Parsing
-
-let pLibComponent: Parser<LibComponent, UserState> =
-    fun stream ->
-        let nameParser =
-            (attempt (pConstantName .>> pstring "=")) 
-                <|> (pFunctionName .>> pstring "=")
-        let reply = pstring "let" >>. ws >>. nameParser <| stream
-        if reply.Status <> Ok then
-            Reply(Error, reply.Error)
-        else
-            let name = reply.Result
-            let userState = stream.UserState
-            stream.UserState <- {userState with identifiersInPattern = Set[]}
+            stream.UserState <- stream.UserState.resetIdentifiers
             let termReply = (ws >>. pTerm .>> pstring ";" .>> ws) stream
             if termReply.Status <> Ok then
                 Reply(Error, termReply.Error)
@@ -531,7 +462,7 @@ let pLibComponent: Parser<LibComponent, UserState> =
                 let p, fn = joinParameters name term1 
                 Reply((p, fn))
 
-let pLibrary =
+let private pLibrary =
     fun stream ->
         let reply = ws >>. many1 pLibComponent .>> eof <| stream
         if reply.Status <> Ok then
@@ -542,7 +473,7 @@ let pLibrary =
             let ops = List.filter (fun op -> not <| List.exists ((=) op) defaultOPs) state.operators
             Reply({terms = terms; operators=ops})
 
-let pImport: Parser<term, UserState> =
+let private pImport: Parser<term, UserState> =
     fun stream ->
         let reply = 
             pstring "import" >>. ws >>.
@@ -566,13 +497,65 @@ let pImport: Parser<term, UserState> =
                 Reply(Error, libReply.Error)
             else
                 let lib = libReply.Result
-                let newOps = lib.operators @ stream.UserState.operators
-                stream.UserState <- {stream.UserState with operators = newOps}
+                stream.UserState <- stream.UserState.addOperators lib.operators
                 pTerm |>> List.foldBack (fun (p, def) acc -> Let(p, def, acc)) lib.terms <| stream
 
 //#endregion
 
-let pValue = choice [pIdentifier |>> X;
+let private pLet: Parser<term, UserState> =
+    fun stream ->
+        let compReply = pLibComponent stream
+        if compReply.Status <> Ok then
+            Reply(Error, compReply.Error)
+        else
+            let (p, t1) = compReply.Result
+            let t2Reply = pTerm stream
+            if t2Reply.Status <> Ok then
+                Reply(Error, t2Reply.Error)
+            else
+                Reply(Let(p, t1, t2Reply.Result))
+
+//#endregion
+
+//#region Parse Branching Expressions
+
+let private pIf =
+    let first = pstring "if" >>. ws >>. pTerm
+    let second = pstring "then" >>. ws >>. pTerm
+    let third = pstring "else" >>. ws >>. pTerm
+    pipe3 first second third (fun x y z -> Cond(x, y, z))
+    
+let private pTry =
+    let first = pstring "try" >>. ws >>. pTerm
+    let second = pstring "except" >>. ws >>. pTerm
+    pipe2 first second (fun x y -> Try(x, y))
+
+let private pMatch = 
+    let first = pstring "match" >>. ws >>. pTerm .>> pstring "with" .>> ws
+    let triplets = 
+        fun stream ->
+            let replyPattern = 
+                (pstring "|" >>. ws >>. pPattern) <| stream
+            if replyPattern.Status <> Ok then
+                Reply(Error, replyPattern.Error)
+            else
+                stream.UserState <- stream.UserState.resetIdentifiers
+                let replyRest = 
+                    tuple2 
+                        (opt (pstring "when" >>. ws >>. pTerm))
+                        (pstring "->" >>. ws >>. pTerm) <| stream
+                if replyRest.Status <> Ok then
+                    Reply(Error, replyRest.Error)
+                else
+                    let comp1, (comp2, comp3) = replyPattern.Result, replyRest.Result
+                    Reply((comp1, comp2, comp3))
+
+    pipe2 first (many1 triplets)
+        <| (fun x triplets -> Match(x, triplets))
+
+//#endregion
+
+let private pValue = choice [pIdentifier |>> X;
                         pBool;
                         pNum;
                         pNil;
@@ -593,13 +576,13 @@ let pValue = choice [pIdentifier |>> X;
 
 //#region Expression Parsing
 
-let manyApplication p =
+let private manyApplication p =
   Inline.Many(elementParser = p,
               stateFromFirstElement = (fun x -> x),
               foldState = (fun acc x -> OP(acc, Application, x)),
               resultFromState = (fun acc -> acc))
 
-let toOPP x: Operator<term, string, UserState> = 
+let private toOPP x: Operator<term, string, UserState> = 
     let updateAssoc = 
         function 
         | Left -> Associativity.Left 
@@ -616,7 +599,7 @@ let toOPP x: Operator<term, string, UserState> =
         upcast InfixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, updateAssoc assoc, fun x y -> OP (OP (X op, Application, x), Application, y))
             : Operator<term, string, UserState>
 
-let getExpressionParser state =
+let private getExpressionParser state =
     let operators = state.operators
     let opp = new OperatorPrecedenceParser<term,string,UserState>()
     let expr = opp.ExpressionParser
@@ -635,10 +618,10 @@ do pTermRef :=
         let expr = getExpressionParser (stream.UserState)
         (expr .>> ws) stream
 
-let pProgram = ws >>. pTerm .>> eof
+let private pProgram = ws >>. pTerm .>> eof
 
 let parseWith (lib: Library) text =
-    let state = {defaultUserState with operators = defaultUserState.operators @ lib.operators}
+    let state = defaultUserState.addOperators lib.operators
     let res = runParserOnString pProgram state "" text
     match res with
     | Success (a, _, _) -> a |> List.foldBack (fun (p, def) acc -> Let(p, def, acc)) lib.terms
