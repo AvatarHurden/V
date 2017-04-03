@@ -62,8 +62,12 @@ type TestLetParsing() =
         
     [<Test>]
     member that.consLetDeclaration() =
-        compare "   let  x :: (y: Int) :: z : [Int]   = [1,2,3,4]; x + y" <| ResI 3
+        compare "   let  (x :: (y: Int) :: z) : [Int]   = [1,2,3,4]; x + y" <| ResI 3
         
+    [<Test>]
+    member that.duplicateVars() =
+        shouldFail "let (x, x) = (3,4); x + x"
+    
     [<Test>]
     member that.listLetDeclaration() =
         compare "   let  [x,y,z]: [Int]   = [1,2,3]; x + y + z" <| ResI 6
@@ -96,15 +100,6 @@ type TestLetParsing() =
     [<Test>]
     member that.typedLetRec() =
         compare "   let  rec  t (x: Int): Int = x*x ; t 4" <| ResI 16
-        
-    [<Test>]
-    member that.maltypedLetRec() =
-        shouldFail "   let  rec t (f): Int = (let x: Int = 3;x+4); t"
-        
-    [<Test>]
-    member that.incompleteLetRec() =
-        shouldFail "   let  rec t: Int = 3+4 ; t"
-
 
     [<Test>]
     member that.simpleLetFunction() =

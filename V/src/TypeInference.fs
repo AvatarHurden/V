@@ -599,3 +599,9 @@ let typeInfer t =
     let typ, c = collectConstraints t Map.empty
     let substitutions = unify c
     applyUniToType typ substitutions
+
+let typeInferLib lib =
+    let ret = List.foldBack (fun (p, t) acc -> Let(p, t, acc)) lib.terms (X "x")
+    let libTerm = Fn(Pat(XPat "x", None), ret) 
+    typeInfer libTerm
+       

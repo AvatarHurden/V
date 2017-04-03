@@ -20,13 +20,14 @@ let private save value path =
 let saveTerm (term: term) path = save term path
 let saveLib (lib: Library) path = save lib path
 
-let saveArray term  =
+let private saveArray term  =
     let binFormatter = new BinaryFormatter()
 
     use stream = new MemoryStream()
     binFormatter.Serialize(stream, term)
-
     stream.ToArray()
+
+let saveLibArray (lib: Library) = saveArray lib
 
 let private load<'T> path =
     let binFormatter = new BinaryFormatter()
@@ -35,7 +36,7 @@ let private load<'T> path =
     binFormatter.Deserialize(stream) :?> 'T
 
 let loadTerm = load<Definition.term>
-let loadLib2 path = 
+let loadLib path = 
 
     let relative = makeRelative path
 
@@ -58,44 +59,15 @@ let loadLib2 path =
     | :? SerializationException ->
         raise <| UncompiledLib (File.ReadAllText pathName)
     
+let loadCompiledLib (arr: byte[]) =
+    let binFormatter = new BinaryFormatter()
+
+    use stream = new MemoryStream(arr)
+    binFormatter.Deserialize(stream) :?> Definition.Library
+
 let loadArray (arr: byte[]) =
     let binFormatter = new BinaryFormatter()
 
     use stream = new MemoryStream(arr)
     binFormatter.Deserialize(stream) :?> Definition.term
-
-
-let isValidLib term = 
-    let rec iter t =
-        match t with
-        | Let (_, inside, X "x") ->
-            true
-        | Let (_, inside, (Let _ as newLet)) ->
-            iter newLet
-        | _ -> false
-    match term with
-    | Fn (Pat(XPat "x", None), t) -> iter t
-    | _ -> false
-
-let replaceXLib lib term = 
-    let rec iter t =
-        match t with
-        | Let (p, inside, X "x") ->
-            Let (p, inside, term)
-        | Let (p, inside, (Let _ as newLet)) ->
-            Let (p, inside, iter newLet)
-        | _ ->
-            raise <| ParseException "Not a library"
-    match lib with
-    | Fn (Pat(XPat "x", None), t) -> iter t
-    | _ -> raise <| ParseException "Not a library"
-
-let loadLib path nextTerm =
-    let lib = loadTerm path
-
-    if isValidLib lib then
-        replaceXLib lib nextTerm
-    else
-        raise <| ParseException ("The file at " + path + " is not a library")
-
 

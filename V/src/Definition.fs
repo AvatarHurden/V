@@ -120,3 +120,5 @@ type LibComponent = VarPattern * term
 type Library =
     {terms: LibComponent list;
     operators: OperatorSpec list}
+
+let emptyLib = {terms = []; operators = []}
