@@ -93,7 +93,7 @@ let private pIdentifier: Parser<string, UserState> =
             reply
         else // result is keyword, so backtrack to before the string
             stream.BacktrackTo(state)
-            Reply(Error, expected <| sprintf "identifier ('%O' is a reserved keyword)" reply.Result)
+            Reply(Error, unexpected <| sprintf "keyword '%O' is reserved" reply.Result)
 
 let private pOperator = 
     many1Chars (anyOf "?!%$&*+-./<=>@^|~") |>>
@@ -174,7 +174,7 @@ let private pTypeValue = choice [pParenType;
                         pBoolType;
                         pCharType;
                         pStringType;
-                        pListType]
+                        pListType] <?> "type"
 
 do pTypeRef :=
     let fold = List.reduceBack (fun x acc -> Function(x, acc))
@@ -209,7 +209,7 @@ let private pIdentPattern: Parser<VarPattern, UserState> =
                 Reply(Pat(XPat id, None))
             else
                 stream.BacktrackTo state
-                Reply(Error, expected ("identifier (" + id + " is already bound)"))
+                Reply(Error, unexpected ("bound identifier " + id))
 
 let private pIgnorePattern = stringReturn "_" <| Pat(IgnorePat, None)
 
@@ -247,16 +247,17 @@ let private pListPattern =
     pBetween "[" "]" (sepBy pPattern (pstring "," .>> ws)) 
         |>> fun l -> List.foldBack (fun p acc -> Pat (ConsPat(p, acc), None)) l (Pat(NilPat, None))
 
-let private pPatternValue = choice [pIgnorePattern;
-                            pIdentPattern;
-                            pCharPattern;
-                            pStringPattern;
-                            pBoolPattern;
-                            pNumPattern;
-                            pNilPattern;
-                            pParenPattern;
-                            pRecordPattern;
-                            pListPattern]
+let private pPatternValue = 
+    pIdentPattern <|> 
+    (choice [pIgnorePattern;
+            pCharPattern;
+            pStringPattern;
+            pBoolPattern;
+            pNumPattern;
+            pNilPattern;
+            pParenPattern;
+            pRecordPattern;
+            pListPattern] <?> "pattern")
 
 let private pConsPattern =
     let reduce ls =
@@ -404,18 +405,31 @@ let private pRecordComp =
 let private pRecord =
     pBetween "{" "}" (sepBy1 pRecordComp (pstring "," .>> ws)) |>> Record
 
-let private pRange =
-    (pipe3 pTerm (opt (pstring "," >>. ws >>. pTerm)) (pstring ".." >>. ws >>. pTerm)) <|
-    fun first middle last ->
-        match middle with
-        | None -> OP (OP (OP (X "range", Application, first), Application, last), Application, I 1)
-        | Some num ->
-            let increment = OP(num, Subtract, first)
-            OP (OP (OP (X "range", Application, first), Application, last), Application, increment)
+let private pRange: Parser<term, UserState> =
+    fun stream ->
+        let state = stream.State
+        let reply = tuple2 pTerm (opt (pstring "," >>. ws >>. pTerm)) <| stream
+        if reply.Status <> Ok then
+            stream.BacktrackTo state
+            Reply(Error, reply.Error)
+        else
+            let dots = pstring ".." >>. ws <| stream
+            if dots.Status <> Ok then
+                stream.BacktrackTo state
+                Reply(Error, dots.Error)
+            else
+                let first, middle = reply.Result
+                let join last =
+                    match middle with
+                    | None -> OP (OP (OP (X "range", Application, first), Application, last), Application, I 1)
+                    | Some num ->
+                        let increment = OP(num, Subtract, first)
+                        OP (OP (OP (X "range", Application, first), Application, last), Application, increment)
+                pTerm |>> join <| stream
     
 let private pComprehension: Parser<term, UserState> =
     fun stream ->
-        let reply = tuple2 (pTerm .>> pstring "for" .>> ws) 
+        let reply = tuple2 (pTerm .>>? pstring "for" .>> ws) 
                         (pParameter .>> pstring "in" .>> ws) <| stream
         if reply.Status <> Ok then
             Reply(Error, reply.Error)
@@ -434,7 +448,7 @@ let private pList =
     fun l -> List.foldBack (fun x acc -> OP (x, Cons, acc)) l Nil
 
 let private pSquareBrackets =
-    pBetween "[" "]" ((attempt pComprehension) <|> (attempt pRange) <|> pList)
+    pBetween "[" "]" (pComprehension <|> pRange <|> pList)
 
 //#endregion
 
@@ -591,24 +605,25 @@ let private pMatch =
 
 //#endregion
 
-let private pValue = choice [pIdentifier |>> X;
-                        pBool;
-                        pNum;
-                        pNil;
-                        pRaise;
-                        pChar;
-                        pString;
-                        pParen;
-                        pRecord;
-                        pProjection;
-                        pSquareBrackets;
-                        pIf;
-                        pTry;
-                        pMatch;
-                        pLambda;
-                        pRecLambda;
-                        pLet;
-                        pImport]
+let private pValue = 
+    pIdentifier |>> X <|>
+    (choice [pBool;
+            pNum;
+            pNil;
+            pRaise;
+            pChar;
+            pString;
+            pParen;
+            pRecord;
+            pProjection;
+            pSquareBrackets;
+            pIf;
+            pTry;
+            pMatch;
+            pLambda;
+            pRecLambda;
+            pLet;
+            pImport] <?> "term")
 
 //#region Expression Parsing
 
