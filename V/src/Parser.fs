@@ -538,12 +538,14 @@ let private pImport: Parser<term, UserState> =
 
 let private pLet: Parser<term, UserState> =
     fun stream ->
+        let op = stream.UserState.operators
         let compReply = pLibComponent stream
         if compReply.Status <> Ok then
             Reply(Error, compReply.Error)
         else
             let (p, t1) = compReply.Result
             let t2Reply = pTerm stream
+            stream.UserState <- {stream.UserState with operators = op}
             if t2Reply.Status <> Ok then
                 Reply(Error, t2Reply.Error)
             else
