@@ -44,6 +44,7 @@
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Test|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
+    <Optimize>false</Optimize>
     <OutputPath>bin\Test\</OutputPath>
   </PropertyGroup>
   <Choose>
@@ -60,29 +61,16 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
-    <Compile Include="AssemblyInfo.fs" />
-    <None Include="App.config" />
-    <Content Include="packages.config" />
-    <Compile Include="src\Definition.fs" />
-    <Compile Include="src\StringConversion.fs" />
-    <Compile Include="src\Evaluation.fs" />
-    <Compile Include="src\Printer.fs" />
-    <Compile Include="src\TypeInference.fs" />
-    <Compile Include="src\Compiler.fs" />
-    <Compile Include="src\compiledStdlib.fs" />
-    <Compile Include="src\stdlib.fs" />
-    <Compile Include="src\Parser.fs" />
-    <Compile Include="tests\EvaluationTests.fs" />
-    <Compile Include="tests\TypeInferenceTests.fs" />
-    <Compile Include="tests\stdlibTests.fs" />
-    <Compile Include="tests\InternalParserTests.fs" />
-    <Compile Include="tests\ExternalParserTests.fs" />
-    <Compile Include="Program.fs" />
-    <None Include="README.md" />
-  </ItemGroup>
-  <ItemGroup>
     <Reference Include="Argu">
       <HintPath>..\packages\Argu.3.7.0\lib\net40\Argu.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="FParsec">
+      <HintPath>..\packages\FParsec.1.0.2\lib\net40-client\FParsec.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="FParsecCS">
+      <HintPath>..\packages\FParsec.1.0.2\lib\net40-client\FParsecCS.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="FSharp.Core">
@@ -113,4 +101,26 @@
   <Target Name="AfterBuild">
   </Target>
   -->
+  <ItemGroup>
+    <Compile Include="AssemblyInfo.fs" />
+    <None Include="App.config" />
+    <Content Include="packages.config" />
+    <Compile Include="src\Definition.fs" />
+    <Compile Include="src\StringConversion.fs" />
+    <Compile Include="src\Evaluation.fs" />
+    <Compile Include="src\Printer.fs" />
+    <Compile Include="src\TypeInference.fs" />
+    <Compile Include="src\Compiler.fs" />
+    <Compile Include="src\compiledStdlib.fs" />
+    <Compile Include="src\stdlib.fs" />
+    <Compile Include="src\Parser.fs" />
+    <Compile Include="tests\EvaluationTests.fs" />
+    <Compile Include="tests\TypeInferenceTests.fs" />
+    <Compile Include="tests\stdlibTests.fs" />
+    <Compile Include="tests\ExternalParserTests.fs" />
+    <Compile Include="Program.fs" />
+    <None Include="README.md" />
+    <None Include="Scripts\load-references-debug.fsx" />
+    <None Include="Scripts\load-project-debug.fsx" />
+  </ItemGroup>
 </Project>

@@ -8,7 +8,7 @@ open TypeInference
 open Parser
 
 let compare (text, term) =
-    let parsed = parse text
+    let parsed = parsePure text
     let typ = typeInfer <| parsed
     let evaluated = evaluate <| parsed
     evaluated |> should equal term
@@ -69,7 +69,7 @@ type Apply() =
 
     static member func = """
 let apply f x = f x;
-let ($) = apply;
+let infixr 1 ($) = apply;
 """
 
     [<Test>]
@@ -85,14 +85,14 @@ type Compose() =
 
     static member func = """
 let compose f g x = f (g x);
-let (.) = compose;
+let infixr 9 (.) = compose;
 """
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType ("y", [])
-        let x2 = VarType ("z", [])
-        let x3 = VarType ("x", [])     
+        let x2 = VarType ("y", [])
+        let x3 = VarType ("z", [])
+        let x1 = VarType ("x", [])     
         matchesType (Compose.func + "compose") <| 
             Function (Function (x1, x2), 
                 Function (Function(x3, x1), Function (x3, x2)))
@@ -102,7 +102,7 @@ type Remainder() =
 
     static member func = """
 let rec remainder x y = x - (x/y)*y;
-let (%) = remainder;
+let infixl 8 (%) = remainder;
 """
 
     [<Test>]
@@ -690,7 +690,7 @@ let rec fold f acc ls =
     member that.wrongParameter() =
         throwsWrongType (Fold.func + "fold [1,2,3]")
         throwsWrongType (Fold.func + "fold (\\x -> x = true) true [1,2,3]")
-        throwsWrongType (Fold.func + "fold (\\acc x -> acc && x % 4 = 0) true \"hi\"")
+        throwsWrongType (Fold.func + Remainder.func + "fold (\\acc x -> acc && x % 4 = 0) true \"hi\"")
 
     [<Test>]
     member that.emptyList() =
@@ -1379,7 +1379,7 @@ let rec zipWith f x y =
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (ZipWith.func + "zipWith (\x y -> x + y) ['a']")
-        throwsWrongType (ZipWith.func + "zipWith (\x y -> x @ y) [\"alo\"] [[1,2],[2,3]]")
+        throwsWrongType (ZipWith.func + Concat.func + "zipWith (\x y -> x @ y) [\"alo\"] [[1,2],[2,3]]")
         throwsWrongType (ZipWith.func + "zipWith [true, false] false")
         
     [<Test>]
@@ -1437,7 +1437,7 @@ let unzip ls =
 type ParseInt() =
 
     static member func = 
-        Negate.func + Reverse.func + Compose.func + Apply.func + """
+        Negate.func + Reverse.func + Compose.func + """
 let parseInt (s: String): Int =
     match s with
     | x :: xs ->

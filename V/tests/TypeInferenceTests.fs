@@ -128,10 +128,6 @@ type TestMatchInfer() =
         shouldFail "let (x, y) = (3,4, 5); x" 
                
     [<Test>]
-    member that.duplicateVars() =
-        shouldFail "let (x, x) = (3,4); x + x"
-    
-    [<Test>]
     member that.simpleRecord() =
         compare ("let {a: x, b: y} = {a: 4, b: 5}; x + y", Int)
 
