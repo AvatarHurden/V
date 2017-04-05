@@ -224,7 +224,10 @@ let rec parseItem lib previous first =
         if e.Contains "The error occurred at the end of the input stream" then
             try
                 let newLib = parseLib line
-                let newOps = lib.operators @ newLib.operators
+                let f = fun (OpSpec (_, s)) -> List.forall (fun (OpSpec (_, name)) -> name <> s) newLib.operators
+                let oldOps' = List.filter f lib.operators
+        
+                let newOps = newLib.operators @ oldOps'
                 let newTerms = lib.terms @ newLib.terms
                 let lib' = {terms = newTerms; operators = newOps}
                 Choice1Of3 lib', None

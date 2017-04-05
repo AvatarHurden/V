@@ -690,7 +690,7 @@ let rec fold f acc ls =
     member that.wrongParameter() =
         throwsWrongType (Fold.func + "fold [1,2,3]")
         throwsWrongType (Fold.func + "fold (\\x -> x = true) true [1,2,3]")
-        throwsWrongType (Fold.func + "fold (\\acc x -> acc && x % 4 = 0) true \"hi\"")
+        throwsWrongType (Fold.func + Remainder.func + "fold (\\acc x -> acc && x % 4 = 0) true \"hi\"")
 
     [<Test>]
     member that.emptyList() =
@@ -1379,7 +1379,7 @@ let rec zipWith f x y =
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (ZipWith.func + "zipWith (\x y -> x + y) ['a']")
-        throwsWrongType (ZipWith.func + Compose.func + "zipWith (\x y -> x @ y) [\"alo\"] [[1,2],[2,3]]")
+        throwsWrongType (ZipWith.func + Concat.func + "zipWith (\x y -> x @ y) [\"alo\"] [[1,2],[2,3]]")
         throwsWrongType (ZipWith.func + "zipWith [true, false] false")
         
     [<Test>]

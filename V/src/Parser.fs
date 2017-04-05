@@ -24,12 +24,17 @@ type UserState =
         {this with identifiersInPattern = ids.Add id}
 
     member this.addOperator op =
-       let ops = this.operators
-       {this with operators = op :: ops}
+        let (OpSpec (fix, name)) = op
+        let ops = List.filter (fun (OpSpec (_, s)) -> s <> name) this.operators
+
+        {this with operators = op :: ops}
 
     member this.addOperators ops =
-      let ops' = this.operators
-      {this with operators = ops @ ops'}
+        let internalF = (fun s (OpSpec (_, name)) -> name <> s)
+        let externalF = (fun (OpSpec (_, s)) -> List.forall (internalF s) ops)
+        let ops' = List.filter externalF this.operators
+        
+        {this with operators = ops @ ops'}
 
 let defaultOPs =[
     OpSpec (Infix  (8, Left , Def Multiply      ), "*" );
@@ -300,33 +305,6 @@ let private pProjection =
 
 let private pTerm, private pTermRef = createParserForwardedToRef<term, UserState>()
 
-//#region Compound Value Parsing (Tuple, Record, List)
-
-let private pParen =
-    let pTuple = sepBy1 pTerm (pstring "," .>> ws) |>> (function | [x] -> x | xs -> Tuple xs)
-
-    let pPrefixOP =
-        pBetween "(" ")" (pOperator .>> ws)
-            |>> (function
-                  | Def op ->
-                      Fn(Pat(XPat "x", None), Fn(Pat(XPat "y", None), OP(X "x", op, X "y")))
-                  | Custom c ->
-                      X c)
-
-    attempt pPrefixOP <|> pBetween "(" ")" pTuple
-
-let private pRecordComp =
-    tuple2 (pIdentifier .>> ws .>> pstring ":" .>> ws) pTerm
-
-let private pRecord =
-    pBetween "{" "}" (sepBy1 pRecordComp (pstring "," .>> ws)) |>> Record
-
-let private pList =
-    pBetween "[" "]" (sepBy pTerm (pstring "," .>> ws))
-    |>> fun l -> List.foldBack (fun x acc -> OP (x, Cons, acc)) l Nil
-
-//#endregion
-
 //#region Parse Functions
 
 let private pParameter =
@@ -404,6 +382,62 @@ let private pRecLambda: Parser<term, UserState> =
                 Reply(snd (joinParameters (RecLambdaDeclaration parameters) term))
 
 //#endregion
+
+//#region Compound Value Parsing (Tuple, Record, List)
+
+let private pParen =
+    let pTuple = sepBy1 pTerm (pstring "," .>> ws) |>> (function | [x] -> x | xs -> Tuple xs)
+
+    let pPrefixOP =
+        pBetween "(" ")" (pOperator .>> ws)
+            |>> (function
+                  | Def op ->
+                      Fn(Pat(XPat "x", None), Fn(Pat(XPat "y", None), OP(X "x", op, X "y")))
+                  | Custom c ->
+                      X c)
+
+    attempt pPrefixOP <|> pBetween "(" ")" pTuple
+
+let private pRecordComp =
+    tuple2 (pIdentifier .>> ws .>> pstring ":" .>> ws) pTerm
+
+let private pRecord =
+    pBetween "{" "}" (sepBy1 pRecordComp (pstring "," .>> ws)) |>> Record
+
+let private pRange =
+    (pipe3 pTerm (opt (pstring "," >>. ws >>. pTerm)) (pstring ".." >>. ws >>. pTerm)) <|
+    fun first middle last ->
+        match middle with
+        | None -> OP (OP (OP (X "range", Application, first), Application, last), Application, I 1)
+        | Some num ->
+            let increment = OP(num, Subtract, first)
+            OP (OP (OP (X "range", Application, first), Application, last), Application, increment)
+    
+let private pComprehension: Parser<term, UserState> =
+    fun stream ->
+        let reply = tuple2 (pTerm .>> pstring "for" .>> ws) 
+                        (pParameter .>> pstring "in" .>> ws) <| stream
+        if reply.Status <> Ok then
+            Reply(Error, reply.Error)
+        else
+            stream.UserState <- stream.UserState.resetIdentifiers
+            let reply2 = pTerm stream
+            if reply2.Status <> Ok then
+                Reply(Error, reply2.Error)
+            else
+                let (retTerm, pat), source = reply.Result, reply2.Result
+                let f = Fn (pat, retTerm)
+                Reply(OP (OP (X "map", Application, f), Application, source))
+
+let private pList =
+    sepBy pTerm (pstring "," .>> ws) |>> 
+    fun l -> List.foldBack (fun x acc -> OP (x, Cons, acc)) l Nil
+
+let private pSquareBrackets =
+    pBetween "[" "]" ((attempt pComprehension) <|> (attempt pRange) <|> pList)
+
+//#endregion
+
 
 //#region Library Parsing
 
@@ -565,7 +599,7 @@ let private pValue = choice [pIdentifier |>> X;
                         pParen;
                         pRecord;
                         pProjection;
-                        pList;
+                        pSquareBrackets;
                         pIf;
                         pTry;
                         pMatch;
