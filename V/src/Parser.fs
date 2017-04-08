@@ -89,7 +89,7 @@ let keywords =
         "infixl"; "infixr"]
 
 let private isAsciiIdStart c =
-    isAsciiLetter c || c = '_'
+    isAsciiLower c || c = '_'
 
 let private isAsciiIdContinue c =
     isAsciiLetter c || isDigit c || c = '_' || c = '\'' || c = '?'
@@ -523,8 +523,12 @@ let private pImport: Parser<term, UserState> =
                 Reply(Error, libReply.Error)
             else
                 let lib = libReply.Result
+                let op = stream.UserState.operators
                 stream.UserState <- stream.UserState.addOperators lib.operators
-                pTerm |>> List.foldBack (fun (p, def) acc -> Let(p, def, acc)) lib.terms <| stream
+                let foldF = (fun (p, def) acc -> Let(p, def, acc))
+                let reply = pTerm |>> List.foldBack foldF lib.terms <| stream
+                stream.UserState <- {stream.UserState with operators = op}
+                reply
 
 //#endregion
 
