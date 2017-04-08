@@ -62,12 +62,23 @@ let defaultUserState =
 
 //#endregion
 
+//#region Whitespace and helper Functions
+
 let private pComment = pstring "//" >>. skipRestOfLine true
 
 let private ws = many (spaces1 <|> pComment)
 
 let private pBetween s1 s2 p = 
     between (pstring s1 .>> ws) (pstring s2 .>> ws) p
+
+let private pResetIdentifier (p: Parser<'t, UserState>) =
+    fun stream ->
+        let reply = p stream
+        if reply.Status = Ok then
+            stream.UserState <- stream.UserState.resetIdentifiers    
+        reply
+
+//#endregion
 
 //#region Identifier and Operator Parsing
 
@@ -351,36 +362,19 @@ let private joinParameters letName returnTerm =
         join isRec name parameters returnType
 
 let private pLambda: Parser<term, UserState> =
-    fun stream ->
-        let replyParams = (pstring "\\" >>. ws >>. (many1 pParameter)) stream
-        if replyParams.Status <> Ok then
-            Reply(Error, replyParams.Error )
-        else
-            stream.UserState <- stream.UserState.resetIdentifiers
-            let replyTerm = (pstring "->" >>. ws >>. pTerm) stream
-            if replyTerm.Status <> Ok then
-                Reply(Error, replyTerm.Error)
-            else
-                let (parameters, term) = (replyParams.Result, replyTerm.Result)
-                Reply(snd (joinParameters (LambdaDeclaration parameters) term))
+    pipe2 
+        (pstring "\\" >>. ws >>. pResetIdentifier (many1 pParameter))
+        (pstring "->" >>. ws >>. pTerm) <|
+    fun parameters term -> snd (joinParameters (LambdaDeclaration parameters) term)
 
 let private pRecLambda: Parser<term, UserState> =
-    fun stream ->
-        let replyParams = 
-            tuple3 
-                (pstring "rec" >>. ws >>. pIdentifier .>> ws) 
-                (many1 pParameter)
-                (opt (pstring ":" >>. pType)) <| stream
-        if replyParams.Status <> Ok then
-            Reply(Error, replyParams.Error)
-        else 
-            stream.UserState <- stream.UserState.resetIdentifiers
-            let replyTerm = (pstring "->" >>. ws >>. pTerm) stream
-            if replyTerm.Status <> Ok then
-                Reply(Error, replyTerm.Error)
-            else
-                let (parameters, term) = (replyParams.Result, replyTerm.Result)
-                Reply(snd (joinParameters (RecLambdaDeclaration parameters) term))
+    pipe4
+        (pstring "rec" >>. ws >>. pIdentifier .>> ws) 
+        (pResetIdentifier (many1 pParameter))
+        (opt (pstring ":" >>. pType))
+        (pstring "->" >>. ws >>. pTerm) <|
+    fun name parameters typ term ->
+        snd (joinParameters (RecLambdaDeclaration (name, parameters, typ)) term)
 
 //#endregion
 
@@ -428,20 +422,13 @@ let private pRange: Parser<term, UserState> =
                 pTerm |>> join <| stream
     
 let private pComprehension: Parser<term, UserState> =
-    fun stream ->
-        let reply = tuple2 (pTerm .>>? pstring "for" .>> ws) 
-                        (pParameter .>> pstring "in" .>> ws) <| stream
-        if reply.Status <> Ok then
-            Reply(Error, reply.Error)
-        else
-            stream.UserState <- stream.UserState.resetIdentifiers
-            let reply2 = pTerm stream
-            if reply2.Status <> Ok then
-                Reply(Error, reply2.Error)
-            else
-                let (retTerm, pat), source = reply.Result, reply2.Result
-                let f = Fn (pat, retTerm)
-                Reply(OP (OP (X "map", Application, f), Application, source))
+    pipe3 
+        (pTerm .>>? pstring "for" .>> ws) 
+        (pResetIdentifier pParameter .>> pstring "in" .>> ws)
+        pTerm <|
+    fun retTerm pat source ->
+        let f = Fn (pat, retTerm)
+        OP (OP (X "map", Application, f), Application, source)
 
 let private pList =
     sepBy pTerm (pstring "," .>> ws) |>> 
@@ -491,24 +478,15 @@ let private pFunctionName =
 let private pConstantName =
     pPattern |>> ConstantDeclaration
 
+let private pName = 
+    (attempt (pConstantName .>> pstring "=" .>> ws)) 
+    <|> (pFunctionName .>> pstring "=" .>> ws)
+
 let private pLibComponent: Parser<LibComponent, UserState> =
-    fun stream ->
-        let nameParser =
-            (attempt (pConstantName .>> pstring "=")) 
-                <|> (pFunctionName .>> pstring "=")
-        let reply = pstring "let" >>. ws >>. nameParser <| stream
-        if reply.Status <> Ok then
-            Reply(Error, reply.Error)
-        else
-            let name = reply.Result
-            stream.UserState <- stream.UserState.resetIdentifiers
-            let termReply = (ws >>. pTerm .>> pstring ";" .>> ws) stream
-            if termReply.Status <> Ok then
-                Reply(Error, termReply.Error)
-            else
-                let term1 = termReply.Result
-                let p, fn = joinParameters name term1 
-                Reply((p, fn))
+    pipe2 
+        (pstring "let" >>. ws >>. pResetIdentifier pName)
+        (pTerm .>> pstring ";" .>> ws) <|
+    fun name term -> joinParameters name term
 
 let private pLibrary =
     fun stream ->
@@ -581,27 +559,14 @@ let private pTry =
     pipe2 first second (fun x y -> Try(x, y))
 
 let private pMatch = 
-    let first = pstring "match" >>. ws >>. pTerm .>> pstring "with" .>> ws
-    let triplets = 
-        fun stream ->
-            let replyPattern = 
-                (pstring "|" >>. ws >>. pPattern) <| stream
-            if replyPattern.Status <> Ok then
-                Reply(Error, replyPattern.Error)
-            else
-                stream.UserState <- stream.UserState.resetIdentifiers
-                let replyRest = 
-                    tuple2 
-                        (opt (pstring "when" >>. ws >>. pTerm))
-                        (pstring "->" >>. ws >>. pTerm) <| stream
-                if replyRest.Status <> Ok then
-                    Reply(Error, replyRest.Error)
-                else
-                    let comp1, (comp2, comp3) = replyPattern.Result, replyRest.Result
-                    Reply((comp1, comp2, comp3))
-
-    pipe2 first (many1 triplets)
-        <| (fun x triplets -> Match(x, triplets))
+    pipe2
+        (pstring "match" >>. ws >>. pTerm .>> pstring "with" .>> ws)
+        (many1 
+            (tuple3 
+                (pstring "|" >>. ws >>. pResetIdentifier pPattern)
+                (opt (pstring "when" >>. ws >>. pTerm))
+                (pstring "->" >>. ws >>. pTerm))) <|
+    fun first triplets -> Match(first, triplets)
 
 //#endregion
 
