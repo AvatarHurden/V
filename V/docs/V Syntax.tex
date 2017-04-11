@@ -6,6 +6,7 @@
 \usepackage{array}
 \usepackage{txfonts}
 \usepackage{syntax}
+\usepackage[tstt]{backnaur}
 \usepackage{titlesec}
 
 \usepackage{upquote}
@@ -28,23 +29,23 @@
 }
 \lstset{language=V}
 
-  \lstdefinestyle{V}{
-    basicstyle=\footnotesize\ttfamily,
-    numbers=left,
-    numberstyle=\tiny\color{gray}\ttfamily,
-    numbersep=5pt,
-    backgroundcolor=\color{white},
-    showspaces=false,
-    showstringspaces=false,
-    showtabs=false,
-    frame=single,
-    rulecolor=\color{black},
-    captionpos=b,
-    keywordstyle=\color{blue}\bf,
-    commentstyle=\color{gray},
-    stringstyle=\color{green},
-    keywordstyle={[2]\color{red}\bf},
-  }
+\lstdefinestyle{V}{
+  basicstyle=\footnotesize\ttfamily,
+  numbers=left,
+  numberstyle=\tiny\color{gray}\ttfamily,
+  numbersep=5pt,
+  backgroundcolor=\color{white},
+  showspaces=false,
+  showstringspaces=false,
+  showtabs=false,
+  frame=single,
+  rulecolor=\color{black},
+  captionpos=b,
+  keywordstyle=\color{blue}\bf,
+  commentstyle=\color{gray},
+  stringstyle=\color{green},
+  keywordstyle={[2]\color{red}\bf},
+}
 
 \author{Arthur Giesel Vedana}
 \title{V Syntax and Documentation}
@@ -72,10 +73,15 @@ It is divided into 2 categories:
 
         This defines the abstract syntax and semantics of the language.
         It only contains the bare minimum for the language to function, without any syntactic sugar.
+
+    \item Concrete Syntax
+
+        Defines the concrete syntax for the language, describing what are valid expressions and programs.
+
     \item Language Guide
 
-        This is the actual syntax when programming in $V$.
-        This defines all operators, syntactic sugar and other aspects of the language.
+        A guide for programming in $V$.
+        This defines all operators, syntactic sugar and other aspects of the language, along with short user-friendly explanations of each language feature (and limitation).
 
     \item Changelog
 
@@ -1478,6 +1484,37 @@ Every expression in $V$ has a rule for constraint collection, similar to how eve
 
 \newpage
 
+\section{Concrete Syntax}
+
+\subsection{Notation Conventions}
+
+The following conventions are used for presenting the syntax of programs in $V$:
+
+\smallskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{cl}
+    [$pattern$] &optional pattern\\
+    \{$pattern$\} &zero or more occurrences of pattern\\
+    ($pattern$) &grouping of patterns\\
+    $pattern_1 \; | \; pattern_2$ &choice\\
+    $pattern_{<pattern'>}$ &all patterns accepted by $pattern$,
+    \\&except those also accepted by $pattern'$\\
+    \code{text} &concrete characters (written in terminal font)
+\end{tabular}}
+
+\medskip
+
+The syntax is described using a BNF grammar, with each production having the form:
+
+\begin{bnf*}
+\bnfprod{sentence}{\bnfpn{$pat_1$} \bnfor \bnfpn{$pat_2$} \bnfor \bnfsk \bnfor \bnfpn{$pat_n$}}
+\end{bnf*}
+
+Whitespace is always explicitly expressed in productions with the \textvisiblespace{} character.
+It is used as a shorthand for the $\bnfpn{whitespaces}$ production.
+Literal characters will always be written in terminal font, so \code{|} and \code{[]} mean the literal characters, while $|$ and [] are the choice and option pattern, respectively.
+
 \section{Language Guide}
 
 \subsection{Basic Values}
@@ -1556,7 +1593,7 @@ An empty list can be created using either the \code{nil} keyword or the empty li
 
 To create a list with values, simply enclose the sequence of values, each separated by a comma, between square brackets.
 
-\begin{lstlisting}
+\begin{lstlisting}[language=V]
   [] // Empty list
   [1, 2, 3] // List containing 3 values
 \end{lstlisting}
@@ -1567,7 +1604,7 @@ It is possible to add a value to the start of a list by using the list construct
 The \code{append} function allowing the addition of a value to the end of a list.
 It is also possible to create a new list by using the concatenation operator (\code{@}), which adds two lists together.
 
-\begin{lstlisting}
+\begin{lstlisting}[language=V]
   let x = 0 :: [1, 2, 3];
   // x is equal to [0, 1, 2, 3]
 
@@ -1583,13 +1620,13 @@ It is also possible to create a new list by using the concatenation operator (\c
 Any element of a list can be accessed by using the index (\code{!!}) operator.
 Lists are 0-indexed, which means the first value of a list is at index 0.
 
-\begin{lstlisting}
+\begin{lstlisting}[language=V]
   ["a", "b", "c"] !! 0 // Returns "a"
 \end{lstlisting}
 
 An attempt to access an index outside the range of a list (that is, indexes equal to or greater than the size of the list) will result in a runtime error.
 
-\begin{lstlisting}
+\begin{lstlisting}[language=V]
   ["a", "b", "c"] !! 5 // Runtime error
 \end{lstlisting}
 
@@ -1608,7 +1645,7 @@ The first variant specifies the first and last value for the list.
 The list is then composed with every integer number between these values.
 Because of this, the first value must be smaller then the last
 
-\begin{lstlisting}
+\begin{lstlisting}[language=V]
   [1..5] // [1,2,3,4,5]
   [3..7] // [3,4,5,6,7]
   [5..3] // Invalid
@@ -1620,7 +1657,7 @@ The increment is the difference between the second and first value of the list, 
 The increment is then added to each element until the largest possible value which is smaller than or equal to the last value.
 If the increment is negative, the list stops at the smallest possible value which is larger than or equal to the last value.
 
-\begin{lstlisting}
+\begin{lstlisting}[language=V]
   [1,3..10] // [1,3,5,7,9]
   [5,4..1] // [5,4,3,2,1]
   [5,3..0] // [5,3,1]
@@ -1632,7 +1669,7 @@ List comprehensions are a simple way to transform every value in a list, creatin
 In the example below, \code{ls} is a list containing every number from 1 to 10, inclusive.
 Using a list comprehension, \code{new} is a list containing every number from 2 to 11, since the code \code{x+1} is executed for every value in \code{ls}.
 
-\begin{lstlisting}
+\begin{lstlisting}[language=V]
   let ls = [1..10];
   let new = [x+1 for x in ls];
 \end{lstlisting}
@@ -1646,7 +1683,7 @@ The minimum size of a tuple is 2, but there is no limit on its maximum size.
 
 Tuples are specified inside parenthesis, with each of its values separated by commas.
 
-\begin{lstlisting}
+\begin{lstlisting}[language=V]
     (1, ``hello'')
     (true, `c', 43)
 \end{lstlisting}
@@ -1657,7 +1694,7 @@ There is no way to add or remove elements from a tuple.
 To access a specific field of a tuple, the projection operation is used.
 Tuples are 0-indexed, so projection is done by specifying the index of the field.
 
-\begin{lstlisting}
+\begin{lstlisting}[language=V]
     #0 (1, ``hello'')
     #2 (true, `c', 43)
     #3 ('c', false) // Invalid code
@@ -1675,7 +1712,7 @@ The smallest size for a record is 1, but there is no limit on its maximum size.
 To construct a record, each value must be preceded by a label and a colon.
 Each label-value pair is separated by a comma, and the whole record is enclosed in curly brackets (\{ \}).
 
-\begin{lstlisting}
+\begin{lstlisting}[language=V]
   {name: ``Martha'', age: 32}
   {day: 1, month: 1, year: 2000}
 \end{lstlisting}
@@ -1684,7 +1721,7 @@ Records are, like tuples, immutable.
 To access a specific field of a record, one must use projection.
 There is no inherent order in the values of a record, so the label must be used for projection.
 
-\begin{lstlisting}
+\begin{lstlisting}[language=V]
   #name {name: ``Martha'', age: 32}
   #month {day: 1, month: 1, year: 2000}
   #name  {day: 1, month: 1, year: 2000} // Invalid code
@@ -1794,7 +1831,7 @@ After the \code{let} keyword, any pattern can be used.
 
 Below are examples of constant declarations:
 
-\begin{lstlisting}
+\begin{lstlisting}[language=V]
   let name = ``Steve'';
   let age: Int = 32;
   let (x: Int, y) = (4, true);
@@ -1838,7 +1875,7 @@ $V$ provides a conditional expression (\code{if ... then ... else}) to control t
 This expression tests a condition and, if its value is \code{true}, executes the first branch (known as the \code{then} clause).
 If the condition is \code{false}, the expression executes the second branch (the \code{else} clause).
 
-\begin{lstlisting}
+\begin{lstlisting}[language=V]
   if b then
     1+3 // Will execute if b is true
   else
@@ -1848,7 +1885,7 @@ If the condition is \code{false}, the expression executes the second branch (the
 The only accepted type for the condition of a conditional is Boolean.
 All types are accepted in the \code{then} and \code{else} branch, but they must be of the same type.
 
-\begin{lstlisting}
+\begin{lstlisting}[language=V]
   // This conditional is invalid code, since 4 and "hello" are of different types
   if true then
     4
@@ -1861,7 +1898,7 @@ This ensures that the conditional will always return a value.
 
 It is possible to chain multiple conditionals together.
 
-\begin{lstlisting}
+\begin{lstlisting}[language=V]
   if grade > 10 then
     "The grade cannot be higher than 10"
   else if grade < 0
@@ -1875,7 +1912,7 @@ It is possible to chain multiple conditionals together.
 Match expressions are another way to control the flow of a program based on comparison with a list of patterns.
 Any number (greater or equal to 1) of patterns can be specified, and each one has a corresponding result expression.
 
-\begin{lstlisting}
+\begin{lstlisting}[language=V]
   match value with
   | pattern1 -> result-expression1
   | pattern2 when condition -> result-expression2
@@ -1974,7 +2011,7 @@ The left-hand operand becomes the first argument of the function, and the right-
 
 This is useful mainly when passing operators as arguments to functions.
 
-\begin{lstlisting}
+\begin{lstlisting}[language=V]
   // Both expressions are equivalent
   zipWith (\x y -> x + y) [1,2,3] [3,2,1]
   zipWith (+) [1,2,3] [3,2,1]
@@ -1986,7 +2023,7 @@ This is useful mainly when passing operators as arguments to functions.
 As is shown in the last example, it is possible to provide the left-hand operand to obtain a partially applied function.
 If one wishes to provide the right-hand operand instead, it is possible to use the \code{flip} function, which changes the order of a function that takes two parameters.
 
-\begin{lstlisting}
+\begin{lstlisting}[language=V]
   // Divides 2 by every value in the list
   map ((/) 2) [1,2,3]
 
@@ -1999,7 +2036,7 @@ If one wishes to provide the right-hand operand instead, it is possible to use t
 Wrapping a function name in backticks (\lq) will turn it into an infix binary operator.
 The first parameter of the function will become the left-hand operand, while the second parameter will become the right-hand operand.
 
-\begin{lstlisting}[escapechar=']
+\begin{lstlisting}[language=V, escapechar=']
   4 `add`'' 5
   add 4 5
 \end{lstlisting}
@@ -2012,7 +2049,7 @@ This greatly reduces the readability of the code, and is therefore not encourage
 Is is possible to define new operators to be used like regular operators.
 The syntax for this is the same as creating a new function, but the operator must be enclosed in parenthesis.
 
-\begin{lstlisting}[]
+\begin{lstlisting}
   let (%+) x y = x % y + 1;
 
   5 %+ 4 // 2
@@ -2021,7 +2058,7 @@ The syntax for this is the same as creating a new function, but the operator mus
 When declaring an operator, it is possible to also define its associativity and priority.
 This is done by using the keywords \code{infixl} (left associative), \code{infixr} (right associative) and \code{infix} (non-associative), followed by a number from 1 to 9.
 
-\begin{lstlisting}[]
+\begin{lstlisting}[language=V]
   let infixl 1 ($) f x = f x;
   let f x = x + 2;
 
@@ -2068,7 +2105,7 @@ The only constraint is that, if the definition specifies a return type, the valu
 
 Below are three examples of named functions:
 
-\begin{lstlisting}
+\begin{lstlisting}[language=V]
 let add x y =
   x + y
 ;
@@ -2089,7 +2126,7 @@ This means that the function can be called recursively, iterating over a certain
 To indicate that a function is recursive, the keyword \code{rec} is added before its name.
 Below are two examples of recursive named functions:
 
-\begin{lstlisting}
+\begin{lstlisting}[language=V]
 let rec count ls =
   if empty? ls then
     0
@@ -2119,7 +2156,7 @@ This is useful mostly when passing lambdas as arguments to other functions, sinc
 
 The general syntax of a lambda is as follows:
 
-\begin{lstlisting}[escapechar=&]
+\begin{lstlisting}[language=V, escapechar=&]
 \param1 param2 ... -> body
 \end{lstlisting}
 
@@ -2133,7 +2170,7 @@ Because of this, lambdas are usually enclosed in parenthesis to limit their scop
 Below are the same examples shown in the named functions section, but defined using lambda expressions.
 Notice that, without the use of parenthesis to enclose each lambda, the first function would try to include everything inside its body, resulting in a parsing error.
 
-\begin{lstlisting}[escapechar=&]
+\begin{lstlisting}[language=V, escapechar=&]
 \\ add
 (\x y -> x + y)
 
@@ -2154,7 +2191,7 @@ Unlike for regular lambdas, it is necessary to specify a name for a recursive la
 Without a name, it would be impossible to call itself within its body.
 It is important to realize that, unlike with recursive named functions, this name is limited in scope to the inside of the lambda definition.
 
-\begin{lstlisting}
+\begin{lstlisting}[language=V]
 (rec fac x -> if x == 0 then 1 else x * fac (x - 1))
 
 fac 4 // This is invalid code
@@ -2169,7 +2206,7 @@ Every function has a type consisting of its parameter types and return type.
 Every parameter type is separated by an arrow (-$>$), and the return type is also separated by a single arrow from the parameter types.
 
 The syntax for a function type is as follows:
-\begin{lstlisting}
+\begin{lstlisting}[language=V]
   param1 -> param2 -> ... -> return
 \end{lstlisting}
 
@@ -2181,7 +2218,7 @@ The following function type defines a function that takes two parameters.
 The first is a function of type \code{Int -> Int}.
 The second parameter is an \code{Int}, and the return type is also \code{Int}.
 
- \begin{lstlisting}
+ \begin{lstlisting}[language=V]
    (Int -> Int) -> Int -> Int
  \end{lstlisting}
 
@@ -2194,7 +2231,7 @@ When a function is defined as having multiple parameters, it is actually a curri
 
 As an example, take the following function, which returns the largest of two numbers:
 
-\begin{lstlisting}
+\begin{lstlisting}[language=V]
   let max x y =
     if x > y then
       x
@@ -2216,7 +2253,7 @@ This function will then return the largest between its argument and the number 5
 It can then be bound to a name, just like any other function, and used elsewhere.
 This is also useful for quickly creating new functions with fixed data or to be passed as arguments.
 
-\begin{lstlisting}
+\begin{lstlisting}[language=V]
   let max5 = max 5;
 
   max5 3 // Returns 5
@@ -2260,7 +2297,7 @@ They can be used to add notes or reminders for yourself or anyone that reads the
 Currently, only single line comments are avaiable.
 They begin with two forward-slashes (//) and continue until the end of the current line
 
-\begin{lstlisting}
+\begin{lstlisting}[language=V]
   // This is a comment on its own line.
   3 + 4 // This line has code and a comment.
 \end{lstlisting}
@@ -2272,7 +2309,7 @@ These files can then be compiled to increase loading times when interpreting pro
 
 To import a library in a program, the following syntax is used:
 
-\begin{lstlisting}
+\begin{lstlisting}[language=V]
   import "library"
 \end{lstlisting}
 
@@ -2286,7 +2323,7 @@ In the example below, we have a library with a single function \code{double}.
 This library is then imported inside a function in a program.
 Because the library was imported inside the scope of the function body, none of its functions can be called outside of it.
 
-\begin{lstlisting}
+\begin{lstlisting}[language=V]
   // math.vl
   let double x = x * 2;
 
