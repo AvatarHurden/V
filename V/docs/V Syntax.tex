@@ -77,6 +77,10 @@ It is divided into 2 categories:
         This is the actual syntax when programming in $V$.
         This defines all operators, syntactic sugar and other aspects of the language.
 
+    \item Standard Library
+
+        Describes all functions provided in the $V$ standard library.
+
     \item Changelog
 
          Lists the changes done to the language in each version.
@@ -2299,6 +2303,45 @@ Because the library was imported inside the scope of the function body, none of 
 
   double 4 // Invalid
 \end{lstlisting}
+
+\section{Standard Library}
+
+The Standard Library, called \code{stdlib}, is always imported in every $V$ program.
+It provides basic functions for a number of use cases, ranging from numerical operations to function manipulation.
+
+Some basic language features, such as list comprehensions and ranges, depend on the existence of the \code{stdlib}.
+This means that, while it is possible to create programs without importing the \code{stdlib}, doing so will most likely break any existing program.
+
+\subsection{Operations on Basic Values}
+
+\subsubsection{Operations on Numbers}
+
+\subsubsection{Operations on Booleans}
+
+\subsubsection{Operations on Functions}
+
+\subsection{Operations on Lists}
+
+\subsubsection{Basic Operations}
+
+\subsubsection{Generation Operations}
+
+\subsubsection{Transformation Operations}
+
+\subsubsection{Reduction Operations}
+
+\subsubsection{Sublist Operations}
+
+\subsubsection{Search Operations}
+
+\subsubsection{Indexing Operations}
+
+\subsubsection{Sorting Operations}
+
+\subsubsection{Zipping Operations}
+
+\subsection{String Conversion Operations}
+
 
 \section{Changelog}
 \selectlanguage{USenglish}
