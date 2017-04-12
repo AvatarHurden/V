@@ -2304,7 +2304,7 @@ Because the library was imported inside the scope of the function body, none of 
   double 4 // Invalid
 \end{lstlisting}
 
-\section{Standard Library}
+\section{Standard Library}\label{Standard Library}
 
 The Standard Library, called \code{stdlib}, is always imported in every $V$ program.
 It provides basic functions for a number of use cases, ranging from numerical operations to function manipulation.
@@ -2319,6 +2319,58 @@ This means that, while it is possible to create programs without importing the \
 \subsubsection{Operations on Booleans}
 
 \subsubsection{Operations on Functions}
+
+Basic manipulation of functions and application.
+Most of the usefulness of these functions come from their infix versions.
+They allow more compact and easier to read code to be written, mainly reducing the need for parentheses.
+
+\medskip
+
+\libfunction
+  {flip}
+  {(a -> b -> c) -> b -> a -> c}
+  {\code{flip f} takes its first two arguments in reverse order of \code{f}.
+
+  \code{flip f x y = f y x}}
+
+\libfunction
+  {apply}
+  {(a -> b) -> a -> b}
+  {This function simply applies its second argument to its first.
+  While this seems redundant (after all, \code{apply f x} is the same as \code{f x}), it can be used higher order situations.}
+
+\liboperator
+  {\$}
+  {\rightassociative}
+  {1}
+  {(a -> b) -> a -> b}
+  {Infix version of \code{apply}.
+  While it has the same funcionality as normal function application, it is right-associative with the lowest possible priority.
+  \\
+  \\
+  In some situations, this allows parentheses to be omitted.
+
+  \code{f \$ g \$ h x  =  f (g (h x))}}
+
+\libfunction
+  {compose}
+  {(b -> c) -> (a -> b) -> a -> c}
+  {Function composition.
+  Applies the third argument to the second one, applying the resulting value to the first argument.
+  \\
+
+  \code{compose f g x = f (g x)}}
+
+\liboperator
+  {.}
+  {\rightassociative}
+  {9}
+  {(b -> c) -> (a -> b) -> a -> c}
+  {Infix version of \code{compose}.
+  \\
+  Can be used with \code{\$} to reduce the number of parentheses needed.
+
+  \code{f . g . h \$ x = f (g (h x))}}
 
 \subsection{Operations on Lists}
 
