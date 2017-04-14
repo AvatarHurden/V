@@ -1494,13 +1494,13 @@ The following conventions are used for presenting the syntax of programs in $V$:
 
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{cl}
-    [$pattern$] &optional pattern\\
-    \{$pattern$\} &zero or more occurrences of pattern\\
-    ($pattern$) &grouping of patterns\\
-    $pattern_1 \; | \; pattern_2$ &choice\\
-    $pattern_{<pattern'>}$ &all patterns accepted by $pattern$,
+    [ $\bnfpn{$pat$}$ ] &optional pattern\\
+    \{ $\bnfpn{$pat$}$ \} &zero or more occurrences of pattern\\
+    ( $\bnfpn{$pat$}$ ) &grouping of patterns\\
+    $\bnfpn{$pat_1$} \bnfor \bnfpn{$pat_2$}$ &choice\\
+    $\bnfpn{$pat$}_{\bnfpn{$pat'$}}$ &all patterns accepted by $pattern$,
     \\&except those also accepted by $pattern'$\\
-    \code{text} &concrete characters (written in terminal font)
+    \bnfts{text} &concrete characters (written in terminal font)
 \end{tabular}}
 
 \medskip
@@ -1514,6 +1514,42 @@ The syntax is described using a BNF grammar, with each production having the for
 Whitespace is always explicitly expressed in productions with the \textvisiblespace{} character.
 It is used as a shorthand for the $\bnfpn{whitespaces}$ production.
 Literal characters will always be written in terminal font, so \code{|} and \code{[]} mean the literal characters, while $|$ and [] are the choice and option pattern, respectively.
+
+\subsection{Basic Structure}
+
+\begin{bnf*}
+  \bnfprod{program}
+    {\bnfpn{whitespace} \bnfsp \bnfpn{term} \bnfsp \bnfpn{eof}}
+    \\
+  \bnfprod{library}
+    {\bnfpn{whitespace} \bnfsp \{ \bnfsp \bnfpn{declaration} \bnfsp \} \bnfsp \bnfpn{eof}}
+    \\
+    \\
+  \bnfprod{whitespace}
+    {\{ \bnfsp \bnfpn{whitechars} \bnfor \bnfpn{comment} \bnfsp \}}
+    \\
+  \bnfprod{whitechars}
+    {\bnfpn{whitechar} \bnfsp \{ \bnfsp  \bnfpn{whitechar} \bnfsp \}}
+    \\
+  \bnfprod{whitechar}
+    {\bnfpn{space} \bnfor \bnfpn{tab} \bnfor \bnfpn{newline} }
+    \\
+  \bnfprod{newline}
+    {\bnfpn{return} \bnfpn{linefeed} \bnfor \bnfpn{return} \bnfor \bnfpn{linefeed}}
+    \\
+  \bnfprod{space}{\bnftd{space (\textquotesingle\hspace{1em}\textquotesingle)}}\\
+  \bnfprod{tab}{\bnftd{horizontal tab (\textquotesingle\textbackslash{}t\textquotesingle)}}\\
+  \bnfprod{return}{\bnftd{carriage return (\textquotesingle\textbackslash{}r\textquotesingle)}}\\
+  \bnfprod{linefeed}{\bnftd{line feed (\textquotesingle\textbackslash{}n\textquotesingle)}}
+  \\
+  \\
+  \bnfprod{comment}
+    {\bnfts{\textbackslash\textbackslash} \bnfsp \{ \bnfsp \bnfpn{any} \bnfsp \} \bnfsp \bnfpn{newline}}
+  \\
+  \\
+  \bnfprod{any}{\bnftd{any ASCII character}}
+\end{bnf*}
+
 
 \section{Language Guide}
 
