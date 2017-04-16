@@ -2304,6 +2304,8 @@ Because the library was imported inside the scope of the function body, none of 
   double 4 // Invalid
 \end{lstlisting}
 
+\newpage
+
 \section{Standard Library}\label{Standard Library}
 
 The Standard Library, called \code{stdlib}, is always imported in every $V$ program.
@@ -2315,6 +2317,40 @@ This means that, while it is possible to create programs without importing the \
 \subsection{Operations on Basic Values}
 
 \subsubsection{Operations on Numbers}
+
+The 4 basic operations (addition, subtraction, multiplication and division) are built into the language.
+Other operations must be defined in terms of these.
+
+One important thing to note is that the unary negation operator (\code{-}) is tightly coupled with the \code{negate} function defined in the \code{stdlib}.
+While the operator is defined inside the language, it depends on the presence of the \code{stdlib} to funciton.
+
+\medskip
+
+\libfunction
+  {remainder}
+  {Int -> Int -> Int}
+  {Integer remainder, satisfying:
+
+  \code{(x / y) * y + (remainder x y) = x}}
+
+\liboperator
+  {\%}
+  {\leftassociative}
+  {8}
+  {Int -> Int -> Int}
+  {Infix version of \code{remainder}}
+
+\libfunction
+  {negate}
+  {Int -> Int}
+  {Unary negation, satisfying:
+
+  \code{x + (negate x) = 0}}
+
+\libfunction
+  {abs}
+  {Int -> Int}
+  {Absolute value}
 
 \subsubsection{Operations on Booleans}
 
