@@ -2318,6 +2318,34 @@ This means that, while it is possible to create programs without importing the \
 
 \subsubsection{Operations on Booleans}
 
+Below are all the operations on booleans defined in the Standard Library.
+Missing from these are the basic AND (\code{\&\&}) and OR (\code{||}) operations.
+This is because they require short-circuit evalaution, and must therefore be built into the language.
+
+\medskip
+
+\libfunction
+  {not}
+  {Bool -> Bool}
+  {Boolean ``not''
+
+  \code{not True = False}
+
+  \code{not False = True}}
+
+\libfunction
+  {xor}
+  {Bool -> Bool -> Bool}
+  {Boolean ``xor''
+
+  \code{xor True  True  = False}
+
+  \code{xor True  False = True}
+
+  \code{xor True  False = True}
+
+  \code{xor False False = False}}
+
 \subsubsection{Operations on Functions}
 
 Basic manipulation of functions and application.
