@@ -6,7 +6,6 @@
 \usepackage{array}
 \usepackage{txfonts}
 \usepackage{syntax}
-\usepackage[tstt]{backnaur}
 \usepackage{titlesec}
 
 \usepackage{upquote}
@@ -1548,6 +1547,65 @@ Literal characters will always be written in terminal font, so \code{|} and \cod
   \\
   \\
   \bnfprod{any}{\bnftd{any ASCII character}}
+\end{bnf*}
+
+
+\subsection{Identifiers and Operators}
+
+\begin{bnf*}
+  \bnfprod{identifier}
+    {(\bnfpn{idstart} \bnfsp \{ \bnfsp \bnfpn{idcontinue} \bnfsp \})_{\bnfpn{reservedid}}}
+  \\
+  \bnfprod{idstart}
+    {\bnfpn{small} \bnfor \bnfts{_}}\\
+  \bnfprod{idcontinue}
+    {\bnfpn{small} \bnfor \bnfpn{large} \bnfor \bnfpn{digit} \bnfor \bnfts{\textquotesingle} \bnfor \bnfts{_} \bnfor \bnfts{?}}
+  \\
+  \\
+  \bnfprod{reservedid}{
+      \begin{bnfsplit}
+      \bnfts{let} \bnfor \bnfts{true} \bnfor \bnfts{false}
+      \bnfor \bnfts{if} \bnfor \bnfts{then} \bnfor \bnfts{else}\\
+      \bnfor \bnfts{rec} \bnfor \bnfts{nil} \bnfor \bnfts{raise}
+      \bnfor \bnfts{when} \bnfor \bnfts{match} \bnfor \bnfts{with}\\
+      \bnfor \bnfts{try} \bnfor \bnfts{except} \bnfor \bnfts{for}
+      \bnfor \bnfts{in} \bnfor \bnfts{import} \bnfor \bnfts{infix}\\
+      \bnfor \bnfts{infixl} \bnfor \bnfts{infixr}
+    \end{bnfsplit}}
+  \\
+  \\
+  \bnfprod{small}
+    {\bnfts{a} \bnfor \bnfts{b} \bnfor \bnfsk \bnfor \bnfts{z}}\\
+  \bnfprod{large}
+    {\bnfts{A} \bnfor \bnfts{B} \bnfor \bnfsk \bnfor \bnfts{Z}}\\
+  \bnfprod{digit}
+    {\bnfts{0} \bnfor \bnfts{1} \bnfor \bnfsk \bnfor \bnfts{9}}
+  \\
+  \\
+  \bnfprod{operator}
+    {\bnfpn{symbol} \bnfsp \{ \bnfsp \bnfpn{symbol} \bnfsp \}}\\
+  \bnfprod{customop}
+    {\bnfpn{operator}_{\bnfpn{reservedop}}}
+  \\
+  \bnfprod{reservedop}{
+    \begin{bnfsplit}
+      \bnfts{+} \bnfor \bnfts{-} \bnfor \bnfts{*} \bnfor \bnfts{/}
+      \bnfor \bnfts{<=} \bnfor \bnfts{<} \bnfor \bnfts{=} \bnfor \bnfts{!=}\\
+      \bnfor \bnfts{>=} \bnfor \bnfts{>} \bnfor \bnfts{::} \bnfor \bnfts{\&\&}
+      \bnfor \bnfts{||}
+    \end{bnfsplit}
+  }
+  \\
+  \\
+  \bnfprod{symbol}{
+    \begin{bnfsplit}
+    \bnfts{?} \bnfor \bnfts{!} \bnfor \bnfts{\%} \bnfor \bnfts{\$}
+    \bnfor \bnfts{\&} \bnfor \bnfts{*} \bnfor \bnfts{+} \bnfor \bnfts{-}
+    \bnfor \bnfts{.} \bnfor \bnfts{/} \bnfor \bnfts{<} \bnfor \bnfts{=}\\
+    \bnfor \bnfts{>} \bnfor \bnfts{@} \bnfor \bnfts{\^} \bnfor \bnfts{|}
+    \bnfor \bnfts{\~}
+  \end{bnfsplit}
+    }\\
 \end{bnf*}
 
 
