@@ -1497,8 +1497,8 @@ The following conventions are used for presenting the syntax of programs in $V$:
     \{ $\bnfpn{$pat$}$ \} &zero or more occurrences of pattern\\
     ( $\bnfpn{$pat$}$ ) &grouping of patterns\\
     $\bnfpn{$pat_1$} \bnfor \bnfpn{$pat_2$}$ &choice\\
-    $\bnfpn{$pat$}_{\bnfpn{$pat'$}}$ &all patterns accepted by $pattern$,
-    \\&except those also accepted by $pattern'$\\
+    $\bnfpn{$pat$}_{\bnfpn{$pat'$}}$ &all patterns accepted by $pat$,
+    \\&except those also accepted by $pat'$\\
     \bnfts{text} &concrete characters (written in terminal font)
 \end{tabular}}
 
@@ -1518,7 +1518,7 @@ Literal characters will always be written in terminal font, so \code{|} and \cod
 
 \begin{bnf*}
   \bnfprod{program}
-    {\bnfpn{whitespace} \bnfsp \bnfpn{term} \bnfsp \bnfpn{eof}}
+    {\bnfpn{whitespace} \bnfsp \bnfpn{expression} \bnfsp \bnfpn{eof}}
     \\
   \bnfprod{library}
     {\bnfpn{whitespace} \bnfsp \{ \bnfsp \bnfpn{declaration} \bnfsp \} \bnfsp \bnfpn{eof}}
@@ -1543,7 +1543,7 @@ Literal characters will always be written in terminal font, so \code{|} and \cod
   \\
   \\
   \bnfprod{comment}
-    {\bnfts{\textbackslash\textbackslash} \bnfsp \{ \bnfsp \bnfpn{any} \bnfsp \} \bnfsp \bnfpn{newline}}
+    {\bnfts{//} \bnfsp \{ \bnfsp \bnfpn{any} \bnfsp \} \bnfsp \bnfpn{newline}}
   \\
   \\
   \bnfprod{any}{\bnftd{any ASCII character}}
@@ -1606,6 +1606,56 @@ Literal characters will always be written in terminal font, so \code{|} and \cod
     \bnfor \bnfts{\~}
   \end{bnfsplit}
     }\\
+\end{bnf*}
+
+\subsection{Terms}
+
+\begin{bnf*}
+  \bnfprod{term}{
+    \begin{bnfsplit}
+      \bnfpn{bool}\\
+      \bnfpn{number}\\
+      \bnfts{nil}\\
+      \bnfts{raise}\\
+      \bnfpn{char}\\
+      \bnfpn{string}\\
+      \bnfpn{parentheses}\\
+      \bnfpn{record}\\
+      \bnfpn{projection}\\
+      \bnfpn{squarebrackets}\\
+      \bnfpn{if}\\
+      \bnfpn{try}\\
+      \bnfpn{match}\\
+      \bnfpn{lambda}\\
+      \bnfpn{reclambda}\\
+      \bnfpn{let}\\
+      \bnfpn{import}\\
+    \end{bnfsplit}
+  }
+  \\
+  \\
+  \bnfprod{bool} {\bnfts{true} \bnfor \bnfts{false}}
+  \\
+  \\
+  \bnfprod{number}
+    {\bnfpn{decimal} \bnfor \bnfpn{binary} \bnfor \bnfpn{octal} \bnfor \bnfpn{hexadecimal}}\\
+  \bnfprod{decimal}
+    {\bnfpn{digit} \bnfsp \{ \bnfsp \bnfpn{digit} \bnfsp \}}\\
+  \bnfprod{binary}
+    {\bnfts{0} \bnfsp ( \bnfsp \bnfts{b} \bnfor \bnfts{B} \bnfsp ) \bnfsp \bnfpn{bindigit} \bnfsp \{ \bnfsp \bnfpn{bindigit} \bnfsp \}}\\
+  \bnfprod{octal}
+    {\bnfts{0} \bnfsp ( \bnfsp \bnfts{o} \bnfor \bnfts{O} \bnfsp ) \bnfsp \bnfpn{octdigit} \bnfsp \{ \bnfsp \bnfpn{octdigit} \bnfsp \}}\\
+  \bnfprod{hexadecimal}
+    {\bnfts{0} \bnfsp ( \bnfsp \bnfts{x} \bnfor \bnfts{X} \bnfsp ) \bnfsp \bnfpn{hexdigit} \bnfsp \{ \bnfsp \bnfpn{hexdigit} \bnfsp \}}
+  \\
+  \\
+  \bnfprod{bindigit}{\bnfts{0} \bnfor \bnfts{1}}\\
+  \bnfprod{octdigit}
+    {\bnfts{0} \bnfor \bnfts{1} \bnfor \bnfsk \bnfor \bnfts{7}}\\
+  \bnfprod{hexdigit}
+    {\bnfpn{digit} \bnfor \bnfts{a} \bnfor \bnfsk \bnfor \bnfts{f} \bnfor \bnfts{A} \bnfor \bnfsk \bnfor \bnfts{F}}
+  \\
+  \\
 \end{bnf*}
 
 
