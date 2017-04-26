@@ -2440,6 +2440,62 @@ They allow more compact and easier to read code to be written, mainly reducing t
 
 \subsubsection{Basic Operations}
 
+Basic functions to aid in using lists.
+
+\medskip
+
+\libfunction
+  {head}
+  {[a] -> a}
+  {Returns the first element of a list, which must have at least one element.}
+
+\libfunction
+  {last}
+  {[a] -> a}
+  {Returns the last element of a list, which must have at least one element.}
+
+\libfunction
+  {tail}
+  {[a] -> [a]}
+  {Removes the first element of a list, which must have at least one element.}
+
+\libfunction
+  {init}
+  {[a] -> [a]}
+  {Removes the last element of a list, which must have at least one element.}
+
+\libfunction
+  {tail}
+  {[a] -> [a]}
+  {Removes the first element of a list, which must have at least one element.}
+
+\libfunction
+  {empty?}
+  {[a] -> Bool}
+  {Returns \code{True} if the list is empty, and \code{False} otherwise.}
+
+\libfunction
+  {length}
+  {[a] -> Int}
+  {Returns the number of elements in the list.}
+
+\libfunction
+  {append}
+  {a -> [a] -> [a]}
+  {Adds an element to the end of a list.}
+
+\libfunction
+  {concat}
+  {[a] -> [a] -> [a]}
+  {Appends two lists, maintaning order.}
+
+\liboperator
+  {@}
+  {\rightassociative}
+  {5}
+  {[a] -> [a] -> [a]}
+  {Infix version of \code{concat}.}
+
 \subsubsection{Generation Operations}
 
 \subsubsection{Transformation Operations}
