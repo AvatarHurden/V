@@ -155,7 +155,7 @@ type TestFunctionParsing() =
         
 
 [<TestFixture>]
-type TestCondAndTry() =
+type TestCond() =
 
     [<Test>]
     member that.simpleCond() =
@@ -164,15 +164,6 @@ type TestCondAndTry() =
     [<Test>]
     member that.nestedCond() =
         compare " if true then if false then 1 else 13 else 4" <| ResI 13
-
-    [<Test>]
-    member that.simpleTry() =
-        compare "try if true then raise else 1 except (\\(x: Int) -> x+3) 4" <| ResI 7
-       
-    [<Test>]
-    member that.nestedTry() =
-        compare " try try raise except 1 except 2" <| ResI 1
-
 
 [<TestFixture>]
 type TestLists() =

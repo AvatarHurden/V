@@ -236,8 +236,7 @@ let rec nth index ls =
     | (0, x :: _) -> x
     | (n, _ :: xs) when n > 0 -> nth (n-1) xs
 ;
-
-let infixl 9 (!!) = nth;
+let infixl 9 (!!) = flip nth;
 
 // ======================
 // List sorting functions

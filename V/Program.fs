@@ -289,7 +289,7 @@ let compileStdlib x =
 
     let ar = saveLibArray lib
         
-    let text = "module compiledStdlib2"
+    let text = "module compiledStdlib"
     let text = text + "\n\nlet compiled: byte[] = [|"
 
     let f (index, text) (byte: byte) =
@@ -303,7 +303,7 @@ let compileStdlib x =
 
     let text = text.Substring (0, text.Length - 1) + "\n|]\n\n"
 
-    File.WriteAllText("compiledStdlib2.fs", text)
+    File.WriteAllText("compiledStdlib.fs", text)
 
 let rec getTermText x =
     let text = Console.ReadLine ()
@@ -353,7 +353,7 @@ let rec writeTests x =
                 sprintf "
     [<Test>]
     member that.%O() =
-        compare (%A, %O)\n" name termText result
+        compare (%A, %O)\n" name (termText.TrimEnd()) result
             | "1" -> 
                 sprintf "
     [<Test>]

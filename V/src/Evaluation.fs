@@ -187,14 +187,12 @@ let rec private eval t env =
         | ResRaise -> ResRaise
         | ResRecClosure(id1, pattern, e, env') as t1' ->
             match eval t2 env with
-            | ResRaise ->  ResRaise
             | t2' -> 
                 match validatePattern pattern t2' env' with
                 | None -> ResRaise
                 | Some env' -> eval e <| env'.Add(id1, t1')
         | ResClosure(pattern, e, env') ->
             match eval t2 env with
-            | ResRaise -> ResRaise
             | t2' -> 
                 match validatePattern pattern t2' env' with
                 | None -> ResRaise
@@ -202,7 +200,6 @@ let rec private eval t env =
         | t1' -> sprintf "First operand %A is not a function at %A" t1' t |> EvalException |> raise
     | OP(t1, Cons, t2) ->
         match eval t1 env with
-        | ResRaise -> ResRaise
         | t1' ->
             match eval t2 env with
             | ResRaise -> ResRaise
@@ -264,7 +261,6 @@ let rec private eval t env =
     | RecFn(id1, typ1, pattern, t) -> ResRecClosure(id1, pattern, t, env)
     | Match (t1, patterns) ->
         match eval t1 env with
-        | ResRaise -> ResRaise
         | t1' ->
             let f acc (pattern, condition, result) =
                 match acc with
@@ -286,41 +282,22 @@ let rec private eval t env =
             | Some v -> v
     | Let(pattern, t1, t2) ->
         match eval t1 env with
-        | ResRaise -> ResRaise
         | t1' -> 
             match validatePattern pattern t1' env with
             | None -> ResRaise
             | Some env' -> eval t2 env'
     | Nil -> ResNil
     | Raise -> ResRaise
-    | Try(t1, t2) ->
-        match eval t1 env with
-        | ResRaise -> eval t2 env
-        | t1' -> t1'
     | Tuple(terms) ->
         if List.length terms < 2 then
             sprintf "Tuple must have more than 2 components at %A" t |> EvalException |> raise
     
-        let f t =
-            match eval t env with
-            | ResRaise -> None
-            | t' -> Some t'
-
-        match mapOption f terms with
-        | None -> ResRaise
-        | Some results -> ResTuple results
+        ResTuple <| List.map (fun t -> eval t env) terms
     | Record(pairs) ->
         if Set(List.unzip pairs |> fst).Count < List.length pairs then
             sprintf "Record has duplicate fields at %A" t |> EvalException |> raise
 
-        let f (name, t) =
-            match eval t env with
-            | ResRaise -> None
-            | t' -> Some (name, t')
-
-        match mapOption f pairs with
-        | None -> ResRaise
-        | Some results -> ResRecord results
+        ResRecord <| List.map (fun (name, t) -> name, eval t env) pairs
     | ProjectIndex(n, t1) ->
         match eval t1 env with
         | ResRaise -> ResRaise

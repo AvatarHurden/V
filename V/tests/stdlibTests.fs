@@ -1229,13 +1229,13 @@ let indexOf t ls =
 [<TestFixture>]
 type Nth() =
 
-    static member func = """
+    static member func = Flip.func +  """
 let rec nth index ls =
     match (index, ls) with
     | (0, x :: _) -> x
     | (n, _ :: xs) when n > 0 -> nth (n-1) xs
 ;
-let (!!) = nth;
+let infixl 9 (!!) = flip nth;
 """
 
     [<Test>]
@@ -1265,6 +1265,10 @@ let (!!) = nth;
     [<Test>]
     member that.middleIndex() =
         equalsParsed (Nth.func + "nth 2 [1,2,3,4]") "3"
+              
+    [<Test>]
+    member that.infix() =
+        equalsParsed (Nth.func + "[1,2,3,4] !! 2") "3"
               
 
 [<TestFixture>]
