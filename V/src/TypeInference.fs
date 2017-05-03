@@ -298,15 +298,17 @@ let rec unify constraints =
                 unify <| rest @ [Equals (s1, t1); Equals (s2, t2)]
             | Type.Tuple typs1, Type.Tuple typs2 when typs1.Length = typs2.Length ->
                 unify <| rest @ List.map2 (fun typ1 typ2 -> Equals (typ1, typ2)) typs1 typs2
-            | Type.Record pairs1, Type.Record pairs2 
-                when pairs1.Length = pairs2.Length && 
-                     List.forall (fun (name1, _) -> List.exists (fun (name2, _) -> name2 = name1) pairs2) pairs1 ->
+            | Type.Record pairs1, Type.Record pairs2 when pairs1.Length = pairs2.Length ->
             
-                let matchNames (name1, typ1) =
-                    let (name2, typ2) = List.find (fun (name2, typ2) -> name1 = name2) pairs2
+                let v1' = List.sortWith (fun (s1, t1) (s2, t2) -> compare s1 s2) pairs1
+                let v2' = List.sortWith (fun (s1, t1) (s2, t2) -> compare s1 s2) pairs2
+        
+                let matchNames (name1, typ1) (name2, typ2) =
+                    if name1 <> name2 then
+                        raise <| TypeException (sprintf "Records %A and %A have different fields" typ1 typ2)
                     Equals (typ1, typ2)
-                
-                unify <| rest @ List.map matchNames pairs1
+             
+                unify <| rest @ List.map2 matchNames v1' v2'
             | _ -> 
                 raise <| TypeException "Unsolvable constraints"
 
