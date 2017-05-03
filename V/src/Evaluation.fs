@@ -106,33 +106,35 @@ let rec compareEquality t1 t2 =
     | ResNil, ResCons (hd1, tl1)  -> ResB false
     | ResCons (hd1, tl1), ResCons (hd2, tl2) ->
         match compareEquality hd1 hd2, compareEquality tl1 tl2 with
+        | ResRaise, _ -> ResRaise
         | ResB false, _ -> ResB false
         | ResB true, ResB false -> ResB false
         | ResB true, ResB true -> ResB true
+        | ResB true, ResRaise -> ResRaise
         | _ -> raise <| EvalException "Equal returned a non-expected value"
     | ResTuple v1, ResTuple v2 when v1.Length = v2.Length ->
         let f acc r1 r2 =
             match acc, compareEquality r1 r2 with
-            | ResRaise, _
-            | _, ResRaise -> ResRaise
-            | ResB b1, ResB b2 -> ResB (b1 && b2)
+            | ResRaise, _ -> ResRaise
+            | ResB false, _ -> ResB false
+            | ResB true, ResRaise -> ResRaise
+            | ResB true, ResB b2 -> ResB b2
             | _ -> raise <| EvalException "Equal returned a non-expected value"
         List.fold2 f (ResB true) v1 v2
     | ResRecord v1, ResRecord v2 when v1.Length = v2.Length ->
-        let existsInV1 (name2, _) =
-            List.exists (fun (name1, _) -> name2 = name1) v1
+        let v1' = List.sortWith (fun (s1, t1) (s2, t2) -> compare s1 s2) v1
+        let v2' = List.sortWith (fun (s1, t1) (s2, t2) -> compare s1 s2) v2
         
-        if List.forall existsInV1 v2 then
-            let f acc (name1, r1) =
-                let (name2, r2) = List.find (fun (name2, typ2) -> name1 = name2) v2
-                match acc, compareEquality r1 r2 with
-                | ResRaise, _
-                | _, ResRaise -> ResRaise
-                | ResB b1, ResB b2 -> ResB (b1 && b2)
-                | _ -> raise <| EvalException "Equal returned a non-expected value"
-            List.fold f (ResB true) v1
-        else
-            raise <| EvalException (sprintf "Records %A and %A have different fields" t1 t2)
+        let f acc (n1, r1) (n2, r2) =
+            if n1 <> n2 then
+                raise <| EvalException (sprintf "Records %A and %A have different fields" t1 t2)
+            match acc, compareEquality r1 r2 with
+            | ResRaise, _ -> ResRaise
+            | ResB false, _ -> ResB false
+            | ResB true, ResRaise -> ResRaise
+            | ResB true, ResB b2 -> ResB b2
+            | _ -> raise <| EvalException "Equal returned a non-expected value"
+        List.fold2 f (ResB true) v1' v2'
     | _ , _ -> sprintf "Values %A and %A are not comparable" t1 t2 |> EvalException |> raise  
 
 let rec compareOrder t1 t2 orderType =
@@ -170,6 +172,7 @@ let rec compareOrder t1 t2 orderType =
         | _ -> sprintf "Cannot order %A and %A with %A" t1 t2 orderType |> EvalException |> raise  
     | ResCons (hd1, tl1), ResCons (hd2, tl2) ->
         match compareEquality hd1 hd2, compareOrder tl1 tl2 orderType with
+        | ResRaise, _ -> ResRaise
         | ResB true, t2' -> t2'
         | ResB false, _ -> compareOrder hd1 hd2 orderType
         | _ -> raise <| EvalException "Equal returned a non-expected value"

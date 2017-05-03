@@ -824,7 +824,8 @@ Even so, it is important to realize that it only compares values of the same kin
 
 \infrule[BS-$=$TupleFalse]
     {\mbox{env} \vdash e_1 \Downarrow (v_{11}, \; \dots \; v_{1n}) \andalso \mbox{env} \vdash e_2 \Downarrow (v_{21}, \; \dots \; v_{2k})\\
-     \exists \; k \in \left[1, n\right] \; \; \mbox{env} \vdash v_{1k} = v_{2k} \Downarrow false}
+     \exists \; k \in \left[1, n\right] \; \; \mbox{env} \vdash v_{1k} = v_{2k} \Downarrow false\\
+     \forall \; j \in \left[1, k\right) \; \; \mbox{env} \vdash v_{1j} = v_{2j} \Downarrow true}
     {\mbox{env} \vdash e_1 = e_2 \Downarrow false}
 
 \infrule[BS-$=$TupleTrue]
@@ -1132,9 +1133,90 @@ This means that expressions that need well-defined sub-expressions, such as nume
 
 The rules for $raise$ propagation are given below.
 
-\infrule[BS-+Raise]
+\infrule[BS-AppRaise]
+    {\mbox{env} \vdash e_1 \Downarrow raise}
+    {\mbox{env} \vdash e_1 e_2 \Downarrow raise}
+
+\infrule[BS-ListRaise]
+    {\mbox{env} \vdash e_1 \Downarrow v_1 \andalso \mbox{env} \vdash e_2 \Downarrow raise}
+    {\mbox{env} \vdash e_1 :: e_2 \Downarrow raise}
+
+\infrule[BS-TupleProjectionRaise]
+    {\mbox{env} \vdash e \Downarrow raise}
+    {\mbox{env} \vdash \#n \; e \Downarrow raise}
+
+\infrule[BS-RecordProjectionRaise]
+    {\mbox{env} \vdash e \Downarrow raise}
+    {\mbox{env} \vdash \#l \; e \Downarrow raise}
+
+\infrule[BS-$=$Raise]
+    {\mbox{env} \vdash e_1 \Downarrow raise}
+    {\mbox{env} \vdash e_1 = e_2 \Downarrow raise}
+
+\infrule[BS-$=$Raise2]
+    {\mbox{env} \vdash e_1 \Downarrow v_1 \andalso \mbox{env} \vdash e_2 \Downarrow raise}
+    {\mbox{env} \vdash e_1 = e_2 \Downarrow raise}
+
+\infrule[BS-$=$ListRaise]
+    {\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow v_3::v_4\\
+     \mbox{env} \vdash v_1 = v_3 \Downarrow raise}
+    {\mbox{env} \vdash e_1 = e_2 \Downarrow raise}
+
+\infrule[BS-$=$ListRaise2]
+    {\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow v_3::v_4\\
+     \mbox{env} \vdash v_1 = v_3 \Downarrow true \andalso \mbox{env} \vdash v_2 = v_4 \Downarrow raise}
+    {\mbox{env} \vdash e_1 = e_2 \Downarrow raise}
+
+\infrule[BS-$=$TupleRaise]
+    {\mbox{env} \vdash e_1 \Downarrow (v_{11}, \; \dots \; v_{1n}) \andalso \mbox{env} \vdash e_2 \Downarrow (v_{21}, \; \dots \; v_{2n})\\
+     \exists \; k \in \left[1, n\right] \; \; \mbox{env} \vdash v_{1k} = v_{2k} \Downarrow raise\\
+     \forall \; j \in \left[1, k\right) \; \; \mbox{env} \vdash v_{1j} = v_{2j} \Downarrow true}
+    {\mbox{env} \vdash e_1 = e_2 \Downarrow raise}
+
+\infrule[BS-$\neq$Raise]
+    {\mbox{env}\vdash e_1 = e_2 \Downarrow raise}
+    {\mbox{env} \vdash e_1 \neq e_2 \Downarrow raise}
+
+\infrule[BS-IneqRaise]
+    {\mbox{env} \vdash e_1 \Downarrow raise}
+    {\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow raise}
+
+\infrule[BS-IneqRaise2]
+    {\mbox{env} \vdash e_1 \Downarrow v_1 \andalso \mbox{env} \vdash e_2 \Downarrow raise}
+    {\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow raise}
+
+\infrule[BS-IneqListRaise]
+    {\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow v_3::v_4\\
+     \mbox{env} \vdash v_1 = v_3 \Downarrow raise}
+    {\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow raise}
+
+\infrule[BS-NumRaise]
+    {\mbox{env} \vdash e_1 \Downarrow raise}
+    {\mbox{env} \vdash e_1 opNum e_2 \Downarrow raise}
+
+\infrule[BS-NumRaise2]
     {\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow raise}
-    {\mbox{env} \vdash e_1 + e_2 \Downarrow raise}
+    {\mbox{env} \vdash e_1 opNum e_2 \Downarrow raise}
+
+\infrule[BS-$\vee$Raise]
+    {\mbox{env} \vdash e_1 \Downarrow raise}
+    {\mbox{env} \vdash e_1  \vee e_2 \Downarrow raise}
+
+\infrule[BS-$\vee$Raise2]
+    {\mbox{env} \vdash e_1 \Downarrow false \andalso \mbox{env} \vdash e_2 \Downarrow raise}
+    {\mbox{env} \vdash e_1 \vee e_2 \Downarrow raise}
+
+\infrule[BS-$\wedge$Raise]
+    {\mbox{env} \vdash e_1 \Downarrow raise}
+    {\mbox{env} \vdash e_1  \wedge e_2 \Downarrow raise}
+
+\infrule[BS-$\wedge$Raise2]
+    {\mbox{env} \vdash e_1 \Downarrow true \andalso \mbox{env} \vdash e_2 \Downarrow raise}
+    {\mbox{env} \vdash e_1 \wedge e_2 \Downarrow raise}
+
+\infrule[BS-IfRaise]
+    {\mbox{env} \vdash e_1 \Downarrow raise}
+    {\mbox{env} \vdash \texttt{if} \; e_1\; \texttt{then} \; e_2 \; \texttt{else} \; e_3 \Downarrow raise}
 
 \subsection{Type System}\label{Type System}
 
