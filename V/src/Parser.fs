@@ -51,10 +51,7 @@ let defaultOPs =[
     OpSpec (Infix  (4, Non  , Def Equal         ), "=" );
     OpSpec (Infix  (4, Non  , Def Different     ), "!=");
     OpSpec (Infix  (4, Non  , Def GreaterThan   ), ">" );
-    OpSpec (Infix  (4, Non  , Def GreaterOrEqual), ">=");
- 
-    OpSpec (Infix  (3, Right, Def And           ), "&&");
-    OpSpec (Infix  (2, Right, Def Or            ), "||")]
+    OpSpec (Infix  (4, Non  , Def GreaterOrEqual), ">=")]
 
 let defaultUserState =
     {operators = defaultOPs;
@@ -119,8 +116,6 @@ let private pOperator =
         | ">=" -> Def GreaterOrEqual
         | ">" -> Def GreaterThan
         | "::" -> Def Cons
-        | "&&" -> Def And
-        | "||" -> Def Or
         | c -> Custom c)
 
 let private pCustomOperator: Parser<string, UserState> = 

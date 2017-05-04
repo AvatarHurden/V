@@ -238,22 +238,6 @@ let rec private eval t env =
             | Divide when i2 = 0 -> ResRaise
             | _ -> sprintf "Term %A is not an operator at %A" op t |> EvalException |> raise
         | _, _ -> sprintf "Operation %A requires numbers at %A" op t |> EvalException |> raise
-    | OP(t1, And, t2) ->
-        match eval t1 env, eval t2 env with
-        | ResRaise, _ -> ResRaise
-        | ResB false, _ -> ResB false
-        | ResB true, ResRaise -> ResRaise
-        | ResB true, ResB true -> ResB true
-        | ResB true, ResB false -> ResB false
-        | t1', t2' -> sprintf "AND operation requires boolean values at %A" t |> EvalException |> raise
-    | OP(t1, Or, t2) ->
-        match eval t1 env, eval t2 env with
-        | ResRaise, _ -> ResRaise
-        | ResB true, _ -> ResB true
-        | ResB false, ResRaise -> ResRaise
-        | ResB false, ResB true -> ResB true
-        | ResB false, ResB false -> ResB false
-        | t1', t2' -> sprintf "OR operation requires boolean values at %A" t |> EvalException |> raise
     | Cond(t1, t2, t3) ->
         match eval t1 env with
         | ResRaise -> ResRaise

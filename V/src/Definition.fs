@@ -47,8 +47,6 @@ type op =
     | GreaterThan
     | Application
     | Cons
-    | And
-    | Or
     
 type Ident = string
     
