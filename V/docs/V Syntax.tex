@@ -226,11 +226,10 @@ $V$ provides a series of binary operations built-in into the language.
 e &::= &\cdots\\
   &| &e_1 \; op \; e_2\\
     \\
-    op &::= &opNum \; | \; opEq \; | \; opIneq \; | \; opBool \\
+    op &::= &opNum \; | \; opEq \; | \; opIneq\\
     opNum &::= &+ \; | \; - \; | \; \ast \; | \; \div\\
     opEq &::= &= \; | \; \neq\\
     opIneq &::= &< \; | \; \leq \; | \; > \; | \; \geq\\
-    boolOp &::= &\wedge \; | \; \vee\\
 \end{tabular}}
 
 \bigskip
@@ -956,26 +955,6 @@ For characters, the ASCII values are compared numerically.
      \mbox{env} \vdash v_1 = v_3 \Downarrow true \andalso \mbox{env} \vdash v_2 \; opIneq \; v_4 \Downarrow b}
     {\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow b}
 
-\paragraph{Logical Operations}
-The logical operators $\wedge$ (AND) and $\vee$ (OR) both have a short-circuit evaluation.
-This means that, if the result of the operation can be determined from the first operand, the second one is not evaluated.
-
-\infrule[BS-$\vee$Short]
-    {\mbox{env} \vdash e_1 \Downarrow true}
-    {\mbox{env} \vdash e_1 \vee e_2 \Downarrow true}
-
-\infrule[BS-$\vee$]
-    {\mbox{env} \vdash e_1 \Downarrow false \andalso \mbox{env} \vdash e_2 \Downarrow b}
-    {\mbox{env} \vdash e_1 \vee e_2 \Downarrow b}
-
-\infrule[BS-$\wedge$Short]
-    {\mbox{env} \vdash e_1 \Downarrow false}
-    {\mbox{env} \vdash e_1 \wedge e_2 \Downarrow false}
-
-\infrule[BS-$\wedge$]
-    {\mbox{env} \vdash e_1 \Downarrow true \andalso \mbox{env} \vdash e_2 \Downarrow b}
-    {\mbox{env} \vdash e_1 \wedge e_2 \Downarrow b}
-
 \paragraph{Conditional Expression}
 $V$ supports conditional expressions, which always return a value, but not conditional statements.
 Because of this, all conditional expressions must have both a $then$ and an $else$ branch.
@@ -1208,22 +1187,6 @@ The rules for $raise$ propagation are given below.
 \infrule[BS-NumRaise2]
     {\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow raise}
     {\mbox{env} \vdash e_1 opNum e_2 \Downarrow raise}
-
-\infrule[BS-$\vee$Raise]
-    {\mbox{env} \vdash e_1 \Downarrow raise}
-    {\mbox{env} \vdash e_1  \vee e_2 \Downarrow raise}
-
-\infrule[BS-$\vee$Raise2]
-    {\mbox{env} \vdash e_1 \Downarrow false \andalso \mbox{env} \vdash e_2 \Downarrow raise}
-    {\mbox{env} \vdash e_1 \vee e_2 \Downarrow raise}
-
-\infrule[BS-$\wedge$Raise]
-    {\mbox{env} \vdash e_1 \Downarrow raise}
-    {\mbox{env} \vdash e_1  \wedge e_2 \Downarrow raise}
-
-\infrule[BS-$\wedge$Raise2]
-    {\mbox{env} \vdash e_1 \Downarrow true \andalso \mbox{env} \vdash e_2 \Downarrow raise}
-    {\mbox{env} \vdash e_1 \wedge e_2 \Downarrow raise}
 
 \infrule[BS-IfRaise]
     {\mbox{env} \vdash e_1 \Downarrow raise}
@@ -1483,16 +1446,6 @@ Every expression in $V$ has a rule for constraint collection, similar to how eve
 \infrule[T-$\geq$]
     {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso X_1^{\{Orderable\}} \; is \; new}
     {\Gamma \vdash e_1 \geq e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; X_1^{\{Orderable\}} = T_2\}}
-
-\bigskip
-
-\infrule[T-$\vee$]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2}
-    {\Gamma \vdash e_1 \vee e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = \mbox{Bool}; T_2 = \mbox{Bool}\}}
-
-\infrule[T-$\wedge$]
-    {\Gamma \vdash e_1 :  T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2}
-    {\Gamma \vdash e_1 \wedge e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = \mbox{Bool}; T_2 = \mbox{Bool}\}}
 
 \bigskip
 
@@ -2396,9 +2349,17 @@ Because the library was imported inside the scope of the function body, none of 
 \end{itemize}
 
 \begin{itemize}
-  \item \textbf{Non-Strict Semantics} \; \; { \colorbox{YellowGreen}{Operational Semantics}}
+  \item \textbf{Non-Strict Semantics} \; \;
+  { \colorbox{YellowGreen}{Operational Semantics}}
 
       Functions can now be non-strict, and compound values (lists, tuples, records) can contain undefined (\code{raise}) components.
+\end{itemize}
+
+\begin{itemize}
+  \item \textbf{Boolean Operations} \; \;
+  {{\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System}}
+
+      The boolean operators $\wedge$ (AND) and $\vee$ (OR) have been removed from the definition and added to the stdlib.
 \end{itemize}
 
 \paragraph{Removals}
