@@ -199,6 +199,65 @@ let abs x =
     member that.zero() =
         equals (Abs.func + "abs 0") <| ResI 0
 
+[<TestFixture>]
+type And() =
+
+    static member func = """
+let and x y =
+    match x with
+    | false -> false
+    | _ -> y
+;
+let infixr 3 (&&) = and;
+"""
+
+    [<Test>]
+    member that.testType() =
+        hasType (And.func + "and") <| 
+            Function (Bool, Function (Bool, Bool))
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (And.func + "and 4")
+        throwsWrongType (And.func + "and true [true]")
+
+    [<Test>]
+    member that.shortCircuit() =
+        equals (And.func + "false && raise") <| ResB false
+        
+    [<Test>]
+    member that.works() =
+        equals (And.func + "and true false") <| ResB false
+        
+[<TestFixture>]
+type Or() =
+
+    static member func = """
+let or x y =
+    match x with
+    | true -> true
+    | _ -> y
+;
+let infixr 2 (||) = or;
+"""
+
+    [<Test>]
+    member that.testType() =
+        hasType (Or.func + "or") <| 
+            Function (Bool, Function (Bool, Bool))
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (Or.func + "or 4")
+        throwsWrongType (Or.func + "or true [true]")
+
+    [<Test>]
+    member that.shortCircuit() =
+        equals (Or.func + "true || raise") <| ResB true
+        
+    [<Test>]
+    member that.works() =
+        equals (Or.func + "or true false") <| ResB true
 
 [<TestFixture>]
 type Not() =
@@ -540,7 +599,7 @@ let rec length ls =
 [<TestFixture>]
 type Range() =
 
-    static member func = """
+    static member func = And.func + Or.func + """
 let rec range start finish inc =
     if (inc > 0 && start <= finish) || (inc < 0 && start >= finish) then
         start::(range (start+inc) finish inc)
@@ -690,7 +749,7 @@ let rec fold f acc ls =
     member that.wrongParameter() =
         throwsWrongType (Fold.func + "fold [1,2,3]")
         throwsWrongType (Fold.func + "fold (\\x -> x = true) true [1,2,3]")
-        throwsWrongType (Fold.func + Remainder.func + "fold (\\acc x -> acc && x % 4 = 0) true \"hi\"")
+        throwsWrongType (Fold.func + And.func + Remainder.func + "fold (\\acc x -> acc && x % 4 = 0) true \"hi\"")
 
     [<Test>]
     member that.emptyList() =
@@ -1059,7 +1118,7 @@ let rec dropWhile pred ls =
 type Sublist() =
 
     static member func = 
-        Take.func + Drop.func + Length.func + Apply.func + """
+        Or.func + Take.func + Drop.func + Length.func + Apply.func + """
 let sublist start size ls =
     if start < 0 || size > length ls then
         raise
@@ -1229,13 +1288,13 @@ let indexOf t ls =
 [<TestFixture>]
 type Nth() =
 
-    static member func = """
+    static member func = Flip.func +  """
 let rec nth index ls =
     match (index, ls) with
     | (0, x :: _) -> x
     | (n, _ :: xs) when n > 0 -> nth (n-1) xs
 ;
-let (!!) = nth;
+let infixl 9 (!!) = flip nth;
 """
 
     [<Test>]
@@ -1265,6 +1324,10 @@ let (!!) = nth;
     [<Test>]
     member that.middleIndex() =
         equalsParsed (Nth.func + "nth 2 [1,2,3,4]") "3"
+              
+    [<Test>]
+    member that.infix() =
+        equalsParsed (Nth.func + "[1,2,3,4] !! 2") "3"
               
 
 [<TestFixture>]

@@ -106,33 +106,35 @@ let rec compareEquality t1 t2 =
     | ResNil, ResCons (hd1, tl1)  -> ResB false
     | ResCons (hd1, tl1), ResCons (hd2, tl2) ->
         match compareEquality hd1 hd2, compareEquality tl1 tl2 with
+        | ResRaise, _ -> ResRaise
         | ResB false, _ -> ResB false
         | ResB true, ResB false -> ResB false
         | ResB true, ResB true -> ResB true
+        | ResB true, ResRaise -> ResRaise
         | _ -> raise <| EvalException "Equal returned a non-expected value"
     | ResTuple v1, ResTuple v2 when v1.Length = v2.Length ->
         let f acc r1 r2 =
             match acc, compareEquality r1 r2 with
-            | ResRaise, _
-            | _, ResRaise -> ResRaise
-            | ResB b1, ResB b2 -> ResB (b1 && b2)
+            | ResRaise, _ -> ResRaise
+            | ResB false, _ -> ResB false
+            | ResB true, ResRaise -> ResRaise
+            | ResB true, ResB b2 -> ResB b2
             | _ -> raise <| EvalException "Equal returned a non-expected value"
         List.fold2 f (ResB true) v1 v2
     | ResRecord v1, ResRecord v2 when v1.Length = v2.Length ->
-        let existsInV1 (name2, _) =
-            List.exists (fun (name1, _) -> name2 = name1) v1
+        let v1' = List.sortWith (fun (s1, t1) (s2, t2) -> compare s1 s2) v1
+        let v2' = List.sortWith (fun (s1, t1) (s2, t2) -> compare s1 s2) v2
         
-        if List.forall existsInV1 v2 then
-            let f acc (name1, r1) =
-                let (name2, r2) = List.find (fun (name2, typ2) -> name1 = name2) v2
-                match acc, compareEquality r1 r2 with
-                | ResRaise, _
-                | _, ResRaise -> ResRaise
-                | ResB b1, ResB b2 -> ResB (b1 && b2)
-                | _ -> raise <| EvalException "Equal returned a non-expected value"
-            List.fold f (ResB true) v1
-        else
-            raise <| EvalException (sprintf "Records %A and %A have different fields" t1 t2)
+        let f acc (n1, r1) (n2, r2) =
+            if n1 <> n2 then
+                raise <| EvalException (sprintf "Records %A and %A have different fields" t1 t2)
+            match acc, compareEquality r1 r2 with
+            | ResRaise, _ -> ResRaise
+            | ResB false, _ -> ResB false
+            | ResB true, ResRaise -> ResRaise
+            | ResB true, ResB b2 -> ResB b2
+            | _ -> raise <| EvalException "Equal returned a non-expected value"
+        List.fold2 f (ResB true) v1' v2'
     | _ , _ -> sprintf "Values %A and %A are not comparable" t1 t2 |> EvalException |> raise  
 
 let rec compareOrder t1 t2 orderType =
@@ -170,6 +172,7 @@ let rec compareOrder t1 t2 orderType =
         | _ -> sprintf "Cannot order %A and %A with %A" t1 t2 orderType |> EvalException |> raise  
     | ResCons (hd1, tl1), ResCons (hd2, tl2) ->
         match compareEquality hd1 hd2, compareOrder tl1 tl2 orderType with
+        | ResRaise, _ -> ResRaise
         | ResB true, t2' -> t2'
         | ResB false, _ -> compareOrder hd1 hd2 orderType
         | _ -> raise <| EvalException "Equal returned a non-expected value"
@@ -187,14 +190,12 @@ let rec private eval t env =
         | ResRaise -> ResRaise
         | ResRecClosure(id1, pattern, e, env') as t1' ->
             match eval t2 env with
-            | ResRaise ->  ResRaise
             | t2' -> 
                 match validatePattern pattern t2' env' with
                 | None -> ResRaise
                 | Some env' -> eval e <| env'.Add(id1, t1')
         | ResClosure(pattern, e, env') ->
             match eval t2 env with
-            | ResRaise -> ResRaise
             | t2' -> 
                 match validatePattern pattern t2' env' with
                 | None -> ResRaise
@@ -202,7 +203,6 @@ let rec private eval t env =
         | t1' -> sprintf "First operand %A is not a function at %A" t1' t |> EvalException |> raise
     | OP(t1, Cons, t2) ->
         match eval t1 env with
-        | ResRaise -> ResRaise
         | t1' ->
             match eval t2 env with
             | ResRaise -> ResRaise
@@ -238,22 +238,6 @@ let rec private eval t env =
             | Divide when i2 = 0 -> ResRaise
             | _ -> sprintf "Term %A is not an operator at %A" op t |> EvalException |> raise
         | _, _ -> sprintf "Operation %A requires numbers at %A" op t |> EvalException |> raise
-    | OP(t1, And, t2) ->
-        match eval t1 env, eval t2 env with
-        | ResRaise, _ -> ResRaise
-        | ResB false, _ -> ResB false
-        | ResB true, ResRaise -> ResRaise
-        | ResB true, ResB true -> ResB true
-        | ResB true, ResB false -> ResB false
-        | t1', t2' -> sprintf "AND operation requires boolean values at %A" t |> EvalException |> raise
-    | OP(t1, Or, t2) ->
-        match eval t1 env, eval t2 env with
-        | ResRaise, _ -> ResRaise
-        | ResB true, _ -> ResB true
-        | ResB false, ResRaise -> ResRaise
-        | ResB false, ResB true -> ResB true
-        | ResB false, ResB false -> ResB false
-        | t1', t2' -> sprintf "OR operation requires boolean values at %A" t |> EvalException |> raise
     | Cond(t1, t2, t3) ->
         match eval t1 env with
         | ResRaise -> ResRaise
@@ -264,7 +248,6 @@ let rec private eval t env =
     | RecFn(id1, typ1, pattern, t) -> ResRecClosure(id1, pattern, t, env)
     | Match (t1, patterns) ->
         match eval t1 env with
-        | ResRaise -> ResRaise
         | t1' ->
             let f acc (pattern, condition, result) =
                 match acc with
@@ -286,41 +269,22 @@ let rec private eval t env =
             | Some v -> v
     | Let(pattern, t1, t2) ->
         match eval t1 env with
-        | ResRaise -> ResRaise
         | t1' -> 
             match validatePattern pattern t1' env with
             | None -> ResRaise
             | Some env' -> eval t2 env'
     | Nil -> ResNil
     | Raise -> ResRaise
-    | Try(t1, t2) ->
-        match eval t1 env with
-        | ResRaise -> eval t2 env
-        | t1' -> t1'
     | Tuple(terms) ->
         if List.length terms < 2 then
             sprintf "Tuple must have more than 2 components at %A" t |> EvalException |> raise
     
-        let f t =
-            match eval t env with
-            | ResRaise -> None
-            | t' -> Some t'
-
-        match mapOption f terms with
-        | None -> ResRaise
-        | Some results -> ResTuple results
+        ResTuple <| List.map (fun t -> eval t env) terms
     | Record(pairs) ->
         if Set(List.unzip pairs |> fst).Count < List.length pairs then
             sprintf "Record has duplicate fields at %A" t |> EvalException |> raise
 
-        let f (name, t) =
-            match eval t env with
-            | ResRaise -> None
-            | t' -> Some (name, t')
-
-        match mapOption f pairs with
-        | None -> ResRaise
-        | Some results -> ResRecord results
+        ResRecord <| List.map (fun (name, t) -> name, eval t env) pairs
     | ProjectIndex(n, t1) ->
         match eval t1 env with
         | ResRaise -> ResRaise

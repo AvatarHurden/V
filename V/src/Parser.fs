@@ -51,10 +51,7 @@ let defaultOPs =[
     OpSpec (Infix  (4, Non  , Def Equal         ), "=" );
     OpSpec (Infix  (4, Non  , Def Different     ), "!=");
     OpSpec (Infix  (4, Non  , Def GreaterThan   ), ">" );
-    OpSpec (Infix  (4, Non  , Def GreaterOrEqual), ">=");
- 
-    OpSpec (Infix  (3, Right, Def And           ), "&&");
-    OpSpec (Infix  (2, Right, Def Or            ), "||")]
+    OpSpec (Infix  (4, Non  , Def GreaterOrEqual), ">=")]
 
 let defaultUserState =
     {operators = defaultOPs;
@@ -83,10 +80,9 @@ let private pResetIdentifier (p: Parser<'t, UserState>) =
 //#region Identifier and Operator Parsing
 
 let keywords = 
-    Set["let"; "true"  ; "false"; "if"  ; "then"  ; "else";
-        "rec"; "nil"   ; "raise"; "when"; "match" ; "with";
-        "try"; "except"; "for"  ; "in"  ; "import"; "infix";
-        "infixl"; "infixr"]
+    Set["let"; "true"  ; "false" ; "if"   ; "then"   ; "else"  ;
+        "rec"; "nil"   ; "raise" ; "when" ; "match"  ; "with"  ;
+        "for"; "in"    ; "import"; "infix"; "infixl" ; "infixr"]
 
 let private isAsciiIdStart c =
     isAsciiLower c || c = '_'
@@ -120,8 +116,6 @@ let private pOperator =
         | ">=" -> Def GreaterOrEqual
         | ">" -> Def GreaterThan
         | "::" -> Def Cons
-        | "&&" -> Def And
-        | "||" -> Def Or
         | c -> Custom c)
 
 let private pCustomOperator: Parser<string, UserState> = 
@@ -557,11 +551,6 @@ let private pIf =
     let third = pstring "else" >>. ws >>. pTerm
     pipe3 first second third (fun x y z -> Cond(x, y, z))
     
-let private pTry =
-    let first = pstring "try" >>. ws >>. pTerm
-    let second = pstring "except" >>. ws >>. pTerm
-    pipe2 first second (fun x y -> Try(x, y))
-
 let private pMatch = 
     pipe2
         (pstring "match" >>. ws >>. pTerm .>> pstring "with" .>> ws)
@@ -587,7 +576,6 @@ let private pValue =
             pProjection;
             pSquareBrackets;
             pIf;
-            pTry;
             pMatch;
             pLambda;
             pRecLambda;

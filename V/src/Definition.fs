@@ -47,8 +47,6 @@ type op =
     | GreaterThan
     | Application
     | Cons
-    | And
-    | Or
     
 type Ident = string
     
@@ -78,7 +76,6 @@ type term =
     | Let of VarPattern * term * term
     | Nil
     | Raise
-    | Try of term * term
     | Tuple of term list
     | Record of (string * term) list
     | ProjectIndex of int * term
