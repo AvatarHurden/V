@@ -6,8 +6,6 @@ let rec printTrait trt =
     match trt with
     | Orderable -> "Orderable"
     | Equatable -> "Equatable"
-    | TuplePosition (index, typ) ->
-        sprintf "%A at index %A" (printType typ) index
     | RecordLabel (label, typ) ->
         sprintf "%A at label %A" (printType typ) label
 

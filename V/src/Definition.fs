@@ -10,7 +10,6 @@ exception UncompiledLib of string
 type Trait =
     | Equatable
     | Orderable
-    | TuplePosition of int * Type
     | RecordLabel of string * Type
 
 and Type =
