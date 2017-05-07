@@ -143,14 +143,7 @@ Tuples of any size greater than or equal to 2 are supported, and they are of fix
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
 e &::= &\cdots&\\
     &| &(e_1, \; \dots \; e_n) & (n\geq2)\\
-    &| &\#n \; e&\\
 \end{tabular}}
-
-\bigskip
-
-The first expression is the only way to construct a new tuple in $V$.
-
-The second expression is the projection of a specific field of a tuple.
 
 \paragraph{Records}
 Records are unordered heterogeneous collection of named values with random access.
@@ -456,7 +449,6 @@ Variable types, on the other hand, can explicitly state which traits they posses
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}r}
     Trait &::= &Equatable\\
     &| &Orderable\\
-    &| &(n: Type) & (Tuple Position)\\
     &| &\{l: Type\} & (Record Label)\\
 \end{tabular}}
 
@@ -489,21 +481,6 @@ To define the set of types that belong to $Orderable$, the following rules are u
     \{\mbox{Int}, \mbox{Char}\} \subset Orderable\\
     T \in Orderable \implies T \; list \in Orderable\\
     X^{Traits} \in Orderable \implies Orderable \in Traits\\
-\end{tabular}}
-
-\paragraph{Tuple Position}
-A tuple position trait specifies a type $T$ that a tuple must have at a certain position $n$.
-For this to be valid, the tuple must be at least of size $n+1$, since they are 0-indexed.
-This trait does not put an upper bound on the size of the tuple.
-
-To define the set of types that belong to a tuple position $(n: T)$, the following rules are used:
-
-\medskip
-
-{\setlength\tabcolsep{8pt}
-\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
-    (T_1, \; \dots \; T_{n+1}, \; \dots \; T_k) \in (n: T) \iff T_{n+1} = T & (k\geq2, \; 0 \leq n < k)\\
-    X^{Traits} \in (n: T) \implies (n: T) \in Traits\\
 \end{tabular}}
 
 \paragraph{Record Label}
@@ -688,23 +665,13 @@ The following are the rules for the match function:
 
 \paragraph{Tuples}
 A tuple construction expression $(e_1, \; \dots \; e_n)$ evaluates each of its sub-expressions individually, resulting in a tuple value.
-If any expression evaluates to a $raise$, the whole tuple evaluates to $raise$, propagating the exception.
 
 \infrule[BS-Tuple]
     {\forall \; k \in \left[1, n\right] \; \; \mbox{env} \vdash e_k \Downarrow v_k}
     {\mbox{env} \vdash (e_1, \; \dots \; e_n) \Downarrow (v_1, \; \dots \; e_n)}
 
-For field projection, the tuple is 0-indexed, meaning the first component has index 0.
-Because of this, projection can only be done on positive numbers.
-Any attempt to project an inexisting field (i.e $n \geq k$) is invalid code, and does not evaluate to $raise$.
-
-\infrule[BS-TupleProjection]
-    {\mbox{env} \vdash e \Downarrow (v_1, \; \dots \; v_k) \andalso 0 \leq \left\|n\right\| < \left\|k\right\|}
-    {\mbox{env} \vdash \#n \; e \Downarrow v_{n+1}}
-
 \paragraph{Records}
 A record construction expression $\{l_1: e_1, \; \dots \; l_n: e_n\}$ evaluates each of its sub-expressions individually, resulting in a record value.
-If any expression evaluates to a $raise$, the whole record evaluates to $raise$, propagating the exception.
 
 \infrule[BS-Record]
     {\forall \; k \in \left[1, n\right] \; \; \mbox{env} \vdash e_k \Downarrow v_k}
@@ -1125,10 +1092,6 @@ The rules for $raise$ propagation are given below.
     {\mbox{env} \vdash e_1 \Downarrow v_1 \andalso \mbox{env} \vdash e_2 \Downarrow raise}
     {\mbox{env} \vdash e_1 :: e_2 \Downarrow raise}
 
-\infrule[BS-TupleProjectionRaise]
-    {\mbox{env} \vdash e \Downarrow raise}
-    {\mbox{env} \vdash \#n \; e \Downarrow raise}
-
 \infrule[BS-RecordProjectionRaise]
     {\mbox{env} \vdash e \Downarrow raise}
     {\mbox{env} \vdash \#l \; e \Downarrow raise}
@@ -1376,10 +1339,6 @@ Every expression in $V$ has a rule for constraint collection, similar to how eve
 \infrule[T-Tuple]
     {\forall \; k \in \left[1, n\right] \; \; \Gamma \vdash e_k : T_k \; | \; C_k}
     {\Gamma \vdash (e_1, \; \dots \; e_n) : (T_1, \; \dots \; T_n) \; | \; C_1 \cup \cdots C_n }
-
-\infrule[T-TupleProjection]
-    {\Gamma \vdash e : T_1 \; | \; C_1 \andalso X_1 \; is \; new \andalso X_2^{\{(n: X_1)\}} \; is \; new}
-    {\Gamma \vdash \#n \; e : X_1 \; | \; C_1 \cup \{T_1 = X_2\}}
 
 \bigskip
 
@@ -1684,13 +1643,12 @@ Tuples are specified inside parenthesis, with each of its values separated by co
 Tuples are immutable, which means they cannot be changed once they are created.
 There is no way to add or remove elements from a tuple.
 
-To access a specific field of a tuple, the projection operation is used.
-Tuples are 0-indexed, so projection is done by specifying the index of the field.
+To access a specific field of a tuple, it must be deconstructed using a pattern.
+This can be done either by using a \code{let} expression or by pattern matching in a function definition.
 
-\begin{lstlisting}
-    #0 (1, ``hello'')
-    #2 (true, `c', 43)
-    #3 ('c', false) // Invalid code
+\begin{lstlisting}[escapechar=&]
+    let (x, y) = (1, ``hello'')
+    (\&&(x, y, z) -> x) (true, `c', 43)
 \end{lstlisting}
 
 Tuples are extremely useful as return values for functions that must convey more than one piece of information.
@@ -2379,6 +2337,12 @@ Because the library was imported inside the scope of the function body, none of 
 
       Exceptions can no longer be handled.
       This was done because of the change to non-strict semantics.
+
+  \item \textbf{Project Index (TuplePosition Trait)} \; \; {\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System} \colorbox{lightgray}{Concrete Syntax}}
+
+      Removed the ability to project a specific component of a tuple, making patterns the only way to decompose tuples.
+
+      As a result of this, the TuplePosition Trait has been removed.
 \end{itemize}
 
 
