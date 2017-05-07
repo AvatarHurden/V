@@ -328,6 +328,88 @@ let xor t1 t2 =
         equals (Xor.func + "xor false true") <| ResB true
 
 [<TestFixture>]
+type Fst() =
+
+    static member func = """
+let fst (x, _) = x;
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x = VarType("x", [])
+        let y = VarType("y", [])
+        matchesType (Fst.func + "fst") <| 
+            Function (Type.Tuple [x; y], x)
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (Fst.func + "fst (true, 4, 4)")
+        throwsWrongType (Fst.func + "fst 3")
+
+    [<Test>]
+    member that.raiseFirst() =
+        equals (Fst.func + "fst (raise, 3)") <| ResRaise
+        
+    [<Test>]
+    member that.raiseSecond() =
+        equals (Fst.func + "fst (3, raise)") <| ResI 3
+
+
+[<TestFixture>]
+type Snd() =
+
+    static member func = """
+let snd (_, y) = y;
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x = VarType("x", [])
+        let y = VarType("y", [])
+        matchesType (Snd.func + "snd") <| 
+            Function (Type.Tuple [x; y], y)
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (Snd.func + "snd (true, 4, 4)")
+        throwsWrongType (Snd.func + "snd 3")
+
+    [<Test>]
+    member that.raiseFirst() =
+        equals (Snd.func + "snd (raise, 3)") <| ResI 3
+        
+    [<Test>]
+    member that.raiseSecond() =
+        equals (Snd.func + "snd (3, raise)") <| ResRaise
+
+[<TestFixture>]
+type Swap() =
+
+    static member func = """
+let swap (x, y) = (y, x);
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x = VarType("x", [])
+        let y = VarType("y", [])
+        matchesType (Swap.func + "swap") <| 
+            Function (Type.Tuple [x; y], Type.Tuple [y; x])
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (Swap.func + "swap (true, 4, 4)")
+        throwsWrongType (Swap.func + "swap 3")
+
+    [<Test>]
+    member that.raiseFirst() =
+        equals (Swap.func + "swap (raise, 3)") <| ResTuple [ResI 3; ResRaise]
+        
+    [<Test>]
+    member that.raiseSecond() =
+        equals (Swap.func + "swap (3, 'a')") <| ResTuple [ResC 'a'; ResI 3]
+        
+[<TestFixture>]
 type Head() =
 
     static member func = """

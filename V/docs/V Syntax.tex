@@ -2445,6 +2445,28 @@ They allow more compact and easier to read code to be written, mainly reducing t
 
   \code{f . g . h \$ x = f (g (h x))}}
 
+\subsubsection{Operations on Tuples}
+
+The stdlib also provides basic functions for manipulating tuples with 2 components.
+For larger tuples, it is necessary to create custom functions.
+
+\medskip
+
+\libfunction
+  {fst}
+  {(a, b) -> a}
+  {Returns the first component of a pair.}
+
+\libfunction
+  {snd}
+  {(a, b) -> b}
+  {Returns the second component of a pair.}
+
+\libfunction
+  {swap}
+  {(a, b) -> (b, a)}
+  {Swap the components of a pair.}
+
 \subsection{Operations on Lists}
 
 \subsubsection{Basic Operations}

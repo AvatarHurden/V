@@ -65,6 +65,15 @@ let xor t1 t2 =
         t2
 ;
 
+// ===============
+// Tuple Functions
+// ===============
+
+let fst (x, _) = x;
+let snd (_, y) = y;
+
+let swap (x, y) = (y, x);
+
 // ====================
 // Basic List functions
 // ====================
