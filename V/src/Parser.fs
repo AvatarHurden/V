@@ -301,7 +301,9 @@ let private pRaise = stringReturn "raise" Raise
 
 let private pProjection = 
     pstring "#" >>. pIdentifier |>> 
-        fun s -> Fn (Pat(XPat "x", None), ProjectName (s, X "x"))
+        fun s -> 
+            Fn (Pat(XPat "x", None),
+                Fn (Pat(XPat "y", None), RecordAccess (s, X "x", X "y")))
 
 //#endregion   
 

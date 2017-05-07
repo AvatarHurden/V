@@ -48,7 +48,7 @@ and printType typ =
     | Type.Tuple (types) ->
         sprintf "(%s)" (printTuple types)
     | Type.Record (pairs) ->
-        sprintf "(%s)" (printRecord pairs)
+        sprintf "{%s}" (printRecord pairs)
 
 let rec printResultList result =
     match result with
@@ -79,10 +79,10 @@ and printResult result =
         + ")"
     | ResRecord v -> 
         let headName, headV = v.Head
-        "(" + 
+        "{" + 
         (List.fold (fun acc (name, v) -> acc + ", " + name + ":" + printResult v) 
         (headName + ":" + printResult headV) v.Tail) 
-        + ")"
+        + "}"
     | ResClosure (id, t, env) -> sprintf "Function with parameter %A" id
     | ResRecClosure (id, id2, t, env) -> 
         sprintf "Recursive function with name %A and parameter %A" id id2
