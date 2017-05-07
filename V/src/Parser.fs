@@ -300,12 +300,8 @@ let private pNil = stringReturn "nil" Nil
 let private pRaise = stringReturn "raise" Raise
 
 let private pProjection = 
-    pstring "#" >>. 
-        ((puint32 |>> (fun x -> Choice1Of2 (int x)))
-        <|> (pIdentifier |>> Choice2Of2)) |>>
-        function
-        | Choice1Of2 num -> Fn (Pat(XPat "x", None), ProjectIndex (num, X "x"))
-        | Choice2Of2 s -> Fn (Pat(XPat "x", None), ProjectName (s, X "x"))
+    pstring "#" >>. pIdentifier |>> 
+        fun s -> Fn (Pat(XPat "x", None), ProjectName (s, X "x"))
 
 //#endregion   
 

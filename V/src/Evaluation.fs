@@ -285,15 +285,6 @@ let rec private eval t env =
             sprintf "Record has duplicate fields at %A" t |> EvalException |> raise
 
         ResRecord <| List.map (fun (name, t) -> name, eval t env) pairs
-    | ProjectIndex(n, t1) ->
-        match eval t1 env with
-        | ResRaise -> ResRaise
-        | ResTuple values ->
-            if n >= 0 && n < List.length values then
-                List.nth values n
-            else
-                sprintf "Cannot acces index %A of tuple at %A" n t |> EvalException |> raise
-        | t1' -> sprintf "Term %A is not a tuple at %A" t1' t |> EvalException |> raise
     | ProjectName(s, t1) ->
         match eval t1 env with
         | ResRaise -> ResRaise

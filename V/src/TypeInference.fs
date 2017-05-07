@@ -575,11 +575,6 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
             List.unzip <| 
             List.map (fun t -> collectConstraints t env) types
         Type.Record (List.zip names types') , List.reduce (@) constraints
-    | ProjectIndex (n, t1) ->
-        let typ1, c1 = collectConstraints t1 env
-        let retType = VarType (getVarType (), [])
-        let varType = VarType (getVarType (), [TuplePosition (n, retType)])
-        retType, c1 @ [Equals (typ1, varType)]
     | ProjectName (name, t1) ->
         let typ1, c1 = collectConstraints t1 env
         let retType = VarType (getVarType (), [])

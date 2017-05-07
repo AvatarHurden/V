@@ -78,7 +78,6 @@ type term =
     | Raise
     | Tuple of term list
     | Record of (string * term) list
-    | ProjectIndex of int * term
     | ProjectName of string * term
 
 type result =

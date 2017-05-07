@@ -242,10 +242,6 @@ type TestTupleRecords() =
             ResRecord ["a", ResI 7; "b", ResB true]
 
     [<Test>]
-    member that.projectIndex() =
-        compare "#2 ('a','b','c')" <| ResC 'c'
-        
-    [<Test>]
     member that.projectName() =
         compare "#name {name: 'a', age: 3}" <| ResC 'a'
 
