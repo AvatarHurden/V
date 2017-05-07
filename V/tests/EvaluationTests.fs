@@ -35,30 +35,16 @@ type TestEval() =
 
     [<Test>]
     member that.LCM() =
-        "let modulo (x:Int): Int -> Int =
-    let rec d (y:Int): Int =
-        if x = 0 then  
-            raise
-        else if y<x then
-            y
-        else
-            d (y-x)
-    ;
-    (\(y:Int) -> d y)
+        compare ("
+let rec gcd (x:Int) (y:Int) =
+    match y with
+    | 0 -> x
+    | y -> gcd y (y % x)
 ;
-let rec gcd (x:Int): Int -> Int =
-    let f (y: Int): Int =
-        try
-            gcd y (modulo y x) 
-        except
-            x
-    ;
-    (\(y: Int) -> f y)
+let lcm (x:Int) (y:Int) =
+    x*y/(gcd x y)
 ;
-let lcm (x:Int): Int -> Int =
-    (\(y: Int) -> x*y/(gcd x y))
-;
-lcm 121 11*15" |> parse |> evaluate |> should equal <| ResI 1815
+lcm 121 11*15", ResI 1815)
 
     [<Test>]
     member that.orderLists() =
@@ -159,3 +145,32 @@ type TestMatchEval() =
     [<Test>]
     member that.RecFnParameterFail() =
         compare ("(rec count (x :: y) -> if empty? y then 1 else 1 + count y) []", ResRaise)
+
+[<TestFixture>]
+type NonStrictness() =
+        [<Test>]
+        member that.basic() =
+            compare ("let f x = 3; f raise", ResI 3)
+
+        [<Test>]
+        member that.strict() =
+            compare ("let f x y =
+	    match x with
+	    | 0 -> 0
+	    | x -> x + y
+    ;
+    f 0 raise", ResI 0)
+
+        [<Test>]
+        member that.strict2() =
+            compare ("let f x y =
+	    match x with
+	    | 0 -> 0
+	    | x -> x + y
+    ;
+    f 1 raise
+    ", ResRaise)
+
+        [<Test>]
+        member that.indexing() =
+            compare ("[raise, raise, raise, 3] !! 3", ResI 3)

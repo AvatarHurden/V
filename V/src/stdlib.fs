@@ -36,6 +36,21 @@ let abs x =
 // Logical functions
 // =================
 
+let and x y =
+    match x with
+    | false -> false
+    | _ -> y
+;
+
+let or x y =
+    match x with
+    | true -> true
+    | _ -> y
+;
+
+let infixr 3 (&&) = and;
+let infixr 2 (||) = or;
+
 let not t =
     if t then
         false
@@ -236,8 +251,7 @@ let rec nth index ls =
     | (0, x :: _) -> x
     | (n, _ :: xs) when n > 0 -> nth (n-1) xs
 ;
-
-let infixl 9 (!!) = nth;
+let infixl 9 (!!) = flip nth;
 
 // ======================
 // List sorting functions
