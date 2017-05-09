@@ -25,21 +25,25 @@ let rec matchPattern (Pat (pattern, _)) result (env: Map<Ident, result>) =
     | IgnorePat -> Some env  
     | BPat b ->
         match result with
+        | ResRaise -> None
         | ResB b' when b' = b -> Some env
         | ResB _ -> None
         | _ -> raise <| EvalException "Boolean does not match in pattern"
     | IPat i ->
         match result with
+        | ResRaise -> None
         | ResI i' when i' = i -> Some env
         | ResI _ -> None
         | _ -> raise <| EvalException "Integer does not match in pattern"
     | CPat c ->
         match result with
+        | ResRaise -> None
         | ResC c' when c' = c -> Some env
         | ResC _ -> None
         | _ -> raise <| EvalException "Integer does not match in pattern"
     | TuplePat patterns ->
         match result with
+        | ResRaise -> None
         | ResTuple results when results.Length = patterns.Length ->
             let f acc p r =
                 match acc with
@@ -52,6 +56,7 @@ let rec matchPattern (Pat (pattern, _)) result (env: Map<Ident, result>) =
             raise <| EvalException "Invalid result for tuple pattern"
     | RecordPat patterns ->
         match result with
+        | ResRaise -> None
         | ResRecord results when results.Length = patterns.Length ->
 
             let existsInPatterns (rName, _) =
@@ -73,12 +78,14 @@ let rec matchPattern (Pat (pattern, _)) result (env: Map<Ident, result>) =
             raise <| EvalException "Invalid result for record pattern"
     | NilPat ->
         match result with
+        | ResRaise -> None
         | ResNil -> Some env
         | ResCons _ -> None
         | _ -> 
             raise <| EvalException "Invalid result for nil pattern"
     | ConsPat (p1, p2) ->
         match result with
+        | ResRaise -> None
         | ResNil -> None
         | ResCons (v1, v2) -> 
             match matchPattern p1 v1 env with
@@ -288,6 +295,7 @@ let rec private eval t env =
     | RecordAccess (s, t1, t2) ->
         let newValue = eval t1 env
         match eval t2 env with
+        | ResRaise -> ResRaise
         | ResRecord pairs ->
             let names, values = List.unzip pairs
             match Seq.tryFindIndex ((=) s) names with
