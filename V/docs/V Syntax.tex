@@ -2529,7 +2529,36 @@ Basic functions to aid in using lists.
 
 \subsubsection{Generation Operations}
 
+These operations create lists based on input values.
+
+\medskip
+
+\libfunction
+  {range}
+  {Int -> Int -> Int -> [Int]}
+  {\code{range start finish increment} generates a list of the form
+
+  [\code{start}, \code{start} + \code{increment}, \code{start} + 2 * \code{increment}, ..., \code{n}], where
+
+  \code{increment} $>$ 0 $\implies$ \code{n} $\leq$ \code{finish}
+
+  \code{increment} $<$ 0 $\implies$ \code{n} $\geq$ \code{finish}}
+
 \subsubsection{Transformation Operations}
+
+These operations transform a list, altering its elements, their order, or both.
+
+\medskip
+
+\libfunction
+  {reverse}
+  {[a] -> [a]}
+  {Returns the elements of the input in reverse order.}
+
+\libfunction
+  {map}
+  {(a -> b) -> [a] -> [b]}
+  {\code{map f ls} returns a list by applying the function \code{f} to each element of the list \code{ls}.}
 
 \subsubsection{Reduction Operations}
 
