@@ -562,11 +562,6 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         let typ2, c2 = collectConstraints t2 env
         let varType = VarType (getVarType (), [RecordLabel (s, typ1)])
         Type.Tuple [typ1; typ2], c1 @ c2 @ [Equals (varType, typ2)]
-    | ProjectName (name, t1) ->
-        let typ1, c1 = collectConstraints t1 env
-        let retType = VarType (getVarType (), [])
-        let varType = VarType (getVarType (), [RecordLabel (name, retType)])
-        retType, c1 @ [Equals (typ1, varType)]
 
 //#endregion
 

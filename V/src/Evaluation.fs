@@ -302,17 +302,6 @@ let rec private eval t env =
             | None ->
                 sprintf "Record has no entry %A at %A" s t2 |> EvalException |> raise
         | t2' -> sprintf "Term %A is not a record at %A" t2' t |> EvalException |> raise
-    | ProjectName(s, t1) ->
-        match eval t1 env with
-        | ResRaise -> ResRaise
-        | ResRecord pairs ->
-            let names, values = List.unzip pairs
-            match Seq.tryFindIndex ((=) s) names with
-            | Some i ->
-                Seq.nth i values
-            | None ->
-                sprintf "Record has no entry %A at %A" s t |> EvalException |> raise
-        | t1' -> sprintf "Term %A is not a record at %A" t1' t |> EvalException |> raise
     | X(id) -> 
         if env.ContainsKey id then
             env.[id]

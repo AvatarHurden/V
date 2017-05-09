@@ -77,7 +77,6 @@ type term =
     | Raise
     | Tuple of term list
     | Record of (string * term) list
-    | ProjectName of string * term
     | RecordAccess of string * term * term
 
 type result =

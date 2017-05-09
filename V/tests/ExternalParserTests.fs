@@ -241,14 +241,6 @@ type TestTupleRecords() =
         compare "{ a: 3 + 4, b: true  }" <| 
             ResRecord ["a", ResI 7; "b", ResB true]
 
-    [<Test>]
-    member that.projectName() =
-        compare "#name {name: 'a', age: 3}" <| ResC 'a'
-
-    [<Test>]
-    member that.projectWrong() =
-        shouldFail "# 2 ('a','b','c')"
-           
 [<TestFixture>]
 type TestInteractions() =
 
