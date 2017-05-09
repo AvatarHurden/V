@@ -16,8 +16,8 @@ let compare (text, term) =
 let matchesType text typ =
     let parsed = parsePure text
     let typ' = typeInfer <| parsed
-    let freeVars = getFreeVars typ Map.empty |> List.unzip |> fst
-    let freeVars' = getFreeVars typ' Map.empty  |> List.unzip |> fst
+    let freeVars = List.sort <| getFreeVars typ Map.empty |> List.unzip |> fst
+    let freeVars' = List.sort <| getFreeVars typ' Map.empty  |> List.unzip |> fst
     let freePairs = List.zip freeVars freeVars'
     let replaced = List.fold (fun acc (x, x') -> substituteInType (NameSub (x', x)) acc)
                         typ' freePairs
@@ -90,12 +90,12 @@ let infixr 9 (.) = compose;
 
     [<Test>]
     member that.testType() =
-        let x2 = VarType ("y", [])
-        let x3 = VarType ("z", [])
-        let x1 = VarType ("x", [])     
+        let x = VarType ("x", [])
+        let z = VarType ("y", [])
+        let y = VarType ("z", [])     
         matchesType (Compose.func + "compose") <| 
-            Function (Function (x1, x2), 
-                Function (Function(x3, x1), Function (x3, x2)))
+            Function (Function (y, x), 
+                Function (Function(z, y), Function (z, x)))
 
 [<TestFixture>]
 type Remainder() =
@@ -326,6 +326,215 @@ let xor t1 t2 =
     [<Test>]
     member that.xorFalseTrue() =
         equals (Xor.func + "xor false true") <| ResB true
+
+[<TestFixture>]
+type Fst() =
+
+    static member func = """
+let fst (x, _) = x;
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x = VarType("x", [])
+        let y = VarType("y", [])
+        matchesType (Fst.func + "fst") <| 
+            Function (Type.Tuple [x; y], x)
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (Fst.func + "fst (true, 4, 4)")
+        throwsWrongType (Fst.func + "fst 3")
+
+    [<Test>]
+    member that.raiseFirst() =
+        equals (Fst.func + "fst (raise, 3)") <| ResRaise
+        
+    [<Test>]
+    member that.raiseSecond() =
+        equals (Fst.func + "fst (3, raise)") <| ResI 3
+
+
+[<TestFixture>]
+type Snd() =
+
+    static member func = """
+let snd (_, y) = y;
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x = VarType("x", [])
+        let y = VarType("y", [])
+        matchesType (Snd.func + "snd") <| 
+            Function (Type.Tuple [x; y], y)
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (Snd.func + "snd (true, 4, 4)")
+        throwsWrongType (Snd.func + "snd 3")
+
+    [<Test>]
+    member that.raiseFirst() =
+        equals (Snd.func + "snd (raise, 3)") <| ResI 3
+        
+    [<Test>]
+    member that.raiseSecond() =
+        equals (Snd.func + "snd (3, raise)") <| ResRaise
+
+[<TestFixture>]
+type Swap() =
+
+    static member func = """
+let swap (x, y) = (y, x);
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x = VarType("x", [])
+        let y = VarType("y", [])
+        matchesType (Swap.func + "swap") <| 
+            Function (Type.Tuple [x; y], Type.Tuple [y; x])
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (Swap.func + "swap (true, 4, 4)")
+        throwsWrongType (Swap.func + "swap 3")
+
+    [<Test>]
+    member that.raiseFirst() =
+        equals (Swap.func + "swap (raise, 3)") <| ResTuple [ResI 3; ResRaise]
+        
+    [<Test>]
+    member that.raiseSecond() =
+        equals (Swap.func + "swap (3, 'a')") <| ResTuple [ResC 'a'; ResI 3]
+
+
+[<TestFixture>]
+type Get() =
+
+    static member func = Apply.func + Fst.func + """
+let get acc r = fst $ acc raise r;
+"""
+
+    [<Test>]
+    member that.testType() =
+        let w = VarType("w", [])
+        let x = VarType("x", [])
+        let y = VarType("y", [])
+        let z = VarType("z", [])
+        let accTyp = Function (x, Function (z, Type.Tuple [y; w]))
+        matchesType (Get.func + "get") <| 
+            Function (accTyp, Function (z, y))
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (Get.func + "get (true, 4, 4)")
+        throwsWrongType (Get.func + "get #name {names:3}")
+
+    [<Test>]
+    member that.simpleGet() =
+        equals (Get.func + "get #a {a:4, b:3}") <| ResI 4
+    
+    [<Test>]
+    member that.raiseField() =
+        equals (Get.func + "get #a {a:raise, b:3}") <| ResRaise
+    
+    [<Test>]
+    member that.nonRaiseField() =
+        equals (Get.func + "get #a {a:4, b:raise}") <| ResI 4
+
+    [<Test>]
+    member that.raiseRecord() =
+        equals (Get.func + "get #a raise") <| ResRaise
+    
+
+[<TestFixture>]
+type Set() =
+
+    static member func = Apply.func + Snd.func + """
+let set acc v r = snd $ acc v r;
+"""
+
+    [<Test>]
+    member that.testType() =
+        let w = VarType("w", [])
+        let x = VarType("x", [])
+        let y = VarType("y", [])
+        let z = VarType("z", [])
+        let accTyp = Function (z, Function (w, Type.Tuple [x; y]))
+        matchesType (Set.func + "set") <| 
+            Function (accTyp, Function (z, Function (w, y)))
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (Set.func + "set (true, 4, 4)")
+        throwsWrongType (Set.func + "set #name 4 {names:3}")
+        throwsWrongType (Set.func + "set #name 4 {name:'a'}")
+
+    [<Test>]
+    member that.simple() =
+        equals (Set.func + "set #a 5 {a:4, b:3}") <| ResRecord ["a", ResI 5; "b", ResI 3]
+    
+    [<Test>]
+    member that.raiseField() =
+        equals (Set.func + "set #a 5 {a:raise, b:3}") <| ResRecord ["a", ResI 5; "b", ResI 3]
+    
+    [<Test>]
+    member that.nonRaiseField() =
+        equals (Set.func + "set #a 5 {a:4, b:raise}") <| ResRecord ["a", ResI 5; "b", ResRaise]
+
+    [<Test>]
+    member that.raiseRecord() =
+        equals (Set.func + "set #a 4 raise") <| ResRaise
+    
+
+[<TestFixture>]
+type Modify() =
+
+    static member func = Get.func + Set.func + """
+let modify acc f r =
+    let oldV = get acc r;
+    set acc (f oldV) r
+;
+"""
+
+    [<Test>]
+    member that.testType() =
+        let w = VarType("w", [])
+        let x = VarType("x", [])
+        let y = VarType("y", [])
+        let z = VarType("z", [])
+        let accTyp = Function (z, Function (w, Type.Tuple [y; x]))
+        matchesType (Modify.func + "modify") <| 
+            Function (accTyp, Function (Function (y, z), Function (w, x)))
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (Modify.func + "modify (true, 4, 4)")
+        throwsWrongType (Modify.func + "modify #name (\x -> x + 1) {names:3}")
+        throwsWrongType (Modify.func + "modify #name (\x -> x + 1) {name:'a'}")
+
+    [<Test>]
+    member that.simple() =
+        equals (Modify.func + "modify #a (\x -> x) {a:4, b:3}") <| ResRecord ["a", ResI 4; "b", ResI 3]
+    
+    [<Test>]
+    member that.simpleMod() =
+        equals (Modify.func + "modify #a ((+) 1) {a:2, b:3}") <| ResRecord ["a", ResI 3; "b", ResI 3]
+    
+    [<Test>]
+    member that.raiseField() =
+        equals (Modify.func + "modify #a (\x -> 1) {a:raise, b:3}") <| ResRecord ["a", ResI 1; "b", ResI 3]
+
+    [<Test>]
+    member that.nonRaiseField() =
+        equals (Modify.func + "modify #a (\x -> x * 2) {a:4, b:raise}") <| ResRecord ["a", ResI 8; "b", ResRaise]
+
+    [<Test>]
+    member that.raiseRecord() =
+        equals (Modify.func + "modify #a (\x -> 1) raise") <| ResRaise
+    
 
 [<TestFixture>]
 type Head() =
@@ -1431,13 +1640,13 @@ let rec zipWith f x y =
 
     [<Test>]
     member that.testType() =
-        let x1 = VarType ("y", [])
-        let x2 = VarType ("x", [])
-        let x3 = VarType ("z", [])
+        let x = VarType ("x", [])
+        let y = VarType ("y", [])
+        let z = VarType ("z", [])
 
         matchesType (ZipWith.func + "zipWith") <| 
-            Function (Function (x1, Function (x2, x3)), 
-                Function (List x1, Function (List x2, List x3)))
+            Function (Function (y, Function (x, z)), 
+                Function (List y, Function (List x, List z)))
      
     [<Test>]
     member that.wrongParameter() =
