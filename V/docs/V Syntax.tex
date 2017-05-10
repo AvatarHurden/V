@@ -8,6 +8,7 @@
 \usepackage{syntax}
 \usepackage{titlesec}
 
+\usepackage[T1]{fontenc}
 \usepackage{upquote}
 \usepackage[dvipsnames]{xcolor}
 \usepackage{hyperref}
@@ -1655,6 +1656,16 @@ Literal characters will always be written in terminal font, so \code{|} and \cod
   \bnfprod{hexdigit}
     {\bnfpn{digit} \bnfor \bnfts{a} \bnfor \bnfsk \bnfor \bnfts{f} \bnfor \bnfts{A} \bnfor \bnfsk \bnfor \bnfts{F}}
   \\
+  \\
+  \bnfprod{char}
+    {\bnfts{\textquotesingle} \bnfsp ( \bnfsp \bnfpn{escape} \bnfor \bnfpn{any}_{\left<\bnfts{\textquotesingle} \bnfor \bnfts{\textbackslash}\right>} \bnfsp ) \bnfsp \bnfts{\textquotesingle}}
+  \\
+  \bnfprod{string}
+    {\bnfts{\textquotedbl} \bnfsp \{ \bnfsp \bnfpn{escape} \bnfor \bnfpn{any}_{\left<\bnfts{\textquotedbl} \bnfor \bnfts{\textbackslash}\right>} \bnfsp \} \bnfsp \bnfts{\textquotedbl}}
+  \\
+  \\
+  \bnfprod{escape}
+    {\bnfts{\textbackslash} \bnfsp ( \bnfsp \bnfts{b} \bnfor \bnfts{n} \bnfor \bnfts{r} \bnfor \bnfts{t} \bnfor \bnfts{\textbackslash} \bnfor \bnfts{\textquotedbl} \bnfor \bnfts{\textquotesingle} \bnfsp )}
   \\
 \end{bnf*}
 
