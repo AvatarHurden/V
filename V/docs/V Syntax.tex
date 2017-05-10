@@ -1667,6 +1667,13 @@ Literal characters will always be written in terminal font, so \code{|} and \cod
   \bnfprod{escape}
     {\bnfts{\textbackslash} \bnfsp ( \bnfsp \bnfts{b} \bnfor \bnfts{n} \bnfor \bnfts{r} \bnfor \bnfts{t} \bnfor \bnfts{\textbackslash} \bnfor \bnfts{\textquotedbl} \bnfor \bnfts{\textquotesingle} \bnfsp )}
   \\
+  \\
+  \bnfprod{parentheses}
+    {\begin{bnfsplit}
+      \bnfts{(} \bnfsp \bnfpn{term} \bnfsp \bnfts{)}\\
+      \bnfts{(} \bnfsp \bnfpn{term}_1 \bnfsp \bnfts{,} \bnfsk \bnfts{,} \bnfpn{term}_n \bnfts{)} \bnfsp \bnfsp \bnfsp \bnfsp \bnfsp (n \geq 2)\\
+      \bnfts{(} \bnfsp \bnfpn{operator} \bnfsp \bnfts{)}\\
+  \end{bnfsplit}}
 \end{bnf*}
 
 
