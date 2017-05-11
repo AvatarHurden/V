@@ -2562,6 +2562,41 @@ These operations transform a list, altering its elements, their order, or both.
 
 \subsubsection{Reduction Operations}
 
+These operations take a list and reduce it to a simple value.
+
+\medskip
+
+\libfunction
+  {fold}
+  {(b -> a -> b) ->  b -> [a] -> b}
+  {\code{fold f acc ls} reduces the list using the function \code{f}, applying it to an accumulator (\code{acc}) and each element of the list, from left to right.}
+
+\libfunction
+  {reduce}
+  {(a -> a -> a) -> [a] -> a}
+  {The same as \code{fold}, but using the first element of the list as the \code{acc}}
+
+\libfunction
+  {all}
+  {(a -> Bool) -> [a] -> Bool}
+  {Checks whether all elements of a list satisfy a predicate. An empty list returns true.}
+
+\libfunction
+  {any}
+  {(a -> Bool) -> [a] -> Bool}
+  {Checks whether any elements of a list satisfy a predicate. An empty list returns false.}
+
+\libfunction
+  {maximum}
+  {Orderable \; a => [a] -> a}
+  {Returns the largest element of the list.}
+
+\libfunction
+  {minimum}
+  {Orderable \; a  => [a] -> a}
+  {Returns the smallest element of the list.}
+
+
 \subsubsection{Sublist Operations}
 
 \subsubsection{Search Operations}
