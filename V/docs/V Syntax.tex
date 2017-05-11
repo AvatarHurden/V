@@ -2669,9 +2669,38 @@ Manipulate a list through the index of its elements
 
 \subsubsection{Sorting Operations}
 
+Sort lists.
+
+\medskip
+
+\libfunction
+  {sort}
+  {Orderable \; a => [a] -> [a]}
+  {Sorts a list in ascending order.}
+
 \subsubsection{Zipping Operations}
 
+Operations that deal with tuples and lists.
+
+\medskip
+
+\libfunction
+  {zip}
+  {[a] -> [b] -> [(a, b)]}
+  {Takes two lists and returns a list composed of corresponding pairs. It the lists have different lengths, elements of the larger one are discarded.}
+
+\libfunction
+  {zipWith}
+  {(a -> b -> c) -> [a] -> [b] -> [c]}
+  {Takes two lists and a function, returning a list composed of the result of applying the function to corresponding elements in each list. It the lists have different lengths, elements of the larger one are discarded.}
+
+\libfunction
+  {unzip}
+  {[(a, b)] -> ([a], [b])}
+  {Takes a list of pairs, returning a pair of lists, each containing the corresponding components of the original list.}
+
 \subsection{String Conversion Operations}
+
 
 
 \section{Changelog}
