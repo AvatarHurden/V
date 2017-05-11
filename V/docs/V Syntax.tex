@@ -2701,7 +2701,29 @@ Operations that deal with tuples and lists.
 
 \subsection{String Conversion Operations}
 
+Converts values from and to strings.
 
+\medskip
+
+\libfunction
+  {parseInt}
+  {String -> Int}
+  {Converts a string into an integer. The only representation accepted is decimal (without a leading +), and the function raises an exception if parsing fails.}
+
+\libfunction
+  {printInt}
+  {Int -> String}
+  {Converts an integer value into a string.}
+
+\libfunction
+  {parseBool}
+  {String -> Bool}
+  {Converts a string into a boolean. Valid strings are \code{"true"} and \code{"false"}.}
+
+\libfunction
+  {printBool}
+  {Bool -> String}
+  {Converts a boolean value into a string.}
 
 \section{Changelog}
 \selectlanguage{USenglish}
