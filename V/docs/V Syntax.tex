@@ -2599,6 +2599,35 @@ These operations take a list and reduce it to a simple value.
 
 \subsubsection{Sublist Operations}
 
+These operations return smaller segments of an existing list.
+
+\medskip
+
+\libfunction
+  {take}
+  {Int -> [a] -> [a]}
+  {\code{take n ls} returns the first \code{n} elements of \code{ls}.}
+
+\libfunction
+  {drop}
+  {Int -> [a] -> [a]}
+  {\code{drop n ls} returns the list resulting from removing the first \code{n} elements of \code{ls}.}
+
+\libfunction
+  {takeWhile}
+  {(a -> Bool) -> [a] -> [a]}
+  {\code{takeWhile p ls} returns the longest prefix of \code{ls} such that every element satisfies \code{p}.}
+
+\libfunction
+  {dropWhile}
+  {(a -> Bool) -> [a] -> [a]}
+  {\code{dropWhile p ls} returns the suffix that remains after \code{takeWhile p ls}.}
+
+\libfunction
+  {sublist}
+  {Int -> Int -> [a] -> [a]}
+  {\code{sublist start length ls} drops the first \code{start} elements of \code{ls}, and then takes the first \code{length} elements of the resulting list.}
+
 \subsubsection{Search Operations}
 
 \subsubsection{Indexing Operations}
