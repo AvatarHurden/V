@@ -2325,13 +2325,29 @@ This means that, while it is possible to create programs without importing the \
 
 \subsection{Operations on Basic Values}
 
+\subsubsection{Operations on All Values}
+
+The operations below are helper functions, designed to allow cleaner code.
+
+\medskip
+
+\libfunction
+  {id}
+  {a -> a}
+  {Identity function.}
+
+\libfunction
+  {const}
+  {a -> b -> a}
+  {Always returns the first parameter it is passed.}
+
 \subsubsection{Operations on Numbers}
 
 The 4 basic operations (addition, subtraction, multiplication and division) are built into the language.
 Other operations must be defined in terms of these.
 
 One important thing to note is that the unary negation operator (\code{-}) is tightly coupled with the \code{negate} function defined in the \code{stdlib}.
-While the operator is defined inside the language, it depends on the presence of the \code{stdlib} to funciton.
+While the operator is defined inside the language, it depends on the presence of the \code{stdlib} to function.
 
 \medskip
 
