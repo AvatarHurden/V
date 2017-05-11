@@ -1675,6 +1675,13 @@ Literal characters will always be written in terminal font, so \code{|} and \cod
       \bnfts{(} \bnfsp \bnfts{\textvisiblespace} \bnfsp \bnfpn{operator} \bnfsp \bnfts{\textvisiblespace} \bnfsp \bnfts{)} \bnfsp \bnfts{\textvisiblespace}\\
   \end{bnfsplit}}
 \end{bnf*}
+\begin{bnf*}
+  \bnfprod{record}
+    {\bnfts{\{} \bnfsp \bnfts{\textvisiblespace} \bnfsp \bnfpn{recordcomp}_1 \bnfsp \bnfts{,} \bnfsp \bnfts{\textvisiblespace} \bnfsk \bnfts{,} \bnfsp \bnfts{\textvisiblespace} \bnfpn{recordcomp}_n \bnfsp  \bnfts{\}} \bnfsp \bnfts{\textvisiblespace} \bnfsp \bnfsp \bnfsp \bnfsp \bnfsp (n \geq 1)}
+  \\
+  \bnfprod{recordcomp}
+    {\bnfpn{identifier}_1 \bnfts{\textvisiblespace} \bnfts{:} \bnfts{\textvisiblespace} \bnfpn{expression}_1}
+\end{bnf*}
 
 
 \section{Language Guide}
