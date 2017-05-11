@@ -1494,62 +1494,60 @@ The following conventions are used for presenting the syntax of programs in $V$:
 
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{cl}
-    [ $\bnfpn{$pat$}$ ] &optional pattern\\
-    \{ $\bnfpn{$pat$}$ \} &zero or more occurrences of pattern\\
-    ( $\bnfpn{$pat$}$ ) &grouping of patterns\\
-    $\bnfpn{$pat_1$} \bnfor \bnfpn{$pat_2$}$ &choice\\
-    $\bnfpn{$pat$}_{\bnfpn{$pat'$}}$ &all patterns accepted by $pat$,
+    [ \synt{pat} ] &optional pattern\\
+    \{  \synt{pat} \} &zero or more occurrences of pattern\\
+    (  \synt{pat} ) &grouping of patterns\\
+     \synt{$pat_1$} | \synt{$pat_2$} &choice\\
+    \syntax{<pat>$_{<pat'>}$} &all patterns accepted by $pat$,
     \\&except those also accepted by $pat'$\\
-    \bnfts{text} &concrete characters (written in terminal font)
+    \lit*{text} &concrete characters (written in terminal font)
 \end{tabular}}
 
 \medskip
 
 The syntax is described using a BNF grammar, with each production having the form:
 
-\begin{bnf*}
-\bnfprod{sentence}{\bnfpn{$pat_1$} \bnfor \bnfpn{$pat_2$} \bnfor \bnfsk \bnfor \bnfpn{$pat_n$}}
-\end{bnf*}
+\grammarindent7em
+\grammarparsep4pt
+\begin{grammar}
+    <sentence> ::= \synt{$pat_1$} | \synt{$pat_2$} | $\ldots$ | \synt{$pat_n$}
+\end{grammar}
 
 Whitespace is always explicitly expressed in productions with the \textvisiblespace{} character.
 It is used as a shorthand for the $\bnfpn{whitespaces}$ production.
-Literal characters will always be written in terminal font, so \code{|} and \code{[]} mean the literal characters, while $|$ and [] are the choice and option pattern, respectively.
+Literal characters will always be written in terminal font, so \lit*{|} and \lit*{[]} mean the literal characters, while $|$ and [] are the choice and option pattern, respectively.
 
 \subsection{Basic Structure}
 
-\begin{bnf*}
-  \bnfprod{program}
-    {\bnfpn{whitespace} \bnfsp \bnfpn{expression} \bnfsp \bnfpn{eof}}
-    \\
-  \bnfprod{library}
-    {\bnfpn{whitespace} \bnfsp \{ \bnfsp \bnfpn{declaration} \bnfsp \} \bnfsp \bnfpn{eof}}
-    \\
-    \\
-  \bnfprod{whitespace}
-    {\{ \bnfsp \bnfpn{whitechars} \bnfor \bnfpn{comment} \bnfsp \}}
-    \\
-  \bnfprod{whitechars}
-    {\bnfpn{whitechar} \bnfsp \{ \bnfsp  \bnfpn{whitechar} \bnfsp \}}
-    \\
-  \bnfprod{whitechar}
-    {\bnfpn{space} \bnfor \bnfpn{tab} \bnfor \bnfpn{newline} }
-    \\
-  \bnfprod{newline}
-    {\bnfpn{return} \bnfpn{linefeed} \bnfor \bnfpn{return} \bnfor \bnfpn{linefeed}}
-    \\
-  \bnfprod{space}{\bnftd{space (\textquotesingle\hspace{1em}\textquotesingle)}}\\
-  \bnfprod{tab}{\bnftd{horizontal tab (\textquotesingle\textbackslash{}t\textquotesingle)}}\\
-  \bnfprod{return}{\bnftd{carriage return (\textquotesingle\textbackslash{}r\textquotesingle)}}\\
-  \bnfprod{linefeed}{\bnftd{line feed (\textquotesingle\textbackslash{}n\textquotesingle)}}
-  \\
-  \\
-  \bnfprod{comment}
-    {\bnfts{//} \bnfsp \{ \bnfsp \bnfpn{any} \bnfsp \} \bnfsp \bnfpn{newline}}
-  \\
-  \\
-  \bnfprod{any}{\bnftd{any ASCII character}}
-\end{bnf*}
+\begin{grammar}
+  <program> ::= <whitespace> <expression> <eof>
 
+  <library> ::= <whitespace> \{ <declaration> \} <eof>
+\end{grammar}
+
+\begin{grammar}
+  <whitespace> ::= \{ <whitechars> | <comment> \}
+
+  <whitechars> ::= <whitechar> \{ <whitechar> \}
+
+  <whitechar> ::= <space> | <tab> | <newline>
+
+  <newline> ::= <return><linefeed> | <return> | <linefeed>
+
+  <space> ::= space (\textquotesingle \ \ \textquotesingle)
+
+  <tab> ::= horizontal tab (\textquotesingle \textbackslash t\textquotesingle)
+
+  <return> ::= carriage return (\textquotesingle \textbackslash r\textquotesingle)
+
+  <linefeed> ::= line feed (\textquotesingle \textbackslash n\textquotesingle)
+\end{grammar}
+
+\begin{grammar}
+  <comment> ::= "//" \{ <any>$_{<newline>}$ \} <newline>
+
+  <any> ::= any ASCII character
+\end{grammar}
 
 \subsection{Identifiers and Operators}
 
@@ -1608,6 +1606,8 @@ Literal characters will always be written in terminal font, so \code{|} and \cod
   \end{bnfsplit}
     }\\
 \end{bnf*}
+
+\newpage
 
 \subsection{Terms}
 
