@@ -160,7 +160,7 @@ This is done to ensure consistent label order in records with the same labels, a
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
 e &::= &\cdots&\\
     &| &\{l_1: e_1, \; \dots \; l_n: e_n\} & (n\geq1)\\
-    &| &\#l \; e&\\
+    &| &\#l \; e_1 \; e_2&\\
     \\
     l &::= & \{l_1, l_2, ...\}
 \end{tabular}}
@@ -169,7 +169,8 @@ e &::= &\cdots&\\
 
 The first expression is the only way to construct a new record in $V$.
 
-The second expression is the projection of a specific field of a record.
+The second expression is a field accessor.
+It allows getting and setting specific fields of a record, by evaluating to a tuple with the old value of the field and the updated record.
 
 \paragraph{Lists}
 
@@ -677,13 +678,14 @@ A record construction expression $\{l_1: e_1, \; \dots \; l_n: e_n\}$ evaluates 
     {\forall \; k \in \left[1, n\right] \; \; \mbox{env} \vdash e_k \Downarrow v_k}
     {\mbox{env} \vdash \{l_1: e_1, \; \dots \; l_n: e_n\} \Downarrow \{l_1: v_1, \; \dots \; l_n: v_n\}}
 
-Labels are used to project a field of a record, and the fields are unordered.
-This means that, as long as some field of a record has the requested label, that field can be projected.
-Any attempt to project an inexisting field (i.e the label does not exist in the record) is invalid code, and does not evaluate to $raise$.
+The record access term exists to allow getting and setting the values of individual fields in a record.
+The record, obtained by evaluating $e_2$, is updated by associating the result of evaluating $e_1$ to the label $l$.
+The result of evaluating this expression is a tuple, where the first component is the old value associated with the label $l$, and the second component is the updated record.
 
-\infrule[BS-RecordProjection]
-    {\mbox{env} \vdash e \Downarrow \{l_1: e_1, \; \dots \; l_n: e_n\} \andalso l = l_k \andalso 1 \leq \left\|k\right\| \leq \left\|n\right\|}
-    {\mbox{env} \vdash \#l \; e \Downarrow v_k}
+\infrule[BS-RecordAccess]
+    {\mbox{env} \vdash e_2 \Downarrow \{l_1: v_1, \; \dots \; l_n: v_n\} \andalso \mbox{env} \vdash e_1 \Downarrow v\\
+    l = l_k \andalso 1 \leq \left\|k\right\| \leq \left\|n\right\| \andalso r = \{l_1: v_1, \; \dots \; l_k: v, \; \ldots \; l_n: v_n\}}
+    {\mbox{env} \vdash \#l \; e_1 \; e_2 \Downarrow (v_k, r)}
 
 
 \paragraph{Lists}
@@ -1092,9 +1094,9 @@ The rules for $raise$ propagation are given below.
     {\mbox{env} \vdash e_1 \Downarrow v_1 \andalso \mbox{env} \vdash e_2 \Downarrow raise}
     {\mbox{env} \vdash e_1 :: e_2 \Downarrow raise}
 
-\infrule[BS-RecordProjectionRaise]
-    {\mbox{env} \vdash e \Downarrow raise}
-    {\mbox{env} \vdash \#l \; e \Downarrow raise}
+\infrule[BS-RecordAccessRaise]
+    {\mbox{env} \vdash e_2 \Downarrow raise}
+    {\mbox{env} \vdash \#l \; e_1 \; e_2 \Downarrow raise}
 
 \infrule[BS-$=$Raise]
     {\mbox{env} \vdash e_1 \Downarrow raise}
@@ -1346,9 +1348,9 @@ Every expression in $V$ has a rule for constraint collection, similar to how eve
     {\forall \; k \in \left[1, n\right] \; \; \Gamma \vdash e_k : T_k \; | \; C_k}
     {\Gamma \vdash \{l_1: e_1, \; \dots \; l_n: e_n\} : \{l_1: T_1, \; \dots \; l_n: T_n\} \; | \; C_1 \cup \cdots C_n }
 
-\infrule[T-RecordProjection]
-    {\Gamma \vdash e : T_1 \; | \; C_1 \andalso X_1 \; is \; new \andalso X_2^{\{\{l: X_1\}\}} \; is \; new}
-    {\Gamma \vdash \#l \; e : X_1 \; | \; C_1 \cup \{T_1 = X_2\}}
+\infrule[T-RecordAccess]
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso X_1^{\{\{l: T_1\}\}} \; is \; new}
+    {\Gamma \vdash \#l \; e_1 \; e_2 : (T_1, T_2) \; | \; C_1 \cup C_2 \cup \{X_1 = T_2\}}
 
 \bigskip
 
@@ -1668,19 +1670,30 @@ Each label-value pair is separated by a comma, and the whole record is enclosed 
   {day: 1, month: 1, year: 2000}
 \end{lstlisting}
 
-Records are, like tuples, immutable.
-To access a specific field of a record, one must use projection.
-There is no inherent order in the values of a record, so the label must be used for projection.
+To get the value of a single field in a record, one can use the \code{get} function, passing the name of the field and the record.
+As can be seen below, the name of the field must be prefixed by the \code{\#} character.
 
 \begin{lstlisting}
-  #name {name: ``Martha'', age: 32}
-  #month {day: 1, month: 1, year: 2000}
-  #name  {day: 1, month: 1, year: 2000} // Invalid code
+  get #age {name: ``Martha'', age: 32} // Returns 32
+  get #month {day: 1, month: 1, year: 2000} // Returns 1
 \end{lstlisting}
 
-Records are also useful as return values for functions.
-The advantage they have over tuples is that every field has its name.
-This removes ambiguities for values of the same type, such as in the case of a date with 3 integer values.
+Unlike tuples, it is possible to alter a single field in a record.
+This is done by using the \code{set} function, which takes the name of the field (with the \code{\#} character), the value to be set and the record.
+
+It is also possible to modify a value of a field by using the \code{modify} function,  which applies a function given as its parameter to the existing value.
+
+It is important to note that these function do not change the original record, but instead returns a new, modified record.
+
+\begin{lstlisting}[escapechar=&]
+  set 3 #age {name: ``Martha'', age: 32}
+  // Returns {name: ``Martha'', age: 3}
+  set 8 #month {day: 1, month: 1, year: 2000}
+  // Returns {day: 1, month: 8, year: 2000}
+
+  modify #age (\&&x -> x * 2) {name: ``Martha'', age: 32}
+  // Returns {name: ``Martha'', age: 64}
+\end{lstlisting}
 
 \subsection{Identifiers}
 
@@ -2318,6 +2331,11 @@ Because the library was imported inside the scope of the function body, none of 
   {\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System}}
 
       The boolean operators $\wedge$ (AND) and $\vee$ (OR) have been removed from the definition and added to the stdlib.
+
+
+  \item \textbf{Record Projection (Accessor)} \; \; {\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System}}
+
+      Replaced record projection with record accessor, allowing for editing of individual fields in a record.
 \end{itemize}
 
 \paragraph{Removals}
