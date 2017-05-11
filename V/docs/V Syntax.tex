@@ -2630,7 +2630,42 @@ These operations return smaller segments of an existing list.
 
 \subsubsection{Search Operations}
 
+These operations search for specific elements in a list.
+
+\medskip
+
+\libfunction
+  {exists}
+  {Equatable \; a => a -> [a] -> Bool}
+  {Tests whether the given element exists in the list.}
+
+\libfunction
+  {filter}
+  {(a -> Bool) -> [a] -> [a]}
+  {\code{filter p ls} returns a sublist of \code{ls} such that every element satisfies \code{p}.}
+
 \subsubsection{Indexing Operations}
+
+Manipulate a list through the index of its elements
+
+\medskip
+
+\libfunction
+  {indexOf}
+  {Equatable \; a => a -> [a] -> Int}
+  {\code{indexOf t ls} returns the index of the first occurrence of \code{t} in \code{ls}. If the element does not occur, returns \code{-1}.}
+
+\libfunction
+  {nth}
+  {Int -> [a] -> a}
+  {\code{nth n ls} returns the element of \code{ls} at position \code{n}. If \code{n} is negative or larger than \code{length ls}, an exception is raised.}
+
+\liboperator
+  {!!}
+  {\leftassociative}
+  {9}
+  {[a] -> Int -> a}
+  {The infix version of \code{nth}. It receives its operands in reverse order, allowing for expressions in the form \code{ls !! n}.}
 
 \subsubsection{Sorting Operations}
 
