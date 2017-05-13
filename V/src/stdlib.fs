@@ -5,6 +5,14 @@ open compiledStdlib
 
 let content = """
 
+// =======================
+// Miscellaneous functions
+// =======================
+
+let id x = x;
+
+let const x _ = x;
+
 // ==================
 // Function functions
 // ==================

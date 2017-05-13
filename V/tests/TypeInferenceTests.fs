@@ -98,7 +98,7 @@ else
     [<Test>]
     member that.extendedPatFunction() =
         compare ("let f {age: x, ...} = x + 1; f", 
-            Function (VarType ("a",[RecordLabel ("age",Int)]),Int))
+            Function (VarType ("X529",[RecordLabel ("age",Int)]),Int))
 
     [<Test>]
     member that.simplePatFunction() =
@@ -120,7 +120,7 @@ else
                     | {male: true, age: x, ...} when x < 30 -> 1
                     | _ -> 2
                     ; f", 
-            Function (VarType ("a",[RecordLabel ("male",Bool); RecordLabel ("age",Int)]),Int))
+            Function (VarType ("X535",[RecordLabel ("male",Bool); RecordLabel ("age",Int)]),Int))
 
     [<Test>]
     member that.simplePatMatchFunction() =

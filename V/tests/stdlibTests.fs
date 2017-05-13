@@ -49,6 +49,37 @@ let throwsWrongType text =
     (fun () -> typeInfer parsed |> ignore) |> should throw typeof<TypeException>
 
 [<TestFixture>]
+type Id() =
+
+    static member func = """
+let id x = x;
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x = VarType ("x", [])
+        matchesType (Id.func + "id") <| 
+            Function (x, x)
+
+[<TestFixture>]
+type Const() =
+
+    static member func = """
+let const x _ = x;
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x = VarType ("x", [])
+        let y = VarType ("y", [])
+        matchesType (Const.func + "const") <| 
+            Function (x, Function(y, x))
+
+    [<Test>]
+    member that.raise() =
+        equals (Const.func + "const 3 raise") <| ResI 3
+        
+[<TestFixture>]
 type Flip() =
 
     static member func = """
