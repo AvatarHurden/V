@@ -333,36 +333,42 @@ let rec writeTests x =
         let termText = getTermText ()
         
         Console.WriteLine termText
-        let term = parse termText
-        
-        Console.WriteLine ()
-        Console.WriteLine "What should the correct result be?"
-        Console.WriteLine "0 - A result"
-        Console.WriteLine "1 - An error"
+        try
+            let term = parse termText
 
-        let text =
-            match Console.ReadLine () with
-            | "0" ->
-                let result = 
-                    if option = "1" then
-                        sprintf "%A" <| typeInfer term
-                    else
-                        sprintf "%A" <| evaluate term
-                Console.WriteLine "The provided result is: "
-                Console.WriteLine (sprintf "%AO" result)
-                sprintf "
-    [<Test>]
-    member that.%O() =
-        compare (%A, %O)\n" name (termText.TrimEnd()) result
-            | "1" -> 
-                sprintf "
-    [<Test>]
-    member that.%O() =
-        shouldFail %A\n" name termText
-            | _ -> ""
+            Console.WriteLine ()
+            Console.WriteLine "What should the correct result be?"
+            Console.WriteLine "0 - A result"
+            Console.WriteLine "1 - An error"
+
+            let text =
+                match Console.ReadLine () with
+                | "0" ->
+                    let result = 
+                        if option = "1" then
+                            sprintf "%A" <| typeInfer term
+                        else
+                            sprintf "%A" <| evaluate term
+                    Console.WriteLine "The provided result is: "
+                    Console.WriteLine (sprintf "%AO" result)
+                    sprintf "
+        [<Test>]
+        member that.%O() =
+            compare (%A, %O)\n" name (termText.TrimEnd()) result
+                | "1" -> 
+                    sprintf "
+        [<Test>]
+        member that.%O() =
+            shouldFail %A\n" name termText
+                | _ -> ""
   
-        File.AppendAllText("tests.txt", text)
-        writeTests ()
+            File.AppendAllText("tests.txt", text)
+            writeTests ()
+            with
+            | ParseException e ->
+                printfn "Parse error:"
+                Console.WriteLine e
+        
     | _ ->
         Console.WriteLine "Wrong Key"
         writeTests ()

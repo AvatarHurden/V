@@ -95,6 +95,42 @@ else
 	        reduce (\\acc x -> x || acc) [true,false,true]", Int) |> ignore) |> 
         should throw typeof<TypeException>
 
+    [<Test>]
+    member that.extendedPatFunction() =
+        compare ("let f {age: x, ...} = x + 1; f", 
+            Function (VarType ("a",[RecordLabel ("age",Int)]),Int))
+
+    [<Test>]
+    member that.simplePatFunction() =
+        compare ("let f {age: x} = x + 1; f", 
+            Function (Type.Record [("age", Int)],Int))
+
+    [<Test>]
+    member that.extendedPatMatch() =
+        compare ("match {name: \"arthur\", age: 21, male: true} with
+                    | {age: x, ...} when x > 50 -> 0
+                    | {male: true, age: x, ...} when x < 30 -> 1
+                    | _ -> 2", Int)
+
+    [<Test>]
+    member that.extendedPatMatchFunction() =
+        compare ("let f x =
+                    match x with
+                    | {age: x, ...} when x > 50 -> 0
+                    | {male: true, age: x, ...} when x < 30 -> 1
+                    | _ -> 2
+                    ; f", 
+            Function (VarType ("a",[RecordLabel ("male",Bool); RecordLabel ("age",Int)]),Int))
+
+    [<Test>]
+    member that.simplePatMatchFunction() =
+        compare ("let f x =
+                    match x with
+                    | {age: x, ...} when x > 50 -> 0
+                    | {male: true, age: x} when x < 30 -> 1
+                    | _ -> 2
+                    ; f", Function (Type.Record [("age", Int); ("male", Bool)],Int))
+
 
 [<TestFixture>]
 type TestMatchInfer() =

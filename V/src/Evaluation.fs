@@ -25,21 +25,25 @@ let rec matchPattern (Pat (pattern, _)) result (env: Map<Ident, result>) =
     | IgnorePat -> Some env  
     | BPat b ->
         match result with
+        | ResRaise -> None
         | ResB b' when b' = b -> Some env
         | ResB _ -> None
         | _ -> raise <| EvalException "Boolean does not match in pattern"
     | IPat i ->
         match result with
+        | ResRaise -> None
         | ResI i' when i' = i -> Some env
         | ResI _ -> None
         | _ -> raise <| EvalException "Integer does not match in pattern"
     | CPat c ->
         match result with
+        | ResRaise -> None
         | ResC c' when c' = c -> Some env
         | ResC _ -> None
         | _ -> raise <| EvalException "Integer does not match in pattern"
     | TuplePat patterns ->
         match result with
+        | ResRaise -> None
         | ResTuple results when results.Length = patterns.Length ->
             let f acc p r =
                 match acc with
@@ -50,35 +54,43 @@ let rec matchPattern (Pat (pattern, _)) result (env: Map<Ident, result>) =
             raise <| EvalException "Tuples do not match in pattern"
         | _ -> 
             raise <| EvalException "Invalid result for tuple pattern"
-    | RecordPat patterns ->
+    | RecordPat (allowsExtras, patterns) ->
         match result with
-        | ResRecord results when results.Length = patterns.Length ->
+        | ResRaise -> None
+        | ResRecord results when allowsExtras || results.Length = patterns.Length ->
 
-            let existsInPatterns (rName, _) =
-                List.exists (fun (pName, _) -> pName = rName) patterns
+            let results' = List.sortWith (fun (s1, t1) (s2, t2) -> compare s1 s2) results
 
-            if List.forall existsInPatterns results then
-                let f acc (pName, pValue) =
-                    match acc with
-                    | None -> None
-                    | Some env -> 
-                        let (_, rValue) = List.find (fun (rName, rValue) -> rName = pName) results
-                        matchPattern pValue rValue env
-                List.fold f (Some env) patterns
-            else
-                raise <| EvalException "Records have different fields in pattern"
+            let patterns' =
+                if not allowsExtras then
+                    List.sortWith (fun (s1, t1) (s2, t2) -> compare s1 s2) patterns
+                else if results.Length >= patterns.Length then
+                    let dict = List.fold (fun (acc: Map<string, VarPattern>) (name, pat) -> acc.Add(name, pat)) Map.empty patterns
+                    List.map (fun (name, value) -> name, match dict.TryFind name with None -> Pat(IgnorePat, None) | Some p -> p) results'
+                else
+                    raise (EvalException <| sprintf "Record %A has less fields than pattern %A" result pattern)
+
+            let f acc (pName, pValue) (rName, rValue) =
+                if pName <> rName then
+                    raise (EvalException <| sprintf "Record %A has different fields from pattern %A" result pattern)
+                match acc with
+                | None -> None
+                | Some env -> matchPattern pValue rValue env
+            List.fold2 f (Some env) patterns' results'
         | ResRecord results ->
             raise <| EvalException "Records have different lengths in pattern"
         | _ -> 
             raise <| EvalException "Invalid result for record pattern"
     | NilPat ->
         match result with
+        | ResRaise -> None
         | ResNil -> Some env
         | ResCons _ -> None
         | _ -> 
             raise <| EvalException "Invalid result for nil pattern"
     | ConsPat (p1, p2) ->
         match result with
+        | ResRaise -> None
         | ResNil -> None
         | ResCons (v1, v2) -> 
             match matchPattern p1 v1 env with
@@ -285,26 +297,24 @@ let rec private eval t env =
             sprintf "Record has duplicate fields at %A" t |> EvalException |> raise
 
         ResRecord <| List.map (fun (name, t) -> name, eval t env) pairs
-    | ProjectIndex(n, t1) ->
-        match eval t1 env with
-        | ResRaise -> ResRaise
-        | ResTuple values ->
-            if n >= 0 && n < List.length values then
-                List.nth values n
-            else
-                sprintf "Cannot acces index %A of tuple at %A" n t |> EvalException |> raise
-        | t1' -> sprintf "Term %A is not a tuple at %A" t1' t |> EvalException |> raise
-    | ProjectName(s, t1) ->
-        match eval t1 env with
+    | RecordAccess (s, t1, t2) ->
+        let newValue = eval t1 env
+        match eval t2 env with
         | ResRaise -> ResRaise
         | ResRecord pairs ->
             let names, values = List.unzip pairs
             match Seq.tryFindIndex ((=) s) names with
             | Some i ->
-                Seq.nth i values
+                let start = Seq.take i values
+                let old = Seq.nth i values
+                let finish = Seq.skip (i+1) values
+                let newValueSeq = [newValue] :> seq<_>
+                let newValues = Seq.toList (Seq.concat [start; newValueSeq; finish])
+                let newRec = ResRecord <| List.zip names newValues 
+                ResTuple [old; newRec]
             | None ->
-                sprintf "Record has no entry %A at %A" s t |> EvalException |> raise
-        | t1' -> sprintf "Term %A is not a record at %A" t1' t |> EvalException |> raise
+                sprintf "Record has no entry %A at %A" s t2 |> EvalException |> raise
+        | t2' -> sprintf "Term %A is not a record at %A" t2' t |> EvalException |> raise
     | X(id) -> 
         if env.ContainsKey id then
             env.[id]

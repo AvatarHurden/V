@@ -65,6 +65,27 @@ let xor t1 t2 =
         t2
 ;
 
+// ===============
+// Tuple Functions
+// ===============
+
+let fst (x, _) = x;
+let snd (_, y) = y;
+
+let swap (x, y) = (y, x);
+
+// ================
+// Record Functions
+// ================
+
+let get acc r = fst $ acc raise r;
+let set acc v r = snd $ acc v r;
+
+let modify acc f r =
+    let oldV = get acc r;
+    set acc (f oldV) r
+;
+
 // ====================
 // Basic List functions
 // ====================

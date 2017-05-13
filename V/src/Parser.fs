@@ -244,9 +244,18 @@ let private pParenPattern =
 
 let private pRecordCompPattern = tuple2 (pIdentifier .>> ws .>> pstring ":" .>> ws) pPattern
 
+let private pRecord' p f =
+    Inline.ManyTill(stateFromFirstElement = (fun x -> [x]),
+                     foldState = (fun acc x -> x :: acc),
+                     resultFromStateAndEnd = (fun acc allowsExtra -> f acc allowsExtra),
+                     elementParser = (pstring "," >>. ws >>. p),
+                     endParser = 
+                        (attempt (opt (pstring "," >>. ws >>. pstring "..." .>> ws)) 
+                            .>> pstring "}" |>> fun x -> x.IsSome),
+                     firstElementParser = (pstring "{" >>. ws >>. p))
+
 let private pRecordPattern =
-    pBetween "{" "}" (sepBy1 pRecordCompPattern (pstring "," .>> ws))
-        |>> (fun x -> Pat(RecordPat x, None))
+    pRecord' pRecordCompPattern (fun x y -> Pat(RecordPat (y, x), None))
 
 let private pListPattern =
     pBetween "[" "]" (sepBy pPattern (pstring "," .>> ws)) 
@@ -300,12 +309,10 @@ let private pNil = stringReturn "nil" Nil
 let private pRaise = stringReturn "raise" Raise
 
 let private pProjection = 
-    pstring "#" >>. 
-        ((puint32 |>> (fun x -> Choice1Of2 (int x)))
-        <|> (pIdentifier |>> Choice2Of2)) |>>
-        function
-        | Choice1Of2 num -> Fn (Pat(XPat "x", None), ProjectIndex (num, X "x"))
-        | Choice2Of2 s -> Fn (Pat(XPat "x", None), ProjectName (s, X "x"))
+    pstring "#" >>. pIdentifier |>> 
+        fun s -> 
+            Fn (Pat(XPat "x", None),
+                Fn (Pat(XPat "y", None), RecordAccess (s, X "x", X "y")))
 
 //#endregion   
 

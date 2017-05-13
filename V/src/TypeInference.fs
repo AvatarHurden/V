@@ -64,7 +64,6 @@ and getFreeVarsInTraits traits env =
             match first with
             | Equatable
             | Orderable -> []
-            | TuplePosition (i, t) -> getFreeVars t env
             | RecordLabel (l, t) -> getFreeVars t env
         first' @ getFreeVarsInTraits rest env
 
@@ -107,7 +106,6 @@ and substituteInTraits (sub: Substitution) traits =
             match first with
             | Equatable -> Equatable
             | Orderable -> Orderable
-            | TuplePosition (i, t) -> TuplePosition (i, substituteInType sub t)
             | RecordLabel (l, t) -> RecordLabel (l, substituteInType sub t)
         first' :: substituteInTraits sub rest
 
@@ -126,26 +124,26 @@ let rec validateTrait trt typ =
     | Int ->
         match trt with
         | Orderable | Equatable -> Some Int, []
-        | TuplePosition _ | RecordLabel _ -> None, []
+        | RecordLabel _ -> None, []
     | Bool ->
         match trt with
         | Equatable -> Some Bool, []
-        | Orderable | TuplePosition _ | RecordLabel _ -> None, []
+        | Orderable | RecordLabel _ -> None, []
     | Char ->
         match trt with
         | Orderable | Equatable -> Some Char, []
-        | TuplePosition _ | RecordLabel _ -> None, []
+        | RecordLabel _ -> None, []
     | Function (typ1, typ2) ->
         match trt with
         | Orderable | Equatable
-        | TuplePosition _ | RecordLabel _ -> None, []
+        | RecordLabel _ -> None, []
     | List typ1 ->
         match trt with
         | Orderable | Equatable ->
             match validateTrait trt typ1 with
             | None, cons -> None, cons
             | Some typ1, cons -> Some <| List typ1, cons
-        | TuplePosition _ | RecordLabel _ -> None, []
+        | RecordLabel _ -> None, []
     | Type.Tuple (types) ->
         match trt with
         | Equatable ->
@@ -159,11 +157,6 @@ let rec validateTrait trt typ =
             match mapOption f types with
             | None -> None, []
             | Some types' -> Some <| Type.Tuple types', []
-        | TuplePosition (pos, typ) ->
-            if types.Length > pos then
-                Some <| Type.Tuple types, [Equals (typ, types.[pos])]
-            else
-                None, []
         | Orderable | RecordLabel _ -> None, []
     | Type.Record (pairs) ->
         match trt with
@@ -185,19 +178,9 @@ let rec validateTrait trt typ =
                  Some <| Type.Record pairs, [Equals (typ, values.[i])]
             | None ->
                 None, []
-        | Orderable | TuplePosition _ -> None, []
+        | Orderable -> None, []
     | VarType (x, traits) ->               
         match trt with
-        | TuplePosition (i, t) ->
-            let tupleMatch = function
-                | TuplePosition (i', t') when i = i' ->
-                    Some <| Equals (t, t')
-                | _ -> None
-            let constraints = List.choose tupleMatch traits
-            if constraints.IsEmpty then
-                Some <| VarType (x, trt::traits), [] 
-            else
-                Some <| VarType (x, traits), constraints
         | RecordLabel (name, t) ->
             let recordMatch = function
                 | RecordLabel (name', t') when name = name' ->
@@ -346,7 +329,6 @@ and applyUniToTraits traits (unified: Unified) =
             match first with
             | Equatable -> Equatable
             | Orderable -> Orderable
-            | TuplePosition (i, t) -> TuplePosition (i, applyUniToType t unified)
             | RecordLabel (l, t) -> RecordLabel (l, applyUniToType t unified)
         first' :: applyUniToTraits rest unified
             
@@ -391,16 +373,20 @@ let rec matchPattern pattern typ (env: Map<Ident, EnvAssociation>) cons =
                 env, Equals (Type.Tuple tupleTypes, typ) :: cons
         List.fold2 f acc patterns tupleTypes
     
-    | Pat (RecordPat patterns, typ') ->
+    | Pat (RecordPat (allowsExtra, patterns), typ') ->
         let recordTypes = List.map (fun (name, _) -> name, VarType (getVarType (), [])) patterns
         let f = fun (env, cons) (_, p) (_, t) -> matchPattern p t env cons
-        let acc = 
+        let recordCons =
+            if allowsExtra then
+                let labelCons = List.map (fun (name, typ) -> RecordLabel (name, typ)) recordTypes
+                Equals (VarType (getVarType (), labelCons), typ)
+            else
+                Equals (Type.Record recordTypes, typ)
+        let typeCons =
             match typ' with
-            | Some typ' ->
-                env, Equals (typ', typ) :: Equals (Type.Record recordTypes, typ) :: cons
-            | None ->
-                env, Equals (Type.Record recordTypes, typ) :: cons
-        List.fold2 f acc patterns recordTypes
+            | None -> []
+            | Some typ' -> [Equals (typ', typ)]
+        List.fold2 f (env, recordCons :: cons @ typeCons) patterns recordTypes
 
     | Pat (NilPat, typ') ->
         let newTyp = List (VarType (getVarType (), []))
@@ -434,7 +420,7 @@ let validatePattern pattern typ (env: Map<Ident, EnvAssociation>) =
         | XPat x -> [x]
         | TuplePat patterns ->
             List.fold (fun acc p -> acc @ findIds p) [] patterns
-        | RecordPat patterns ->
+        | RecordPat (_, patterns) ->
             List.fold (fun acc (n, p) -> acc @ findIds p) [] patterns
         | ConsPat (p1, p2) ->
             findIds p1 @ findIds p2
@@ -575,16 +561,11 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
             List.unzip <| 
             List.map (fun t -> collectConstraints t env) types
         Type.Record (List.zip names types') , List.reduce (@) constraints
-    | ProjectIndex (n, t1) ->
+    | RecordAccess (s, t1, t2) ->
         let typ1, c1 = collectConstraints t1 env
-        let retType = VarType (getVarType (), [])
-        let varType = VarType (getVarType (), [TuplePosition (n, retType)])
-        retType, c1 @ [Equals (typ1, varType)]
-    | ProjectName (name, t1) ->
-        let typ1, c1 = collectConstraints t1 env
-        let retType = VarType (getVarType (), [])
-        let varType = VarType (getVarType (), [RecordLabel (name, retType)])
-        retType, c1 @ [Equals (typ1, varType)]
+        let typ2, c2 = collectConstraints t2 env
+        let varType = VarType (getVarType (), [RecordLabel (s, typ1)])
+        Type.Tuple [typ1; typ2], c1 @ c2 @ [Equals (varType, typ2)]
 
 //#endregion
 

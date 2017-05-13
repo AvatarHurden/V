@@ -10,7 +10,6 @@ exception UncompiledLib of string
 type Trait =
     | Equatable
     | Orderable
-    | TuplePosition of int * Type
     | RecordLabel of string * Type
 
 and Type =
@@ -59,7 +58,7 @@ and Pattern =
     | IPat of int
     | CPat of char
     | TuplePat of VarPattern list
-    | RecordPat of (string * VarPattern) list
+    | RecordPat of bool * (string * VarPattern) list
     | NilPat
     | ConsPat of VarPattern * VarPattern
 
@@ -78,8 +77,7 @@ type term =
     | Raise
     | Tuple of term list
     | Record of (string * term) list
-    | ProjectIndex of int * term
-    | ProjectName of string * term
+    | RecordAccess of string * term * term
 
 type result =
     | ResB of bool

@@ -143,14 +143,7 @@ Tuples of any size greater than or equal to 2 are supported, and they are of fix
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
 e &::= &\cdots&\\
     &| &(e_1, \; \dots \; e_n) & (n\geq2)\\
-    &| &\#n \; e&\\
 \end{tabular}}
-
-\bigskip
-
-The first expression is the only way to construct a new tuple in $V$.
-
-The second expression is the projection of a specific field of a tuple.
 
 \paragraph{Records}
 Records are unordered heterogeneous collection of named values with random access.
@@ -167,7 +160,7 @@ This is done to ensure consistent label order in records with the same labels, a
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
 e &::= &\cdots&\\
     &| &\{l_1: e_1, \; \dots \; l_n: e_n\} & (n\geq1)\\
-    &| &\#l \; e&\\
+    &| &\#l \; e_1 \; e_2&\\
     \\
     l &::= & \{l_1, l_2, ...\}
 \end{tabular}}
@@ -176,7 +169,8 @@ e &::= &\cdots&\\
 
 The first expression is the only way to construct a new record in $V$.
 
-The second expression is the projection of a specific field of a record.
+The second expression is a field accessor.
+It allows getting and setting specific fields of a record, by evaluating to a tuple with the old value of the field and the updated record.
 
 \paragraph{Lists}
 
@@ -284,6 +278,7 @@ patt &::= &x\\
     &| &p_1 :: p_2\\
     &| &(p_1, \; \dots \; p_n) & (n\geq2)\\
     &| &\{l_1: p_1, \; \dots \; l_n: p_n\} & (n\geq1)\\
+    &| &\{l_1: p_1, \; \dots \; l_n: p_n, \dots\} & (\text{partial record}, n\geq1)\\
 \end{tabular}}
 
 \bigskip
@@ -300,7 +295,10 @@ The patterns $n$, $b$ and $c$ match the equivalent constants for numbers, boolea
 
 The pattern $nil$ matches only the empty list, while $p_1 :: p_2$ matches any list with at least one element ($p_1$ matches the head of the list, while $p_2$ matches the tail).
 
-The pattern $(p_1, \; \dots \; p_n)$ matches a tuple with exactly $n$ elements, and $\{l_1: p_1, \; \dots \; l_n: p_n\}$ matches a record with fields $l_1, \; \dots \; l_n$.
+The pattern $(p_1, \; \dots \; p_n)$ matches a tuple with exactly $n$ elements, and $\{l_1: p_1, \; \dots \; l_n: p_n\}$ matches a record with only the fields $l_1, \; \dots \; l_n$.
+
+For matching any record with \emph{at least} the fields $l_1, \; \dots \; l_n$, one can use the pattern $\{l_1: p_1, \; \dots \; l_n: p_n, \dots\}$.
+This pattern will match any record whose set of fields is a superset of $l_1, \; \dots \; l_n$.
 
 \paragraph{Match Expression}
 
@@ -456,7 +454,6 @@ Variable types, on the other hand, can explicitly state which traits they posses
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}r}
     Trait &::= &Equatable\\
     &| &Orderable\\
-    &| &(n: Type) & (Tuple Position)\\
     &| &\{l: Type\} & (Record Label)\\
 \end{tabular}}
 
@@ -489,21 +486,6 @@ To define the set of types that belong to $Orderable$, the following rules are u
     \{\mbox{Int}, \mbox{Char}\} \subset Orderable\\
     T \in Orderable \implies T \; list \in Orderable\\
     X^{Traits} \in Orderable \implies Orderable \in Traits\\
-\end{tabular}}
-
-\paragraph{Tuple Position}
-A tuple position trait specifies a type $T$ that a tuple must have at a certain position $n$.
-For this to be valid, the tuple must be at least of size $n+1$, since they are 0-indexed.
-This trait does not put an upper bound on the size of the tuple.
-
-To define the set of types that belong to a tuple position $(n: T)$, the following rules are used:
-
-\medskip
-
-{\setlength\tabcolsep{8pt}
-\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
-    (T_1, \; \dots \; T_{n+1}, \; \dots \; T_k) \in (n: T) \iff T_{n+1} = T & (k\geq2, \; 0 \leq n < k)\\
-    X^{Traits} \in (n: T) \implies (n: T) \in Traits\\
 \end{tabular}}
 
 \paragraph{Record Label}
@@ -662,13 +644,22 @@ The following are the rules for the match function:
 \smallskip
 
 \infrule[]
-    {\exists \; i \in \left[1, n\right]  \; \; \exists \; j \in \left[1, n\right] \; \; l_{1i} = l_{2j} \wedge match(p_i, v_j) = false, env_i}
-    {match(\{l_{11}: p_1, ... l_{1n}: p_n\}, \{l_{21}: v_1, ... l_{2n}: v_n\}) = false, \{\}}
+{k \geq n \andalso \exists \; i \in \left[1, n\right]  \; \; \exists \; j \in \left[1, k\right] \; \; l^1_i = l^2_j \wedge match(p_i, v_j) = false, env_i}
+    {match(\{l_1^1: p_1, \dots, l^1_n: p_n, \dots\}, \{l^2_1: v_1, ... l^2_k: v_k\}) = false, \{\}}
 
 \infrule[]
-    {\forall \; i \in \left[1, n\right] \; \; \exists \; j \in \left[1, n\right] \; \;
-      l_{1i} = l_{2j} \wedge match(p_i, v_j) = true, env_i}
-    {match(\{l_{11}: p_1, ... l_{1n}: p_n\}, \{l_{21}: v_1, ... l_{2n}: v_n\}) = true,  \displaystyle \bigcup_{i=1}^{n} env_i}
+{k \geq n \andalso \forall \; i \in \left[1, n\right]  \; \; \exists \; j \in \left[1, k\right] \; \; l^1_i = l^2_j \wedge match(p_i, v_j) = true, env_i}
+    {match(\{l_1^1: p_1, \dots, l^1_n: p_n, \dots\}, \{l^2_1: v_1, ... l^2_k: v_k\}) = true, \displaystyle \bigcup_{i=1}^{n} env_i}
+
+
+\infrule[]
+    {\exists \; i \in \left[1, n\right]\; \; l^1_i = l^2_i \wedge match(p_i, v_i) = false, env_i}
+    {match(\{l_1^1: p_1, \dots, l^1_n: p_n\}, \{l^2_1: v_1, ... l^2_n: v_n\}) = false, \{\}}
+
+\infrule[]
+    {\forall \; i \in \left[1, n\right] \; \;
+      l^1_i = l^2_i \wedge match(p_i, v_i) = true, env_i}
+    {match(\{l_1^1: p_1, \dots, l^1_n: p_n\}, \{l^2_1: v_1, ... l^2_n: v_n\}) = true,  \displaystyle \bigcup_{i=1}^{n} env_i}
 
 \subsubsection{Big-Step Rules}
 
@@ -688,35 +679,26 @@ The following are the rules for the match function:
 
 \paragraph{Tuples}
 A tuple construction expression $(e_1, \; \dots \; e_n)$ evaluates each of its sub-expressions individually, resulting in a tuple value.
-If any expression evaluates to a $raise$, the whole tuple evaluates to $raise$, propagating the exception.
 
 \infrule[BS-Tuple]
     {\forall \; k \in \left[1, n\right] \; \; \mbox{env} \vdash e_k \Downarrow v_k}
     {\mbox{env} \vdash (e_1, \; \dots \; e_n) \Downarrow (v_1, \; \dots \; e_n)}
 
-For field projection, the tuple is 0-indexed, meaning the first component has index 0.
-Because of this, projection can only be done on positive numbers.
-Any attempt to project an inexisting field (i.e $n \geq k$) is invalid code, and does not evaluate to $raise$.
-
-\infrule[BS-TupleProjection]
-    {\mbox{env} \vdash e \Downarrow (v_1, \; \dots \; v_k) \andalso 0 \leq \left\|n\right\| < \left\|k\right\|}
-    {\mbox{env} \vdash \#n \; e \Downarrow v_{n+1}}
-
 \paragraph{Records}
 A record construction expression $\{l_1: e_1, \; \dots \; l_n: e_n\}$ evaluates each of its sub-expressions individually, resulting in a record value.
-If any expression evaluates to a $raise$, the whole record evaluates to $raise$, propagating the exception.
 
 \infrule[BS-Record]
     {\forall \; k \in \left[1, n\right] \; \; \mbox{env} \vdash e_k \Downarrow v_k}
     {\mbox{env} \vdash \{l_1: e_1, \; \dots \; l_n: e_n\} \Downarrow \{l_1: v_1, \; \dots \; l_n: v_n\}}
 
-Labels are used to project a field of a record, and the fields are unordered.
-This means that, as long as some field of a record has the requested label, that field can be projected.
-Any attempt to project an inexisting field (i.e the label does not exist in the record) is invalid code, and does not evaluate to $raise$.
+The record access term exists to allow getting and setting the values of individual fields in a record.
+The record, obtained by evaluating $e_2$, is updated by associating the result of evaluating $e_1$ to the label $l$.
+The result of evaluating this expression is a tuple, where the first component is the old value associated with the label $l$, and the second component is the updated record.
 
-\infrule[BS-RecordProjection]
-    {\mbox{env} \vdash e \Downarrow \{l_1: e_1, \; \dots \; l_n: e_n\} \andalso l = l_k \andalso 1 \leq \left\|k\right\| \leq \left\|n\right\|}
-    {\mbox{env} \vdash \#l \; e \Downarrow v_k}
+\infrule[BS-RecordAccess]
+    {\mbox{env} \vdash e_2 \Downarrow \{l_1: v_1, \; \dots \; l_n: v_n\} \andalso \mbox{env} \vdash e_1 \Downarrow v\\
+    l = l_k \andalso 1 \leq \left\|k\right\| \leq \left\|n\right\| \andalso r = \{l_1: v_1, \; \dots \; l_k: v, \; \ldots \; l_n: v_n\}}
+    {\mbox{env} \vdash \#l \; e_1 \; e_2 \Downarrow (v_k, r)}
 
 
 \paragraph{Lists}
@@ -1125,13 +1107,9 @@ The rules for $raise$ propagation are given below.
     {\mbox{env} \vdash e_1 \Downarrow v_1 \andalso \mbox{env} \vdash e_2 \Downarrow raise}
     {\mbox{env} \vdash e_1 :: e_2 \Downarrow raise}
 
-\infrule[BS-TupleProjectionRaise]
-    {\mbox{env} \vdash e \Downarrow raise}
-    {\mbox{env} \vdash \#n \; e \Downarrow raise}
-
-\infrule[BS-RecordProjectionRaise]
-    {\mbox{env} \vdash e \Downarrow raise}
-    {\mbox{env} \vdash \#l \; e \Downarrow raise}
+\infrule[BS-RecordAccessRaise]
+    {\mbox{env} \vdash e_2 \Downarrow raise}
+    {\mbox{env} \vdash \#l \; e_1 \; e_2 \Downarrow raise}
 
 \infrule[BS-$=$Raise]
     {\mbox{env} \vdash e_1 \Downarrow raise}
@@ -1348,12 +1326,20 @@ The following are the rules for the ``match'' function:
 \smallskip
 
 \infrule[]
-    {\forall i \in \left[1, n\right] \; \; X_i \; is \; new \wedge match(p_i, X_i) = c_i, env_i}
-    {match(\{l_1: p_1, ... l_n: p_n\}, T) = \{\{l_1: X_1, ... l_n: X_n\} = T\} \cup \displaystyle \bigcup_{i=1}^{n} c_i, \displaystyle \bigcup_{i=1}^{n} env_i}
+    {\forall i \in \left[1, n\right] \; \; X_i \; is \; new \wedge match(p_i, X_i) = c_i, env_i \andalso X_0^{\{\{l_i: X_i\}\} \forall i \in \left[1, n\right]}}
+    {match(\{l_1: p_1, \dots, l_n: p_n, \dots\}, T) = \{X_0 = T\} \cup \displaystyle \bigcup_{i=1}^{n} c_i, \displaystyle \bigcup_{i=1}^{n} env_i}
+
+\infrule[]
+    {\forall i \in \left[1, n\right] \; \; X_i \; is \; new \wedge match(p_i, X_i) = c_i, env_i \andalso X_0^{\{\{l_i: X_i\}\} \forall i \in \left[1, n\right]}}
+    {match(\{l_1: p_1, \dots, l_n: p_n, \dots\}: T_1, T_2) = \{X_0 = T_1, T_1 = T_2\} \cup \displaystyle \bigcup_{i=1}^{n} c_i, \displaystyle \bigcup_{i=1}^{n} env_i}
 
 \infrule[]
     {\forall i \in \left[1, n\right] \; \; X_i \; is \; new \wedge match(p_i, X_i) = c_i, env_i}
-    {match(\{l_1: p_1, ... l_n: p_n\}: T_1, T_2) = \{\{l_1: X_1, ... l_n: X_n\} = T_1, T_1 = T_2\} \cup \displaystyle \bigcup_{i=1}^{n} c_i, \displaystyle \bigcup_{i=1}^{n} env_i}
+    {match(\{l_1: p_1, \dots, l_n: p_n\}, T) = \{\{l_1: X_1, \dots, l_n: X_n\} = T\} \cup \displaystyle \bigcup_{i=1}^{n} c_i, \displaystyle \bigcup_{i=1}^{n} env_i}
+
+\infrule[]
+    {\forall i \in \left[1, n\right] \; \; X_i \; is \; new \wedge match(p_i, X_i) = c_i, env_i}
+    {match(\{l_1: p_1, \dots, l_n: p_n\}: T_1, T_2) = \{\{l_1: X_1, \dots, l_n: X_n\} = T_1, T_1 = T_2\} \cup \displaystyle \bigcup_{i=1}^{n} c_i, \displaystyle \bigcup_{i=1}^{n} env_i}
 
 \paragraph{Constraint Collection Rules}
 Every expression in $V$ has a rule for constraint collection, similar to how every expression has a rule for its semantic evaluation.
@@ -1377,19 +1363,15 @@ Every expression in $V$ has a rule for constraint collection, similar to how eve
     {\forall \; k \in \left[1, n\right] \; \; \Gamma \vdash e_k : T_k \; | \; C_k}
     {\Gamma \vdash (e_1, \; \dots \; e_n) : (T_1, \; \dots \; T_n) \; | \; C_1 \cup \cdots C_n }
 
-\infrule[T-TupleProjection]
-    {\Gamma \vdash e : T_1 \; | \; C_1 \andalso X_1 \; is \; new \andalso X_2^{\{(n: X_1)\}} \; is \; new}
-    {\Gamma \vdash \#n \; e : X_1 \; | \; C_1 \cup \{T_1 = X_2\}}
-
 \bigskip
 
 \infrule[T-Record]
     {\forall \; k \in \left[1, n\right] \; \; \Gamma \vdash e_k : T_k \; | \; C_k}
     {\Gamma \vdash \{l_1: e_1, \; \dots \; l_n: e_n\} : \{l_1: T_1, \; \dots \; l_n: T_n\} \; | \; C_1 \cup \cdots C_n }
 
-\infrule[T-RecordProjection]
-    {\Gamma \vdash e : T_1 \; | \; C_1 \andalso X_1 \; is \; new \andalso X_2^{\{\{l: X_1\}\}} \; is \; new}
-    {\Gamma \vdash \#l \; e : X_1 \; | \; C_1 \cup \{T_1 = X_2\}}
+\infrule[T-RecordAccess]
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso X_1^{\{\{l: T_1\}\}} \; is \; new}
+    {\Gamma \vdash \#l \; e_1 \; e_2 : (T_1, T_2) \; | \; C_1 \cup C_2 \cup \{X_1 = T_2\}}
 
 \bigskip
 
@@ -1684,13 +1666,12 @@ Tuples are specified inside parenthesis, with each of its values separated by co
 Tuples are immutable, which means they cannot be changed once they are created.
 There is no way to add or remove elements from a tuple.
 
-To access a specific field of a tuple, the projection operation is used.
-Tuples are 0-indexed, so projection is done by specifying the index of the field.
+To access a specific field of a tuple, it must be deconstructed using a pattern.
+This can be done either by using a \code{let} expression or by pattern matching in a function definition.
 
-\begin{lstlisting}
-    #0 (1, ``hello'')
-    #2 (true, `c', 43)
-    #3 ('c', false) // Invalid code
+\begin{lstlisting}[escapechar=&]
+    let (x, y) = (1, ``hello'')
+    (\&&(x, y, z) -> x) (true, `c', 43)
 \end{lstlisting}
 
 Tuples are extremely useful as return values for functions that must convey more than one piece of information.
@@ -1710,19 +1691,30 @@ Each label-value pair is separated by a comma, and the whole record is enclosed 
   {day: 1, month: 1, year: 2000}
 \end{lstlisting}
 
-Records are, like tuples, immutable.
-To access a specific field of a record, one must use projection.
-There is no inherent order in the values of a record, so the label must be used for projection.
+To get the value of a single field in a record, one can use the \code{get} function, passing the name of the field and the record.
+As can be seen below, the name of the field must be prefixed by the \code{\#} character.
 
 \begin{lstlisting}
-  #name {name: ``Martha'', age: 32}
-  #month {day: 1, month: 1, year: 2000}
-  #name  {day: 1, month: 1, year: 2000} // Invalid code
+  get #age {name: ``Martha'', age: 32} // Returns 32
+  get #month {day: 1, month: 1, year: 2000} // Returns 1
 \end{lstlisting}
 
-Records are also useful as return values for functions.
-The advantage they have over tuples is that every field has its name.
-This removes ambiguities for values of the same type, such as in the case of a date with 3 integer values.
+Unlike tuples, it is possible to alter a single field in a record.
+This is done by using the \code{set} function, which takes the name of the field (with the \code{\#} character), the value to be set and the record.
+
+It is also possible to modify a value of a field by using the \code{modify} function,  which applies a function given as its parameter to the existing value.
+
+It is important to note that these function do not change the original record, but instead returns a new, modified record.
+
+\begin{lstlisting}[escapechar=&]
+  set 3 #age {name: ``Martha'', age: 32}
+  // Returns {name: ``Martha'', age: 3}
+  set 8 #month {day: 1, month: 1, year: 2000}
+  // Returns {day: 1, month: 8, year: 2000}
+
+  modify #age (\&&x -> x * 2) {name: ``Martha'', age: 32}
+  // Returns {name: ``Martha'', age: 64}
+\end{lstlisting}
 
 \subsection{Identifiers}
 
@@ -1791,6 +1783,8 @@ They can be used in constant declarations and function parameters, simplifying t
   Tuple & (x, _, y) & Matches tuples with corresponding size\\
   \hline
   Record & \{a: _, b: (x,y), c: x\} & Matches records with corresponding labels\\
+  \hline
+  Partial Record & \{a: _, b: (x,y), c: x, ...\} & Matches records with at least the specified labels\\
   \hline
   Nil & nil, [] & Matches the empty list\\
   \hline
@@ -2337,6 +2331,12 @@ Because the library was imported inside the scope of the function body, none of 
       When declaring a function, wrapping a name in parenthesis makes it a operator.
       Only a small number of characters are allowed for operator names, and it is possible to define the associativity and priority of the newly created operator (if this information is ommited, the default values are left associative and priority 9).
 
+  \item \textbf{Partial Record Pattern} \; \; {\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System}
+  \colorbox{ProcessBlue}{Concrete Syntax}}
+
+      This pattern does not create an equality constraint on records.
+      Instead, it creates trait constraints, allowing for ad-hoc subtyping.
+
 \end{itemize}
 
 \paragraph{Changes}
@@ -2360,6 +2360,10 @@ Because the library was imported inside the scope of the function body, none of 
   {\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System}}
 
       The boolean operators $\wedge$ (AND) and $\vee$ (OR) have been removed from the definition and added to the stdlib.
+
+  \item \textbf{Record Projection (Accessor)} \; \; {\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System}}
+
+      Replaced record projection with record accessor, allowing for editing of individual fields in a record.
 \end{itemize}
 
 \paragraph{Removals}
@@ -2379,6 +2383,12 @@ Because the library was imported inside the scope of the function body, none of 
 
       Exceptions can no longer be handled.
       This was done because of the change to non-strict semantics.
+
+  \item \textbf{Project Index (TuplePosition Trait)} \; \; {\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System} \colorbox{lightgray}{Concrete Syntax}}
+
+      Removed the ability to project a specific component of a tuple, making patterns the only way to decompose tuples.
+
+      As a result of this, the TuplePosition Trait has been removed.
 \end{itemize}
 
 
