@@ -2374,10 +2374,32 @@ While the operator is defined inside the language, it depends on the presence of
 \subsubsection{Operations on Booleans}
 
 Below are all the operations on booleans defined in the Standard Library.
-Missing from these are the basic AND (\code{\&\&}) and OR (\code{||}) operations.
-This is because they require short-circuit evalaution, and must therefore be built into the language.
 
 \medskip
+
+\libfunction
+  {and}
+  {Bool -> Bool -> Bool}
+  {Boolean ``AND''}
+
+\liboperator
+  {\&\&}
+  {\rightassociative}
+  {3}
+  {Bool -> Bool -> Bool}
+  {Infix version of \code{and}}
+
+\libfunction
+  {or}
+  {Bool -> Bool -> Bool}
+  {Boolean ``OR''}
+
+\liboperator
+  {\code{||}}
+  {\rightassociative}
+  {2}
+  {Bool -> Bool -> Bool}
+  {Infix version of \code{or}}
 
 \libfunction
   {not}
@@ -2476,6 +2498,34 @@ For larger tuples, it is necessary to create custom functions.
   {swap}
   {(a, b) -> (b, a)}
   {Swap the components of a pair.}
+
+\subsubsection{Operations on Records}
+
+The functions below are used with record accessors (\code{\#label}) to get, set and change individual fields in a record.
+While the functions themselves have a more generic type and can, therefore, be used in more circumstances, they were created with records in mind.
+
+\medskip
+
+\libfunction
+  {get}
+  {(a -> b -> (c, d)) -> b -> c}
+  {Returns the value of a field in a record.
+
+  \code{get \#label record}}
+
+\libfunction
+  {set}
+  {(a -> b -> (c, d)) -> a -> b -> d}
+  {Returns the inputed record, modifying a single field value.
+
+  \code{set \#label value record}}
+
+\libfunction
+  {modify}
+  {(a -> b -> (c, d)) -> (c -> a) -> b -> d}
+  {Returns the inputed record, modifying a single field value by applying the old value to the specified function.
+
+  \code{modify \#label function record}}
 
 \subsection{Operations on Lists}
 
