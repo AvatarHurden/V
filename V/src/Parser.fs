@@ -244,9 +244,18 @@ let private pParenPattern =
 
 let private pRecordCompPattern = tuple2 (pIdentifier .>> ws .>> pstring ":" .>> ws) pPattern
 
+let private pRecord' p f =
+    Inline.ManyTill(stateFromFirstElement = (fun x -> [x]),
+                     foldState = (fun acc x -> x :: acc),
+                     resultFromStateAndEnd = (fun acc allowsExtra -> f acc allowsExtra),
+                     elementParser = (pstring "," >>. ws >>. p),
+                     endParser = 
+                        (attempt (opt (pstring "," >>. ws >>. pstring "..." .>> ws)) 
+                            .>> pstring "}" |>> fun x -> x.IsSome),
+                     firstElementParser = (pstring "{" >>. ws >>. p))
+
 let private pRecordPattern =
-    pBetween "{" "}" (sepBy1 pRecordCompPattern (pstring "," .>> ws))
-        |>> (fun x -> Pat(RecordPat x, None))
+    pRecord' pRecordCompPattern (fun x y -> Pat(RecordPat (y, x), None))
 
 let private pListPattern =
     pBetween "[" "]" (sepBy pPattern (pstring "," .>> ws)) 

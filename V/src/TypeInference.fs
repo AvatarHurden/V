@@ -373,16 +373,20 @@ let rec matchPattern pattern typ (env: Map<Ident, EnvAssociation>) cons =
                 env, Equals (Type.Tuple tupleTypes, typ) :: cons
         List.fold2 f acc patterns tupleTypes
     
-    | Pat (RecordPat patterns, typ') ->
+    | Pat (RecordPat (allowsExtra, patterns), typ') ->
         let recordTypes = List.map (fun (name, _) -> name, VarType (getVarType (), [])) patterns
         let f = fun (env, cons) (_, p) (_, t) -> matchPattern p t env cons
-        let acc = 
+        let recordCons =
+            if allowsExtra then
+                let labelCons = List.map (fun (name, typ) -> RecordLabel (name, typ)) recordTypes
+                Equals (VarType (getVarType (), labelCons), typ)
+            else
+                Equals (Type.Record recordTypes, typ)
+        let typeCons =
             match typ' with
-            | Some typ' ->
-                env, Equals (typ', typ) :: Equals (Type.Record recordTypes, typ) :: cons
-            | None ->
-                env, Equals (Type.Record recordTypes, typ) :: cons
-        List.fold2 f acc patterns recordTypes
+            | None -> []
+            | Some typ' -> [Equals (typ', typ)]
+        List.fold2 f (env, recordCons :: cons @ typeCons) patterns recordTypes
 
     | Pat (NilPat, typ') ->
         let newTyp = List (VarType (getVarType (), []))
@@ -416,7 +420,7 @@ let validatePattern pattern typ (env: Map<Ident, EnvAssociation>) =
         | XPat x -> [x]
         | TuplePat patterns ->
             List.fold (fun acc p -> acc @ findIds p) [] patterns
-        | RecordPat patterns ->
+        | RecordPat (_, patterns) ->
             List.fold (fun acc (n, p) -> acc @ findIds p) [] patterns
         | ConsPat (p1, p2) ->
             findIds p1 @ findIds p2

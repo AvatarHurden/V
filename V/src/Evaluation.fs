@@ -54,24 +54,29 @@ let rec matchPattern (Pat (pattern, _)) result (env: Map<Ident, result>) =
             raise <| EvalException "Tuples do not match in pattern"
         | _ -> 
             raise <| EvalException "Invalid result for tuple pattern"
-    | RecordPat patterns ->
+    | RecordPat (allowsExtras, patterns) ->
         match result with
         | ResRaise -> None
-        | ResRecord results when results.Length = patterns.Length ->
+        | ResRecord results when allowsExtras || results.Length = patterns.Length ->
 
-            let existsInPatterns (rName, _) =
-                List.exists (fun (pName, _) -> pName = rName) patterns
+            let results' = List.sortWith (fun (s1, t1) (s2, t2) -> compare s1 s2) results
 
-            if List.forall existsInPatterns results then
-                let f acc (pName, pValue) =
-                    match acc with
-                    | None -> None
-                    | Some env -> 
-                        let (_, rValue) = List.find (fun (rName, rValue) -> rName = pName) results
-                        matchPattern pValue rValue env
-                List.fold f (Some env) patterns
-            else
-                raise <| EvalException "Records have different fields in pattern"
+            let patterns' =
+                if not allowsExtras then
+                    List.sortWith (fun (s1, t1) (s2, t2) -> compare s1 s2) patterns
+                else if results.Length >= patterns.Length then
+                    let dict = List.fold (fun (acc: Map<string, VarPattern>) (name, pat) -> acc.Add(name, pat)) Map.empty patterns
+                    List.map (fun (name, value) -> name, match dict.TryFind name with None -> Pat(IgnorePat, None) | Some p -> p) results'
+                else
+                    raise (EvalException <| sprintf "Record %A has less fields than pattern %A" result pattern)
+
+            let f acc (pName, pValue) (rName, rValue) =
+                if pName <> rName then
+                    raise (EvalException <| sprintf "Record %A has different fields from pattern %A" result pattern)
+                match acc with
+                | None -> None
+                | Some env -> matchPattern pValue rValue env
+            List.fold2 f (Some env) patterns' results'
         | ResRecord results ->
             raise <| EvalException "Records have different lengths in pattern"
         | _ -> 

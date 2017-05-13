@@ -58,7 +58,7 @@ and Pattern =
     | IPat of int
     | CPat of char
     | TuplePat of VarPattern list
-    | RecordPat of (string * VarPattern) list
+    | RecordPat of bool * (string * VarPattern) list
     | NilPat
     | ConsPat of VarPattern * VarPattern
 
