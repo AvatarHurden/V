@@ -1678,6 +1678,21 @@ Literal characters will always be written in terminal font, so \lit*{|} and \lit
   <let> ::= <declaration> \textvisiblespace <expression>
 \end{grammar}
 
+\begin{grammar}
+  <declaration> ::= "let" \textvisiblespace <pattern> "=" \textvisiblespace <expression> ";" \textvisiblespace
+  \alt "let" \textvisiblespace [ "rec" \textvisiblespace ] <funcname> \{ <parameter> \} [ ":" \textvisiblespace <type> ] <pattern> "=" \textvisiblespace <expression> ";" \textvisiblespace
+  % \alt "let" \textvisiblespace [ "rec" \textvisiblespace ] [ <fixity> \textvisiblespace <digit> \textvisiblespace ]  "(" \textvisiblespace <customop> \textvisiblespace ")"\textvisiblespace \{ <parameter> \} [ ":" \textvisiblespace <type> ] <pattern> "=" \textvisiblespace <expression> ";" \textvisiblespace
+
+  <funcname> ::= <identifier> \textvisiblespace
+  \alt [ <fixity> \textvisiblespace <digit> \textvisiblespace ]  "(" \textvisiblespace <customop> \textvisiblespace ")"\textvisiblespace \hfill (operator declaration)
+
+  <fixity> ::= "infixl" | "infixr" | "infix"
+\end{grammar}
+
+\begin{grammar}
+  <parameter> ::= <patparen> \textvisiblespace | "(" <pattern> ")" | <patvalue> \textvisiblespace
+\end{grammar}
+
 \section{Language Guide}
 
 \subsection{Basic Values}
