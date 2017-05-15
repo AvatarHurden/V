@@ -1654,6 +1654,12 @@ Literal characters will always be written in terminal font, so \lit*{|} and \lit
   \alt "[" \textvisiblespace <expression> [ "," \textvisiblespace <expression> ] ".." \textvisiblespace <expression> "]" \textvisiblespace \hfill (range)
 \end{grammar}
 
+\begin{grammar}
+  <match> ::= "match" \textvisiblespace <expression> "with" \textvisiblespace  \{ <matchcomp>  \}
+
+  <matchcomp> ::= "|" \textvisiblespace <pattern> [ "when" \textvisiblespace <expression> ] "->" \textvisiblespace <expression>
+\end{grammar}
+
 \section{Language Guide}
 
 \subsection{Basic Values}
