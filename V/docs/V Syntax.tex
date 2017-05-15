@@ -1660,6 +1660,24 @@ Literal characters will always be written in terminal font, so \lit*{|} and \lit
   <matchcomp> ::= "|" \textvisiblespace <pattern> [ "when" \textvisiblespace <expression> ] "->" \textvisiblespace <expression>
 \end{grammar}
 
+\begin{grammar}
+  <import> ::= "import" \textvisiblespace <string>
+\end{grammar}
+
+\subsection{Functions and Declarations}
+
+\begin{grammar}
+  <lambda> ::= "\\" \textvisiblespace \{ <parameter> \} "->" \textvisiblespace <expression>
+\end{grammar}
+
+\begin{grammar}
+  <reclambda> ::= "rec" \textvisiblespace <identifier> \textvisiblespace \{ <parameter> \} [ ":"\textvisiblespace <type> ] "->" \textvisiblespace <expression>
+\end{grammar}
+
+\begin{grammar}
+  <let> ::= <declaration> \textvisiblespace <expression>
+\end{grammar}
+
 \section{Language Guide}
 
 \subsection{Basic Values}
