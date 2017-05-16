@@ -1681,6 +1681,15 @@ Literal characters will always be written in terminal font, so \lit*{|} and \lit
   <import> ::= "import" \textvisiblespace <string>
 \end{grammar}
 
+\begin{grammar}
+  <expression> ::= <operand> \{ <operator> \textvisiblespace <operand> \}
+
+  <operand> ::= <application>
+  \alt "-" \textvisiblespace <application> \hfill (unary negation)
+
+  <application> ::= <term> \textvisiblespace \{ <term> \textvisiblespace \}
+\end{grammar}
+
 \subsection{Functions and Declarations}
 
 \begin{grammar}
@@ -1698,7 +1707,6 @@ Literal characters will always be written in terminal font, so \lit*{|} and \lit
 \begin{grammar}
   <declaration> ::= "let" \textvisiblespace <pattern> "=" \textvisiblespace <expression> ";" \textvisiblespace
   \alt "let" \textvisiblespace [ "rec" \textvisiblespace ] <funcname> \{ <parameter> \} [ ":" \textvisiblespace <type> ] <pattern> "=" \textvisiblespace <expression> ";" \textvisiblespace
-  % \alt "let" \textvisiblespace [ "rec" \textvisiblespace ] [ <fixity> \textvisiblespace <digit> \textvisiblespace ]  "(" \textvisiblespace <customop> \textvisiblespace ")"\textvisiblespace \{ <parameter> \} [ ":" \textvisiblespace <type> ] <pattern> "=" \textvisiblespace <expression> ";" \textvisiblespace
 
   <funcname> ::= <identifier> \textvisiblespace
   \alt [ <fixity> \textvisiblespace <digit> \textvisiblespace ]  "(" \textvisiblespace <customop> \textvisiblespace ")"\textvisiblespace \hfill (operator declaration)
@@ -1757,12 +1765,6 @@ Literal characters will always be written in terminal font, so \lit*{|} and \lit
 \begin{grammar}
   <type> ::= <typevalue> \textvisiblespace \{  "->" <typeValue> \textvisiblespace \}
 \end{grammar}
-
-% \begin{grammar}
-%   <pattern>
-%   <type>
-%   <expression>
-% \end{grammar}
 
 \section{Language Guide}
 
