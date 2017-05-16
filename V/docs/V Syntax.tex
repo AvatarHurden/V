@@ -1722,6 +1722,26 @@ Literal characters will always be written in terminal font, so \lit*{|} and \lit
   \alt <patvalue> \textvisiblespace \{ "::" \textvisiblespace <patvalue> \textvisiblespace \}
 \end{grammar}
 
+\begin{grammar}
+  <typevalue> ::= "Int"
+  \alt "Bool"
+  \alt "Char"
+  \alt "String"
+  \alt "(" \textvisiblespace <type>$_1$ "," \textvisiblespace $\ldots$ "," \textvisiblespace <type>$_n$ ")" \textvisiblespace \hfill (tuple, $n \geq 2$)
+  \alt "[" \textvisiblespace <type> \textvisiblespace "]" \textvisiblespace \hfill (list)
+  \alt <typerecord>
+\end{grammar}
+
+\begin{grammar}
+  <typerecord> ::= \{ \textvisiblespace <typerecordcomp>$_1$ "," \textvisiblespace $\ldots$ "," \textvisiblespace <typerecordcomp>$_n$ \} \textvisiblespace \hfill ($n \geq 1$)
+
+  <typerecordcomp> ::= <identifier> \textvisiblespace ":" \textvisiblespace <type>
+\end{grammar}
+
+\begin{grammar}
+  <type> ::= <typevalue> \textvisiblespace \{  "->" <typeValue> \textvisiblespace \}
+\end{grammar}
+
 % \begin{grammar}
 %   <pattern>
 %   <type>
