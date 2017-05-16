@@ -1591,7 +1591,8 @@ Literal characters will always be written in terminal font, so \lit*{|} and \lit
 \subsection{Terms}
 
 \begin{grammar}
-  <term> ::= "true" | "false" \hfill (booleans)
+  <term> ::= <identifier>
+  \alt "true" | "false" \hfill (booleans)
   \alt <number>
   \alt "nil"\hfill (empty list)
   \alt "raise" \hfill (exception)
@@ -1690,8 +1691,42 @@ Literal characters will always be written in terminal font, so \lit*{|} and \lit
 \end{grammar}
 
 \begin{grammar}
-  <parameter> ::= <patparen> \textvisiblespace | "(" <pattern> ")" | <patvalue> \textvisiblespace
+  <parameter> ::= <pattuple> \textvisiblespace | "(" \textvisiblespace <pattern> ")" \textvisiblespace | <patvalue> \textvisiblespace
 \end{grammar}
+
+\begin{grammar}
+  <patvalue> ::= <identifier>
+  \alt "_" \hfill (wildcard pattern)
+  \alt "true" | "false" \hfill (booleans)
+  \alt <number>
+  \alt "nil"\hfill (empty list)
+  \alt <char>
+  \alt <string>
+  \alt <pattuple>
+  \alt <patrecord>
+  \alt "[" \textvisiblespace <pattern>$_1$ "," \textvisiblespace $\ldots$ "," \textvisiblespace <pattern>$_n$ "]" \textvisiblespace \hfill (list, $n \geq 0$)
+\end{grammar}
+
+\begin{grammar}
+  <pattuple> ::= "(" \textvisiblespace <pattern>$_1$ "," \textvisiblespace $\ldots$ "," \textvisiblespace <pattern>$_n$ ")" \textvisiblespace \hfill ($n \geq 2$)
+\end{grammar}
+
+\begin{grammar}
+  <patrecord> ::= \{ \textvisiblespace <patrecordcomp>$_1$ "," \textvisiblespace $\ldots$ "," \textvisiblespace <patrecordcomp>$_n$ \} \textvisiblespace \hfill ($n \geq 1$)
+
+  <patrecordcomp> ::= <identifier> \textvisiblespace ":" \textvisiblespace <pattern>
+\end{grammar}
+
+\begin{grammar}
+  <pattern> ::= <patvalue> \textvisiblespace ":" \textvisiblespace <type>
+  \alt <patvalue> \textvisiblespace \{ "::" \textvisiblespace <patvalue> \textvisiblespace \}
+\end{grammar}
+
+% \begin{grammar}
+%   <pattern>
+%   <type>
+%   <expression>
+% \end{grammar}
 
 \section{Language Guide}
 
