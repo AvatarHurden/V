@@ -113,6 +113,9 @@ type ExTerm =
     | ExRecord of (string * ExTerm) list
     | ExRecordAccess of string * ExTerm * ExTerm
 
+    | Range of ExTerm * ExTerm option * ExTerm
+    | Comprehension of ExTerm * VarPattern * ExTerm
+
 //#endregion
 
 //#region Library and Parsing

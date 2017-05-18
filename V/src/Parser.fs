@@ -415,22 +415,13 @@ let private pRange: Parser<ExTerm, UserState> =
                 Reply(Error, dots.Error)
             else
                 let first, middle = reply.Result
-                let join last =
-                    match middle with
-                    | None -> ExOP (ExOP (ExOP (ExX "range", Application, first), Application, last), Application, ExI 1)
-                    | Some num ->
-                        let increment = ExOP(num, Subtract, first)
-                        ExOP (ExOP (ExOP (ExX "range", Application, first), Application, last), Application, increment)
-                pTerm |>> join <| stream
+                pTerm |>> (fun last -> Range (first, middle, last)) <| stream
     
 let private pComprehension: Parser<ExTerm, UserState> =
-    pipe3 
+    tuple3 
         (pTerm .>>? pstring "for" .>> ws) 
         (pResetIdentifier pParameter .>> pstring "in" .>> ws)
-        pTerm <|
-    fun retTerm pat source ->
-        let f = ExFn (pat, retTerm)
-        ExOP (ExOP (ExX "map", Application, f), Application, source)
+        pTerm |>> Comprehension
 
 let private pList =
     sepBy pTerm (pstring "," .>> ws) |>> 
