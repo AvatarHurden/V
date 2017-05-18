@@ -3,12 +3,13 @@
 open NUnit.Framework
 open FsUnit
 open Definition
+open Translation
 open Evaluation
 open Parser
 
 
 let compare text term =
-    let evaluated = evaluate <| parse text
+    let evaluated = text |> parse |> translate |> evaluate
     evaluated |> should equal term
     
 let shouldFail text =

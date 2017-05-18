@@ -4,6 +4,7 @@ open NUnit.Framework
 open FsUnit
 open Parser
 open Definition
+open Translation
 open Evaluation
 
 let compareDirect term result =
@@ -14,11 +15,11 @@ let shouldFailDirect term =
     (fun () -> term |> evaluate |> ignore) |> should throw typeof<EvalException> 
 
 let compare (text, term) =
-    let evaluated = evaluate <| parse text
+    let evaluated = text |> parse |> translate |> evaluate
     evaluated |> should equal term
 
 let shouldFail text =
-    (fun () -> parse text |> evaluate |> ignore) |> should throw typeof<EvalException> 
+    (fun () -> parse text |> translate |> evaluate |> ignore) |> should throw typeof<EvalException> 
 
 [<TestFixture>]
 type TestEval() =

@@ -3,18 +3,19 @@
 open NUnit.Framework
 open FsUnit
 open Definition
+open Translation
 open Evaluation
 open TypeInference
 open Parser
 
 let compare (text, term) =
-    let parsed = parsePure text
+    let parsed = text |> parsePure |> translate
     let typ = typeInfer <| parsed
     let evaluated = evaluate <| parsed
     evaluated |> should equal term
 
 let matchesType text typ =
-    let parsed = parsePure text
+    let parsed = text |> parsePure |> translate
     let typ' = typeInfer <| parsed
     let freeVars = List.sort <| getFreeVars typ Map.empty |> List.unzip |> fst
     let freeVars' = List.sort <| getFreeVars typ' Map.empty  |> List.unzip |> fst
@@ -24,20 +25,20 @@ let matchesType text typ =
     typ |> should equal replaced
 
 let hasType text typ =
-    let parsed = parsePure text
+    let parsed = text |> parsePure |> translate
     let typ' = typeInfer <| parsed
     typ |> should equal typ'
 
 
 let equals text term =
-    let parsed = parsePure text
+    let parsed = text |> parsePure |> translate
     let typ = typeInfer <| parsed
     let evaluated = evaluate <| parsed
     evaluated |> should equal term
 
 let equalsParsed text text' =
-    let parsed = parsePure text
-    let parsed' = parsePure text'
+    let parsed = text |> parsePure |> translate
+    let parsed' = text' |> parsePure |> translate
     let typ = typeInfer <| parsed
     let typ' = typeInfer <| parsed'
     let evaluated = evaluate <| parsed
@@ -45,7 +46,7 @@ let equalsParsed text text' =
     evaluated |> should equal evaluated'
 
 let throwsWrongType text =
-    let parsed = parsePure text
+    let parsed = text |> parsePure |> translate
     (fun () -> typeInfer parsed |> ignore) |> should throw typeof<TypeException>
 
 [<TestFixture>]

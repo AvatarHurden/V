@@ -4,6 +4,7 @@
 open System
 open System.IO
 open Definition
+open Translation
 open StringConversion
 open Parser
 open Printer
@@ -108,9 +109,13 @@ let runCompile (results: ParseResults<Compile>) =
                 times <- times @ ["save ", stopWatch.Elapsed.TotalMilliseconds]
             else
                 stopWatch.Restart()
-                let term = (if isPure then parsePure else parse) text
+                let exTerm = (if isPure then parsePure else parse) text
                 times <- times @ ["parse", stopWatch.Elapsed.TotalMilliseconds]
                 
+                stopWatch.Restart()
+                let term = translate exTerm
+                times <- times @ ["translate", stopWatch.Elapsed.TotalMilliseconds]
+
                 stopWatch.Restart()
                 ignore <| typeInfer term
                 times <- times @ ["infer type", stopWatch.Elapsed.TotalMilliseconds]
@@ -172,8 +177,12 @@ let runRun (results: ParseResults<Run>) =
 
             try
                 stopWatch.Restart()
-                let term = (if isPure then parsePure else parse) text
+                let exTerm = (if isPure then parsePure else parse) text
                 times <- times @ ["parse", stopWatch.Elapsed.TotalMilliseconds]
+                
+                stopWatch.Restart()
+                let term = translate exTerm
+                times <- times @ ["translate", stopWatch.Elapsed.TotalMilliseconds]
 
                 stopWatch.Restart()
                 ignore <| typeInfer term
@@ -217,7 +226,7 @@ let rec parseItem lib previous first =
             else
                 line, None
         let parsed = parseWith lib actualText
-        let term = List.foldBack (fun (p, t) acc -> Let(p, t, acc)) lib.terms parsed
+        let term = List.foldBack (fun (p, t) acc -> ExLet(p, t, acc)) lib.terms parsed
         Choice2Of3 (term, lib), options
     with
     | ParseException e -> 
@@ -246,12 +255,12 @@ let rec interactive (parsed, option) =
         try 
             match option with
             | Some ShowType ->
-                term |> typeInfer |> printType |> printfn "%O"
+                term |> translate |> typeInfer |> printType |> printfn "%O"
             | Some Clear ->
                 ()
             | _ ->    
-            ignore <| typeInfer term
-            let evaluated = evaluate term
+            term |> translate |> typeInfer |> ignore
+            let evaluated = evaluate <| translate term
             evaluated |> printResult |> printfn "%O"
         with
         | TypeException e ->
@@ -334,8 +343,8 @@ let rec writeTests x =
         
         Console.WriteLine termText
         try
-            let term = parse termText
-
+            let term = translate <| parse termText
+            
             Console.WriteLine ()
             Console.WriteLine "What should the correct result be?"
             Console.WriteLine "0 - A result"
@@ -377,6 +386,8 @@ let rec writeTests x =
 let main argv = 
 
     let results = parser.Parse(raiseOnUsage = false)
+
+    let t = parsePure "3 + 4"
 
     if results.IsUsageRequested then
         Console.WriteLine (parser.PrintUsage())
