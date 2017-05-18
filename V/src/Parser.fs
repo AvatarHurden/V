@@ -488,7 +488,7 @@ let private pLibrary =
             Reply(Error, reply.Error)
         else
             let state = stream.UserState
-            let terms = reply.Result
+            let terms = List.map (fun (p, t) -> p, translate t) reply.Result
             let ops = List.filter (fun op -> not <| List.exists ((=) op) defaultOPs) state.operators
             Reply({terms = terms; operators=ops})
 
@@ -518,7 +518,7 @@ let private pImport: Parser<ExTerm, UserState> =
                 let lib = libReply.Result
                 let op = stream.UserState.operators
                 stream.UserState <- stream.UserState.addOperators lib.operators
-                let foldF = (fun (p, def) acc -> ExLet(p, def, acc))
+                let foldF = (fun (p, def) acc -> ExLet(p, extend def, acc))
                 let reply = pTerm |>> List.foldBack foldF lib.terms <| stream
                 stream.UserState <- {stream.UserState with operators = op}
                 reply
@@ -631,7 +631,7 @@ let parseWith (lib: Library) text =
     let state = defaultUserState.addOperators lib.operators
     let res = runParserOnString pProgram state "" text
     match res with
-    | Success (a, _, _) -> a |> List.foldBack (fun (p, def) acc -> ExLet(p, def, acc)) lib.terms
+    | Success (a, _, _) -> a |> List.foldBack (fun (p, def) acc -> ExLet(p, extend def, acc)) lib.terms
     | Failure (err, _, _) -> raise (ParseException err)
 
 let parse text = parseWith (stdlib.loadCompiled ()) text

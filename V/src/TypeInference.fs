@@ -576,7 +576,7 @@ let typeInfer t =
     applyUniToType typ substitutions
 
 let typeInferLib lib =
-    let ret = List.foldBack (fun (p, t) acc -> ExLet(p, t, acc)) lib.terms (ExX "x")
-    let libTerm = ExFn(Pat(XPat "x", None), ret) 
-    libTerm |> translate |> typeInfer
+    let ret = List.foldBack (fun (p, t) acc -> Let(p, t, acc)) lib.terms (X "x")
+    let libTerm = Fn(Pat(XPat "x", None), ret) 
+    libTerm |> typeInfer
        

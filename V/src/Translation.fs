@@ -39,3 +39,26 @@ let rec translate term =
     | Comprehension (retTerm, p, source) ->
         let f = Fn (p, translate retTerm)
         OP (OP (X "map", Application, f), Application, translate source)
+
+let rec extend term =
+    match term with
+    | B b -> ExB b
+    | I i -> ExI i
+    | C c -> ExC c
+    | OP (t1, op, t2) -> ExOP(extend t1, op, extend t2)
+    | Cond (t1, t2, t3) -> ExCond(extend t1, extend t2, extend t3)
+    | X x -> ExX x
+    | Fn (p, t) -> ExFn(p ,extend t)
+    | RecFn (id, typ, p, t) -> ExRecFn(id, typ, p, extend t)
+    | Match (t1, patterns) -> 
+        let f (p, cond, res) =
+            match cond with
+            | None -> (p, None, extend res)
+            | Some cond -> (p, Some <| extend cond, extend res)
+        ExMatch(extend t1, List.map f patterns)
+    | Let (p, t1, t2) -> ExLet(p, extend t1, extend t2)
+    | Nil -> ExNil
+    | Raise -> ExRaise
+    | Tuple terms -> ExTuple <| List.map extend terms
+    | Record pairs -> ExRecord <| List.map (fun (s, t) -> (s, extend t)) pairs
+    | RecordAccess (s, t1, t2) -> ExRecordAccess(s, extend t1, extend t2)

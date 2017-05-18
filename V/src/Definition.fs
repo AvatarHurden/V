@@ -140,7 +140,7 @@ type ExLibComponent = VarPattern * ExTerm
 type LibComponent = VarPattern * term
 
 type Library =
-    {terms: ExLibComponent list;
+    {terms: LibComponent list;
     operators: OperatorSpec list}
 
 let emptyLib = {terms = []; operators = []}
