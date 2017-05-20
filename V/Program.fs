@@ -174,7 +174,7 @@ let runRun (results: ParseResults<Run>) =
                 stopWatch.Restart()
                 let term = (if isPure then parsePure else parse) text
                 times <- times @ ["parse", stopWatch.Elapsed.TotalMilliseconds]
-
+                
                 stopWatch.Restart()
                 ignore <| typeInfer term
                 times <- times @ ["infer type", stopWatch.Elapsed.TotalMilliseconds]
@@ -217,8 +217,7 @@ let rec parseItem lib previous first =
             else
                 line, None
         let parsed = parseWith lib actualText
-        let term = List.foldBack (fun (p, t) acc -> Let(p, t, acc)) lib.terms parsed
-        Choice2Of3 (term, lib), options
+        Choice2Of3 (parsed, lib), options
     with
     | ParseException e -> 
         if e.Contains "The error occurred at the end of the input stream" then
@@ -335,7 +334,7 @@ let rec writeTests x =
         Console.WriteLine termText
         try
             let term = parse termText
-
+            
             Console.WriteLine ()
             Console.WriteLine "What should the correct result be?"
             Console.WriteLine "0 - A result"

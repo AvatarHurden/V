@@ -103,7 +103,7 @@ let private pIdentifier: Parser<string, UserState> =
             Reply(Error, unexpected <| sprintf "keyword '%O' is reserved" reply.Result)
 
 let private pOperator = 
-    many1Chars (anyOf "?!%$&*+-./<=>@^|~") |>>
+    many1Chars (anyOf ":?!%$&*+-./<=>@^|~") |>>
         (function
         | "+" -> Def Add
         | "-" -> Def Subtract
