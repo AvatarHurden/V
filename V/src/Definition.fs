@@ -103,10 +103,10 @@ type ExTerm =
     | ExOP of ExTerm * op * ExTerm
     | ExCond of ExTerm * ExTerm * ExTerm
     | ExX of Ident
-    | ExFn of VarPattern * ExTerm
-    | ExRecFn of Ident * (Type option) * VarPattern * ExTerm
+    | ExFn of VarPattern list * ExTerm
+    | ExRecFn of Ident * VarPattern list * Type option * ExTerm
     | ExMatch of ExTerm * (VarPattern * ExTerm option * ExTerm) list
-    | ExLet of VarPattern * ExTerm * ExTerm
+    | ExLet of ExDeclaration * ExTerm
     | ExNil
     | ExRaise
     | ExTuple of ExTerm list
@@ -116,7 +116,12 @@ type ExTerm =
     | Range of ExTerm * ExTerm option * ExTerm
     | Comprehension of ExTerm * VarPattern * ExTerm
 
+and ExDeclaration =
+    | DeclConst of VarPattern * ExTerm
+    | DeclFunc of isRec:bool * Ident * VarPattern list * Type option * ExTerm
+
 //#endregion
+
 
 //#region Library and Parsing
 

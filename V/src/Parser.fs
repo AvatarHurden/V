@@ -7,12 +7,6 @@ open Compiler
 
 //#region Helper Types
 
-type private DeclarationContainer =
-    | ConstantDeclaration of VarPattern
-    | NamedFunctionDeclaration of bool * string * VarPattern list * Type option
-    | LambdaDeclaration of VarPattern list
-    | RecLambdaDeclaration of string * VarPattern list * Type option
-
 type UserState = 
     {operators: OperatorSpec list;
     identifiersInPattern: Set<string>}
@@ -312,8 +306,8 @@ let private pRaise = stringReturn "raise" ExRaise
 let private pProjection = 
     pstring "#" >>. pIdentifier |>> 
         fun s -> 
-            ExFn (Pat(XPat "x", None),
-                ExFn (Pat(XPat "y", None), ExRecordAccess (s, ExX "x", ExX "y")))
+            ExFn ([Pat(XPat "x", None);Pat(XPat "y", None)], 
+                ExRecordAccess (s, ExX "x", ExX "y"))
 
 //#endregion   
 
@@ -327,56 +321,20 @@ let private pParameter =
     let normal = pPatternValue .>> ws
     tupled <|> enclosed <|> normal
 
-let private joinParameters letName returnTerm =
-    let f p (func, funcType: Type option) = 
-        match p with
-        | Pat(_, Some typ) when funcType.IsSome ->
-            ExFn(p, func), Some <| Function(typ, funcType.Value) 
-        | Pat (_, _) ->
-            ExFn(p, func), None
-    
-    let join isRec name (parameters: VarPattern list) returnType = 
-        let head = parameters.Head
-        let retTerm, retTyp = 
-            List.foldBack f parameters.Tail (returnTerm, returnType)
-
-        let fnTyp = 
-            match head with
-            | Pat(_, Some typ) when retTyp.IsSome -> 
-                Some <| Function(typ, retTyp.Value)
-            | Pat(_, _) -> None
-
-        if isRec then
-            Pat(XPat name, fnTyp), ExRecFn(name, retTyp, head, retTerm)
-        else
-            Pat(XPat name, fnTyp), ExFn(head, retTerm)
-
-    match letName with
-    | ConstantDeclaration p -> 
-        p, returnTerm
-    | LambdaDeclaration parameters ->
-        Pat(XPat "", None), fst <| List.foldBack f parameters (returnTerm, None)
-    | NamedFunctionDeclaration (isRec, name, [], returnType) -> 
-        Pat(XPat name, returnType), returnTerm
-    | RecLambdaDeclaration (name, parameters, returnType) ->
-        join true name parameters returnType
-    | NamedFunctionDeclaration (isRec, name, parameters, returnType) -> 
-        join isRec name parameters returnType
-
 let private pLambda: Parser<ExTerm, UserState> =
-    pipe2 
+    tuple2 
         (pstring "\\" >>. ws >>. pResetIdentifier (many1 pParameter))
-        (pstring "->" >>. ws >>. pTerm) <|
-    fun parameters term -> snd (joinParameters (LambdaDeclaration parameters) term)
+        (pstring "->" >>. ws >>. pTerm) |>> ExFn
+    //fun parameters term -> snd (joinParameters (LambdaDeclaration parameters) term)
 
 let private pRecLambda: Parser<ExTerm, UserState> =
-    pipe4
+    tuple4
         (pstring "rec" >>. ws >>. pIdentifier .>> ws) 
         (pResetIdentifier (many1 pParameter))
         (opt (pstring ":" >>. pType))
-        (pstring "->" >>. ws >>. pTerm) <|
-    fun name parameters typ term ->
-        snd (joinParameters (RecLambdaDeclaration (name, parameters, typ)) term)
+        (pstring "->" >>. ws >>. pTerm) |>> ExRecFn
+//    fun name parameters typ term ->=
+//        snd (joinParameters (RecLambdaDeclaration (name, parameters, typ)) term)
 
 //#endregion
 
@@ -389,7 +347,8 @@ let private pParen =
         pBetween "(" ")" (pOperator .>> ws)
             |>> (function
                   | Def op ->
-                      ExFn(Pat(XPat "x", None), ExFn(Pat(XPat "y", None), ExOP(ExX "x", op, ExX "y")))
+                      ExFn([Pat(XPat "x", None); Pat(XPat "y", None)], 
+                        ExOP(ExX "x", op, ExX "y"))
                   | Custom c ->
                       ExX c)
 
@@ -460,35 +419,30 @@ let private pOperatorName =
             stream.UserState <- stream.UserState.addOperator newOp
             Reply(name)
 
-let private pFunctionName =
-    tuple4
+let private pFunctionDecl =
+    tuple5
         (opt (pstring "rec" >>. ws) |>> (fun x -> x.IsSome))
         ((pIdentifier .>> ws) <|> pOperatorName) 
-        (many pParameter)
+        (pResetIdentifier <| many pParameter)
         (opt (pstring ":" >>. ws >>. pType))
-         |>> NamedFunctionDeclaration
+        (pstring "=" >>. ws >>. pTerm)
+         |>> DeclFunc
 
-let private pConstantName =
-    pPattern |>> ConstantDeclaration
+let private pConstantDecl =
+    tuple2 (pResetIdentifier pPattern .>> pstring "=" .>> ws) pTerm |>> DeclConst
 
-let private pName = 
-    (attempt (pConstantName .>> pstring "=" .>> ws)) 
-    <|> (pFunctionName .>> pstring "=" .>> ws)
-
-let private pLibComponent: Parser<ExLibComponent, UserState> =
-    pipe2 
-        (pstring "let" >>. ws >>. pResetIdentifier pName)
-        (pTerm .>> pstring ";" .>> ws) <|
-    fun name term -> joinParameters name term
+let private pDecl: Parser<ExDeclaration, UserState> =
+    pstring "let" >>. ws >>. ((attempt pConstantDecl) <|> pFunctionDecl) 
+        .>> pstring ";" .>> ws
 
 let private pLibrary =
     fun stream ->
-        let reply = ws >>. many1 pLibComponent .>> eof <| stream
+        let reply = ws >>. many1 pDecl .>> eof <| stream
         if reply.Status <> Ok then
             Reply(Error, reply.Error)
         else
             let state = stream.UserState
-            let terms = List.map (fun (p, t) -> p, translate t) reply.Result
+            let terms = List.map translateDecl reply.Result
             let ops = List.filter (fun op -> not <| List.exists ((=) op) defaultOPs) state.operators
             Reply({terms = terms; operators=ops})
 
@@ -518,7 +472,7 @@ let private pImport: Parser<ExTerm, UserState> =
                 let lib = libReply.Result
                 let op = stream.UserState.operators
                 stream.UserState <- stream.UserState.addOperators lib.operators
-                let foldF = (fun (p, def) acc -> ExLet(p, extend def, acc))
+                let foldF = (fun decl acc -> ExLet(extendDecl decl, acc))
                 let reply = pTerm |>> List.foldBack foldF lib.terms <| stream
                 stream.UserState <- {stream.UserState with operators = op}
                 reply
@@ -528,17 +482,17 @@ let private pImport: Parser<ExTerm, UserState> =
 let private pLet: Parser<ExTerm, UserState> =
     fun stream ->
         let op = stream.UserState.operators
-        let compReply = pLibComponent stream
+        let compReply = pDecl stream
         if compReply.Status <> Ok then
             Reply(Error, compReply.Error)
         else
-            let (p, t1) = compReply.Result
+            let decl = compReply.Result
             let t2Reply = pTerm stream
             stream.UserState <- {stream.UserState with operators = op}
             if t2Reply.Status <> Ok then
                 Reply(Error, t2Reply.Error)
             else
-                Reply(ExLet(p, t1, t2Reply.Result))
+                Reply(ExLet(decl, t2Reply.Result))
 
 //#endregion
 
@@ -631,7 +585,7 @@ let parseWith (lib: Library) text =
     let state = defaultUserState.addOperators lib.operators
     let res = runParserOnString pProgram state "" text
     match res with
-    | Success (a, _, _) -> a |> List.foldBack (fun (p, def) acc -> ExLet(p, extend def, acc)) lib.terms
+    | Success (a, _, _) -> a |> List.foldBack (fun decl acc -> ExLet(extendDecl decl, acc)) lib.terms
     | Failure (err, _, _) -> raise (ParseException err)
 
 let parse text = parseWith (stdlib.loadCompiled ()) text

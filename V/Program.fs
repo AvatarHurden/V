@@ -226,7 +226,7 @@ let rec parseItem lib previous first =
             else
                 line, None
         let parsed = parseWith lib actualText
-        let term = List.foldBack (fun (p, t) acc -> ExLet(p, extend t, acc)) lib.terms parsed
+        let term = List.foldBack (fun decl acc -> ExLet(extendDecl decl, acc)) lib.terms parsed
         Choice2Of3 (term, lib), options
     with
     | ParseException e -> 
