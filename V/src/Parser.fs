@@ -8,15 +8,7 @@ open Compiler
 //#region Helper Types
 
 type UserState = 
-    {operators: OperatorSpec list;
-    identifiersInPattern: Set<string>}
-
-    member this.resetIdentifiers = 
-        {this with identifiersInPattern = Set[]}
-
-    member this.addIdentifier id =
-        let ids = this.identifiersInPattern
-        {this with identifiersInPattern = ids.Add id}
+    {operators: OperatorSpec list}
 
     member this.addOperator op =
         let (OpSpec (fix, name)) = op
@@ -49,8 +41,7 @@ let defaultOPs =[
     OpSpec (Infix  (4, Non  , Def GreaterOrEqual), ">=")]
 
 let defaultUserState =
-    {operators = defaultOPs;
-    identifiersInPattern = Set[]}
+    {operators = defaultOPs}
 
 //#endregion
 
@@ -62,13 +53,6 @@ let private ws = many (spaces1 <|> pComment)
 
 let private pBetween s1 s2 p = 
     between (pstring s1 .>> ws) (pstring s2 .>> ws) p
-
-let private pResetIdentifier (p: Parser<'t, UserState>) =
-    fun stream ->
-        let reply = p stream
-        if reply.Status = Ok then
-            stream.UserState <- stream.UserState.resetIdentifiers    
-        reply
 
 //#endregion
 
@@ -194,22 +178,7 @@ do pTypeRef :=
 
 let private pPattern, private pPatternRef = createParserForwardedToRef<VarPattern, UserState>()
 
-let private pIdentPattern: Parser<VarPattern, UserState> = 
-    fun stream ->
-        let state = stream.State
-        let reply = pIdentifier stream
-        if reply.Status <> Ok then
-            Reply(Error, reply.Error)
-        else 
-            let userState = stream.UserState
-            let id = reply.Result
-            let identifiers = userState.identifiersInPattern
-            if not (identifiers.Contains id) then 
-                stream.UserState <- stream.UserState.addIdentifier id
-                Reply(Pat(XPat id, None))
-            else
-                stream.BacktrackTo state
-                Reply(Error, unexpected ("bound identifier " + id))
+let private pIdentPattern = pIdentifier |>> fun id -> Pat(XPat id, None)
 
 let private pIgnorePattern = stringReturn "_" <| Pat(IgnorePat, None)
 
@@ -323,14 +292,14 @@ let private pParameter =
 
 let private pLambda: Parser<ExTerm, UserState> =
     tuple2 
-        (pstring "\\" >>. ws >>. pResetIdentifier (many1 pParameter))
+        (pstring "\\" >>. ws >>. many1 pParameter)
         (pstring "->" >>. ws >>. pTerm) |>> ExFn
     //fun parameters term -> snd (joinParameters (LambdaDeclaration parameters) term)
 
 let private pRecLambda: Parser<ExTerm, UserState> =
     tuple4
         (pstring "rec" >>. ws >>. pIdentifier .>> ws) 
-        (pResetIdentifier (many1 pParameter))
+        (many1 pParameter)
         (opt (pstring ":" >>. pType))
         (pstring "->" >>. ws >>. pTerm) |>> ExRecFn
 //    fun name parameters typ term ->=
@@ -379,7 +348,7 @@ let private pRange: Parser<ExTerm, UserState> =
 let private pComprehension: Parser<ExTerm, UserState> =
     tuple3 
         (pTerm .>>? pstring "for" .>> ws) 
-        (pResetIdentifier pParameter .>> pstring "in" .>> ws)
+        (pParameter .>> pstring "in" .>> ws)
         pTerm |>> Comprehension
 
 let private pList =
@@ -423,13 +392,13 @@ let private pFunctionDecl =
     tuple5
         (opt (pstring "rec" >>. ws) |>> (fun x -> x.IsSome))
         ((pIdentifier .>> ws) <|> pOperatorName) 
-        (pResetIdentifier <| many pParameter)
+        (many pParameter)
         (opt (pstring ":" >>. ws >>. pType))
         (pstring "=" >>. ws >>. pTerm)
          |>> DeclFunc
 
 let private pConstantDecl =
-    tuple2 (pResetIdentifier pPattern .>> pstring "=" .>> ws) pTerm |>> DeclConst
+    tuple2 (pPattern .>> pstring "=" .>> ws) pTerm |>> DeclConst
 
 let private pDecl: Parser<ExDeclaration, UserState> =
     pstring "let" >>. ws >>. ((attempt pConstantDecl) <|> pFunctionDecl) 
@@ -509,7 +478,7 @@ let private pMatch =
         (pstring "match" >>. ws >>. pTerm .>> pstring "with" .>> ws)
         (many1 
             (tuple3 
-                (pstring "|" >>. ws >>. pResetIdentifier pPattern)
+                (pstring "|" >>. ws >>. pPattern)
                 (opt (pstring "when" >>. ws >>. pTerm))
                 (pstring "->" >>. ws >>. pTerm))) <|
     fun first triplets -> ExMatch(first, triplets)

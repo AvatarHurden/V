@@ -227,7 +227,7 @@ let rec parseItem lib previous first =
                 line, None
         let parsed = parseWith lib actualText
         let term = List.foldBack (fun decl acc -> ExLet(extendDecl decl, acc)) lib.terms parsed
-        Choice2Of3 (term, lib), options
+        Choice2Of3 (translate term, lib), options
     with
     | ParseException e -> 
         if e.Contains "The error occurred at the end of the input stream" then
@@ -255,12 +255,12 @@ let rec interactive (parsed, option) =
         try 
             match option with
             | Some ShowType ->
-                term |> translate |> typeInfer |> printType |> printfn "%O"
+                term |> typeInfer |> printType |> printfn "%O"
             | Some Clear ->
                 ()
             | _ ->    
-            term |> translate |> typeInfer |> ignore
-            let evaluated = evaluate <| translate term
+            term |> typeInfer |> ignore
+            let evaluated = evaluate term
             evaluated |> printResult |> printfn "%O"
         with
         | TypeException e ->
