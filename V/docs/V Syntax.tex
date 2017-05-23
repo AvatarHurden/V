@@ -1623,7 +1623,6 @@ Literal characters will always be written in terminal font, so \lit*{|} and \lit
   \alt <lambda>
   \alt <reclambda>
   \alt <let>
-  \alt <import>
 \end{grammar}
 
 \begin{grammar}
@@ -1678,10 +1677,6 @@ Literal characters will always be written in terminal font, so \lit*{|} and \lit
 \end{grammar}
 
 \begin{grammar}
-  <import> ::= "import" \textvisiblespace <string>
-\end{grammar}
-
-\begin{grammar}
   <expression> ::= <operand> \{ <operator> \textvisiblespace <operand> \}
 
   <operand> ::= <application>
@@ -1701,12 +1696,13 @@ Literal characters will always be written in terminal font, so \lit*{|} and \lit
 \end{grammar}
 
 \begin{grammar}
-  <let> ::= <declaration> \textvisiblespace <expression>
+  <let> ::= <declaration> ";" \textvisiblespace <expression>
 \end{grammar}
 
 \begin{grammar}
-  <declaration> ::= "let" \textvisiblespace <pattern> "=" \textvisiblespace <expression> ";" \textvisiblespace
-  \alt "let" \textvisiblespace [ "rec" \textvisiblespace ] <funcname> \{ <parameter> \} [ ":" \textvisiblespace <type> ] <pattern> "=" \textvisiblespace <expression> ";" \textvisiblespace
+  <declaration> ::= "let" \textvisiblespace <pattern> "=" \textvisiblespace <expression>
+  \alt "let" \textvisiblespace [ "rec" \textvisiblespace ] <funcname> \{ <parameter> \} [ ":" \textvisiblespace <type> ] "=" \textvisiblespace <expression>
+  \alt "import" \textvisiblespace <string> \textvisiblespace
 
   <funcname> ::= <identifier> \textvisiblespace
   \alt [ <fixity> \textvisiblespace <digit> \textvisiblespace ]  "(" \textvisiblespace <customop> \textvisiblespace ")"\textvisiblespace \hfill (operator declaration)
