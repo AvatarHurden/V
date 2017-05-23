@@ -31,6 +31,7 @@ let validatePatterns patterns =
     else
         raise <| ParseException (sprintf "The identifier %s is bound twice" repeated.MinimumElement)
 
+let validatePattern pattern = List.head <| validatePatterns [pattern]
 
 let condenseFunction name parameters retTerm retTyp =
     let f p (func, funcType: Type option) = 
@@ -63,13 +64,11 @@ let rec condenseNamedFunction isRec id parameters retTyp retTerm =
 
 and translateDecl decl = 
     match decl with
-    | DeclConst (p, t1) -> 
-            let p' = List.head <| validatePatterns [p] 
-            [(p', translate t1)]
+    | DeclConst (p, t1) -> [(validatePattern p, translate t1)]
     | DeclFunc (isRec, id, parameters, retTyp, retTerm) ->
         [condenseNamedFunction isRec id (validatePatterns parameters) retTyp retTerm]
     | DeclImport (comps) ->
-        let f = (fun (p, t) -> List.head <| validatePatterns [p], translate t)
+        let f = (fun (p, t) -> validatePattern p, translate t)
         List.map f comps
 
 and translate term =
@@ -87,10 +86,9 @@ and translate term =
         
     | ExMatch (t1, patterns) -> 
         let f (p, cond, res) =
-            let p' = List.head <| validatePatterns [p] 
             match cond with
-            | None -> (p', None, translate res)
-            | Some cond -> (p', Some <| translate cond, translate res)
+            | None -> (validatePattern p, None, translate res)
+            | Some cond -> (validatePattern p, Some <| translate cond, translate res)
         Match(translate t1, List.map f patterns)
 
     | ExLet (decl, t2) ->
@@ -115,8 +113,7 @@ and translate term =
              Application, translate last), 
          Application, increment)
     | Comprehension (retTerm, p, source) ->
-        let p' = List.head <| validatePatterns [p] 
-        let f = Fn (p', translate retTerm)
+        let f = Fn (validatePattern p, translate retTerm)
         OP (OP (X "map", Application, f), Application, translate source)
 
 let rec extendDecl decl =
