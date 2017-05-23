@@ -294,7 +294,6 @@ let private pLambda: Parser<ExTerm, UserState> =
     tuple2 
         (pstring "\\" >>. ws >>. many1 pParameter)
         (pstring "->" >>. ws >>. pTerm) |>> ExFn
-    //fun parameters term -> snd (joinParameters (LambdaDeclaration parameters) term)
 
 let private pRecLambda: Parser<ExTerm, UserState> =
     tuple4
@@ -302,8 +301,6 @@ let private pRecLambda: Parser<ExTerm, UserState> =
         (many1 pParameter)
         (opt (pstring ":" >>. pType))
         (pstring "->" >>. ws >>. pTerm) |>> ExRecFn
-//    fun name parameters typ term ->=
-//        snd (joinParameters (RecLambdaDeclaration (name, parameters, typ)) term)
 
 //#endregion
 
@@ -363,6 +360,8 @@ let private pSquareBrackets =
 
 //#region Library Parsing
 
+let private pDecl, private pDeclRef = createParserForwardedToRef<ExDeclaration, UserState>()
+
 let private pOperatorName =
     fun stream ->
         let explicit =
@@ -400,10 +399,6 @@ let private pFunctionDecl =
 let private pConstantDecl =
     tuple2 (pPattern .>> pstring "=" .>> ws) pTerm |>> DeclConst
 
-let private pDecl: Parser<ExDeclaration, UserState> =
-    pstring "let" >>. ws >>. ((attempt pConstantDecl) <|> pFunctionDecl) 
-        .>> pstring ";" .>> ws
-
 let private pLibrary =
     fun stream ->
         let reply = ws >>. many1 pDecl .>> eof <| stream
@@ -411,11 +406,11 @@ let private pLibrary =
             Reply(Error, reply.Error)
         else
             let state = stream.UserState
-            let terms = List.map translateDecl reply.Result
+            let terms = List.concat <| List.map translateDecl reply.Result
             let ops = List.filter (fun op -> not <| List.exists ((=) op) defaultOPs) state.operators
             Reply({terms = terms; operators=ops})
 
-let private pImport: Parser<ExTerm, UserState> =
+let private pImport: Parser<ExDeclaration, UserState> =
     fun stream ->
         let reply = 
             pstring "import" >>. ws >>.
@@ -429,7 +424,8 @@ let private pImport: Parser<ExTerm, UserState> =
                     Reply(loadLib reply.Result)
                 with
                 | UncompiledLib text ->
-                    match runParserOnString pLibrary defaultUserState "" text with
+                    let state = defaultUserState.addOperators (stdlib.loadCompiled ()).operators
+                    match runParserOnString pLibrary state "" text with
                     | Success(lib, _, _) -> Reply(lib)
                     | Failure(_, error, _) -> 
                         Reply(Error, mergeErrors error.Messages (messageError <| "The error was at library " + reply.Result))
@@ -441,10 +437,11 @@ let private pImport: Parser<ExTerm, UserState> =
                 let lib = libReply.Result
                 let op = stream.UserState.operators
                 stream.UserState <- stream.UserState.addOperators lib.operators
-                let foldF = (fun decl acc -> ExLet(extendDecl decl, acc))
-                let reply = pTerm |>> List.foldBack foldF lib.terms <| stream
-                stream.UserState <- {stream.UserState with operators = op}
-                reply
+                Reply(DeclImport (List.map (fun (pat, term) -> pat, extend term) lib.terms))
+
+do pDeclRef :=
+    let pName = pstring "let" >>. ws >>. ((attempt pConstantDecl) <|> pFunctionDecl)
+    (pImport <|> pName) .>> pstring ";" .>> ws
 
 //#endregion
 
@@ -501,8 +498,7 @@ let private pValue =
             pMatch;
             pLambda;
             pRecLambda;
-            pLet;
-            pImport] <?> "term")
+            pLet] <?> "term")
 
 //#region Expression Parsing
 

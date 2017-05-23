@@ -119,7 +119,9 @@ type ExTerm =
 and ExDeclaration =
     | DeclConst of VarPattern * ExTerm
     | DeclFunc of isRec:bool * Ident * VarPattern list * Type option * ExTerm
+    | DeclImport of ExLibComponent list
 
+and ExLibComponent = VarPattern * ExTerm
 //#endregion
 
 
@@ -141,7 +143,6 @@ type Fixity =
 type OperatorSpec =
     | OpSpec of fix:Fixity * string:string
 
-type ExLibComponent = VarPattern * ExTerm
 type LibComponent = VarPattern * term
 
 type Library =

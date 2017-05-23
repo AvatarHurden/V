@@ -65,9 +65,12 @@ and translateDecl decl =
     match decl with
     | DeclConst (p, t1) -> 
             let p' = List.head <| validatePatterns [p] 
-            (p', translate t1)
+            [(p', translate t1)]
     | DeclFunc (isRec, id, parameters, retTyp, retTerm) ->
-        condenseNamedFunction isRec id (validatePatterns parameters) retTyp retTerm
+        [condenseNamedFunction isRec id (validatePatterns parameters) retTyp retTerm]
+    | DeclImport (comps) ->
+        let f = (fun (p, t) -> List.head <| validatePatterns [p], translate t)
+        List.map f comps
 
 and translate term =
     match term with
@@ -91,9 +94,9 @@ and translate term =
         Match(translate t1, List.map f patterns)
 
     | ExLet (decl, t2) ->
-        let (p, t1) = translateDecl decl
-        Let(p, t1, translate t2)
-
+        let comps = translateDecl decl
+        List.foldBack (fun (p, t) acc -> Let(p, t, acc)) comps <| translate t2
+            
     | ExNil -> Nil
     | ExRaise -> Raise
     | ExTuple terms -> Tuple <| List.map translate terms
