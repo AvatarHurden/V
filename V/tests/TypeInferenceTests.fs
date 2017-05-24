@@ -3,17 +3,18 @@
 open NUnit.Framework
 open FsUnit
 open Definition
+open Translation
 open Evaluation
 open Parser
 open TypeInference
 
 
 let compare (text, typ) =
-    let evaluated = typeInfer <| parse text
+    let evaluated = text |> parse |> translate |> typeInfer
     evaluated |> should equal typ
 
 let shouldFail text =
-    (fun () -> text |> parse |> typeInfer |> ignore) |> should throw typeof<TypeException> 
+    (fun () -> text |> parse |> translate |> typeInfer |> ignore) |> should throw typeof<TypeException> 
    
 let compareDirect term typ =
     let evaluated = typeInfer term

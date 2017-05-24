@@ -3,16 +3,17 @@
 open NUnit.Framework
 open FsUnit
 open Definition
+open Translation
 open Evaluation
 open Parser
 
 
 let compare text term =
-    let evaluated = evaluate <| parse text
+    let evaluated = text |> parse |> translate |> evaluate
     evaluated |> should equal term
     
 let shouldFail text =
-    (fun () -> parse text |> ignore) |> should throw typeof<ParseException> 
+    (fun () -> text |> parse |> translate |> ignore) |> should throw typeof<ParseException> 
 
 [<TestFixture>]
 type TestInfixParsing() =

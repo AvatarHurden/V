@@ -94,6 +94,39 @@ and
     env = Map<Ident, result>
 
 
+//#region Extended Language
+
+type ExTerm = 
+    | ExB of bool
+    | ExI of int
+    | ExC of char
+    | ExOP of ExTerm * op * ExTerm
+    | ExCond of ExTerm * ExTerm * ExTerm
+    | ExX of Ident
+    | ExFn of VarPattern list * ExTerm
+    | ExRecFn of Ident * VarPattern list * Type option * ExTerm
+    | ExMatch of ExTerm * (VarPattern * ExTerm option * ExTerm) list
+    | ExLet of ExDeclaration * ExTerm
+    | ExNil
+    | ExRaise
+    | ExTuple of ExTerm list
+    | ExRecord of (string * ExTerm) list
+    | ExRecordAccess of string * ExTerm * ExTerm
+
+    | Range of ExTerm * ExTerm option * ExTerm
+    | Comprehension of ExTerm * VarPattern * ExTerm
+
+and ExDeclaration =
+    | DeclConst of VarPattern * ExTerm
+    | DeclFunc of isRec:bool * Ident * VarPattern list * Type option * ExTerm
+    | DeclImport of ExLibComponent list
+
+and ExLibComponent = VarPattern * ExTerm
+//#endregion
+
+
+//#region Library and Parsing
+
 type extendedOP =
     | Def of op
     | Custom of string
@@ -117,3 +150,5 @@ type Library =
     operators: OperatorSpec list}
 
 let emptyLib = {terms = []; operators = []}
+
+//#endregion

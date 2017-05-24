@@ -2,6 +2,7 @@
 
 open System.Collections.Generic
 open Definition
+open Translation
 open Printer
 
 // This is a stand-in for VarType, to avoid having to match types
@@ -577,5 +578,5 @@ let typeInfer t =
 let typeInferLib lib =
     let ret = List.foldBack (fun (p, t) acc -> Let(p, t, acc)) lib.terms (X "x")
     let libTerm = Fn(Pat(XPat "x", None), ret) 
-    typeInfer libTerm
+    libTerm |> typeInfer
        

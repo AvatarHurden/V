@@ -1,9 +1,10 @@
-﻿// Learn more about F# at http://fsharp.org
+// Learn more about F# at http://fsharp.org
 // See the 'F# Tutorial' project for more help.
 
 open System
 open System.IO
 open Definition
+open Translation
 open StringConversion
 open Parser
 open Printer
@@ -108,9 +109,13 @@ let runCompile (results: ParseResults<Compile>) =
                 times <- times @ ["save ", stopWatch.Elapsed.TotalMilliseconds]
             else
                 stopWatch.Restart()
-                let term = (if isPure then parsePure else parse) text
+                let exTerm = (if isPure then parsePure else parse) text
                 times <- times @ ["parse", stopWatch.Elapsed.TotalMilliseconds]
                 
+                stopWatch.Restart()
+                let term = translate exTerm
+                times <- times @ ["translate", stopWatch.Elapsed.TotalMilliseconds]
+
                 stopWatch.Restart()
                 ignore <| typeInfer term
                 times <- times @ ["infer type", stopWatch.Elapsed.TotalMilliseconds]
@@ -172,9 +177,13 @@ let runRun (results: ParseResults<Run>) =
 
             try
                 stopWatch.Restart()
-                let term = (if isPure then parsePure else parse) text
+                let exTerm = (if isPure then parsePure else parse) text
                 times <- times @ ["parse", stopWatch.Elapsed.TotalMilliseconds]
                 
+                stopWatch.Restart()
+                let term = translate exTerm
+                times <- times @ ["translate", stopWatch.Elapsed.TotalMilliseconds]
+
                 stopWatch.Restart()
                 ignore <| typeInfer term
                 times <- times @ ["infer type", stopWatch.Elapsed.TotalMilliseconds]
@@ -217,7 +226,7 @@ let rec parseItem lib previous first =
             else
                 line, None
         let parsed = parseWith lib actualText
-        Choice2Of3 (parsed, lib), options
+        Choice2Of3 (translate parsed, lib), options
     with
     | ParseException e -> 
         if e.Contains "The error occurred at the end of the input stream" then
@@ -249,7 +258,7 @@ let rec interactive (parsed, option) =
             | Some Clear ->
                 ()
             | _ ->    
-            ignore <| typeInfer term
+            term |> typeInfer |> ignore
             let evaluated = evaluate term
             evaluated |> printResult |> printfn "%O"
         with
@@ -333,7 +342,7 @@ let rec writeTests x =
         
         Console.WriteLine termText
         try
-            let term = parse termText
+            let term = translate <| parse termText
             
             Console.WriteLine ()
             Console.WriteLine "What should the correct result be?"
