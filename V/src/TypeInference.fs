@@ -293,8 +293,11 @@ let rec unify constraints =
                     Equals (typ1, typ2)
              
                 unify <| rest @ List.map2 matchNames v1' v2'
-            | _ -> 
-                raise <| TypeException "Unsolvable constraints"
+            | Function _, s 
+            | s, Function _ ->
+                raise <| TypeException (sprintf "Type %A is not a function and cannot be applied" s)
+            | s, t -> 
+                raise <| TypeException (sprintf "Expected type %A, but found type %A" s t)
 
 //#endregion
 
@@ -488,12 +491,12 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
     | OP(t1, Divide, t2) ->
         let typ1, c1 = collectConstraints t1 env
         let typ2, c2 = collectConstraints t2 env
-        Int, c1 @ c2 @ [Equals (typ1, Int); Equals (typ2, Int)]
+        Int, c1 @ c2 @ [Equals (Int, typ1); Equals (Int, typ2)]
     | Cond(t1, t2, t3) ->
         let typ1, c1 = collectConstraints t1 env
         let typ2, c2 = collectConstraints t2 env
         let typ3, c3 = collectConstraints t3 env
-        typ2, c1 @ c2 @ c3 @ [Equals (typ1, Bool); Equals (typ2, typ3)]
+        typ2, c1 @ c2 @ c3 @ [Equals (Bool, typ1); Equals (typ2, typ3)]
     | X(id) ->
         findId id env
     | Fn(pattern, t1) ->
@@ -509,7 +512,7 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
             | None -> VarType (getVarType (), [])
         let env', cons = validatePattern pattern paramTyp (env.Add(id, Simple fType)) []
         let typ1, c1 = collectConstraints t1 env'
-        Function (paramTyp, typ1), cons @ c1 @ [Equals (fType, Function (paramTyp, typ1))]
+        Function (paramTyp, typ1), cons @ c1 @ [Equals (Function (paramTyp, typ1), fType)]
     | Match (t1, patterns) ->
         let typ1, c1 = collectConstraints t1 env
         let retTyp = VarType (getVarType (), [])
@@ -520,9 +523,9 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
                 | None -> []
                 | Some cond ->
                     let typCond, consCond = collectConstraints cond env'
-                    consCond @ [Equals (typCond, Bool)]
+                    consCond @ [Equals (Bool, typCond)]
             let typRes, consRes = collectConstraints result env'
-            acc @ consPattern @ consCondition @ consRes @ [Equals (typRes, retTyp)]
+            acc @ consPattern @ consCondition @ consRes @ [Equals (retTyp, typRes)]
         retTyp, List.fold f c1 patterns
     | Let(pattern, t1, t2) ->
         let typ1, c1 = collectConstraints t1 env
