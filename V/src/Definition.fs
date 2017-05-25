@@ -149,5 +149,6 @@ and ExDeclaration =
     | DeclConst of VarPattern * ExTerm
     | DeclFunc of isRec:bool * Ident * VarPattern list * Type option * ExTerm
     | DeclImport of LibComponent list
+    | DeclAlias of string * Type
 
 //#endregion

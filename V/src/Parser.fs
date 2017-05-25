@@ -59,27 +59,37 @@ let private pBetween s1 s2 p =
 //#region Identifier and Operator Parsing
 
 let keywords = 
-    Set["let"; "true"  ; "false" ; "if"   ; "then"   ; "else"  ;
-        "rec"; "nil"   ; "raise" ; "when" ; "match"  ; "with"  ;
-        "for"; "in"    ; "import"; "infix"; "infixl" ; "infixr"]
+    Set["let" ; "true"  ; "false" ; "if"   ; "then"   ; "else"  ;
+        "rec" ; "nil"   ; "raise" ; "when" ; "match"  ; "with"  ;
+        "for" ; "in"    ; "import"; "infix"; "infixl" ; "infixr";
+        "type"; "alias" ]
+
+let typeKeywords = Set["Int"; "Bool"; "Char"] 
 
 let private isAsciiIdStart c =
     isAsciiLower c || c = '_'
 
+let private isTypeIdStart c =
+    isAsciiUpper c || c = '_'
+
 let private isAsciiIdContinue c =
     isAsciiLetter c || isDigit c || c = '_' || c = '\'' || c = '?'
-    
+
+let private parseIdentifierTemplate start cont (keywords: Set<string>) (stream: CharStream<UserState>) =
+    let state = stream.State
+    let reply = identifier (IdentifierOptions(isAsciiIdStart = start,
+                                    isAsciiIdContinue = cont)) stream
+    if reply.Status <> Ok || not (keywords.Contains reply.Result) then 
+        reply
+    else // result is keyword, so backtrack to before the string
+        stream.BacktrackTo(state)
+        Reply(Error, unexpected <| sprintf "keyword '%O' is reserved" reply.Result)
 
 let private pIdentifier: Parser<string, UserState> =
-    fun stream ->
-        let state = stream.State
-        let reply = identifier (IdentifierOptions(isAsciiIdStart = isAsciiIdStart,
-                                        isAsciiIdContinue = isAsciiIdContinue)) stream
-        if reply.Status <> Ok || not (keywords.Contains reply.Result) then 
-            reply
-        else // result is keyword, so backtrack to before the string
-            stream.BacktrackTo(state)
-            Reply(Error, unexpected <| sprintf "keyword '%O' is reserved" reply.Result)
+    parseIdentifierTemplate isAsciiIdStart isAsciiIdContinue keywords
+
+let private pTypeIdentifier: Parser<string, UserState> =
+    parseIdentifierTemplate isTypeIdStart isAsciiIdContinue typeKeywords
 
 let private pOperator = 
     many1Chars (anyOf ":?!%$&*+-./<=>@^|~") |>>
@@ -136,6 +146,7 @@ let private pString =
 
 let private pType, private pTypeRef = createParserForwardedToRef<Type, UserState>()
 
+let private pVarType = pTypeIdentifier |>> fun id -> VarType(id, [])
 let private pIntType = stringReturn "Int" Int
 let private pBoolType = stringReturn "Bool" Bool
 let private pCharType = stringReturn "Char" Char
@@ -152,7 +163,8 @@ let private pRecordType =
 
 let private pListType = pBetween "[" "]" pType |>> List
 
-let private pTypeValue = choice [pParenType;
+let private pTypeValue = choice [pVarType;
+                        pParenType;
                         pRecordType;
                         pIntType;
                         pBoolType;
@@ -439,9 +451,14 @@ let private pImport: Parser<ExDeclaration, UserState> =
                 stream.UserState <- stream.UserState.addOperators lib.operators
                 Reply(DeclImport lib.terms)
 
+let pAlias = 
+    tuple2
+        (pstring "type" >>. ws >>. pstring "alias" >>. ws >>. pTypeIdentifier .>> ws .>> pstring "=" .>> ws)
+        pType |>> DeclAlias
+
 do pDeclRef :=
     let pName = pstring "let" >>. ws >>. ((attempt pConstantDecl) <|> pFunctionDecl)
-    (pImport <|> pName) .>> pstring ";" .>> ws
+    (pImport <|> pAlias <|> pName) .>> pstring ";" .>> ws
 
 //#endregion
 
