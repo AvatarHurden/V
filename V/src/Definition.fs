@@ -125,6 +125,31 @@ let emptyLib = {terms = []; operators = []}
 
 //#region Extended Language
 
+type ExType =
+    | ExVarType of string * Trait list
+    | ExInt
+    | ExBool
+    | ExChar
+    | ExFunction of ExType * ExType
+    | ExList of ExType
+    | ExTupleType of ExType list
+    | ExRecordType of (string * ExType) list
+
+    | ExTypeAlias of string
+
+type ExVarPattern = ExPattern * ExType option
+
+and ExPattern =
+    | ExXPat of Ident
+    | ExIgnorePat
+    | ExBPat of bool
+    | ExIPat of int
+    | ExCPat of char
+    | ExTuplePat of ExVarPattern list
+    | ExRecordPat of bool * (string * ExVarPattern) list
+    | ExNilPat
+    | ExConsPat of ExVarPattern * ExVarPattern
+
 type ExTerm = 
     | ExB of bool
     | ExI of int
@@ -132,9 +157,9 @@ type ExTerm =
     | ExOP of ExTerm * op * ExTerm
     | ExCond of ExTerm * ExTerm * ExTerm
     | ExX of Ident
-    | ExFn of VarPattern list * ExTerm
-    | ExRecFn of Ident * VarPattern list * Type option * ExTerm
-    | ExMatch of ExTerm * (VarPattern * ExTerm option * ExTerm) list
+    | ExFn of ExVarPattern list * ExTerm
+    | ExRecFn of Ident * ExVarPattern list * ExType option * ExTerm
+    | ExMatch of ExTerm * (ExVarPattern * ExTerm option * ExTerm) list
     | ExLet of ExDeclaration * ExTerm
     | ExNil
     | ExRaise
@@ -143,12 +168,12 @@ type ExTerm =
     | ExRecordAccess of string * ExTerm * ExTerm
 
     | Range of ExTerm * ExTerm option * ExTerm
-    | Comprehension of ExTerm * VarPattern * ExTerm
+    | Comprehension of ExTerm * ExVarPattern * ExTerm
 
 and ExDeclaration =
-    | DeclConst of VarPattern * ExTerm
-    | DeclFunc of isRec:bool * Ident * VarPattern list * Type option * ExTerm
+    | DeclConst of ExVarPattern * ExTerm
+    | DeclFunc of isRec:bool * Ident * ExVarPattern list * ExType option * ExTerm
     | DeclImport of LibComponent list
-    | DeclAlias of string * Type
+    | DeclAlias of string * ExType
 
 //#endregion
