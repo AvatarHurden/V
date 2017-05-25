@@ -62,14 +62,15 @@ let rec condenseNamedFunction isRec id parameters retTyp retTerm =
         else
             Pat(XPat id, fnTyp), Fn(head, retTerm)
 
+and translateLib declarations =
+    List.concat <| List.map translateDecl declarations
+
 and translateDecl decl = 
     match decl with
     | DeclConst (p, t1) -> [(validatePattern p, translate t1)]
     | DeclFunc (isRec, id, parameters, retTyp, retTerm) ->
         [condenseNamedFunction isRec id (validatePatterns parameters) retTyp retTerm]
-    | DeclImport (comps) ->
-        let f = (fun (p, t) -> validatePattern p, translate t)
-        List.map f comps
+    | DeclImport (comps) -> comps
 
 and translate term =
     match term with

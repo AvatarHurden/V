@@ -406,7 +406,7 @@ let private pLibrary =
             Reply(Error, reply.Error)
         else
             let state = stream.UserState
-            let terms = List.concat <| List.map translateDecl reply.Result
+            let terms = translateLib reply.Result
             let ops = List.filter (fun op -> not <| List.exists ((=) op) defaultOPs) state.operators
             Reply({terms = terms; operators=ops})
 
@@ -437,7 +437,7 @@ let private pImport: Parser<ExDeclaration, UserState> =
                 let lib = libReply.Result
                 let op = stream.UserState.operators
                 stream.UserState <- stream.UserState.addOperators lib.operators
-                Reply(DeclImport (List.map (fun (pat, term) -> pat, extend term) lib.terms))
+                Reply(DeclImport lib.terms)
 
 do pDeclRef :=
     let pName = pstring "let" >>. ws >>. ((attempt pConstantDecl) <|> pFunctionDecl)
