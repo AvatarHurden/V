@@ -418,9 +418,9 @@ let private pLibrary =
             Reply(Error, reply.Error)
         else
             let state = stream.UserState
-            let terms = translateLib reply.Result
+            let terms, env = translateLib reply.Result
             let ops = List.filter (fun op -> not <| List.exists ((=) op) defaultOPs) state.operators
-            Reply({terms = terms; operators=ops})
+            Reply({terms = terms; operators=ops; translationEnv = env})
 
 let private pImport: Parser<ExDeclaration, UserState> =
     fun stream ->

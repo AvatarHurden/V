@@ -114,11 +114,17 @@ type OperatorSpec =
 
 type LibComponent = VarPattern * term
 
+type TranslationEnv = 
+    {typeAliases: Map<string, Type>}
+
+let emptyTransEnv = {typeAliases = Map.empty}
+
 type Library =
     {terms: LibComponent list;
+    translationEnv: TranslationEnv;
     operators: OperatorSpec list}
 
-let emptyLib = {terms = []; operators = []}
+let emptyLib = {terms = []; operators = []; translationEnv = emptyTransEnv}
 
 //#endregion
 

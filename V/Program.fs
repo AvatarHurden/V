@@ -237,7 +237,8 @@ let rec parseItem lib previous first =
         
                 let newOps = newLib.operators @ oldOps'
                 let newTerms = lib.terms @ newLib.terms
-                let lib' = {terms = newTerms; operators = newOps}
+                let newEnv = newLib.translationEnv
+                let lib' = {terms = newTerms; operators = newOps; translationEnv = newEnv}
                 Choice1Of3 lib', None
             with
             | ParseException e ->
