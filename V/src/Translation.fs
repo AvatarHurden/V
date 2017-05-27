@@ -2,7 +2,7 @@
 
 open Definition
 
-let rec private translateType typ env =
+let rec private translateType typ (env: TranslationEnv) =
     match typ with
     | ExVarType (s, traits) -> VarType (s, traits)
     | ExChar -> Char
@@ -14,6 +14,10 @@ let rec private translateType typ env =
         Type.Tuple <| List.map (fun t -> translateType t env) ts
     | ExRecordType ts -> 
         Type.Record <| List.map (fun (s, t) -> s, translateType t env) ts
+    | ExTypeAlias s -> 
+        match env.typeAliases.TryFind s with
+        | Some typ -> typ
+        | None -> raise <| ParseException (sprintf "The type %s is undeclared" s)
 
 let private translateSomeType typ env = 
     match typ with
@@ -102,8 +106,11 @@ and private translateDecl decl env =
         let pat, fn = condenseNamedFunction isRec id parameters' typ' retTerm env
         [(pat, fn)], env
     | DeclImport (comps) -> comps, env
+    | DeclAlias (s, typ) ->
+        let env' = env.addTypeAlias s <| translateType typ env
+        [], env'
 
-and private translateTerm term (env: TranslationEnv) =
+and private translateTerm term env =
     match term with
     | ExB b -> B b
     | ExI i -> I i
@@ -178,13 +185,11 @@ and private translateTerm term (env: TranslationEnv) =
         let f = Fn (translatePattern p env, translateTerm retTerm env)
         OP (OP (X "map", Application, f), Application, translateTerm source env)
        
-let translateLib declarations =
-    let env = {typeAliases = Map.empty}
-    let f decl (comps, env) =
+let translateLib declarations env =
+    let f (comps, env) decl =
         let newComps, env' = translateDecl decl env
-        newComps @ comps, env'
-    List.foldBack f declarations ([], env)
+        comps @ newComps, env'
+    List.fold f ([], env) declarations
 
-let translate term =
-    let env = {typeAliases = Map.empty}
+let translate term env =
     translateTerm term env

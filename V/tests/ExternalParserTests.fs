@@ -9,11 +9,11 @@ open Parser
 
 
 let compare text term =
-    let evaluated = text |> parse |> translate |> evaluate
+    let evaluated = text |> parse |> flip translate stdlib.stdEnv |> evaluate
     evaluated |> should equal term
     
 let shouldFail text =
-    (fun () -> text |> parse |> translate |> ignore) |> should throw typeof<ParseException> 
+    (fun () -> text |> parse |> flip translate stdlib.stdEnv |> ignore) |> should throw typeof<ParseException> 
 
 [<TestFixture>]
 type TestInfixParsing() =

@@ -22,17 +22,6 @@ and Type =
     | Tuple of Type list
     | Record of (string * Type) list
 
-let rec mapOption f ls =
-    match ls with
-    | [] -> Some []
-    | x :: rest ->
-        match f x with
-        | Some x' -> 
-            match mapOption f rest with
-            | None -> None
-            | Some rest' -> Some <| x' :: rest'
-        | None -> None
-
 type op =
     | Add
     | Subtract
@@ -117,6 +106,10 @@ type LibComponent = VarPattern * term
 type TranslationEnv = 
     {typeAliases: Map<string, Type>}
 
+    member this.addTypeAlias name typ =
+        let aliases = this.typeAliases.Add (name, typ)
+        {this with typeAliases = aliases}
+
 let emptyTransEnv = {typeAliases = Map.empty}
 
 type Library =
@@ -181,5 +174,22 @@ and ExDeclaration =
     | DeclFunc of isRec:bool * Ident * ExVarPattern list * ExType option * ExTerm
     | DeclImport of LibComponent list
     | DeclAlias of string * ExType
+
+//#endregion
+
+//#region Helper Functions
+
+let flip f a b = f b a
+
+let rec mapOption f ls =
+    match ls with
+    | [] -> Some []
+    | x :: rest ->
+        match f x with
+        | Some x' -> 
+            match mapOption f rest with
+            | None -> None
+            | Some rest' -> Some <| x' :: rest'
+        | None -> None
 
 //#endregion

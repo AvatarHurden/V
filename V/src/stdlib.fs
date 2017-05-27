@@ -397,3 +397,5 @@ let compiled = compiled
 //   replaceXLib lib term
 
 let loadCompiled unit = loadCompiledLib compiled
+
+let stdEnv = (loadCompiled ()).translationEnv

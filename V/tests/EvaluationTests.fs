@@ -15,11 +15,11 @@ let shouldFailDirect term =
     (fun () -> term |> evaluate |> ignore) |> should throw typeof<EvalException> 
 
 let compare (text, term) =
-    let evaluated = text |> parse |> translate |> evaluate
+    let evaluated = text |> parse |> flip translate stdlib.stdEnv |> evaluate
     evaluated |> should equal term
 
 let shouldFail text =
-    (fun () -> parse text |> translate |> evaluate |> ignore) |> should throw typeof<EvalException> 
+    (fun () -> parse text |> flip translate stdlib.stdEnv |> evaluate |> ignore) |> should throw typeof<EvalException> 
 
 [<TestFixture>]
 type TestEval() =

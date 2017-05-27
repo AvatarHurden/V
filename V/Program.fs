@@ -113,7 +113,8 @@ let runCompile (results: ParseResults<Compile>) =
                 times <- times @ ["parse", stopWatch.Elapsed.TotalMilliseconds]
                 
                 stopWatch.Restart()
-                let term = translate exTerm
+                let env = if isPure then emptyTransEnv else stdlib.stdEnv
+                let term = translate exTerm env
                 times <- times @ ["translate", stopWatch.Elapsed.TotalMilliseconds]
 
                 stopWatch.Restart()
@@ -181,7 +182,8 @@ let runRun (results: ParseResults<Run>) =
                 times <- times @ ["parse", stopWatch.Elapsed.TotalMilliseconds]
                 
                 stopWatch.Restart()
-                let term = translate exTerm
+                let env = if isPure then emptyTransEnv else stdlib.stdEnv
+                let term = translate exTerm env
                 times <- times @ ["translate", stopWatch.Elapsed.TotalMilliseconds]
 
                 stopWatch.Restart()
@@ -226,12 +228,12 @@ let rec parseItem lib previous first =
             else
                 line, None
         let parsed = parseWith lib actualText
-        Choice2Of3 (translate parsed, lib), options
+        Choice2Of3 (translate parsed lib.translationEnv, lib), options
     with
     | ParseException e -> 
         if e.Contains "The error occurred at the end of the input stream" then
             try
-                let newLib = parseLib line
+                let newLib = parseLibWith line lib
                 let f = fun (OpSpec (_, s)) -> List.forall (fun (OpSpec (_, name)) -> name <> s) newLib.operators
                 let oldOps' = List.filter f lib.operators
         
@@ -292,7 +294,7 @@ let runInteractive (results: ParseResults<Interactive>) =
 
 let compileStdlib x =
     
-    let lib = parseLib stdlib.content
+    let lib = parseStdlib ()
     
     ignore <| typeInferLib lib
 
@@ -343,7 +345,7 @@ let rec writeTests x =
         
         Console.WriteLine termText
         try
-            let term = translate <| parse termText
+            let term = translate (parse termText) stdlib.stdEnv
             
             Console.WriteLine ()
             Console.WriteLine "What should the correct result be?"

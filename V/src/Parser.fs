@@ -414,13 +414,20 @@ let private pConstantDecl =
 let private pLibrary =
     fun stream ->
         let reply = ws >>. many1 pDecl .>> eof <| stream
-        if reply.Status <> Ok then
-            Reply(Error, reply.Error)
-        else
-            let state = stream.UserState
-            let terms, env = translateLib reply.Result
-            let ops = List.filter (fun op -> not <| List.exists ((=) op) defaultOPs) state.operators
-            Reply({terms = terms; operators=ops; translationEnv = env})
+        reply
+
+let parseLibWith text (sourceLib: Library) =
+    let state = defaultUserState.addOperators sourceLib.operators
+    let res = runParserOnString pLibrary state "" text
+    match res with
+    | Failure (err, _, _) -> raise (ParseException err)
+    | Success (decls, state, _) -> 
+        printf "%A" decls
+        let terms, env = translateLib decls sourceLib.translationEnv
+        let ops = List.filter (fun op -> not <| List.exists ((=) op) defaultOPs) state.operators
+        {terms = terms; operators=ops; translationEnv = env}
+
+let parseLib text = parseLibWith text <| stdlib.loadCompiled ()
 
 let private pImport: Parser<ExDeclaration, UserState> =
     fun stream ->
@@ -436,18 +443,17 @@ let private pImport: Parser<ExDeclaration, UserState> =
                     Reply(loadLib reply.Result)
                 with
                 | UncompiledLib text ->
-                    let state = defaultUserState.addOperators (stdlib.loadCompiled ()).operators
-                    match runParserOnString pLibrary state "" text with
-                    | Success(lib, _, _) -> Reply(lib)
-                    | Failure(_, error, _) -> 
-                        Reply(Error, mergeErrors error.Messages (messageError <| "The error was at library " + reply.Result))
+                    try 
+                        Reply(parseLib text)
+                    with
+                    | ParseException err ->
+                        Reply(Error, unexpected err)
                 | :? LibNotFound ->
                     Reply(Error, messageError <| sprintf "Could not find library file at %A" reply.Result)
             if libReply.Status <> Ok then
                 Reply(Error, libReply.Error)
             else
                 let lib = libReply.Result
-                let op = stream.UserState.operators
                 stream.UserState <- stream.UserState.addOperators lib.operators
                 Reply(DeclImport lib.terms)
 
@@ -578,9 +584,12 @@ let parsePure text =
     | Success (a, _, _) -> a
     | Failure (err, _, _) -> raise (ParseException err)
 
-let parseLib text =
-    let res = runParserOnString pLibrary defaultUserState "" text
+let parseStdlib unit =
+    let res = runParserOnString pLibrary defaultUserState "" stdlib.content
     match res with
     | Failure (err, _, _) -> raise (ParseException err)
-    | Success (lib, state, _) -> lib
+    | Success (decls, state, _) -> 
+        let terms, env = translateLib decls emptyTransEnv
+        let ops = List.filter (fun op -> not <| List.exists ((=) op) defaultOPs) state.operators
+        {terms = terms; operators=ops; translationEnv = env}
 
