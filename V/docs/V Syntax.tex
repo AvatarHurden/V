@@ -1579,7 +1579,15 @@ Literal characters will always be written in terminal font, so \lit*{|} and \lit
   <reservedid> ::= "let" | "true" | "false" | "if" | "then" | "else"
   \alt "rec" | "nil" | "raise" | "when" | "match" | "with"
   \alt "try" | "except" | "for" | "in" | "import" | "infix"
-  \alt "infixl" | "infixr"
+  \alt "infixl" | "infixr" | "type" | "alias"
+\end{grammar}
+
+\begin{grammar}
+  <typeident> ::= ( <typeidentstart> \{ <idcontinue> \} )$_{<reservedtype>}$
+
+  <typeidentstart> ::= <large> | "_"
+
+  <reservedtype> ::= "Int" | "Bool" | "Char"
 \end{grammar}
 
 \begin{grammar}
@@ -1703,6 +1711,7 @@ Literal characters will always be written in terminal font, so \lit*{|} and \lit
   <declaration> ::= "let" \textvisiblespace <pattern> "=" \textvisiblespace <expression>
   \alt "let" \textvisiblespace [ "rec" \textvisiblespace ] <funcname> \{ <parameter> \} [ ":" \textvisiblespace <type> ] "=" \textvisiblespace <expression>
   \alt "import" \textvisiblespace <string> \textvisiblespace
+  \alt "type" \textvisiblespace "alias" \textvisiblespace <typeident> \textvisiblespace "=" \textvisiblespace <type>
 
   <funcname> ::= <identifier> \textvisiblespace
   \alt [ <fixity> \textvisiblespace <digit> \textvisiblespace ]  "(" \textvisiblespace <customop> \textvisiblespace ")"\textvisiblespace \hfill (operator declaration)
@@ -1747,7 +1756,7 @@ Literal characters will always be written in terminal font, so \lit*{|} and \lit
   <typevalue> ::= "Int"
   \alt "Bool"
   \alt "Char"
-  \alt "String"
+  \alt <typeident>
   \alt "(" \textvisiblespace <type>$_1$ "," \textvisiblespace $\ldots$ "," \textvisiblespace <type>$_n$ ")" \textvisiblespace \hfill (tuple, $n \geq 2$)
   \alt "[" \textvisiblespace <type> \textvisiblespace "]" \textvisiblespace \hfill (list)
   \alt <typerecord>
