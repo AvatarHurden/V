@@ -5,6 +5,12 @@ open compiledStdlib
 
 let content = """
 
+// ============
+// Type Aliases
+// ============
+
+type alias String = [Char];
+
 // =======================
 // Miscellaneous functions
 // =======================

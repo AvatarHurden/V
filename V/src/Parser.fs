@@ -64,7 +64,7 @@ let keywords =
         "for" ; "in"    ; "import"; "infix"; "infixl" ; "infixr";
         "type"; "alias" ]
 
-let typeKeywords = Set["Int"; "Bool"; "Char"; "String"] 
+let typeKeywords = Set["Int"; "Bool"; "Char"] 
 
 let private isAsciiIdStart c =
     isAsciiLower c || c = '_'
@@ -150,7 +150,6 @@ let private pVarType = pTypeIdentifier |>> ExTypeAlias
 let private pIntType = stringReturn "Int" ExInt
 let private pBoolType = stringReturn "Bool" ExBool
 let private pCharType = stringReturn "Char" ExChar
-let private pStringType = stringReturn "String" (ExList ExChar)
 
 let private pParenType = 
     pBetween "(" ")" (sepBy1 pType (pstring "," .>> ws))
@@ -169,7 +168,6 @@ let private pTypeValue = choice [pVarType;
                         pIntType;
                         pBoolType;
                         pCharType;
-                        pStringType;
                         pListType] <?> "type"
 
 do pTypeRef :=
@@ -422,7 +420,6 @@ let parseLibWith text (sourceLib: Library) =
     match res with
     | Failure (err, _, _) -> raise (ParseException err)
     | Success (decls, state, _) -> 
-        printf "%A" decls
         let terms, env = translateLib decls sourceLib.translationEnv
         let ops = List.filter (fun op -> not <| List.exists ((=) op) defaultOPs) state.operators
         {terms = terms; operators=ops; translationEnv = env}
