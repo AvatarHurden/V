@@ -59,27 +59,37 @@ let private pBetween s1 s2 p =
 //#region Identifier and Operator Parsing
 
 let keywords = 
-    Set["let"; "true"  ; "false" ; "if"   ; "then"   ; "else"  ;
-        "rec"; "nil"   ; "raise" ; "when" ; "match"  ; "with"  ;
-        "for"; "in"    ; "import"; "infix"; "infixl" ; "infixr"]
+    Set["let" ; "true"  ; "false" ; "if"   ; "then"   ; "else"  ;
+        "rec" ; "nil"   ; "raise" ; "when" ; "match"  ; "with"  ;
+        "for" ; "in"    ; "import"; "infix"; "infixl" ; "infixr";
+        "type"; "alias" ]
+
+let typeKeywords = Set["Int"; "Bool"; "Char"] 
 
 let private isAsciiIdStart c =
     isAsciiLower c || c = '_'
 
+let private isTypeIdStart c =
+    isAsciiUpper c || c = '_'
+
 let private isAsciiIdContinue c =
     isAsciiLetter c || isDigit c || c = '_' || c = '\'' || c = '?'
-    
+
+let private parseIdentifierTemplate start cont (keywords: Set<string>) (stream: CharStream<UserState>) =
+    let state = stream.State
+    let reply = identifier (IdentifierOptions(isAsciiIdStart = start,
+                                    isAsciiIdContinue = cont)) stream
+    if reply.Status <> Ok || not (keywords.Contains reply.Result) then 
+        reply
+    else // result is keyword, so backtrack to before the string
+        stream.BacktrackTo(state)
+        Reply(Error, unexpected <| sprintf "keyword '%O' is reserved" reply.Result)
 
 let private pIdentifier: Parser<string, UserState> =
-    fun stream ->
-        let state = stream.State
-        let reply = identifier (IdentifierOptions(isAsciiIdStart = isAsciiIdStart,
-                                        isAsciiIdContinue = isAsciiIdContinue)) stream
-        if reply.Status <> Ok || not (keywords.Contains reply.Result) then 
-            reply
-        else // result is keyword, so backtrack to before the string
-            stream.BacktrackTo(state)
-            Reply(Error, unexpected <| sprintf "keyword '%O' is reserved" reply.Result)
+    parseIdentifierTemplate isAsciiIdStart isAsciiIdContinue keywords
+
+let private pTypeIdentifier: Parser<string, UserState> =
+    parseIdentifierTemplate isTypeIdStart isAsciiIdContinue typeKeywords
 
 let private pOperator = 
     many1Chars (anyOf ":?!%$&*+-./<=>@^|~") |>>
@@ -134,34 +144,34 @@ let private pString =
 
 //#region Type Parsing
 
-let private pType, private pTypeRef = createParserForwardedToRef<Type, UserState>()
+let private pType, private pTypeRef = createParserForwardedToRef<ExType, UserState>()
 
-let private pIntType = stringReturn "Int" Int
-let private pBoolType = stringReturn "Bool" Bool
-let private pCharType = stringReturn "Char" Char
-let private pStringType = stringReturn "String" (List Definition.Char)
+let private pVarType = pTypeIdentifier |>> ExTypeAlias
+let private pIntType = stringReturn "Int" ExInt
+let private pBoolType = stringReturn "Bool" ExBool
+let private pCharType = stringReturn "Char" ExChar
 
 let private pParenType = 
     pBetween "(" ")" (sepBy1 pType (pstring "," .>> ws))
-        |>> (function | [x] -> x | xs -> Type.Tuple xs)
+        |>> (function | [x] -> x | xs -> ExTupleType xs)
 
 let private pRecordCompType = tuple2 (pIdentifier .>> ws .>> pstring ":" .>> ws) pType
 
 let private pRecordType =
-    pBetween "{" "}" (sepBy1 pRecordCompType (pstring "," .>> ws)) |>> Type.Record
+    pBetween "{" "}" (sepBy1 pRecordCompType (pstring "," .>> ws)) |>> ExRecordType
 
-let private pListType = pBetween "[" "]" pType |>> List
+let private pListType = pBetween "[" "]" pType |>> ExList
 
-let private pTypeValue = choice [pParenType;
+let private pTypeValue = choice [pVarType;
+                        pParenType;
                         pRecordType;
                         pIntType;
                         pBoolType;
                         pCharType;
-                        pStringType;
                         pListType] <?> "type"
 
 do pTypeRef :=
-    let fold = List.reduceBack (fun x acc -> Function(x, acc))
+    let fold = List.reduceBack (fun x acc -> ExFunction(x, acc))
     fun stream ->
         let state = stream.State
         let reply = (sepBy1 (pTypeValue .>> ws) 
@@ -176,35 +186,35 @@ do pTypeRef :=
 
 //#region Pattern Parsing
 
-let private pPattern, private pPatternRef = createParserForwardedToRef<VarPattern, UserState>()
+let private pPattern, private pPatternRef = createParserForwardedToRef<ExVarPattern, UserState>()
 
-let private pIdentPattern = pIdentifier |>> fun id -> Pat(XPat id, None)
+let private pIdentPattern = pIdentifier |>> fun id -> (ExXPat id, None)
 
-let private pIgnorePattern = stringReturn "_" <| Pat(IgnorePat, None)
+let private pIgnorePattern = stringReturn "_" <| (ExIgnorePat, None)
 
 let private pBoolPattern = 
-        (stringReturn "true" <| Pat(BPat true, None))
-            <|> (stringReturn "false" <| Pat(BPat false, None))
-let private pNumPattern = puint32 |>> fun ui -> Pat(IPat (int ui), None)
-let private pNilPattern = stringReturn "nil" <| Pat(NilPat, None)
+        (stringReturn "true" <| (ExBPat true, None))
+            <|> (stringReturn "false" <| (ExBPat false, None))
+let private pNumPattern = puint32 |>> fun ui -> (ExIPat (int ui), None)
+let private pNilPattern = stringReturn "nil" <| (ExNilPat, None)
 
 let private pCharPattern = 
     pChar |>> 
-         function | ExC c -> Pat(CPat c, None)
+         function | ExC c -> (ExCPat c, None)
                   | _ -> raise <| invalidArg "char" "Parsing char did not return char"
 let private pStringPattern = 
     let convert term =
         let rec t = 
             function
-            | ExOP (ExC c, Cons, t') -> Pat (ConsPat(Pat (CPat c, None), t t'), None)
-            | ExNil -> Pat(NilPat, None)
+            | ExOP (ExC c, Cons, t') -> (ExConsPat((ExCPat c, None), t t'), None)
+            | ExNil -> (ExNilPat, None)
             | _ -> raise <| invalidArg "string" "Parsing string did not return string"
         t term 
     pString |>> convert 
 
 let private pParenPattern = 
     pBetween "(" ")" (sepBy1 pPattern (pstring "," .>> ws))
-        |>> (function | [x] -> x | xs -> Pat(TuplePat xs, None))
+        |>> (function | [x] -> x | xs -> (ExTuplePat xs, None))
 
 let private pRecordCompPattern = tuple2 (pIdentifier .>> ws .>> pstring ":" .>> ws) pPattern
 
@@ -219,11 +229,11 @@ let private pRecord' p f =
                      firstElementParser = (pstring "{" >>. ws >>. p))
 
 let private pRecordPattern =
-    pRecord' pRecordCompPattern (fun x y -> Pat(RecordPat (y, x), None))
+    pRecord' pRecordCompPattern (fun x y -> (ExRecordPat (y, x), None))
 
 let private pListPattern =
     pBetween "[" "]" (sepBy pPattern (pstring "," .>> ws)) 
-        |>> fun l -> List.foldBack (fun p acc -> Pat (ConsPat(p, acc), None)) l (Pat(NilPat, None))
+        |>> fun l -> List.foldBack (fun p acc -> (ExConsPat(p, acc), None)) l (ExNilPat, None)
 
 let private pPatternValue = 
     pIdentPattern <|> 
@@ -240,7 +250,7 @@ let private pPatternValue =
 let private pConsPattern =
     let reduce ls =
         let rev = List.rev ls
-        List.reduce (fun acc p -> Pat (ConsPat(p, acc), None)) rev
+        List.reduce (fun acc p -> (ExConsPat(p, acc), None)) rev
 
     sepBy1 (pPatternValue .>> ws) (pstring "::" >>. ws) |>> reduce
 
@@ -255,8 +265,8 @@ do pPatternRef :=
             pConsPattern stream
         else
             match firstReply.Result, secondReply.Result with
-            | Pat (p, None), typ -> Reply(Pat(p, Some typ))
-            | Pat (p, Some _), typ -> 
+            | (p, None), typ -> Reply((p, Some typ))
+            | (p, Some _), typ -> 
                 stream.BacktrackTo afterFirstState
                 Reply(Error, unexpected "repeated type declaration")
 
@@ -275,7 +285,7 @@ let private pRaise = stringReturn "raise" ExRaise
 let private pProjection = 
     pstring "#" >>. pIdentifier |>> 
         fun s -> 
-            ExFn ([Pat(XPat "x", None);Pat(XPat "y", None)], 
+            ExFn ([(ExXPat "x", None);(ExXPat "y", None)], 
                 ExRecordAccess (s, ExX "x", ExX "y"))
 
 //#endregion   
@@ -313,7 +323,7 @@ let private pParen =
         pBetween "(" ")" (pOperator .>> ws)
             |>> (function
                   | Def op ->
-                      ExFn([Pat(XPat "x", None); Pat(XPat "y", None)], 
+                      ExFn([(ExXPat "x", None); (ExXPat "y", None)], 
                         ExOP(ExX "x", op, ExX "y"))
                   | Custom c ->
                       ExX c)
@@ -402,13 +412,19 @@ let private pConstantDecl =
 let private pLibrary =
     fun stream ->
         let reply = ws >>. many1 pDecl .>> eof <| stream
-        if reply.Status <> Ok then
-            Reply(Error, reply.Error)
-        else
-            let state = stream.UserState
-            let terms = translateLib reply.Result
-            let ops = List.filter (fun op -> not <| List.exists ((=) op) defaultOPs) state.operators
-            Reply({terms = terms; operators=ops})
+        reply
+
+let parseLibWith text (sourceLib: Library) =
+    let state = defaultUserState.addOperators sourceLib.operators
+    let res = runParserOnString pLibrary state "" text
+    match res with
+    | Failure (err, _, _) -> raise (ParseException err)
+    | Success (decls, state, _) -> 
+        let terms, env = translateLib decls sourceLib.translationEnv
+        let ops = List.filter (fun op -> not <| List.exists ((=) op) defaultOPs) state.operators
+        {terms = terms; operators=ops; translationEnv = env}
+
+let parseLib text = parseLibWith text <| stdlib.loadCompiled ()
 
 let private pImport: Parser<ExDeclaration, UserState> =
     fun stream ->
@@ -424,24 +440,28 @@ let private pImport: Parser<ExDeclaration, UserState> =
                     Reply(loadLib reply.Result)
                 with
                 | UncompiledLib text ->
-                    let state = defaultUserState.addOperators (stdlib.loadCompiled ()).operators
-                    match runParserOnString pLibrary state "" text with
-                    | Success(lib, _, _) -> Reply(lib)
-                    | Failure(_, error, _) -> 
-                        Reply(Error, mergeErrors error.Messages (messageError <| "The error was at library " + reply.Result))
+                    try 
+                        Reply(parseLib text)
+                    with
+                    | ParseException err ->
+                        Reply(Error, unexpected err)
                 | :? LibNotFound ->
                     Reply(Error, messageError <| sprintf "Could not find library file at %A" reply.Result)
             if libReply.Status <> Ok then
                 Reply(Error, libReply.Error)
             else
                 let lib = libReply.Result
-                let op = stream.UserState.operators
                 stream.UserState <- stream.UserState.addOperators lib.operators
                 Reply(DeclImport lib.terms)
 
+let pAlias = 
+    tuple2
+        (pstring "type" >>. ws >>. pstring "alias" >>. ws >>. pTypeIdentifier .>> ws .>> pstring "=" .>> ws)
+        pType |>> DeclAlias
+
 do pDeclRef :=
     let pName = pstring "let" >>. ws >>. ((attempt pConstantDecl) <|> pFunctionDecl)
-    (pImport <|> pName) .>> pstring ";" .>> ws
+    (pImport <|> pAlias <|> pName) .>> pstring ";" .>> ws
 
 //#endregion
 
@@ -550,7 +570,7 @@ let parseWith (lib: Library) text =
     let state = defaultUserState.addOperators lib.operators
     let res = runParserOnString pProgram state "" text
     match res with
-    | Success (a, _, _) -> a |> List.foldBack (fun decl acc -> ExLet(extendDecl decl, acc)) lib.terms
+    | Success (a, _, _) -> ExLet(DeclImport(lib.terms), a)
     | Failure (err, _, _) -> raise (ParseException err)
 
 let parse text = parseWith (stdlib.loadCompiled ()) text
@@ -561,9 +581,12 @@ let parsePure text =
     | Success (a, _, _) -> a
     | Failure (err, _, _) -> raise (ParseException err)
 
-let parseLib text =
-    let res = runParserOnString pLibrary defaultUserState "" text
+let parseStdlib unit =
+    let res = runParserOnString pLibrary defaultUserState "" stdlib.content
     match res with
     | Failure (err, _, _) -> raise (ParseException err)
-    | Success (lib, state, _) -> lib
+    | Success (decls, state, _) -> 
+        let terms, env = translateLib decls emptyTransEnv
+        let ops = List.filter (fun op -> not <| List.exists ((=) op) defaultOPs) state.operators
+        {terms = terms; operators=ops; translationEnv = env}
 

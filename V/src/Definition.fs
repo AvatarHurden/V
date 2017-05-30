@@ -22,17 +22,6 @@ and Type =
     | Tuple of Type list
     | Record of (string * Type) list
 
-let rec mapOption f ls =
-    match ls with
-    | [] -> Some []
-    | x :: rest ->
-        match f x with
-        | Some x' -> 
-            match mapOption f rest with
-            | None -> None
-            | Some rest' -> Some <| x' :: rest'
-        | None -> None
-
 type op =
     | Add
     | Subtract
@@ -114,16 +103,51 @@ type OperatorSpec =
 
 type LibComponent = VarPattern * term
 
+type TranslationEnv = 
+    {typeAliases: Map<string, Type>}
+
+    member this.addTypeAlias name typ =
+        let aliases = this.typeAliases.Add (name, typ)
+        {this with typeAliases = aliases}
+
+let emptyTransEnv = {typeAliases = Map.empty}
+
 type Library =
     {terms: LibComponent list;
+    translationEnv: TranslationEnv;
     operators: OperatorSpec list}
 
-let emptyLib = {terms = []; operators = []}
+let emptyLib = {terms = []; operators = []; translationEnv = emptyTransEnv}
 
 //#endregion
 
 
 //#region Extended Language
+
+type ExType =
+    | ExVarType of string * Trait list
+    | ExInt
+    | ExBool
+    | ExChar
+    | ExFunction of ExType * ExType
+    | ExList of ExType
+    | ExTupleType of ExType list
+    | ExRecordType of (string * ExType) list
+
+    | ExTypeAlias of string
+
+type ExVarPattern = ExPattern * ExType option
+
+and ExPattern =
+    | ExXPat of Ident
+    | ExIgnorePat
+    | ExBPat of bool
+    | ExIPat of int
+    | ExCPat of char
+    | ExTuplePat of ExVarPattern list
+    | ExRecordPat of bool * (string * ExVarPattern) list
+    | ExNilPat
+    | ExConsPat of ExVarPattern * ExVarPattern
 
 type ExTerm = 
     | ExB of bool
@@ -132,9 +156,9 @@ type ExTerm =
     | ExOP of ExTerm * op * ExTerm
     | ExCond of ExTerm * ExTerm * ExTerm
     | ExX of Ident
-    | ExFn of VarPattern list * ExTerm
-    | ExRecFn of Ident * VarPattern list * Type option * ExTerm
-    | ExMatch of ExTerm * (VarPattern * ExTerm option * ExTerm) list
+    | ExFn of ExVarPattern list * ExTerm
+    | ExRecFn of Ident * ExVarPattern list * ExType option * ExTerm
+    | ExMatch of ExTerm * (ExVarPattern * ExTerm option * ExTerm) list
     | ExLet of ExDeclaration * ExTerm
     | ExNil
     | ExRaise
@@ -143,11 +167,29 @@ type ExTerm =
     | ExRecordAccess of string * ExTerm * ExTerm
 
     | Range of ExTerm * ExTerm option * ExTerm
-    | Comprehension of ExTerm * VarPattern * ExTerm
+    | Comprehension of ExTerm * ExVarPattern * ExTerm
 
 and ExDeclaration =
-    | DeclConst of VarPattern * ExTerm
-    | DeclFunc of isRec:bool * Ident * VarPattern list * Type option * ExTerm
+    | DeclConst of ExVarPattern * ExTerm
+    | DeclFunc of isRec:bool * Ident * ExVarPattern list * ExType option * ExTerm
     | DeclImport of LibComponent list
+    | DeclAlias of string * ExType
+
+//#endregion
+
+//#region Helper Functions
+
+let flip f a b = f b a
+
+let rec mapOption f ls =
+    match ls with
+    | [] -> Some []
+    | x :: rest ->
+        match f x with
+        | Some x' -> 
+            match mapOption f rest with
+            | None -> None
+            | Some rest' -> Some <| x' :: rest'
+        | None -> None
 
 //#endregion

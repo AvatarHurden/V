@@ -10,11 +10,11 @@ open TypeInference
 
 
 let compare (text, typ) =
-    let evaluated = text |> parse |> translate |> typeInfer
+    let evaluated = text |> parse |> flip translate stdlib.stdEnv |> typeInfer
     evaluated |> should equal typ
 
 let shouldFail text =
-    (fun () -> text |> parse |> translate |> typeInfer |> ignore) |> should throw typeof<TypeException> 
+    (fun () -> text |> parse |> flip translate stdlib.stdEnv |> typeInfer |> ignore) |> should throw typeof<TypeException> 
    
 let compareDirect term typ =
     let evaluated = typeInfer term
