@@ -1522,7 +1522,71 @@ The following two sections will describe the abstract syntax tree for the extend
 
 \subsection{Abstract Syntax}
 
+The extended language has terms which are similar to (if not exactly the same as) ones existing in the core language.
+These terms are presented in their entirety here, and, since they are directly extrated from the core language, no explanation will be given for them.
 
+\bigskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+    e' &::= &n\\
+    &| &b\\
+    &| &c\\
+    &| &x\\
+    &| &(e'_1, \; \dots \; e'_2)&(n\geq2)\\
+    &| &\{l_1: e'_1, \; \dots \; l_n: e'_n\} & (n\geq1)\\
+    &| &\#l \; e'_1 \; e'_2&\\
+    &| &nil\\
+    &| &e'_1 :: e'_2\\
+    &| &\texttt{if} \; e'_1\; \texttt{then} \; e'_2 \; \texttt{else} \; e'_3\\
+    &| &e'_1 \; op \; e'_2\\
+    &| &e'_1 \; e'_2\\
+    &| &raise\\
+    &| &\texttt{match} \; e' \; \texttt{with} \; match'_1, ... \; match'_n& (n\geq1)\\
+    \\
+match' &::= &p' \rightarrow e'\\
+    &| &p' \; \texttt{when} \; e'_1 \rightarrow e'_2\\
+\end{tabular}}
+
+\bigskip
+
+All patterns are extracted from the core language without any structural differences, and are defined below.
+
+\bigskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+p' &::= &patt'\\
+    &| &patt': T'\\
+\\
+patt' &::= &x\\
+    &| &\_\\
+    &| &n\\
+    &| &b\\
+    &| &c\\
+    &| &nil\\
+    &| &p'_1 :: p'_2\\
+    &| &(p'_1, \; \dots \; p'_n) & (n\geq2)\\
+    &| &\{l_1: p'_1, \; \dots \; l_n: p'_n\} & (n\geq1)\\
+    &| &\{l_1: p'_1, \; \dots \; l_n: p'_n, \dots\} & (\text{partial record}, n\geq1)\\
+\end{tabular}}
+
+\bigskip
+
+Most types are, like patterns, extracted from the language.
+
+\bigskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+    T' &::= &\mbox{Int}\\
+    &| &\mbox{Bool}\\
+    &| &\mbox{Char}\\
+    &| &T'_1 \rightarrow T'_2\\
+    &| &T' \; list\\
+    &| &(T'_1, \; \dots \; T'_n) & (n\geq2)\\
+    &| &\{l_1: T'_1, \; \dots \; l_n: T'_n\} & (n\geq1)\\
+\end{tabular}}
 
 \subsection{Translation}
 
