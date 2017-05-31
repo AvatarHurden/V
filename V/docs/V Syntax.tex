@@ -1588,6 +1588,61 @@ Most types are, like patterns, extracted from the language.
     &| &\{l_1: T'_1, \; \dots \; l_n: T'_n\} & (n\geq1)\\
 \end{tabular}}
 
+\bigskip
+
+The first addition to the extended language is the concept of \emph{type aliases}.
+These types are simple renames of existing types, and can be used in programs as a way to simplify type declarations.
+
+\bigskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+    T' &::= &\cdots\\
+    &| &\tau\\
+\\
+    \tau &::= &\{ \tau_0, \tau_1, \ldots \}\\
+\end{tabular}}
+
+\bigskip
+
+Functions have been extended to allow multiple parameters, removing the necessity of declaring nested functions.
+These functions still require at least one parameter.
+
+\bigskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+e' &::= &\cdots\\
+    &| &\texttt{fn} \; p'_1, \; \dots \; p'_n \Rightarrow e'&(n\geq1)\\
+    &| &\texttt{rec} \; x:T \; \; p'_1, \; \dots \; p'_n \Rightarrow e'&(n\geq1)\\
+    &| &\texttt{rec} \; x \; p'_1, \; \dots \; p'_n \Rightarrow e'&(n\geq1)\\
+\end{tabular}}
+
+\bigskip
+
+The \texttt{let} expression is also extended, and a new construction ($decl'$) is needed.
+Besides the basic value binding, 4 new function bindings are allowed.
+These correspond to all combinations of typed, untyped, recursive and non-recursive functions, with at least one parameter.
+
+Along with value and function bindings, a new type alias binding was added.
+This binding creates a new type alias that can be used further down in the syntax tree.
+
+\bigskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+e' &::= &\cdots\\
+    &| &\texttt{let} \; decl' \; \texttt{in} \; e\\
+\\
+decl' &::= &p' = e'\\
+    &| &x \; p'_1, \; \dots \; p'_n = e'&(n\geq1)\\
+    &| &\texttt{rec} \; x \; p'_1, \; \dots \; p'_n = e'&(n\geq1)\\
+    &| &x: T' \; p'_1, \; \dots \; p'_n = e'&(n\geq1)\\
+    &| &\texttt{rec} \; x: T' \; p'_1, \; \dots \; p'_n = e'&(n\geq1)\\
+    &| &\texttt{type alias} \; \tau = T'\\
+\end{tabular}}
+
+
 \subsection{Translation}
 
 
