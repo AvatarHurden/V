@@ -67,12 +67,16 @@ It is a trait based strongly and statically typed language supporting both expli
 
 
 This document both specifies the $V$ language and shows its implementation in F\#.
-It is divided into 2 categories:
+It is divided into 6 categories:
 \begin{enumerate}
     \item Abstract Syntax and Semantics
 
         This defines the abstract syntax and semantics of the language.
         It only contains the bare minimum for the language to function, without any syntactic sugar.
+
+    \item Extended Language
+
+        Defines the extended abstract syntax tree and its translation into the core language.
 
     \item Concrete Syntax
 
@@ -205,19 +209,6 @@ It is the only zero-length list possible, and all other lists are constructed on
 \medskip
 
 The second expression is the append operation, adding $e_1$ to the front of the list $e_2$.
-
-\paragraph{Conditional}
-
-Like most functional languages, $V$ provides a conditional expression.
-This expression, like all others, always returns a value.
-
-\medskip
-
-{\setlength\tabcolsep{8pt}
-\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
-e &::= &\cdots\\
-  &| &\texttt{if} \; e_1\; \texttt{then} \; e_2 \; \texttt{else} \; e_3\\
-\end{tabular}}
 
 \paragraph{Binary Operations}
 
@@ -947,19 +938,6 @@ For characters, the ASCII values are compared numerically.
      \mbox{env} \vdash v_1 = v_3 \Downarrow true \andalso \mbox{env} \vdash v_2 \; opIneq \; v_4 \Downarrow b}
     {\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow b}
 
-\paragraph{Conditional Expression}
-$V$ supports conditional expressions, which always return a value, but not conditional statements.
-Because of this, all conditional expressions must have both a $then$ and an $else$ branch.
-Evaluation is done only on the condition and the proper branch, avoiding the evaluation of the unused branch.
-
-\infrule[BS-IfTrue]
-    {\mbox{env} \vdash e_1 \Downarrow true \andalso \mbox{env} \vdash e_2 \Downarrow v}
-    {\mbox{env} \vdash \texttt{if} \; e_1\; \texttt{then} \; e_2 \; \texttt{else} \; e_3 \Downarrow v}
-
-\infrule[BS-IfFalse]
-    {\mbox{env} \vdash e_1 \Downarrow false \andalso \mbox{env} \vdash e_3 \Downarrow v}
-    {\mbox{env} \vdash \texttt{if} \; e_1\; \texttt{then} \; e_2 \; \texttt{else} \; e_3 \Downarrow v}
-
 \paragraph{Function Expressions}
 
 There are two types of function expressions, one for simple functions and one for recursive functions.
@@ -1175,10 +1153,6 @@ The rules for $raise$ propagation are given below.
 \infrule[BS-NumRaise2]
     {\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow raise}
     {\mbox{env} \vdash e_1 opNum e_2 \Downarrow raise}
-
-\infrule[BS-IfRaise]
-    {\mbox{env} \vdash e_1 \Downarrow raise}
-    {\mbox{env} \vdash \texttt{if} \; e_1\; \texttt{then} \; e_2 \; \texttt{else} \; e_3 \Downarrow raise}
 
 \subsection{Type System}\label{Type System}
 
@@ -1441,12 +1415,6 @@ Every expression in $V$ has a rule for constraint collection, similar to how eve
 
 \bigskip
 
-\infrule[T-If]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2  \andalso \Gamma \vdash e_3 : T_3 \; | \; C_3}
-    {\Gamma \vdash \texttt{if} \; e_1\; \texttt{then} \; e_2 \; \texttt{else} \; e_3 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup C_3 \cup \{T1 = \mbox{Bool}; T_2 = T_3\}}
-
-\bigskip
-
 \infrule[T-App]
     {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2  \andalso X_1 \; is \; new}
     {\Gamma \vdash e_1 \; e_2 : X \; | \; C_1 \cup C_2 \cup \{T1 = T_2 \rightarrow X_1}
@@ -1497,6 +1465,159 @@ Every expression in $V$ has a rule for constraint collection, similar to how eve
 \infrule[T-Raise]
     {X_1 \; is\; new}
     {\Gamma \vdash raise : X_1 \; | \; \{\}}
+
+\newpage
+
+\section{Extended Language}
+
+In order to facilitate programming, it is useful to define an extended language.
+A program is first parsed into this language, and the resulting tree is translated into the regular abstract syntax.
+
+This allows the core language to be concise, reducing the complexity of type inference and evaluation.
+Complex constructs (such as comprehensions and multi-parameter functions) can be included only in the extended language, and it suffices to provide a translation into the core language.
+
+This translation does have the drawback of reducing the formality of evaluation.
+Since there are no evaluation rules for the additional constructs, it is impossible to prove the correctness of the translation rules.
+This does not in any way affect the correctness of the core language type inference and evaluation, and the advantages gained by this method far outweigh the drawbacks, so it is still a net positive to the language.
+
+\medskip
+
+The following two sections will describe the abstract syntax tree for the extended language and how it translates to a syntax tree in the core language.
+
+\subsection{Abstract Syntax}
+
+The extended language has terms which are similar to (if not exactly the same as) ones existing in the core language.
+These terms are presented in their entirety here, and, since they are directly extrated from the core language, no explanation will be given for them.
+
+\bigskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+    e' &::= &n\\
+    &| &b\\
+    &| &c\\
+    &| &x\\
+    &| &(e'_1, \; \dots \; e'_2)&(n\geq2)\\
+    &| &\{l_1: e'_1, \; \dots \; l_n: e'_n\} & (n\geq1)\\
+    &| &\#l \; e'_1 \; e'_2&\\
+    &| &nil\\
+    &| &e'_1 :: e'_2\\
+    &| &e'_1 \; op \; e'_2\\
+    &| &e'_1 \; e'_2\\
+    &| &raise\\
+    &| &\texttt{match} \; e' \; \texttt{with} \; match'_1, ... \; match'_n& (n\geq1)\\
+    \\
+match' &::= &p' \rightarrow e'\\
+    &| &p' \; \texttt{when} \; e'_1 \rightarrow e'_2\\
+\end{tabular}}
+
+\bigskip
+
+All patterns are extracted from the core language without any structural differences, and are defined below.
+
+\bigskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+p' &::= &patt'\\
+    &| &patt': T'\\
+\\
+patt' &::= &x\\
+    &| &\_\\
+    &| &n\\
+    &| &b\\
+    &| &c\\
+    &| &nil\\
+    &| &p'_1 :: p'_2\\
+    &| &(p'_1, \; \dots \; p'_n) & (n\geq2)\\
+    &| &\{l_1: p'_1, \; \dots \; l_n: p'_n\} & (n\geq1)\\
+    &| &\{l_1: p'_1, \; \dots \; l_n: p'_n, \dots\} & (\text{partial record}, n\geq1)\\
+\end{tabular}}
+
+\bigskip
+
+Most types are, like patterns, extracted from the language.
+
+\bigskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+    T' &::= &\mbox{Int}\\
+    &| &\mbox{Bool}\\
+    &| &\mbox{Char}\\
+    &| &T'_1 \rightarrow T'_2\\
+    &| &T' \; list\\
+    &| &(T'_1, \; \dots \; T'_n) & (n\geq2)\\
+    &| &\{l_1: T'_1, \; \dots \; l_n: T'_n\} & (n\geq1)\\
+\end{tabular}}
+
+\bigskip
+
+The first addition to the extended language is the concept of \emph{type aliases}.
+These types are simple renames of existing types, and can be used in programs as a way to simplify type declarations.
+
+\bigskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+    T' &::= &\cdots\\
+    &| &\tau\\
+\\
+    \tau &::= &\{ \tau_0, \tau_1, \ldots \}\\
+\end{tabular}}
+
+\bigskip
+
+A conditional expression, which translates to a \texttt{match} expression on the patterns $true$ and $false$, has been added.
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+e' &::= &\cdots\\
+    &| &\texttt{if} \; e'_1\; \texttt{then} \; e'_2 \; \texttt{else} \; e'_3\\
+\end{tabular}}
+
+\bigskip
+
+Functions have been extended to allow multiple parameters, removing the necessity of declaring nested functions.
+These functions still require at least one parameter.
+
+\bigskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+e' &::= &\cdots\\
+    &| &\texttt{fn} \; p'_1, \; \dots \; p'_n \Rightarrow e'&(n\geq1)\\
+    &| &\texttt{rec} \; x:T \; \; p'_1, \; \dots \; p'_n \Rightarrow e'&(n\geq1)\\
+    &| &\texttt{rec} \; x \; p'_1, \; \dots \; p'_n \Rightarrow e'&(n\geq1)\\
+\end{tabular}}
+
+\bigskip
+
+The \texttt{let} expression is also extended, and a new construction ($decl'$) is needed.
+Besides the basic value binding, 4 new function bindings are allowed.
+These correspond to all combinations of typed, untyped, recursive and non-recursive functions, with at least one parameter.
+
+Along with value and function bindings, a new type alias binding was added.
+This binding creates a new type alias that can be used further down in the syntax tree.
+
+\bigskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+e' &::= &\cdots\\
+    &| &\texttt{let} \; decl' \; \texttt{in} \; e\\
+\\
+decl' &::= &p' = e'\\
+    &| &x \; p'_1, \; \dots \; p'_n = e'&(n\geq1)\\
+    &| &\texttt{rec} \; x \; p'_1, \; \dots \; p'_n = e'&(n\geq1)\\
+    &| &x: T' \; p'_1, \; \dots \; p'_n = e'&(n\geq1)\\
+    &| &\texttt{rec} \; x: T' \; p'_1, \; \dots \; p'_n = e'&(n\geq1)\\
+    &| &\texttt{type alias} \; \tau = T'\\
+\end{tabular}}
+
+
+\subsection{Translation}
+
 
 \newpage
 
@@ -3097,6 +3218,14 @@ Converts values from and to strings.
       This pattern does not create an equality constraint on records.
       Instead, it creates trait constraints, allowing for ad-hoc subtyping.
 
+  \item \textbf{Extended Language} \; \; {\small\colorbox{yellow}{Abstract Syntax}}
+
+      Created an extended language (syntax tree). This languaged is used for parsing, and then is translated into the core language.
+
+  \item \textbf{Type Aliases} \; \; {\small\colorbox{ProcessBlue}{Concrete Syntax}}
+
+      Allows the programmer to specify type aliases, simplifying type declarations
+
 \end{itemize}
 
 \paragraph{Changes}
@@ -3124,6 +3253,10 @@ Converts values from and to strings.
   \item \textbf{Record Projection (Accessor)} \; \; {\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System}}
 
       Replaced record projection with record accessor, allowing for editing of individual fields in a record.
+
+  \item \textbf{Conditionals} \; \; {\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System}}
+
+      Removed conditionals from core language, adding them to the extended language.
 \end{itemize}
 
 \paragraph{Removals}

@@ -25,16 +25,6 @@ let shouldFail text =
 type TestEval() =
 
     [<Test>]
-    member that.``factorial``() =
-        let fatMult = OP(X("x"), Multiply, OP(X("fat"), Application, OP(X("x"), Subtract, I(1))))
-        let fnTerm = Cond(OP(X("x"), Equal, I(0)), I(1), fatMult)
-        let fat = 
-            Let(Pat(XPat "fat", Some <| Function (Int, Int)), 
-                RecFn("fat", Some Int, Pat(XPat "x", Some Int), fnTerm), OP(X("fat"), Application, I(5)))
-
-        evaluate fat |> should equal (ResI(120))
-
-    [<Test>]
     member that.LCM() =
         compare ("
 let rec gcd (x:Int) (y:Int) =

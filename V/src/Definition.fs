@@ -56,7 +56,6 @@ type term =
     | I of int
     | C of char
     | OP of term * op * term
-    | Cond of term * term * term
     | X of Ident
     | Fn of VarPattern * term
     | RecFn of Ident * (Type option) * VarPattern * term
@@ -154,7 +153,6 @@ type ExTerm =
     | ExI of int
     | ExC of char
     | ExOP of ExTerm * op * ExTerm
-    | ExCond of ExTerm * ExTerm * ExTerm
     | ExX of Ident
     | ExFn of ExVarPattern list * ExTerm
     | ExRecFn of Ident * ExVarPattern list * ExType option * ExTerm
@@ -166,6 +164,7 @@ type ExTerm =
     | ExRecord of (string * ExTerm) list
     | ExRecordAccess of string * ExTerm * ExTerm
 
+    | Cond of ExTerm * ExTerm * ExTerm
     | Range of ExTerm * ExTerm option * ExTerm
     | Comprehension of ExTerm * ExVarPattern * ExTerm
 

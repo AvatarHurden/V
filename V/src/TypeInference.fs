@@ -492,11 +492,6 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         let typ1, c1 = collectConstraints t1 env
         let typ2, c2 = collectConstraints t2 env
         Int, c1 @ c2 @ [Equals (Int, typ1); Equals (Int, typ2)]
-    | Cond(t1, t2, t3) ->
-        let typ1, c1 = collectConstraints t1 env
-        let typ2, c2 = collectConstraints t2 env
-        let typ3, c3 = collectConstraints t3 env
-        typ2, c1 @ c2 @ c3 @ [Equals (Bool, typ1); Equals (typ2, typ3)]
     | X(id) ->
         findId id env
     | Fn(pattern, t1) ->
