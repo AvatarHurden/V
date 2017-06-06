@@ -210,19 +210,6 @@ It is the only zero-length list possible, and all other lists are constructed on
 
 The second expression is the append operation, adding $e_1$ to the front of the list $e_2$.
 
-\paragraph{Conditional}
-
-Like most functional languages, $V$ provides a conditional expression.
-This expression, like all others, always returns a value.
-
-\medskip
-
-{\setlength\tabcolsep{8pt}
-\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
-e &::= &\cdots\\
-  &| &\texttt{if} \; e_1\; \texttt{then} \; e_2 \; \texttt{else} \; e_3\\
-\end{tabular}}
-
 \paragraph{Binary Operations}
 
 $V$ provides a series of binary operations built-in into the language.
@@ -951,19 +938,6 @@ For characters, the ASCII values are compared numerically.
      \mbox{env} \vdash v_1 = v_3 \Downarrow true \andalso \mbox{env} \vdash v_2 \; opIneq \; v_4 \Downarrow b}
     {\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow b}
 
-\paragraph{Conditional Expression}
-$V$ supports conditional expressions, which always return a value, but not conditional statements.
-Because of this, all conditional expressions must have both a $then$ and an $else$ branch.
-Evaluation is done only on the condition and the proper branch, avoiding the evaluation of the unused branch.
-
-\infrule[BS-IfTrue]
-    {\mbox{env} \vdash e_1 \Downarrow true \andalso \mbox{env} \vdash e_2 \Downarrow v}
-    {\mbox{env} \vdash \texttt{if} \; e_1\; \texttt{then} \; e_2 \; \texttt{else} \; e_3 \Downarrow v}
-
-\infrule[BS-IfFalse]
-    {\mbox{env} \vdash e_1 \Downarrow false \andalso \mbox{env} \vdash e_3 \Downarrow v}
-    {\mbox{env} \vdash \texttt{if} \; e_1\; \texttt{then} \; e_2 \; \texttt{else} \; e_3 \Downarrow v}
-
 \paragraph{Function Expressions}
 
 There are two types of function expressions, one for simple functions and one for recursive functions.
@@ -1179,10 +1153,6 @@ The rules for $raise$ propagation are given below.
 \infrule[BS-NumRaise2]
     {\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow raise}
     {\mbox{env} \vdash e_1 opNum e_2 \Downarrow raise}
-
-\infrule[BS-IfRaise]
-    {\mbox{env} \vdash e_1 \Downarrow raise}
-    {\mbox{env} \vdash \texttt{if} \; e_1\; \texttt{then} \; e_2 \; \texttt{else} \; e_3 \Downarrow raise}
 
 \subsection{Type System}\label{Type System}
 
@@ -1445,12 +1415,6 @@ Every expression in $V$ has a rule for constraint collection, similar to how eve
 
 \bigskip
 
-\infrule[T-If]
-    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2  \andalso \Gamma \vdash e_3 : T_3 \; | \; C_3}
-    {\Gamma \vdash \texttt{if} \; e_1\; \texttt{then} \; e_2 \; \texttt{else} \; e_3 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup C_3 \cup \{T1 = \mbox{Bool}; T_2 = T_3\}}
-
-\bigskip
-
 \infrule[T-App]
     {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2  \andalso X_1 \; is \; new}
     {\Gamma \vdash e_1 \; e_2 : X \; | \; C_1 \cup C_2 \cup \{T1 = T_2 \rightarrow X_1}
@@ -1538,7 +1502,6 @@ These terms are presented in their entirety here, and, since they are directly e
     &| &\#l \; e'_1 \; e'_2&\\
     &| &nil\\
     &| &e'_1 :: e'_2\\
-    &| &\texttt{if} \; e'_1\; \texttt{then} \; e'_2 \; \texttt{else} \; e'_3\\
     &| &e'_1 \; op \; e'_2\\
     &| &e'_1 \; e'_2\\
     &| &raise\\
@@ -1601,6 +1564,16 @@ These types are simple renames of existing types, and can be used in programs as
     &| &\tau\\
 \\
     \tau &::= &\{ \tau_0, \tau_1, \ldots \}\\
+\end{tabular}}
+
+\bigskip
+
+A conditional expression, which translates to a \texttt{match} expression on the patterns $true$ and $false$, has been added.
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+e' &::= &\cdots\\
+    &| &\texttt{if} \; e'_1\; \texttt{then} \; e'_2 \; \texttt{else} \; e'_3\\
 \end{tabular}}
 
 \bigskip
@@ -3245,6 +3218,14 @@ Converts values from and to strings.
       This pattern does not create an equality constraint on records.
       Instead, it creates trait constraints, allowing for ad-hoc subtyping.
 
+  \item \textbf{Extended Language} \; \; {\small\colorbox{yellow}{Abstract Syntax}}
+
+      Created an extended language (syntax tree). This languaged is used for parsing, and then is translated into the core language.
+
+  \item \textbf{Type Aliases} \; \; {\small\colorbox{ProcessBlue}{Concrete Syntax}}
+
+      Allows the programmer to specify type aliases, simplifying type declarations
+
 \end{itemize}
 
 \paragraph{Changes}
@@ -3272,6 +3253,10 @@ Converts values from and to strings.
   \item \textbf{Record Projection (Accessor)} \; \; {\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System}}
 
       Replaced record projection with record accessor, allowing for editing of individual fields in a record.
+
+  \item \textbf{Conditionals} \; \; {\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System}}
+
+      Removed conditionals from core language, adding them to the extended language.
 \end{itemize}
 
 \paragraph{Removals}
