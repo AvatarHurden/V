@@ -119,11 +119,6 @@ and private translateTerm term env =
         let t1' = translateTerm t1 env
         let t2' = translateTerm t2 env
         OP(t1', op, t2')
-    | ExCond (t1, t2, t3) -> 
-        let t1' = translateTerm t1 env
-        let t2' = translateTerm t2 env
-        let t3' = translateTerm t3 env
-        Cond(t1', t2', t3')
     | ExX x -> X x
     | ExFn (pars, t) -> 
         let pars' = translatePatterns pars env
@@ -166,7 +161,13 @@ and private translateTerm term env =
         let t1' = translateTerm t1 env
         let t2' = translateTerm t2 env
         RecordAccess (s, t1', t2')
-        
+    | Cond (t1, t2, t3) -> 
+        let t1' = translateTerm t1 env
+        let t2' = translateTerm t2 env
+        let t3' = translateTerm t3 env
+        Match(t1', 
+            [Pat(BPat true, None), None, t2'; 
+             Pat(BPat false, None), None, t3'])
     | Range (first, second, last) ->
         let first' = translateTerm first env
         let last' = translateTerm last env

@@ -250,12 +250,6 @@ let rec private eval t env =
             | Divide when i2 = 0 -> ResRaise
             | _ -> sprintf "Term %A is not an operator at %A" op t |> EvalException |> raise
         | _, _ -> sprintf "Operation %A requires numbers at %A" op t |> EvalException |> raise
-    | Cond(t1, t2, t3) ->
-        match eval t1 env with
-        | ResRaise -> ResRaise
-        | ResB true -> eval t2 env
-        | ResB false -> eval t3 env
-        | t1' -> sprintf "Term %A is not a Boolean value at %A" t1' t |> EvalException |> raise
     | Fn(pattern, t1) -> ResClosure(pattern, t1, env)
     | RecFn(id1, typ1, pattern, t) -> ResRecClosure(id1, pattern, t, env)
     | Match (t1, patterns) ->

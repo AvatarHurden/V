@@ -488,7 +488,7 @@ let private pIf =
     let first = pstring "if" >>. ws >>. pTerm
     let second = pstring "then" >>. ws >>. pTerm
     let third = pstring "else" >>. ws >>. pTerm
-    pipe3 first second third (fun x y z -> ExCond(x, y, z))
+    pipe3 first second third (fun x y z -> Cond(x, y, z))
     
 let private pMatch = 
     pipe2
