@@ -51,6 +51,15 @@ and Pattern =
     | NilPat
     | ConsPat of VarPattern * VarPattern
 
+type BuiltIn =
+    | Get 
+    | RecordAccess2 of string
+
+let numArgs =
+    function
+    | Get -> 2
+    | RecordAccess2 _ -> 2
+
 type term =
     | B of bool
     | I of int
@@ -66,6 +75,7 @@ type term =
     | Tuple of term list
     | Record of (string * term) list
     | RecordAccess of string * term * term
+    | Built of BuiltIn
 
 type result =
     | ResB of bool
@@ -78,6 +88,8 @@ type result =
     | ResRecClosure of Ident * VarPattern * term * env
     | ResTuple of result list
     | ResRecord of (string * result) list
+    
+    | ResPartial of BuiltIn * term list
 and
     env = Map<Ident, result>
 

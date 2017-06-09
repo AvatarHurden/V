@@ -192,14 +192,62 @@ let rec compareOrder t1 t2 orderType =
     
 //#endregion
 
-let rec private eval t env =
+let rec private evalPartial b (args: term list) env =
+    match b with
+    | Get ->
+        match args with
+        | [t1; t2] ->
+            let t1' = eval t1 env
+            let t2' = eval t2 env
+            match t1', t2' with
+            | ResPartial ((RecordAccess2 s), []), ResRecord pairs ->
+                let names, values = List.unzip pairs
+                match Seq.tryFindIndex ((=) s) names with
+                | Some i ->
+                    Seq.nth i values
+                | None ->
+                    sprintf "Record has no entry %A at %A" s (args.Item 1) |> EvalException |> raise
+            | _ -> sprintf "Wrong arguments" |> EvalException |> raise
+        | _ -> 
+            sprintf "Wrong arguments" |> EvalException |> raise
+    | RecordAccess2 s ->
+        match args with
+        | [t1; t2] ->
+            let t1' = eval t1 env
+            let t2' = eval t2 env
+            match t1', t2' with
+            | t1, ResRecord pairs ->
+                let names, values = List.unzip pairs
+                match Seq.tryFindIndex ((=) s) names with
+                | Some i ->
+                    let start = Seq.take i values
+                    let old = Seq.nth i values
+                    let finish = Seq.skip (i+1) values
+                    let newValueSeq = [t1] :> seq<_>
+                    let newValues = Seq.toList (Seq.concat [start; newValueSeq; finish])
+                    let newRec = ResRecord <| List.zip names newValues 
+                    ResTuple [old; newRec]
+                | None ->
+                    sprintf "Record has no entry %A at %A" s (args.Item 1) |> EvalException |> raise
+            | _ -> sprintf "Wrong arguments" |> EvalException |> raise
+        | _ ->
+            sprintf "Wrong arguments" |> EvalException |> raise
+
+and private eval t env =
     match t with
+    | Built b -> ResPartial(b, [])
     | B b-> ResB b
     | I i -> ResI i
     | C c -> ResC c
     | OP(t1, Application, t2) ->
         match eval t1 env with
         | ResRaise -> ResRaise
+        | ResPartial(b, args) ->
+            let args' = t2 :: args
+            if args'.Length = numArgs b then
+                evalPartial b args' env
+            else
+                ResPartial(b, args')
         | ResRecClosure(id1, pattern, e, env') as t1' ->
             match eval t2 env with
             | t2' -> 

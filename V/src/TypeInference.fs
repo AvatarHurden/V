@@ -454,6 +454,18 @@ let findId id (e: Map<string, EnvAssociation>) =
 // collectConstraints term environment constraints
 let rec collectConstraints term (env: Map<string, EnvAssociation>) =
     match term with
+    | Built b ->
+        match b with
+        | RecordAccess2 s ->
+            let varType1 = VarType (getVarType (), [])
+            let varType2 = VarType (getVarType (), [RecordLabel (s, varType1)])
+            Function (varType1, Function(varType2, Type.Tuple [varType1; varType2])), []
+        | Get -> 
+            let varType1 = VarType (getVarType (), [])
+            let varType2 = VarType (getVarType (), [])
+            let accessTyp =
+                Function (varType2, Function(varType1, Type.Tuple [varType1; varType2]))
+            Function(accessTyp, Function(varType2, varType1)), []
     | B true ->
         Bool, []
     | B false ->
