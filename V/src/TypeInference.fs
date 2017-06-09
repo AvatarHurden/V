@@ -456,7 +456,7 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
     match term with
     | Built b ->
         match b with
-        | RecordAccess2 s ->
+        | RecordAccess s ->
             let varType1 = VarType (getVarType (), [])
             let varType2 = VarType (getVarType (), [RecordLabel (s, varType1)])
             Function (varType1, Function(varType2, Type.Tuple [varType1; varType2])), []
@@ -572,11 +572,6 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
             List.unzip <| 
             List.map (fun t -> collectConstraints t env) types
         Type.Record (List.zip names types') , List.reduce (@) constraints
-    | RecordAccess (s, t1, t2) ->
-        let typ1, c1 = collectConstraints t1 env
-        let typ2, c2 = collectConstraints t2 env
-        let varType = VarType (getVarType (), [RecordLabel (s, typ1)])
-        Type.Tuple [typ1; typ2], c1 @ c2 @ [Equals (varType, typ2)]
 
 //#endregion
 

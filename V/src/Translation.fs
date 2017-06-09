@@ -158,10 +158,6 @@ and private translateTerm term env =
         Tuple <| List.map (fun t -> translateTerm t env) terms
     | ExRecord pairs -> 
         Record <| List.map (fun (s, t) -> (s, translateTerm t env)) pairs
-    | ExRecordAccess (s, t1, t2) -> 
-        let t1' = translateTerm t1 env
-        let t2' = translateTerm t2 env
-        RecordAccess (s, t1', t2')
     | Cond (t1, t2, t3) -> 
         let t1' = translateTerm t1 env
         let t2' = translateTerm t2 env

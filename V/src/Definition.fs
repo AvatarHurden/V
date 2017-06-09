@@ -53,12 +53,12 @@ and Pattern =
 
 type BuiltIn =
     | Get 
-    | RecordAccess2 of string
+    | RecordAccess of string
 
 let numArgs =
     function
     | Get -> 2
-    | RecordAccess2 _ -> 2
+    | RecordAccess _ -> 2
 
 type term =
     | B of bool
@@ -74,7 +74,6 @@ type term =
     | Raise
     | Tuple of term list
     | Record of (string * term) list
-    | RecordAccess of string * term * term
     | Built of BuiltIn
 
 type result =
@@ -174,7 +173,6 @@ type ExTerm =
     | ExRaise
     | ExTuple of ExTerm list
     | ExRecord of (string * ExTerm) list
-    | ExRecordAccess of string * ExTerm * ExTerm
     | ExBuilt of BuiltIn
 
     | Cond of ExTerm * ExTerm * ExTerm

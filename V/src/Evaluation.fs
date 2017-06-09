@@ -200,7 +200,7 @@ let rec private evalPartial b (args: term list) env =
             let t1' = eval t1 env
             let t2' = eval t2 env
             match t1', t2' with
-            | ResPartial ((RecordAccess2 s), []), ResRecord pairs ->
+            | ResPartial ((RecordAccess s), []), ResRecord pairs ->
                 let names, values = List.unzip pairs
                 match Seq.tryFindIndex ((=) s) names with
                 | Some i ->
@@ -210,7 +210,7 @@ let rec private evalPartial b (args: term list) env =
             | _ -> sprintf "Wrong arguments" |> EvalException |> raise
         | _ -> 
             sprintf "Wrong arguments" |> EvalException |> raise
-    | RecordAccess2 s ->
+    | RecordAccess s ->
         match args with
         | [t1; t2] ->
             let t1' = eval t1 env
@@ -339,24 +339,6 @@ and private eval t env =
             sprintf "Record has duplicate fields at %A" t |> EvalException |> raise
 
         ResRecord <| List.map (fun (name, t) -> name, eval t env) pairs
-    | RecordAccess (s, t1, t2) ->
-        let newValue = eval t1 env
-        match eval t2 env with
-        | ResRaise -> ResRaise
-        | ResRecord pairs ->
-            let names, values = List.unzip pairs
-            match Seq.tryFindIndex ((=) s) names with
-            | Some i ->
-                let start = Seq.take i values
-                let old = Seq.nth i values
-                let finish = Seq.skip (i+1) values
-                let newValueSeq = [newValue] :> seq<_>
-                let newValues = Seq.toList (Seq.concat [start; newValueSeq; finish])
-                let newRec = ResRecord <| List.zip names newValues 
-                ResTuple [old; newRec]
-            | None ->
-                sprintf "Record has no entry %A at %A" s t2 |> EvalException |> raise
-        | t2' -> sprintf "Term %A is not a record at %A" t2' t |> EvalException |> raise
     | X(id) -> 
         if env.ContainsKey id then
             env.[id]

@@ -282,7 +282,7 @@ let private pNil = stringReturn "nil" ExNil
 
 let private pRaise = stringReturn "raise" ExRaise
 
-let private pProjection = pstring "#" >>. pIdentifier |>> fun s -> ExBuilt (RecordAccess2 s)
+let private pProjection = pstring "#" >>. pIdentifier |>> fun s -> ExBuilt (RecordAccess s)
 
 //#endregion   
 
