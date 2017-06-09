@@ -112,6 +112,7 @@ and private translateDecl decl env =
 
 and private translateTerm term env =
     match term with
+    | ExBuilt b -> Built b
     | ExB b -> B b
     | ExI i -> I i
     | ExC c -> C c

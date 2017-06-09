@@ -175,6 +175,7 @@ type ExTerm =
     | ExTuple of ExTerm list
     | ExRecord of (string * ExTerm) list
     | ExRecordAccess of string * ExTerm * ExTerm
+    | ExBuilt of BuiltIn
 
     | Cond of ExTerm * ExTerm * ExTerm
     | Range of ExTerm * ExTerm option * ExTerm

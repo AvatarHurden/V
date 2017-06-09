@@ -86,3 +86,5 @@ and printResult result =
     | ResClosure (id, t, env) -> sprintf "Function with parameter %A" id
     | ResRecClosure (id, id2, t, env) -> 
         sprintf "Recursive function with name %A and parameter %A" id id2
+    | ResPartial (b, []) -> sprintf "Builtin function %A" b
+    | ResPartial (b, _) -> sprintf "Partial application of builtin function %A" b

@@ -229,9 +229,9 @@ let rec private evalPartial b (args: term list) env =
                     ResTuple [old; newRec]
                 | None ->
                     sprintf "Record has no entry %A at %A" s (args.Item 1) |> EvalException |> raise
-            | _ -> sprintf "Wrong arguments" |> EvalException |> raise
+            | _ -> sprintf "Second argument is not a record" |> EvalException |> raise
         | _ ->
-            sprintf "Wrong arguments" |> EvalException |> raise
+            sprintf "Wrong number of arguments to record access" |> EvalException |> raise
 
 and private eval t env =
     match t with
@@ -243,7 +243,7 @@ and private eval t env =
         match eval t1 env with
         | ResRaise -> ResRaise
         | ResPartial(b, args) ->
-            let args' = t2 :: args
+            let args' = args @ [t2]
             if args'.Length = numArgs b then
                 evalPartial b args' env
             else

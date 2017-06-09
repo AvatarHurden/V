@@ -464,7 +464,7 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
             let varType1 = VarType (getVarType (), [])
             let varType2 = VarType (getVarType (), [])
             let accessTyp =
-                Function (varType2, Function(varType1, Type.Tuple [varType1; varType2]))
+                Function (varType1, Function(varType2, Type.Tuple [varType1; varType2]))
             Function(accessTyp, Function(varType2, varType1)), []
     | B true ->
         Bool, []

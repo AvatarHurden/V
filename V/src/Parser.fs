@@ -62,7 +62,7 @@ let keywords =
     Set["let" ; "true"  ; "false" ; "if"   ; "then"   ; "else"  ;
         "rec" ; "nil"   ; "raise" ; "when" ; "match"  ; "with"  ;
         "for" ; "in"    ; "import"; "infix"; "infixl" ; "infixr";
-        "type"; "alias" ]
+        "type"; "alias" ; "get"]
 
 let typeKeywords = Set["Int"; "Bool"; "Char"] 
 
@@ -282,11 +282,7 @@ let private pNil = stringReturn "nil" ExNil
 
 let private pRaise = stringReturn "raise" ExRaise
 
-let private pProjection = 
-    pstring "#" >>. pIdentifier |>> 
-        fun s -> 
-            ExFn ([(ExXPat "x", None);(ExXPat "y", None)], 
-                ExRecordAccess (s, ExX "x", ExX "y"))
+let private pProjection = pstring "#" >>. pIdentifier |>> fun s -> ExBuilt (RecordAccess2 s)
 
 //#endregion   
 
@@ -500,6 +496,8 @@ let private pMatch =
                 (pstring "->" >>. ws >>. pTerm))) <|
     fun first triplets -> ExMatch(first, triplets)
 
+let private pGet = pstring "get" >>. ws |>> fun _ -> ExBuilt Get
+
 //#endregion
 
 let private pValue = 
@@ -518,7 +516,8 @@ let private pValue =
             pMatch;
             pLambda;
             pRecLambda;
-            pLet] <?> "term")
+            pLet;
+            pGet] <?> "term")
 
 //#region Expression Parsing
 
