@@ -52,7 +52,7 @@ and Pattern =
     | ConsPat of VarPattern * VarPattern
 
 type BuiltIn =
-    | Get 
+    | Get
     | RecordAccess of string
 
 let numArgs =

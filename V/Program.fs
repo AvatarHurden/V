@@ -252,6 +252,12 @@ let rec parseItem lib previous first =
 let rec interactive (parsed, option) =
     match parsed with
     | Choice1Of3 (newLib: Library) ->
+        try
+            ignore <| typeInferLib newLib
+        with
+        | TypeException e ->
+            printfn "Type system error:"
+            Console.WriteLine e
         interactive <| parseItem newLib "" true
     | Choice2Of3 (term, lib) ->
         try 

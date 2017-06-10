@@ -209,6 +209,7 @@ let rec private evalPartial b (args: (term * env) list) =
                     Seq.nth i values
                 | None ->
                     sprintf "Record has no entry %A at %A" s (args.Item 1) |> EvalException |> raise
+            | ResFn _, _ -> ResRaise
             | _, ResRecord _ -> sprintf "First argument of get is not a function" |> EvalException |> raise
             | _, _ -> sprintf "Second argument of get is not a record" |> EvalException |> raise
         | _ -> 
