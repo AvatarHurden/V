@@ -451,21 +451,22 @@ let findId id (e: Map<string, EnvAssociation>) =
     else
         raise (TypeException <| sprintf "Identifier %A undefined" id)
 
+let typeOfBuiltin b =
+    match b with
+    | RecordAccess s ->
+        let varType1 = VarType (getVarType (), [])
+        let varType2 = VarType (getVarType (), [RecordLabel (s, varType1)])
+        Function (varType1, Function(varType2, Type.Tuple [varType1; varType2])), []
+    | Get -> 
+        let varType1 = VarType (getVarType (), [])
+        let varType2 = VarType (getVarType (), [])
+        let accessTyp =
+            Function (varType1, Function(varType2, Type.Tuple [varType1; varType2]))
+        Function(accessTyp, Function(varType2, varType1)), []
+
 // collectConstraints term environment constraints
 let rec collectConstraints term (env: Map<string, EnvAssociation>) =
     match term with
-    | Built b ->
-        match b with
-        | RecordAccess s ->
-            let varType1 = VarType (getVarType (), [])
-            let varType2 = VarType (getVarType (), [RecordLabel (s, varType1)])
-            Function (varType1, Function(varType2, Type.Tuple [varType1; varType2])), []
-        | Get -> 
-            let varType1 = VarType (getVarType (), [])
-            let varType2 = VarType (getVarType (), [])
-            let accessTyp =
-                Function (varType1, Function(varType2, Type.Tuple [varType1; varType2]))
-            Function(accessTyp, Function(varType2, varType1)), []
     | B true ->
         Bool, []
     | B false ->
@@ -474,6 +475,23 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         Int, []
     | C(c) ->
         Char, []
+    | Fn fn ->
+        match fn with
+        | BuiltIn b -> typeOfBuiltin b
+        | Lambda (pattern, t1) ->
+            let paramTyp = VarType (getVarType (), [])
+            let env', cons = validatePattern pattern paramTyp env []
+            let typ1, c1 = collectConstraints t1 env'
+            Function(paramTyp, typ1), cons @ c1
+        | Recursive (id, retType, pattern, t1) ->
+            let paramTyp = VarType (getVarType (), [])
+            let fType = 
+                match retType with
+                | Some retType -> Function(paramTyp, retType) 
+                | None -> VarType (getVarType (), [])
+            let env', cons = validatePattern pattern paramTyp (env.Add(id, Simple fType)) []
+            let typ1, c1 = collectConstraints t1 env'
+            Function (paramTyp, typ1), cons @ c1 @ [Equals (Function (paramTyp, typ1), fType)]
     | OP(t1, Application, t2) ->
         let typ1, c1 = collectConstraints t1 env
         let typ2, c2 = collectConstraints t2 env
@@ -506,20 +524,6 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         Int, c1 @ c2 @ [Equals (Int, typ1); Equals (Int, typ2)]
     | X(id) ->
         findId id env
-    | Fn(pattern, t1) ->
-        let paramTyp = VarType (getVarType (), [])
-        let env', cons = validatePattern pattern paramTyp env []
-        let typ1, c1 = collectConstraints t1 env'
-        Function(paramTyp, typ1), cons @ c1
-    | RecFn(id, retType, pattern, t1) ->
-        let paramTyp = VarType (getVarType (), [])
-        let fType = 
-            match retType with
-            | Some retType -> Function(paramTyp, retType) 
-            | None -> VarType (getVarType (), [])
-        let env', cons = validatePattern pattern paramTyp (env.Add(id, Simple fType)) []
-        let typ1, c1 = collectConstraints t1 env'
-        Function (paramTyp, typ1), cons @ c1 @ [Equals (Function (paramTyp, typ1), fType)]
     | Match (t1, patterns) ->
         let typ1, c1 = collectConstraints t1 env
         let retTyp = VarType (getVarType (), [])
@@ -582,6 +586,6 @@ let typeInfer t =
 
 let typeInferLib lib =
     let ret = List.foldBack (fun (p, t) acc -> Let(p, t, acc)) lib.terms (X "x")
-    let libTerm = Fn(Pat(XPat "x", None), ret) 
+    let libTerm = Fn <| Lambda(Pat(XPat "x", None), ret) 
     libTerm |> typeInfer
        

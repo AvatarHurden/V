@@ -92,7 +92,7 @@ let swap (x, y) = (y, x);
 // Record Functions
 // ================
 
-let get acc r = fst $ acc raise r;
+//let get acc r = fst $ acc raise r;
 let set acc v r = snd $ acc v r;
 
 let modify acc f r =

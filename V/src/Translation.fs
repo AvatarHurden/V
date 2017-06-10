@@ -66,9 +66,9 @@ let private condenseFunction name parameters retTerm retTyp =
     let f p (func, funcType: Type option) = 
         match p with
         | Pat(_, Some typ) when funcType.IsSome ->
-            Fn(p, func), Some <| Function(typ, funcType.Value) 
+            Fn <| Lambda(p, func), Some <| Function(typ, funcType.Value) 
         | Pat (_, _) ->
-            Fn(p, func), None
+            Fn <| Lambda(p, func), None
     
     let fn, typ = List.foldBack f parameters (retTerm, retTyp)
     fn, typ
@@ -90,9 +90,9 @@ let rec private condenseNamedFunction isRec id parameters retTyp retTerm env =
             | Pat(_, _) -> None
 
         if isRec then
-            Pat(XPat id, fnTyp), RecFn(id, retTyp, head, retTerm)
+            Pat(XPat id, fnTyp), Fn <| Recursive(id, retTyp, head, retTerm)
         else
-            Pat(XPat id, fnTyp), Fn(head, retTerm)
+            Pat(XPat id, fnTyp), Fn <| Lambda(head, retTerm)
 
 and private translateDecl decl env = 
     match decl with
@@ -110,9 +110,22 @@ and private translateDecl decl env =
         let env' = env.addTypeAlias s <| translateType typ env
         [], env'
 
+and private translateFn fn env =
+    match fn with
+    | ExBuiltIn b -> Fn <| BuiltIn b
+    | ExLambda (pars, t) -> 
+        let pars' = translatePatterns pars env
+        let t' = translateTerm t env
+        let fn, typ = condenseFunction None pars' t' None
+        fn
+    | ExRecursive (id, pars, typ, t) -> 
+        let pars' = translatePatterns pars env
+        let typ' = translateSomeType typ env
+        let pat, fn = condenseNamedFunction true id pars' typ' t env
+        fn
+
 and private translateTerm term env =
     match term with
-    | ExBuilt b -> Built b
     | ExB b -> B b
     | ExI i -> I i
     | ExC c -> C c
@@ -121,16 +134,7 @@ and private translateTerm term env =
         let t2' = translateTerm t2 env
         OP(t1', op, t2')
     | ExX x -> X x
-    | ExFn (pars, t) -> 
-        let pars' = translatePatterns pars env
-        let t' = translateTerm t env
-        let fn, typ = condenseFunction None pars' t' None
-        fn
-    | ExRecFn (id, pars, typ, t) -> 
-        let pars' = translatePatterns pars env
-        let typ' = translateSomeType typ env
-        let pat, fn = condenseNamedFunction true id pars' typ' t env
-        fn
+    | ExFn fn -> translateFn fn env
         
     | ExMatch (t1, patterns) -> 
         let f (p, cond, res) =
@@ -180,7 +184,7 @@ and private translateTerm term env =
              Application, last'), 
          Application, increment)
     | Comprehension (retTerm, p, source) ->
-        let f = Fn (translatePattern p env, translateTerm retTerm env)
+        let f = Fn <| Lambda (translatePattern p env, translateTerm retTerm env)
         OP (OP (X "map", Application, f), Application, translateTerm source env)
        
 let translateLib declarations env =

@@ -443,45 +443,6 @@ let swap (x, y) = (y, x);
 
 
 [<TestFixture>]
-type Get() =
-
-    static member func = Apply.func + Fst.func + """
-let get acc r = fst $ acc raise r;
-"""
-
-    [<Test>]
-    member that.testType() =
-        let w = VarType("w", [])
-        let x = VarType("x", [])
-        let y = VarType("y", [])
-        let z = VarType("z", [])
-        let accTyp = Function (x, Function (z, Type.Tuple [y; w]))
-        matchesType (Get.func + "get") <| 
-            Function (accTyp, Function (z, y))
-     
-    [<Test>]
-    member that.wrongParameter() =
-        throwsWrongType (Get.func + "get (true, 4, 4)")
-        throwsWrongType (Get.func + "get #name {names:3}")
-
-    [<Test>]
-    member that.simpleGet() =
-        equals (Get.func + "get #a {a:4, b:3}") <| ResI 4
-    
-    [<Test>]
-    member that.raiseField() =
-        equals (Get.func + "get #a {a:raise, b:3}") <| ResRaise
-    
-    [<Test>]
-    member that.nonRaiseField() =
-        equals (Get.func + "get #a {a:4, b:raise}") <| ResI 4
-
-    [<Test>]
-    member that.raiseRecord() =
-        equals (Get.func + "get #a raise") <| ResRaise
-    
-
-[<TestFixture>]
 type Set() =
 
     static member func = Apply.func + Snd.func + """
@@ -524,7 +485,7 @@ let set acc v r = snd $ acc v r;
 [<TestFixture>]
 type Modify() =
 
-    static member func = Get.func + Set.func + """
+    static member func = Set.func + """
 let modify acc f r =
     let oldV = get acc r;
     set acc (f oldV) r

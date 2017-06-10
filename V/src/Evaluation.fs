@@ -192,30 +192,35 @@ let rec compareOrder t1 t2 orderType =
     
 //#endregion
 
-let rec private evalPartial b (args: term list) env =
+let rec private evalPartial b (args: (term * env) list) =
     match b with
     | Get ->
         match args with
-        | [t1; t2] ->
-            let t1' = eval t1 env
-            let t2' = eval t2 env
+        | [(t1, env1); (t2, env2)] ->
+            let t1' = eval t1 env1
+            let t2' = eval t2 env2
             match t1', t2' with
-            | ResPartial ((RecordAccess s), []), ResRecord pairs ->
+            | ResRaise, _
+            | _, ResRaise -> ResRaise
+            | ResFn (BuiltIn (RecordAccess s), _), ResRecord pairs ->
                 let names, values = List.unzip pairs
                 match Seq.tryFindIndex ((=) s) names with
                 | Some i ->
                     Seq.nth i values
                 | None ->
                     sprintf "Record has no entry %A at %A" s (args.Item 1) |> EvalException |> raise
-            | _ -> sprintf "Wrong arguments" |> EvalException |> raise
+            | _, ResRecord _ -> sprintf "First argument of get is not a function" |> EvalException |> raise
+            | _, _ -> sprintf "Second argument of get is not a record" |> EvalException |> raise
         | _ -> 
             sprintf "Wrong arguments" |> EvalException |> raise
     | RecordAccess s ->
         match args with
-        | [t1; t2] ->
-            let t1' = eval t1 env
-            let t2' = eval t2 env
+        | [(t1, env1); (t2, env2)] ->
+            let t1' = eval t1 env1
+            let t2' = eval t2 env2
             match t1', t2' with
+            | ResRaise, _
+            | _, ResRaise -> ResRaise
             | t1, ResRecord pairs ->
                 let names, values = List.unzip pairs
                 match Seq.tryFindIndex ((=) s) names with
@@ -235,31 +240,39 @@ let rec private evalPartial b (args: term list) env =
 
 and private eval t env =
     match t with
-    | Built b -> ResPartial(b, [])
     | B b-> ResB b
     | I i -> ResI i
     | C c -> ResC c
+    | Fn fn -> ResFn (fn, env)
     | OP(t1, Application, t2) ->
         match eval t1 env with
         | ResRaise -> ResRaise
         | ResPartial(b, args) ->
-            let args' = args @ [t2]
+            let args' = args @ [t2, env]
             if args'.Length = numArgs b then
-                evalPartial b args' env
+                evalPartial b args'
             else
                 ResPartial(b, args')
-        | ResRecClosure(id1, pattern, e, env') as t1' ->
-            match eval t2 env with
-            | t2' -> 
-                match validatePattern pattern t2' env' with
-                | None -> ResRaise
-                | Some env' -> eval e <| env'.Add(id1, t1')
-        | ResClosure(pattern, e, env') ->
-            match eval t2 env with
-            | t2' -> 
-                match validatePattern pattern t2' env' with
-                | None -> ResRaise
-                | Some env' -> eval e env'
+        | ResFn (fn, env') ->
+            match fn with
+            | BuiltIn b ->
+                let args = [t2, env]
+                if args.Length = numArgs b then
+                    evalPartial b args
+                else
+                    ResPartial(b, args)
+            | Lambda (pattern, e) ->
+                match eval t2 env with
+                | t2' -> 
+                    match validatePattern pattern t2' env' with
+                    | None -> ResRaise
+                    | Some env' -> eval e env'
+            | Recursive (id, _, pattern, e) ->
+                match eval t2 env with
+                | t2' -> 
+                    match validatePattern pattern t2' env' with
+                    | None -> ResRaise
+                    | Some env' -> eval e <| env'.Add(id, ResFn(fn, env'))
         | t1' -> sprintf "First operand %A is not a function at %A" t1' t |> EvalException |> raise
     | OP(t1, Cons, t2) ->
         match eval t1 env with
@@ -298,8 +311,6 @@ and private eval t env =
             | Divide when i2 = 0 -> ResRaise
             | _ -> sprintf "Term %A is not an operator at %A" op t |> EvalException |> raise
         | _, _ -> sprintf "Operation %A requires numbers at %A" op t |> EvalException |> raise
-    | Fn(pattern, t1) -> ResClosure(pattern, t1, env)
-    | RecFn(id1, typ1, pattern, t) -> ResRecClosure(id1, pattern, t, env)
     | Match (t1, patterns) ->
         match eval t1 env with
         | t1' ->

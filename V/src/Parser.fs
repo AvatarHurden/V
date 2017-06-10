@@ -282,7 +282,7 @@ let private pNil = stringReturn "nil" ExNil
 
 let private pRaise = stringReturn "raise" ExRaise
 
-let private pProjection = pstring "#" >>. pIdentifier |>> fun s -> ExBuilt (RecordAccess s)
+let private pProjection = pstring "#" >>. pIdentifier |>> fun s -> ExFn <| ExBuiltIn (RecordAccess s)
 
 //#endregion   
 
@@ -299,14 +299,14 @@ let private pParameter =
 let private pLambda: Parser<ExTerm, UserState> =
     tuple2 
         (pstring "\\" >>. ws >>. many1 pParameter)
-        (pstring "->" >>. ws >>. pTerm) |>> ExFn
+        (pstring "->" >>. ws >>. pTerm) |>> fun x -> ExFn <| ExLambda x
 
 let private pRecLambda: Parser<ExTerm, UserState> =
     tuple4
         (pstring "rec" >>. ws >>. pIdentifier .>> ws) 
         (many1 pParameter)
         (opt (pstring ":" >>. pType))
-        (pstring "->" >>. ws >>. pTerm) |>> ExRecFn
+        (pstring "->" >>. ws >>. pTerm) |>> fun x -> ExFn <| ExRecursive x
 
 //#endregion
 
@@ -319,7 +319,7 @@ let private pParen =
         pBetween "(" ")" (pOperator .>> ws)
             |>> (function
                   | Def op ->
-                      ExFn([(ExXPat "x", None); (ExXPat "y", None)], 
+                      ExFn <| ExLambda([(ExXPat "x", None); (ExXPat "y", None)], 
                         ExOP(ExX "x", op, ExX "y"))
                   | Custom c ->
                       ExX c)
@@ -496,7 +496,7 @@ let private pMatch =
                 (pstring "->" >>. ws >>. pTerm))) <|
     fun first triplets -> ExMatch(first, triplets)
 
-let private pGet = pstring "get" >>. ws |>> fun _ -> ExBuilt Get
+let private pGet = pstring "get" >>. ws |>> fun _ -> ExFn <| ExBuiltIn Get
 
 //#endregion
 

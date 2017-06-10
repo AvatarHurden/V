@@ -60,35 +60,38 @@ let numArgs =
     | Get -> 2
     | RecordAccess _ -> 2
 
-type term =
+type Function =
+    | BuiltIn of BuiltIn
+    | Lambda of VarPattern * term
+    | Recursive of Ident * (Type option) * VarPattern * term
+
+and term =
     | B of bool
     | I of int
     | C of char
     | OP of term * op * term
     | X of Ident
-    | Fn of VarPattern * term
-    | RecFn of Ident * (Type option) * VarPattern * term
+    | Fn of Function
     | Match of term * (VarPattern * term option * term) list
     | Let of VarPattern * term * term
     | Nil
     | Raise
     | Tuple of term list
     | Record of (string * term) list
-    | Built of BuiltIn
 
-type result =
+type ResFunction = Function * env
+
+and result =
     | ResB of bool
     | ResI of int
     | ResC of char
+    | ResFn of ResFunction
+    | ResPartial of BuiltIn * (term * env) list
     | ResRaise
     | ResNil
     | ResCons of result * result
-    | ResClosure of VarPattern * term * env
-    | ResRecClosure of Ident * VarPattern * term * env
     | ResTuple of result list
     | ResRecord of (string * result) list
-    
-    | ResPartial of BuiltIn * term list
 and
     env = Map<Ident, result>
 
@@ -159,21 +162,24 @@ and ExPattern =
     | ExNilPat
     | ExConsPat of ExVarPattern * ExVarPattern
 
-type ExTerm = 
+type ExFunction =
+    | ExBuiltIn of BuiltIn
+    | ExLambda of ExVarPattern list * ExTerm
+    | ExRecursive of Ident * ExVarPattern list * ExType option * ExTerm
+
+and ExTerm = 
     | ExB of bool
     | ExI of int
     | ExC of char
     | ExOP of ExTerm * op * ExTerm
     | ExX of Ident
-    | ExFn of ExVarPattern list * ExTerm
-    | ExRecFn of Ident * ExVarPattern list * ExType option * ExTerm
+    | ExFn of ExFunction
     | ExMatch of ExTerm * (ExVarPattern * ExTerm option * ExTerm) list
     | ExLet of ExDeclaration * ExTerm
     | ExNil
     | ExRaise
     | ExTuple of ExTerm list
     | ExRecord of (string * ExTerm) list
-    | ExBuilt of BuiltIn
 
     | Cond of ExTerm * ExTerm * ExTerm
     | Range of ExTerm * ExTerm option * ExTerm
