@@ -293,28 +293,34 @@ let runInteractive (results: ParseResults<Interactive>) =
             interactive <| parseItem (stdlib.loadCompiled ()) "" true
 
 let compileStdlib x =
-    
-    let lib = parseStdlib ()
-    
-    ignore <| typeInferLib lib
 
-    let ar = saveLibArray lib
+    try 
+        let lib = parseStdlib ()
+    
+        ignore <| typeInferLib lib
+
+        let ar = saveLibArray lib
         
-    let text = "module compiledStdlib"
-    let text = text + "\n\nlet compiled: byte[] = [|"
+        let text = "module compiledStdlib"
+        let text = text + "\n\nlet compiled: byte[] = [|"
 
-    let f (index, text) (byte: byte) =
-        let hex = String.Format("0x{0:X2}uy;", byte)
-        if index = 16 then
-            0 , text + "\n    " + hex
-        else
-            index + 1, text + " " + hex
+        let f (index, text) (byte: byte) =
+            let hex = String.Format("0x{0:X2}uy;", byte)
+            if index = 16 then
+                0 , text + "\n    " + hex
+            else
+                index + 1, text + " " + hex
 
-    let (_, text) = Array.fold f (16, text) ar
+        let (_, text) = Array.fold f (16, text) ar
 
-    let text = text.Substring (0, text.Length - 1) + "\n|]\n\n"
+        let text = text.Substring (0, text.Length - 1) + "\n|]\n\n"
 
-    File.WriteAllText("compiledStdlib.fs", text)
+        File.WriteAllText("compiledStdlib.fs", text)
+    with
+    | ParseException e ->
+        Console.WriteLine e
+    | TypeException e ->
+        Console.WriteLine e
 
 let rec getTermText x =
     let text = Console.ReadLine ()
