@@ -54,6 +54,9 @@ type BuiltIn =
     | GreaterOrEqual
     | GreaterThan
 
+    | And
+    | Or
+
     | Cons
 
 let numArgs =

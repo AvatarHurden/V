@@ -138,10 +138,10 @@ type TestMatchEval() =
         compare ("(rec count (x :: y) -> if empty? y then 1 else 1 + count y) []", ResRaise)
 
 [<TestFixture>]
-type NonStrictness() =
+type Strictness() =
         [<Test>]
         member that.basic() =
-            compare ("let f x = 3; f raise", ResI 3)
+            compare ("let f x = 3; f raise", ResRaise)
 
         [<Test>]
         member that.strict() =
@@ -150,7 +150,7 @@ type NonStrictness() =
 	    | 0 -> 0
 	    | x -> x + y
     ;
-    f 0 raise", ResI 0)
+    f 0 raise", ResRaise)
 
         [<Test>]
         member that.strict2() =
@@ -164,4 +164,4 @@ type NonStrictness() =
 
         [<Test>]
         member that.indexing() =
-            compare ("[raise, raise, raise, 3] !! 3", ResI 3)
+            compare ("[raise, raise, raise, 3] !! 3", ResRaise)

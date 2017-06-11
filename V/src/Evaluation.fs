@@ -290,6 +290,27 @@ and private evalPartial b (args: (term * env) list) =
         | ResB b -> ResB (not b)
         | _ -> raise <| EvalException "Equal returned a non-expected value"
 
+    | And ->
+        match args with
+        | [(t1, env1); (t2, env2)] ->
+            match eval t1 env1 with
+            | ResRaise -> ResRaise
+            | ResB false -> ResB false
+            | ResB true -> eval t2 env2
+            | _ -> sprintf "And requires a boolean" |> EvalException |> raise
+        | _ ->
+            sprintf "Wrong number of arguments to and" |> EvalException |> raise
+    | Or ->
+        match args with
+        | [(t1, env1); (t2, env2)] ->
+            match eval t1 env1 with
+            | ResRaise -> ResRaise
+            | ResB true -> ResB true
+            | ResB false -> eval t2 env2
+            | _ -> sprintf "Or requires a boolean" |> EvalException |> raise
+        | _ ->
+            sprintf "Wrong number of arguments to Or" |> EvalException |> raise
+
     | Cons ->
         match args with
         | Eval [t1; t2] ->

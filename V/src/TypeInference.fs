@@ -473,6 +473,10 @@ let typeOfBuiltin b =
         let varType = VarType (getVarType (), [Orderable])
         Function (varType, Function (varType, Bool))
 
+    | And
+    | Or ->
+        Function (Bool, Function (Bool, Bool))
+
     | Cons ->
         let varType = VarType (getVarType (), [])
         Function (varType, Function (List varType, List varType))

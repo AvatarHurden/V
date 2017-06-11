@@ -38,7 +38,10 @@ let defaultOPs =[
     OpSpec (Infix  (4, Non  , BuiltInOp Equal         ), "=" );
     OpSpec (Infix  (4, Non  , BuiltInOp Different     ), "!=");
     OpSpec (Infix  (4, Non  , BuiltInOp GreaterThan   ), ">" );
-    OpSpec (Infix  (4, Non  , BuiltInOp GreaterOrEqual), ">=")]
+    OpSpec (Infix  (4, Non  , BuiltInOp GreaterOrEqual), ">=");
+
+    OpSpec (Infix  (3, Right, BuiltInOp And           ), "&&");
+    OpSpec (Infix  (2, Right, BuiltInOp Or            ), "||")]
 
 let defaultUserState =
     {operators = defaultOPs}
