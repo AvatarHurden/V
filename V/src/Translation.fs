@@ -53,6 +53,12 @@ let private translatePatterns patterns env =
             let p1', ids' = findRepeats ids p1
             let p2', ids' = findRepeats ids' p2
             Pat (ConsPat (p1', p2'), translateSomeType typ env), ids'
+        | ExListPat patterns ->
+            let f pat (acc, pats) =
+                let (newPat, acc') = findRepeats acc pat
+                (acc', newPat :: pats)
+            let (ids', pats) = List.foldBack f patterns (ids, [])
+            List.foldBack (fun p acc -> Pat (ConsPat(p, acc), None)) pats (Pat (NilPat, None)), ids'
      
     let f pat (acc, pats) =
         let (newPat, acc') = findRepeats acc pat
@@ -129,12 +135,10 @@ and private translateTerm term env =
     | ExB b -> B b
     | ExI i -> I i
     | ExC c -> C c
-    | ExOP (t1, op, t2) -> 
-        let t1' = translateTerm t1 env
-        let t2' = translateTerm t2 env
-        OP(t1', op, t2')
     | ExX x -> X x
     | ExFn fn -> translateFn fn env
+    | ExApp (t1, t2) ->
+        App(translateTerm t1 env, translateTerm t2 env)
         
     | ExMatch (t1, patterns) -> 
         let f (p, cond, res) =
@@ -157,6 +161,9 @@ and private translateTerm term env =
         List.foldBack (fun (p, t) acc -> Let(p, t, acc)) comps t2'
             
     | ExNil -> Nil
+    | ExListTerm l ->
+        List.foldBack (fun x acc -> App (App (Fn <| BuiltIn Cons, translateTerm x env), acc)) l Nil
+
     | ExRaise -> Raise
     | ExTuple terms -> 
         Tuple <| List.map (fun t -> translateTerm t env) terms
@@ -177,15 +184,11 @@ and private translateTerm term env =
             | None -> I 1
             | Some second -> 
                 let second' = translateTerm second env
-                OP(second', Subtract, first')
-        OP (
-            OP (
-                OP (X "range", Application, first'), 
-             Application, last'), 
-         Application, increment)
+                App (App (Fn <| BuiltIn Subtract, second'), first')
+        App (App (App (X "range", first'), last'), increment)
     | Comprehension (retTerm, p, source) ->
         let f = Fn <| Lambda (translatePattern p env, translateTerm retTerm env)
-        OP (OP (X "map", Application, f), Application, translateTerm source env)
+        App (App (X "map", f), translateTerm source env)
        
 let translateLib declarations env =
     let f (comps, env) decl =

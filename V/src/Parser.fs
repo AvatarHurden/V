@@ -24,21 +24,21 @@ type UserState =
         {this with operators = ops @ ops'}
 
 let defaultOPs =[
-    OpSpec (Infix  (8, Left , Def Multiply      ), "*" );
-    OpSpec (Infix  (8, Left , Def Divide        ), "/" );
+    OpSpec (Infix  (8, Left , BuiltInOp Multiply      ), "*" );
+    OpSpec (Infix  (8, Left , BuiltInOp Divide        ), "/" );
      
-    OpSpec (Prefix (7,       "negate"          ), "-" ); 
-    OpSpec (Infix  (7, Left , Def Add           ), "+" );
-    OpSpec (Infix  (7, Left , Def Subtract      ), "-" );
+    OpSpec (Prefix (7,        BuiltInOp Negate        ), "-" ); 
+    OpSpec (Infix  (7, Left , BuiltInOp Add           ), "+" );
+    OpSpec (Infix  (7, Left , BuiltInOp Subtract      ), "-" );
 
-    OpSpec (Infix  (6, Right, Def Cons          ), "::");
+    OpSpec (Infix  (6, Right, BuiltInOp Cons          ), "::");
 
-    OpSpec (Infix  (4, Non  , Def LessOrEqual   ), "<=");
-    OpSpec (Infix  (4, Non  , Def LessThan      ), "<" );
-    OpSpec (Infix  (4, Non  , Def Equal         ), "=" );
-    OpSpec (Infix  (4, Non  , Def Different     ), "!=");
-    OpSpec (Infix  (4, Non  , Def GreaterThan   ), ">" );
-    OpSpec (Infix  (4, Non  , Def GreaterOrEqual), ">=")]
+    OpSpec (Infix  (4, Non  , BuiltInOp LessOrEqual   ), "<=");
+    OpSpec (Infix  (4, Non  , BuiltInOp LessThan      ), "<" );
+    OpSpec (Infix  (4, Non  , BuiltInOp Equal         ), "=" );
+    OpSpec (Infix  (4, Non  , BuiltInOp Different     ), "!=");
+    OpSpec (Infix  (4, Non  , BuiltInOp GreaterThan   ), ">" );
+    OpSpec (Infix  (4, Non  , BuiltInOp GreaterOrEqual), ">=")]
 
 let defaultUserState =
     {operators = defaultOPs}
@@ -62,7 +62,7 @@ let keywords =
     Set["let" ; "true"  ; "false" ; "if"   ; "then"   ; "else"  ;
         "rec" ; "nil"   ; "raise" ; "when" ; "match"  ; "with"  ;
         "for" ; "in"    ; "import"; "infix"; "infixl" ; "infixr";
-        "type"; "alias" ; "get"]
+        "type"; "alias" ; "get"   ; "_"]
 
 let typeKeywords = Set["Int"; "Bool"; "Char"] 
 
@@ -94,18 +94,18 @@ let private pTypeIdentifier: Parser<string, UserState> =
 let private pOperator = 
     many1Chars (anyOf ":?!%$&*+-./<=>@^|~") |>>
         (function
-        | "+" -> Def Add
-        | "-" -> Def Subtract
-        | "*" -> Def Multiply
-        | "/" -> Def Divide
-        | "<=" -> Def LessOrEqual
-        | "<" -> Def LessThan
-        | "=" -> Def Equal
-        | "!=" -> Def Different
-        | ">=" -> Def GreaterOrEqual
-        | ">" -> Def GreaterThan
-        | "::" -> Def Cons
-        | c -> Custom c)
+        | "+" -> BuiltInOp Add
+        | "-" -> BuiltInOp Subtract
+        | "*" -> BuiltInOp Multiply
+        | "/" -> BuiltInOp Divide
+        | "<=" -> BuiltInOp LessOrEqual
+        | "<" -> BuiltInOp LessThan
+        | "=" -> BuiltInOp Equal
+        | "!=" -> BuiltInOp Different
+        | ">=" -> BuiltInOp GreaterOrEqual
+        | ">" -> BuiltInOp GreaterThan
+        | "::" -> BuiltInOp Cons
+        | c -> CustomOp c)
 
 let private pCustomOperator: Parser<string, UserState> = 
     fun stream ->
@@ -115,8 +115,8 @@ let private pCustomOperator: Parser<string, UserState> =
             Reply(Error, reply.Error)
         else
             match reply.Result with
-            | Custom c -> Reply(c)
-            | Def _ -> 
+            | CustomOp c -> Reply(c)
+            | BuiltInOp _ -> 
                 stream.BacktrackTo state
                 Reply(Error, unexpected "cannot redefine built-in operators")
 
@@ -138,7 +138,7 @@ let private pChar =
 let private pString = 
     between (pstring "\"") (pstring "\"") 
         (many ((pEscapeChar <|> pNonEscapeChar '"'))) 
-        |>> fun l -> List.foldBack (fun x acc -> ExOP (ExC x, Cons, acc)) l ExNil
+        |>> fun l -> ExListTerm <| List.map ExC l
 
 //#endregion   
 
@@ -203,14 +203,12 @@ let private pCharPattern =
          function | ExC c -> (ExCPat c, None)
                   | _ -> raise <| invalidArg "char" "Parsing char did not return char"
 let private pStringPattern = 
-    let convert term =
-        let rec t = 
-            function
-            | ExOP (ExC c, Cons, t') -> (ExConsPat((ExCPat c, None), t t'), None)
-            | ExNil -> (ExNilPat, None)
-            | _ -> raise <| invalidArg "string" "Parsing string did not return string"
-        t term 
-    pString |>> convert 
+    let convertToPat =
+        function
+        | ExC c -> ExCPat c, None
+        | _ -> raise <| invalidArg "string" "Parsing string did not return string"
+    pString |>> function | (ExListTerm l) -> ExListPat <| List.map convertToPat l, None
+                         | _ -> raise <| invalidArg "string" "Parsing string did not return string"
 
 let private pParenPattern = 
     pBetween "(" ")" (sepBy1 pPattern (pstring "," .>> ws))
@@ -233,7 +231,7 @@ let private pRecordPattern =
 
 let private pListPattern =
     pBetween "[" "]" (sepBy pPattern (pstring "," .>> ws)) 
-        |>> fun l -> List.foldBack (fun p acc -> (ExConsPat(p, acc), None)) l (ExNilPat, None)
+        |>> fun l -> ExListPat l, None
 
 let private pPatternValue = 
     pIdentPattern <|> 
@@ -284,6 +282,8 @@ let private pRaise = stringReturn "raise" ExRaise
 
 let private pProjection = pstring "#" >>. pIdentifier |>> fun s -> ExFn <| ExBuiltIn (RecordAccess s)
 
+let private pGet = pstring "get" >>. ws |>> fun _ -> ExFn <| ExBuiltIn Get
+
 //#endregion   
 
 let private pTerm, private pTermRef = createParserForwardedToRef<ExTerm, UserState>()
@@ -318,10 +318,11 @@ let private pParen =
     let pPrefixOP =
         pBetween "(" ")" (pOperator .>> ws)
             |>> (function
-                  | Def op ->
-                      ExFn <| ExLambda([(ExXPat "x", None); (ExXPat "y", None)], 
-                        ExOP(ExX "x", op, ExX "y"))
-                  | Custom c ->
+                  | BuiltInOp op ->
+                      ExFn <| ExBuiltIn op
+                      //ExFn <| ExLambda([(ExXPat "x", None); (ExXPat "y", None)], 
+                        //ExOP(ExX "x", op, ExX "y"))
+                  | CustomOp c ->
                       ExX c)
 
     attempt pPrefixOP <|> pBetween "(" ")" pTuple
@@ -355,8 +356,7 @@ let private pComprehension: Parser<ExTerm, UserState> =
         pTerm |>> Comprehension
 
 let private pList =
-    sepBy pTerm (pstring "," .>> ws) |>> 
-    fun l -> List.foldBack (fun x acc -> ExOP (x, Cons, acc)) l ExNil
+    sepBy pTerm (pstring "," .>> ws) |>> ExListTerm
 
 let private pSquareBrackets =
     pBetween "[" "]" (pComprehension <|> pRange <|> pList)
@@ -387,9 +387,9 @@ let private pOperatorName =
             let newOp =
                 match explicit with
                 | Some (assoc, prec) ->
-                    OpSpec(Infix (prec, assoc, Custom name), name)
+                    OpSpec(Infix (prec, assoc, CustomOp name), name)
                 | None ->
-                    OpSpec(Infix (9, Left, Custom name), name)
+                    OpSpec(Infix (9, Left, CustomOp name), name)
             stream.UserState <- stream.UserState.addOperator newOp
             Reply(name)
 
@@ -496,8 +496,6 @@ let private pMatch =
                 (pstring "->" >>. ws >>. pTerm))) <|
     fun first triplets -> ExMatch(first, triplets)
 
-let private pGet = pstring "get" >>. ws |>> fun _ -> ExFn <| ExBuiltIn Get
-
 //#endregion
 
 let private pValue = 
@@ -524,7 +522,7 @@ let private pValue =
 let private manyApplication p =
   Inline.Many(elementParser = p,
               stateFromFirstElement = (fun x -> x),
-              foldState = (fun acc x -> ExOP(acc, Application, x)),
+              foldState = (fun acc x -> ExApp(acc, x)),
               resultFromState = (fun acc -> acc))
 
 let private toOPP x: Operator<ExTerm, string, UserState> = 
@@ -534,14 +532,17 @@ let private toOPP x: Operator<ExTerm, string, UserState> =
         | Right -> Associativity.Right 
         | Non -> Associativity.None
     match x with
-    | OpSpec (Prefix (pri, func), string) -> 
-        upcast PrefixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, false, fun x -> ExOP (ExX func, Application, x))
+    | OpSpec (Prefix (pri, BuiltInOp op), string) ->
+        upcast PrefixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, false, fun x -> ExApp (ExFn <| ExBuiltIn op, x))
             : Operator<ExTerm, string, UserState>
-    | OpSpec (Infix (pri, assoc, Def op), string) ->
-        upcast InfixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, updateAssoc assoc, fun x y -> ExOP(x, op, y))
+    | OpSpec (Prefix (pri, CustomOp op), string) ->
+        upcast PrefixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, false, fun x -> ExApp (ExX op, x))
             : Operator<ExTerm, string, UserState>
-    | OpSpec (Infix (pri, assoc, Custom op), string) ->
-        upcast InfixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, updateAssoc assoc, fun x y -> ExOP (ExOP (ExX op, Application, x), Application, y))
+    | OpSpec (Infix (pri, assoc, BuiltInOp op), string) ->
+        upcast InfixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, updateAssoc assoc, fun x y -> ExApp (ExApp (ExFn <| ExBuiltIn op, x), y))
+            : Operator<ExTerm, string, UserState>
+    | OpSpec (Infix (pri, assoc, CustomOp op), string) ->
+        upcast InfixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, updateAssoc assoc, fun x y -> ExApp (ExApp (ExX op, x), y))
             : Operator<ExTerm, string, UserState>
 
 let private getExpressionParser state =
@@ -553,7 +554,7 @@ let private getExpressionParser state =
     for op in operators do
         opp.AddOperator <| toOPP op
     opp.AddOperator (InfixOperator("`", pIdentifier .>> pstring "`" .>> ws, 9, Associativity.Left,
-                        (), (fun id x y -> ExOP (ExOP (ExX id, Application, x), Application, y))))
+                        (), (fun id x y -> ExApp (ExApp (ExX id, x), y))))
     opp.ExpressionParser
 
 //#endregion

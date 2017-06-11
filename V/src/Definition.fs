@@ -22,20 +22,6 @@ and Type =
     | Tuple of Type list
     | Record of (string * Type) list
 
-type op =
-    | Add
-    | Subtract
-    | Multiply
-    | Divide
-    | LessThan
-    | LessOrEqual
-    | Equal
-    | Different
-    | GreaterOrEqual
-    | GreaterThan
-    | Application
-    | Cons
-    
 type Ident = string
     
 type VarPattern = Pat of Pattern * Type option
@@ -55,10 +41,25 @@ type BuiltIn =
     | Get
     | RecordAccess of string
 
+    | Add
+    | Subtract
+    | Multiply
+    | Divide
+    | Negate
+
+    | LessThan
+    | LessOrEqual
+    | Equal
+    | Different
+    | GreaterOrEqual
+    | GreaterThan
+
+    | Cons
+
 let numArgs =
     function
-    | Get -> 2
-    | RecordAccess _ -> 2
+    | Negate -> 1
+    | _ -> 2
 
 type Function =
     | BuiltIn of BuiltIn
@@ -69,9 +70,9 @@ and term =
     | B of bool
     | I of int
     | C of char
-    | OP of term * op * term
     | X of Ident
     | Fn of Function
+    | App of term * term
     | Match of term * (VarPattern * term option * term) list
     | Let of VarPattern * term * term
     | Nil
@@ -98,9 +99,9 @@ and
 
 //#region Library and Parsing
 
-type extendedOP =
-    | Def of op
-    | Custom of string
+type Operator =
+    | BuiltInOp of BuiltIn
+    | CustomOp of string
 
 type Assoc =
     | Left
@@ -108,8 +109,8 @@ type Assoc =
     | Non
 
 type Fixity =
-    | Prefix of int * func:string
-    | Infix of int * Assoc * extendedOP
+    | Prefix of int * Operator
+    | Infix of int * Assoc * Operator
 
 type OperatorSpec =
     | OpSpec of fix:Fixity * string:string
@@ -161,6 +162,7 @@ and ExPattern =
     | ExRecordPat of bool * (string * ExVarPattern) list
     | ExNilPat
     | ExConsPat of ExVarPattern * ExVarPattern
+    | ExListPat of ExVarPattern list
 
 type ExFunction =
     | ExBuiltIn of BuiltIn
@@ -171,9 +173,10 @@ and ExTerm =
     | ExB of bool
     | ExI of int
     | ExC of char
-    | ExOP of ExTerm * op * ExTerm
+    //| ExOP of ExTerm * op * ExTerm
     | ExX of Ident
     | ExFn of ExFunction
+    | ExApp of ExTerm * ExTerm
     | ExMatch of ExTerm * (ExVarPattern * ExTerm option * ExTerm) list
     | ExLet of ExDeclaration * ExTerm
     | ExNil
@@ -181,6 +184,7 @@ and ExTerm =
     | ExTuple of ExTerm list
     | ExRecord of (string * ExTerm) list
 
+    | ExListTerm of ExTerm list
     | Cond of ExTerm * ExTerm * ExTerm
     | Range of ExTerm * ExTerm option * ExTerm
     | Comprehension of ExTerm * ExVarPattern * ExTerm

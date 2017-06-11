@@ -192,16 +192,136 @@ let rec compareOrder t1 t2 orderType =
     
 //#endregion
 
-let rec private evalPartial b (args: (term * env) list) =
+let rec private (|Eval|) args =
+    List.map (fun (t, env) -> eval t env) args
+
+//and private (|EvalAll|) args =
+    //let results = List.map (fun (t, env) -> eval t env) args
+    //if List.exists (function | ResRaise -> true | _ -> false) results then
+    //    ResRaise
+    //else
+    //match results with
+    //| 
+
+and private (|AnyRaise|_|) (t1, t2) =
+    match t1, t2 with
+    | ResRaise, _
+    | _, ResRaise -> Some()
+    | _ -> None
+
+//and private matchTwo fn args msg =
+    //match args with
+    //| Eval [t1; t2] ->
+    //    match t1, t2 with
+    //    | AnyRaise -> ResRaise
+    //    | _ ->
+    //        try
+    //            fn t1 t2
+    //        with
+    //        | :? MatchFailureException ->
+    //            msg |> EvalException |> raise
+    //| _ ->
+        //sprintf "Wrong number of arguments to add" |> EvalException |> raise
+
+and private evalPartial b (args: (term * env) list) =
     match b with
-    | Get ->
+    | Add ->
         match args with
-        | [(t1, env1); (t2, env2)] ->
-            let t1' = eval t1 env1
-            let t2' = eval t2 env2
-            match t1', t2' with
-            | ResRaise, _
-            | _, ResRaise -> ResRaise
+        | Eval [t1; t2] ->
+            match t1, t2 with
+            | AnyRaise -> ResRaise
+            | ResI i1, ResI i2 -> ResI (i1 + i2)
+            | _, _ -> sprintf "Add requires numbers" |> EvalException |> raise
+        | _ ->
+            sprintf "Wrong number of arguments to add" |> EvalException |> raise
+    | Subtract ->
+        match args with
+        | Eval [t1; t2] ->
+            match t1, t2 with
+            | AnyRaise -> ResRaise
+            | ResI i1, ResI i2 -> ResI (i1 - i2)
+            | _, _ -> sprintf "Subtract requires numbers" |> EvalException |> raise
+        | _ ->
+            sprintf "Wrong number of arguments to subtract" |> EvalException |> raise
+    | Multiply ->
+        match args with
+        | Eval [t1; t2] ->
+            match t1, t2 with
+            | AnyRaise -> ResRaise
+            | ResI i1, ResI i2 -> ResI (i1 * i2)
+            | _, _ -> sprintf "Multiply requires numbers" |> EvalException |> raise
+        | _ ->
+            sprintf "Wrong number of arguments to multiply" |> EvalException |> raise
+    | Divide ->
+        match args with
+        | Eval [t1; t2] ->
+            match t1, t2 with
+            | AnyRaise -> ResRaise
+            | ResI i, ResI 0 -> ResRaise
+            | ResI i1, ResI i2 -> ResI (i1 / i2)
+            | _, _ -> sprintf "Divide requires numbers" |> EvalException |> raise
+        | _ ->
+            sprintf "Wrong number of arguments to divide" |> EvalException |> raise
+    | Negate ->
+        match args with
+        | Eval [t1] ->
+            match t1 with
+            | ResRaise -> ResRaise
+            | ResI i -> ResI (-i)
+            | _ -> sprintf "Negate requires a number" |> EvalException |> raise
+        | _ ->
+            sprintf "Wrong number of arguments to negate" |> EvalException |> raise
+    
+    | LessThan 
+    | LessOrEqual 
+    | GreaterThan 
+    | GreaterOrEqual ->
+        match args with
+        | Eval [t1; t2] ->
+            compareOrder t1 t2 b
+        | _ -> 
+            sprintf "Wrong number of arguments to comparison" |> EvalException |> raise
+
+    | Equal ->
+        match args with
+        | Eval [t1; t2] ->
+            compareEquality t1 t2
+        | _ -> 
+            sprintf "Wrong number of arguments to equality" |> EvalException |> raise
+    | Different ->
+        match evalPartial Equal args with
+        | ResRaise -> ResRaise
+        | ResB b -> ResB (not b)
+        | _ -> raise <| EvalException "Equal returned a non-expected value"
+
+    | Cons ->
+        match args with
+        | Eval [t1; t2] ->
+            match t1, t2 with
+            | AnyRaise -> ResRaise
+            | t1, ResNil 
+            | t1, ResCons _ -> ResCons(t1, t2)
+            | _ -> sprintf "Cons requires a list as second argument" |> EvalException |> raise
+        | _ -> 
+            sprintf "Wrong number of arguments to equality" |> EvalException |> raise
+
+    | Get ->
+        //let fn t1 t2 =
+        //    match t1, t2 with
+        //    | AnyRaise -> ResRaise
+        //    | ResFn (BuiltIn (RecordAccess s), _), ResRecord pairs ->
+        //        let names, values = List.unzip pairs
+        //        match Seq.tryFindIndex ((=) s) names with
+        //        | Some i ->
+        //            Seq.nth i values
+        //        | None ->
+        //            sprintf "Record has no entry %A at %A" s (args.Item 1) |> EvalException |> raise
+        //    | ResFn _, _ -> ResRaise
+        //matchTwo fn args "Get requires a function and a record"
+        match args with
+        | Eval [t1; t2] ->
+            match t1, t2 with
+            | AnyRaise -> ResRaise
             | ResFn (BuiltIn (RecordAccess s), _), ResRecord pairs ->
                 let names, values = List.unzip pairs
                 match Seq.tryFindIndex ((=) s) names with
@@ -213,15 +333,12 @@ let rec private evalPartial b (args: (term * env) list) =
             | _, ResRecord _ -> sprintf "First argument of get is not a function" |> EvalException |> raise
             | _, _ -> sprintf "Second argument of get is not a record" |> EvalException |> raise
         | _ -> 
-            sprintf "Wrong arguments" |> EvalException |> raise
+            sprintf "Wrong number of arguments to get" |> EvalException |> raise
     | RecordAccess s ->
         match args with
-        | [(t1, env1); (t2, env2)] ->
-            let t1' = eval t1 env1
-            let t2' = eval t2 env2
-            match t1', t2' with
-            | ResRaise, _
-            | _, ResRaise -> ResRaise
+        | Eval [t1; t2] ->
+            match t1, t2 with
+            | AnyRaise -> ResRaise
             | t1, ResRecord pairs ->
                 let names, values = List.unzip pairs
                 match Seq.tryFindIndex ((=) s) names with
@@ -245,7 +362,7 @@ and private eval t env =
     | I i -> ResI i
     | C c -> ResC c
     | Fn fn -> ResFn (fn, env)
-    | OP(t1, Application, t2) ->
+    | App (t1, t2) ->
         match eval t1 env with
         | ResRaise -> ResRaise
         | ResPartial(b, args) ->
@@ -275,43 +392,7 @@ and private eval t env =
                     | None -> ResRaise
                     | Some env' -> eval e <| env'.Add(id, ResFn(fn, env'))
         | t1' -> sprintf "First operand %A is not a function at %A" t1' t |> EvalException |> raise
-    | OP(t1, Cons, t2) ->
-        match eval t1 env with
-        | t1' ->
-            match eval t2 env with
-            | ResRaise -> ResRaise
-            | ResCons(_, _) as t2' -> ResCons(t1', t2')
-            | ResNil -> ResCons(t1', ResNil)
-            | t2' -> sprintf "Term %A is not a list at %A" t2' t |> EvalException |> raise
-    | OP(t1, Equal, t2) ->
-        compareEquality (eval t1 env) (eval t2 env)
-    | OP(t1, Different, t2) ->
-        let equals = compareEquality (eval t1 env) (eval t2 env)
-        match equals with
-        | ResRaise -> ResRaise
-        | ResB b -> ResB (not b)
-        | _ -> raise <| EvalException "Equal returned a non-expected value"
-    | OP(t1, (LessThan as op), t2)
-    | OP(t1, (LessOrEqual as op), t2)
-    | OP(t1, (GreaterOrEqual as op), t2)
-    | OP(t1, (GreaterThan as op), t2) ->
-        compareOrder (eval t1 env) (eval t2 env) op
-    | OP(t1, (Add as op), t2)
-    | OP(t1, (Subtract as op), t2)
-    | OP(t1, (Multiply as op), t2)
-    | OP(t1, (Divide as op), t2) ->
-        match eval t1 env, eval t2 env with
-        | ResRaise, _ -> ResRaise
-        | _, ResRaise -> ResRaise
-        | ResI i1, ResI i2 ->
-            match op with
-            | Add -> ResI (i1 + i2)
-            | Subtract -> ResI (i1 - i2)
-            | Multiply -> ResI (i1 * i2)
-            | Divide when i2 <> 0 -> ResI (i1 / i2)
-            | Divide when i2 = 0 -> ResRaise
-            | _ -> sprintf "Term %A is not an operator at %A" op t |> EvalException |> raise
-        | _, _ -> sprintf "Operation %A requires numbers at %A" op t |> EvalException |> raise
+    
     | Match (t1, patterns) ->
         match eval t1 env with
         | t1' ->

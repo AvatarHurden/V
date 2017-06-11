@@ -453,16 +453,40 @@ let findId id (e: Map<string, EnvAssociation>) =
 
 let typeOfBuiltin b =
     match b with
+    | Add
+    | Subtract
+    | Multiply
+    | Divide ->
+        Function (Int, Function (Int, Int))
+    | Negate ->
+        Function (Int, Int)
+
+    | Equal
+    | Different ->
+        let varType = VarType (getVarType (), [Equatable])
+        Function (varType, Function (varType, Bool))
+
+    | LessThan
+    | LessOrEqual
+    | GreaterThan
+    | GreaterOrEqual ->
+        let varType = VarType (getVarType (), [Orderable])
+        Function (varType, Function (varType, Bool))
+
+    | Cons ->
+        let varType = VarType (getVarType (), [])
+        Function (varType, Function (List varType, List varType))
+
     | RecordAccess s ->
         let varType1 = VarType (getVarType (), [])
         let varType2 = VarType (getVarType (), [RecordLabel (s, varType1)])
-        Function (varType1, Function(varType2, Type.Tuple [varType1; varType2])), []
+        Function (varType1, Function(varType2, Type.Tuple [varType1; varType2]))
     | Get -> 
         let varType1 = VarType (getVarType (), [])
         let varType2 = VarType (getVarType (), [])
         let accessTyp =
             Function (varType1, Function(varType2, Type.Tuple [varType1; varType2]))
-        Function(accessTyp, Function(varType2, varType1)), []
+        Function(accessTyp, Function(varType2, varType1))
 
 // collectConstraints term environment constraints
 let rec collectConstraints term (env: Map<string, EnvAssociation>) =
@@ -477,7 +501,7 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         Char, []
     | Fn fn ->
         match fn with
-        | BuiltIn b -> typeOfBuiltin b
+        | BuiltIn b -> typeOfBuiltin b, []
         | Lambda (pattern, t1) ->
             let paramTyp = VarType (getVarType (), [])
             let env', cons = validatePattern pattern paramTyp env []
@@ -492,36 +516,11 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
             let env', cons = validatePattern pattern paramTyp (env.Add(id, Simple fType)) []
             let typ1, c1 = collectConstraints t1 env'
             Function (paramTyp, typ1), cons @ c1 @ [Equals (Function (paramTyp, typ1), fType)]
-    | OP(t1, Application, t2) ->
+    | App(t1, t2) ->
         let typ1, c1 = collectConstraints t1 env
         let typ2, c2 = collectConstraints t2 env
         let x = VarType (getVarType (), [])
         x, c1 @ c2 @ [Equals (typ1, Function (typ2, x))]
-    | OP(t1, Cons, t2) ->
-        let typ1, c1 = collectConstraints t1 env
-        let typ2, c2 = collectConstraints t2 env
-        typ1 |> List, c1 @ c2 @ [Equals (List typ1, typ2)]
-    | OP(t1, Equal, t2) 
-    | OP(t1, Different, t2) ->
-        let typ1, c1 = collectConstraints t1 env
-        let typ2, c2 = collectConstraints t2 env
-        let varTyp = VarType (getVarType (), [Equatable])
-        Bool, c1 @ c2 @ [Equals (typ1, typ2); Equals (varTyp, typ2)]
-    | OP(t1, LessThan, t2)
-    | OP(t1, LessOrEqual, t2)
-    | OP(t1, GreaterOrEqual, t2)
-    | OP(t1, GreaterThan, t2) ->
-        let typ1, c1 = collectConstraints t1 env
-        let typ2, c2 = collectConstraints t2 env
-        let varTyp = VarType (getVarType (), [Orderable])
-        Bool, c1 @ c2 @ [Equals (typ1, typ2); Equals (varTyp, typ2)]
-    | OP(t1, Add, t2)
-    | OP(t1, Subtract, t2)
-    | OP(t1, Multiply, t2)
-    | OP(t1, Divide, t2) ->
-        let typ1, c1 = collectConstraints t1 env
-        let typ2, c2 = collectConstraints t2 env
-        Int, c1 @ c2 @ [Equals (Int, typ1); Equals (Int, typ2)]
     | X(id) ->
         findId id env
     | Match (t1, patterns) ->
