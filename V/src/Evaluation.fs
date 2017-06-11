@@ -15,6 +15,13 @@ let rec private fromString string =
     | c::rest -> ResCons (ResC c, fromString rest)
     | [] -> ResNil
 
+
+let private (|AnyRaise|_|) (t1, t2) =
+    match t1, t2 with
+    | ResRaise, _
+    | _, ResRaise -> Some()
+    | _ -> None
+
 //#endregion
 
 //#region Pattern Matching
@@ -108,8 +115,7 @@ let validatePattern pattern result (env: Map<Ident, result>) =
 
 let rec compareEquality t1 t2 =
     match t1, t2 with
-    | ResRaise, _ -> ResRaise
-    | _, ResRaise -> ResRaise
+    | AnyRaise -> ResRaise
     | ResI i1, ResI i2 -> ResB (i1 = i2)
     | ResC c1, ResC c2 -> ResB (c1 = c2)
     | ResB b1, ResB b2 -> ResB (b1 = b2)
@@ -118,18 +124,16 @@ let rec compareEquality t1 t2 =
     | ResNil, ResCons (hd1, tl1)  -> ResB false
     | ResCons (hd1, tl1), ResCons (hd2, tl2) ->
         match compareEquality hd1 hd2, compareEquality tl1 tl2 with
-        | ResRaise, _ -> ResRaise
+        | AnyRaise -> ResRaise
         | ResB false, _ -> ResB false
         | ResB true, ResB false -> ResB false
         | ResB true, ResB true -> ResB true
-        | ResB true, ResRaise -> ResRaise
         | _ -> raise <| EvalException "Equal returned a non-expected value"
     | ResTuple v1, ResTuple v2 when v1.Length = v2.Length ->
         let f acc r1 r2 =
             match acc, compareEquality r1 r2 with
-            | ResRaise, _ -> ResRaise
+            | AnyRaise -> ResRaise
             | ResB false, _ -> ResB false
-            | ResB true, ResRaise -> ResRaise
             | ResB true, ResB b2 -> ResB b2
             | _ -> raise <| EvalException "Equal returned a non-expected value"
         List.fold2 f (ResB true) v1 v2
@@ -141,9 +145,8 @@ let rec compareEquality t1 t2 =
             if n1 <> n2 then
                 raise <| EvalException (sprintf "Records %A and %A have different fields" t1 t2)
             match acc, compareEquality r1 r2 with
-            | ResRaise, _ -> ResRaise
+            | AnyRaise -> ResRaise
             | ResB false, _ -> ResB false
-            | ResB true, ResRaise -> ResRaise
             | ResB true, ResB b2 -> ResB b2
             | _ -> raise <| EvalException "Equal returned a non-expected value"
         List.fold2 f (ResB true) v1' v2'
@@ -151,8 +154,7 @@ let rec compareEquality t1 t2 =
 
 let rec compareOrder t1 t2 orderType =
     match t1, t2 with
-    | ResRaise, _ -> ResRaise
-    | _, ResRaise -> ResRaise
+    | AnyRaise -> ResRaise
     | ResI i1, ResI i2 -> 
         match orderType with
         | LessThan -> ResB (i1 < i2)
@@ -184,7 +186,7 @@ let rec compareOrder t1 t2 orderType =
         | _ -> sprintf "Cannot order %A and %A with %A" t1 t2 orderType |> EvalException |> raise  
     | ResCons (hd1, tl1), ResCons (hd2, tl2) ->
         match compareEquality hd1 hd2, compareOrder tl1 tl2 orderType with
-        | ResRaise, _ -> ResRaise
+        | AnyRaise -> ResRaise
         | ResB true, t2' -> t2'
         | ResB false, _ -> compareOrder hd1 hd2 orderType
         | _ -> raise <| EvalException "Equal returned a non-expected value"
@@ -202,12 +204,6 @@ let rec private (|Eval|) args =
     //else
     //match results with
     //| 
-
-and private (|AnyRaise|_|) (t1, t2) =
-    match t1, t2 with
-    | ResRaise, _
-    | _, ResRaise -> Some()
-    | _ -> None
 
 //and private matchTwo fn args msg =
     //match args with
@@ -358,7 +354,7 @@ and private evalPartial b (args: (term * env) list) =
 
 and private eval t env =
     match t with
-    | B b-> ResB b
+    | B b -> ResB b
     | I i -> ResI i
     | C c -> ResC c
     | Fn fn -> ResFn (fn, env)
@@ -381,12 +377,14 @@ and private eval t env =
                     ResPartial(b, args)
             | Lambda (pattern, e) ->
                 match eval t2 env with
+                | ResRaise -> ResRaise
                 | t2' -> 
                     match validatePattern pattern t2' env' with
                     | None -> ResRaise
                     | Some env' -> eval e env'
             | Recursive (id, _, pattern, e) ->
                 match eval t2 env with
+                | ResRaise -> ResRaise
                 | t2' -> 
                     match validatePattern pattern t2' env' with
                     | None -> ResRaise
@@ -416,6 +414,7 @@ and private eval t env =
             | Some v -> v
     | Let(pattern, t1, t2) ->
         match eval t1 env with
+        | ResRaise -> ResRaise
         | t1' -> 
             match validatePattern pattern t1' env with
             | None -> ResRaise
@@ -426,12 +425,30 @@ and private eval t env =
         if List.length terms < 2 then
             sprintf "Tuple must have more than 2 components at %A" t |> EvalException |> raise
     
-        ResTuple <| List.map (fun t -> eval t env) terms
+        let f t =
+            match eval t env with
+            | ResRaise -> None
+            | t' -> Some t'
+
+        match mapOption f terms with
+        | None -> ResRaise
+        | Some results -> ResTuple results
+
+        //ResTuple <| List.map (fun t -> eval t env) terms
     | Record(pairs) ->
         if Set(List.unzip pairs |> fst).Count < List.length pairs then
             sprintf "Record has duplicate fields at %A" t |> EvalException |> raise
+        
+        let f (name, t) =
+            match eval t env with
+            | ResRaise -> None
+            | t' -> Some (name, t')
 
-        ResRecord <| List.map (fun (name, t) -> name, eval t env) pairs
+        match mapOption f pairs with
+        | None -> ResRaise
+        | Some results -> ResRecord results
+
+        //ResRecord <| List.map (fun (name, t) -> name, eval t env) pairs
     | X(id) -> 
         if env.ContainsKey id then
             env.[id]
