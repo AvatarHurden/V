@@ -205,14 +205,20 @@ and ExDeclaration =
 let flip f a b = f b a
 
 let rec mapOption f ls =
-    match ls with
-    | [] -> Some []
-    | x :: rest ->
-        match f x with
-        | Some x' -> 
-            match mapOption f rest with
-            | None -> None
-            | Some rest' -> Some <| x' :: rest'
+    let f' acc x = 
+        match acc with
         | None -> None
+        | Some acc -> 
+            match f x with
+            | Some x -> Some <| x :: acc
+            | None -> None
+    List.fold f' (Some []) <| List.rev ls
+
+let rec foldOption f acc ls =
+    let f' acc x = 
+        match acc with
+        | None -> None
+        | Some acc -> f acc x
+    List.fold f' acc ls
 
 //#endregion
