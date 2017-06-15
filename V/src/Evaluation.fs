@@ -15,6 +15,13 @@ let rec private fromString string =
     | c::rest -> ResCons (ResC c, fromString rest)
     | [] -> ResNil
 
+
+let private (|AnyRaise|_|) (t1, t2) =
+    match t1, t2 with
+    | ResRaise, _
+    | _, ResRaise -> Some()
+    | _ -> None
+
 //#endregion
 
 //#region Pattern Matching
@@ -108,8 +115,7 @@ let validatePattern pattern result (env: Map<Ident, result>) =
 
 let rec compareEquality t1 t2 =
     match t1, t2 with
-    | ResRaise, _ -> ResRaise
-    | _, ResRaise -> ResRaise
+    | AnyRaise -> ResRaise
     | ResI i1, ResI i2 -> ResB (i1 = i2)
     | ResC c1, ResC c2 -> ResB (c1 = c2)
     | ResB b1, ResB b2 -> ResB (b1 = b2)
@@ -118,18 +124,16 @@ let rec compareEquality t1 t2 =
     | ResNil, ResCons (hd1, tl1)  -> ResB false
     | ResCons (hd1, tl1), ResCons (hd2, tl2) ->
         match compareEquality hd1 hd2, compareEquality tl1 tl2 with
-        | ResRaise, _ -> ResRaise
+        | AnyRaise -> ResRaise
         | ResB false, _ -> ResB false
         | ResB true, ResB false -> ResB false
         | ResB true, ResB true -> ResB true
-        | ResB true, ResRaise -> ResRaise
         | _ -> raise <| EvalException "Equal returned a non-expected value"
     | ResTuple v1, ResTuple v2 when v1.Length = v2.Length ->
         let f acc r1 r2 =
             match acc, compareEquality r1 r2 with
-            | ResRaise, _ -> ResRaise
+            | AnyRaise -> ResRaise
             | ResB false, _ -> ResB false
-            | ResB true, ResRaise -> ResRaise
             | ResB true, ResB b2 -> ResB b2
             | _ -> raise <| EvalException "Equal returned a non-expected value"
         List.fold2 f (ResB true) v1 v2
@@ -141,9 +145,8 @@ let rec compareEquality t1 t2 =
             if n1 <> n2 then
                 raise <| EvalException (sprintf "Records %A and %A have different fields" t1 t2)
             match acc, compareEquality r1 r2 with
-            | ResRaise, _ -> ResRaise
+            | AnyRaise -> ResRaise
             | ResB false, _ -> ResB false
-            | ResB true, ResRaise -> ResRaise
             | ResB true, ResB b2 -> ResB b2
             | _ -> raise <| EvalException "Equal returned a non-expected value"
         List.fold2 f (ResB true) v1' v2'
@@ -151,8 +154,7 @@ let rec compareEquality t1 t2 =
 
 let rec compareOrder t1 t2 orderType =
     match t1, t2 with
-    | ResRaise, _ -> ResRaise
-    | _, ResRaise -> ResRaise
+    | AnyRaise -> ResRaise
     | ResI i1, ResI i2 -> 
         match orderType with
         | LessThan -> ResB (i1 < i2)
@@ -184,7 +186,7 @@ let rec compareOrder t1 t2 orderType =
         | _ -> sprintf "Cannot order %A and %A with %A" t1 t2 orderType |> EvalException |> raise  
     | ResCons (hd1, tl1), ResCons (hd2, tl2) ->
         match compareEquality hd1 hd2, compareOrder tl1 tl2 orderType with
-        | ResRaise, _ -> ResRaise
+        | AnyRaise -> ResRaise
         | ResB true, t2' -> t2'
         | ResB false, _ -> compareOrder hd1 hd2 orderType
         | _ -> raise <| EvalException "Equal returned a non-expected value"
@@ -192,66 +194,224 @@ let rec compareOrder t1 t2 orderType =
     
 //#endregion
 
-let rec private eval t env =
-    match t with
-    | B b-> ResB b
-    | I i -> ResI i
-    | C c -> ResC c
-    | OP(t1, Application, t2) ->
-        match eval t1 env with
-        | ResRaise -> ResRaise
-        | ResRecClosure(id1, pattern, e, env') as t1' ->
-            match eval t2 env with
-            | t2' -> 
-                match validatePattern pattern t2' env' with
-                | None -> ResRaise
-                | Some env' -> eval e <| env'.Add(id1, t1')
-        | ResClosure(pattern, e, env') ->
-            match eval t2 env with
-            | t2' -> 
-                match validatePattern pattern t2' env' with
-                | None -> ResRaise
-                | Some env' -> eval e env'
-        | t1' -> sprintf "First operand %A is not a function at %A" t1' t |> EvalException |> raise
-    | OP(t1, Cons, t2) ->
-        match eval t1 env with
-        | t1' ->
-            match eval t2 env with
+let rec private (|Eval|) args =
+    List.map (fun (t, env) -> eval t env) args
+
+//and private (|EvalAll|) args =
+    //let results = List.map (fun (t, env) -> eval t env) args
+    //if List.exists (function | ResRaise -> true | _ -> false) results then
+    //    ResRaise
+    //else
+    //match results with
+    //| 
+
+//and private matchTwo fn args msg =
+    //match args with
+    //| Eval [t1; t2] ->
+    //    match t1, t2 with
+    //    | AnyRaise -> ResRaise
+    //    | _ ->
+    //        try
+    //            fn t1 t2
+    //        with
+    //        | :? MatchFailureException ->
+    //            msg |> EvalException |> raise
+    //| _ ->
+        //sprintf "Wrong number of arguments to add" |> EvalException |> raise
+
+and private evalPartial b (args: (term * env) list) =
+    match b with
+    | Add ->
+        match args with
+        | Eval [t1; t2] ->
+            match t1, t2 with
+            | AnyRaise -> ResRaise
+            | ResI i1, ResI i2 -> ResI (i1 + i2)
+            | _, _ -> sprintf "Add requires numbers" |> EvalException |> raise
+        | _ ->
+            sprintf "Wrong number of arguments to add" |> EvalException |> raise
+    | Subtract ->
+        match args with
+        | Eval [t1; t2] ->
+            match t1, t2 with
+            | AnyRaise -> ResRaise
+            | ResI i1, ResI i2 -> ResI (i1 - i2)
+            | _, _ -> sprintf "Subtract requires numbers" |> EvalException |> raise
+        | _ ->
+            sprintf "Wrong number of arguments to subtract" |> EvalException |> raise
+    | Multiply ->
+        match args with
+        | Eval [t1; t2] ->
+            match t1, t2 with
+            | AnyRaise -> ResRaise
+            | ResI i1, ResI i2 -> ResI (i1 * i2)
+            | _, _ -> sprintf "Multiply requires numbers" |> EvalException |> raise
+        | _ ->
+            sprintf "Wrong number of arguments to multiply" |> EvalException |> raise
+    | Divide ->
+        match args with
+        | Eval [t1; t2] ->
+            match t1, t2 with
+            | AnyRaise -> ResRaise
+            | ResI i, ResI 0 -> ResRaise
+            | ResI i1, ResI i2 -> ResI (i1 / i2)
+            | _, _ -> sprintf "Divide requires numbers" |> EvalException |> raise
+        | _ ->
+            sprintf "Wrong number of arguments to divide" |> EvalException |> raise
+    | Negate ->
+        match args with
+        | Eval [t1] ->
+            match t1 with
             | ResRaise -> ResRaise
-            | ResCons(_, _) as t2' -> ResCons(t1', t2')
-            | ResNil -> ResCons(t1', ResNil)
-            | t2' -> sprintf "Term %A is not a list at %A" t2' t |> EvalException |> raise
-    | OP(t1, Equal, t2) ->
-        compareEquality (eval t1 env) (eval t2 env)
-    | OP(t1, Different, t2) ->
-        let equals = compareEquality (eval t1 env) (eval t2 env)
-        match equals with
+            | ResI i -> ResI (-i)
+            | _ -> sprintf "Negate requires a number" |> EvalException |> raise
+        | _ ->
+            sprintf "Wrong number of arguments to negate" |> EvalException |> raise
+    
+    | LessThan 
+    | LessOrEqual 
+    | GreaterThan 
+    | GreaterOrEqual ->
+        match args with
+        | Eval [t1; t2] ->
+            compareOrder t1 t2 b
+        | _ -> 
+            sprintf "Wrong number of arguments to comparison" |> EvalException |> raise
+
+    | Equal ->
+        match args with
+        | Eval [t1; t2] ->
+            compareEquality t1 t2
+        | _ -> 
+            sprintf "Wrong number of arguments to equality" |> EvalException |> raise
+    | Different ->
+        match evalPartial Equal args with
         | ResRaise -> ResRaise
         | ResB b -> ResB (not b)
         | _ -> raise <| EvalException "Equal returned a non-expected value"
-    | OP(t1, (LessThan as op), t2)
-    | OP(t1, (LessOrEqual as op), t2)
-    | OP(t1, (GreaterOrEqual as op), t2)
-    | OP(t1, (GreaterThan as op), t2) ->
-        compareOrder (eval t1 env) (eval t2 env) op
-    | OP(t1, (Add as op), t2)
-    | OP(t1, (Subtract as op), t2)
-    | OP(t1, (Multiply as op), t2)
-    | OP(t1, (Divide as op), t2) ->
-        match eval t1 env, eval t2 env with
-        | ResRaise, _ -> ResRaise
-        | _, ResRaise -> ResRaise
-        | ResI i1, ResI i2 ->
-            match op with
-            | Add -> ResI (i1 + i2)
-            | Subtract -> ResI (i1 - i2)
-            | Multiply -> ResI (i1 * i2)
-            | Divide when i2 <> 0 -> ResI (i1 / i2)
-            | Divide when i2 = 0 -> ResRaise
-            | _ -> sprintf "Term %A is not an operator at %A" op t |> EvalException |> raise
-        | _, _ -> sprintf "Operation %A requires numbers at %A" op t |> EvalException |> raise
-    | Fn(pattern, t1) -> ResClosure(pattern, t1, env)
-    | RecFn(id1, typ1, pattern, t) -> ResRecClosure(id1, pattern, t, env)
+
+    | And ->
+        match args with
+        | [(t1, env1); (t2, env2)] ->
+            match eval t1 env1 with
+            | ResRaise -> ResRaise
+            | ResB false -> ResB false
+            | ResB true -> eval t2 env2
+            | _ -> sprintf "And requires a boolean" |> EvalException |> raise
+        | _ ->
+            sprintf "Wrong number of arguments to and" |> EvalException |> raise
+    | Or ->
+        match args with
+        | [(t1, env1); (t2, env2)] ->
+            match eval t1 env1 with
+            | ResRaise -> ResRaise
+            | ResB true -> ResB true
+            | ResB false -> eval t2 env2
+            | _ -> sprintf "Or requires a boolean" |> EvalException |> raise
+        | _ ->
+            sprintf "Wrong number of arguments to Or" |> EvalException |> raise
+
+    | Cons ->
+        match args with
+        | Eval [t1; t2] ->
+            match t1, t2 with
+            | AnyRaise -> ResRaise
+            | t1, ResNil 
+            | t1, ResCons _ -> ResCons(t1, t2)
+            | _ -> sprintf "Cons requires a list as second argument" |> EvalException |> raise
+        | _ -> 
+            sprintf "Wrong number of arguments to equality" |> EvalException |> raise
+
+    | Get ->
+        //let fn t1 t2 =
+        //    match t1, t2 with
+        //    | AnyRaise -> ResRaise
+        //    | ResFn (BuiltIn (RecordAccess s), _), ResRecord pairs ->
+        //        let names, values = List.unzip pairs
+        //        match Seq.tryFindIndex ((=) s) names with
+        //        | Some i ->
+        //            Seq.nth i values
+        //        | None ->
+        //            sprintf "Record has no entry %A at %A" s (args.Item 1) |> EvalException |> raise
+        //    | ResFn _, _ -> ResRaise
+        //matchTwo fn args "Get requires a function and a record"
+        match args with
+        | Eval [t1; t2] ->
+            match t1, t2 with
+            | AnyRaise -> ResRaise
+            | ResFn (BuiltIn (RecordAccess s), _), ResRecord pairs ->
+                let names, values = List.unzip pairs
+                match Seq.tryFindIndex ((=) s) names with
+                | Some i ->
+                    Seq.nth i values
+                | None ->
+                    sprintf "Record has no entry %A at %A" s (args.Item 1) |> EvalException |> raise
+            | ResFn _, _ -> ResRaise
+            | _, ResRecord _ -> sprintf "First argument of get is not a function" |> EvalException |> raise
+            | _, _ -> sprintf "Second argument of get is not a record" |> EvalException |> raise
+        | _ -> 
+            sprintf "Wrong number of arguments to get" |> EvalException |> raise
+    | RecordAccess s ->
+        match args with
+        | Eval [t1; t2] ->
+            match t1, t2 with
+            | AnyRaise -> ResRaise
+            | t1, ResRecord pairs ->
+                let names, values = List.unzip pairs
+                match Seq.tryFindIndex ((=) s) names with
+                | Some i ->
+                    let start = Seq.take i values
+                    let old = Seq.nth i values
+                    let finish = Seq.skip (i+1) values
+                    let newValueSeq = [t1] :> seq<_>
+                    let newValues = Seq.toList (Seq.concat [start; newValueSeq; finish])
+                    let newRec = ResRecord <| List.zip names newValues 
+                    ResTuple [old; newRec]
+                | None ->
+                    sprintf "Record has no entry %A at %A" s (args.Item 1) |> EvalException |> raise
+            | _ -> sprintf "Second argument is not a record" |> EvalException |> raise
+        | _ ->
+            sprintf "Wrong number of arguments to record access" |> EvalException |> raise
+
+and private eval t env =
+    match t with
+    | B b -> ResB b
+    | I i -> ResI i
+    | C c -> ResC c
+    | Fn fn -> ResFn (fn, env)
+    | App (t1, t2) ->
+        match eval t1 env with
+        | ResRaise -> ResRaise
+        | ResPartial(b, args) ->
+            let args' = args @ [t2, env]
+            if args'.Length = numArgs b then
+                evalPartial b args'
+            else
+                ResPartial(b, args')
+        | ResFn (fn, env') ->
+            match fn with
+            | BuiltIn b ->
+                let args = [t2, env]
+                if args.Length = numArgs b then
+                    evalPartial b args
+                else
+                    ResPartial(b, args)
+            | Lambda (pattern, e) ->
+                match eval t2 env with
+                | ResRaise -> ResRaise
+                | t2' -> 
+                    match validatePattern pattern t2' env' with
+                    | None -> ResRaise
+                    | Some env' -> eval e env'
+            | Recursive (id, _, pattern, e) ->
+                match eval t2 env with
+                | ResRaise -> ResRaise
+                | t2' -> 
+                    match validatePattern pattern t2' env' with
+                    | None -> ResRaise
+                    | Some env' -> eval e <| env'.Add(id, ResFn(fn, env'))
+        | t1' -> sprintf "First operand %A is not a function at %A" t1' t |> EvalException |> raise
+    
     | Match (t1, patterns) ->
         match eval t1 env with
         | t1' ->
@@ -275,6 +435,7 @@ let rec private eval t env =
             | Some v -> v
     | Let(pattern, t1, t2) ->
         match eval t1 env with
+        | ResRaise -> ResRaise
         | t1' -> 
             match validatePattern pattern t1' env with
             | None -> ResRaise
@@ -285,30 +446,30 @@ let rec private eval t env =
         if List.length terms < 2 then
             sprintf "Tuple must have more than 2 components at %A" t |> EvalException |> raise
     
-        ResTuple <| List.map (fun t -> eval t env) terms
+        let f t =
+            match eval t env with
+            | ResRaise -> None
+            | t' -> Some t'
+
+        match mapOption f terms with
+        | None -> ResRaise
+        | Some results -> ResTuple results
+
+        //ResTuple <| List.map (fun t -> eval t env) terms
     | Record(pairs) ->
         if Set(List.unzip pairs |> fst).Count < List.length pairs then
             sprintf "Record has duplicate fields at %A" t |> EvalException |> raise
+        
+        let f (name, t) =
+            match eval t env with
+            | ResRaise -> None
+            | t' -> Some (name, t')
 
-        ResRecord <| List.map (fun (name, t) -> name, eval t env) pairs
-    | RecordAccess (s, t1, t2) ->
-        let newValue = eval t1 env
-        match eval t2 env with
-        | ResRaise -> ResRaise
-        | ResRecord pairs ->
-            let names, values = List.unzip pairs
-            match Seq.tryFindIndex ((=) s) names with
-            | Some i ->
-                let start = Seq.take i values
-                let old = Seq.nth i values
-                let finish = Seq.skip (i+1) values
-                let newValueSeq = [newValue] :> seq<_>
-                let newValues = Seq.toList (Seq.concat [start; newValueSeq; finish])
-                let newRec = ResRecord <| List.zip names newValues 
-                ResTuple [old; newRec]
-            | None ->
-                sprintf "Record has no entry %A at %A" s t2 |> EvalException |> raise
-        | t2' -> sprintf "Term %A is not a record at %A" t2' t |> EvalException |> raise
+        match mapOption f pairs with
+        | None -> ResRaise
+        | Some results -> ResRecord results
+
+        //ResRecord <| List.map (fun (name, t) -> name, eval t env) pairs
     | X(id) -> 
         if env.ContainsKey id then
             env.[id]

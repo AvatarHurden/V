@@ -53,6 +53,12 @@ let private translatePatterns patterns env =
             let p1', ids' = findRepeats ids p1
             let p2', ids' = findRepeats ids' p2
             Pat (ConsPat (p1', p2'), translateSomeType typ env), ids'
+        | ExListPat patterns ->
+            let f pat (acc, pats) =
+                let (newPat, acc') = findRepeats acc pat
+                (acc', newPat :: pats)
+            let (ids', pats) = List.foldBack f patterns (ids, [])
+            List.foldBack (fun p acc -> Pat (ConsPat(p, acc), None)) pats (Pat (NilPat, None)), ids'
      
     let f pat (acc, pats) =
         let (newPat, acc') = findRepeats acc pat
@@ -66,9 +72,9 @@ let private condenseFunction name parameters retTerm retTyp =
     let f p (func, funcType: Type option) = 
         match p with
         | Pat(_, Some typ) when funcType.IsSome ->
-            Fn(p, func), Some <| Function(typ, funcType.Value) 
+            Fn <| Lambda(p, func), Some <| Function(typ, funcType.Value) 
         | Pat (_, _) ->
-            Fn(p, func), None
+            Fn <| Lambda(p, func), None
     
     let fn, typ = List.foldBack f parameters (retTerm, retTyp)
     fn, typ
@@ -90,9 +96,9 @@ let rec private condenseNamedFunction isRec id parameters retTyp retTerm env =
             | Pat(_, _) -> None
 
         if isRec then
-            Pat(XPat id, fnTyp), RecFn(id, retTyp, head, retTerm)
+            Pat(XPat id, fnTyp), Fn <| Recursive(id, retTyp, head, retTerm)
         else
-            Pat(XPat id, fnTyp), Fn(head, retTerm)
+            Pat(XPat id, fnTyp), Fn <| Lambda(head, retTerm)
 
 and private translateDecl decl env = 
     match decl with
@@ -110,26 +116,29 @@ and private translateDecl decl env =
         let env' = env.addTypeAlias s <| translateType typ env
         [], env'
 
+and private translateFn fn env =
+    match fn with
+    | ExBuiltIn b -> Fn <| BuiltIn b
+    | ExLambda (pars, t) -> 
+        let pars' = translatePatterns pars env
+        let t' = translateTerm t env
+        let fn, typ = condenseFunction None pars' t' None
+        fn
+    | ExRecursive (id, pars, typ, t) -> 
+        let pars' = translatePatterns pars env
+        let typ' = translateSomeType typ env
+        let pat, fn = condenseNamedFunction true id pars' typ' t env
+        fn
+
 and private translateTerm term env =
     match term with
     | ExB b -> B b
     | ExI i -> I i
     | ExC c -> C c
-    | ExOP (t1, op, t2) -> 
-        let t1' = translateTerm t1 env
-        let t2' = translateTerm t2 env
-        OP(t1', op, t2')
     | ExX x -> X x
-    | ExFn (pars, t) -> 
-        let pars' = translatePatterns pars env
-        let t' = translateTerm t env
-        let fn, typ = condenseFunction None pars' t' None
-        fn
-    | ExRecFn (id, pars, typ, t) -> 
-        let pars' = translatePatterns pars env
-        let typ' = translateSomeType typ env
-        let pat, fn = condenseNamedFunction true id pars' typ' t env
-        fn
+    | ExFn fn -> translateFn fn env
+    | ExApp (t1, t2) ->
+        App(translateTerm t1 env, translateTerm t2 env)
         
     | ExMatch (t1, patterns) -> 
         let f (p, cond, res) =
@@ -152,15 +161,14 @@ and private translateTerm term env =
         List.foldBack (fun (p, t) acc -> Let(p, t, acc)) comps t2'
             
     | ExNil -> Nil
+    | ExListTerm l ->
+        List.foldBack (fun x acc -> App (App (Fn <| BuiltIn Cons, translateTerm x env), acc)) l Nil
+
     | ExRaise -> Raise
     | ExTuple terms -> 
         Tuple <| List.map (fun t -> translateTerm t env) terms
     | ExRecord pairs -> 
         Record <| List.map (fun (s, t) -> (s, translateTerm t env)) pairs
-    | ExRecordAccess (s, t1, t2) -> 
-        let t1' = translateTerm t1 env
-        let t2' = translateTerm t2 env
-        RecordAccess (s, t1', t2')
     | Cond (t1, t2, t3) -> 
         let t1' = translateTerm t1 env
         let t2' = translateTerm t2 env
@@ -176,15 +184,11 @@ and private translateTerm term env =
             | None -> I 1
             | Some second -> 
                 let second' = translateTerm second env
-                OP(second', Subtract, first')
-        OP (
-            OP (
-                OP (X "range", Application, first'), 
-             Application, last'), 
-         Application, increment)
+                App (App (Fn <| BuiltIn Subtract, second'), first')
+        App (App (App (X "range", first'), last'), increment)
     | Comprehension (retTerm, p, source) ->
-        let f = Fn (translatePattern p env, translateTerm retTerm env)
-        OP (OP (X "map", Application, f), Application, translateTerm source env)
+        let f = Fn <| Lambda (translatePattern p env, translateTerm retTerm env)
+        App (App (X "map", f), translateTerm source env)
        
 let translateLib declarations env =
     let f (comps, env) decl =

@@ -22,20 +22,6 @@ and Type =
     | Tuple of Type list
     | Record of (string * Type) list
 
-type op =
-    | Add
-    | Subtract
-    | Multiply
-    | Divide
-    | LessThan
-    | LessOrEqual
-    | Equal
-    | Different
-    | GreaterOrEqual
-    | GreaterThan
-    | Application
-    | Cons
-    
 type Ident = string
     
 type VarPattern = Pat of Pattern * Type option
@@ -51,31 +37,63 @@ and Pattern =
     | NilPat
     | ConsPat of VarPattern * VarPattern
 
-type term =
+type BuiltIn =
+    | Get
+    | RecordAccess of string
+
+    | Add
+    | Subtract
+    | Multiply
+    | Divide
+    | Negate
+
+    | LessThan
+    | LessOrEqual
+    | Equal
+    | Different
+    | GreaterOrEqual
+    | GreaterThan
+
+    | And
+    | Or
+
+    | Cons
+
+let numArgs =
+    function
+    | Negate -> 1
+    | _ -> 2
+
+type Function =
+    | BuiltIn of BuiltIn
+    | Lambda of VarPattern * term
+    | Recursive of Ident * (Type option) * VarPattern * term
+
+and term =
     | B of bool
     | I of int
     | C of char
-    | OP of term * op * term
     | X of Ident
-    | Fn of VarPattern * term
-    | RecFn of Ident * (Type option) * VarPattern * term
+    | Fn of Function
+    | App of term * term
     | Match of term * (VarPattern * term option * term) list
     | Let of VarPattern * term * term
     | Nil
     | Raise
     | Tuple of term list
     | Record of (string * term) list
-    | RecordAccess of string * term * term
 
-type result =
+type ResFunction = Function * env
+
+and result =
     | ResB of bool
     | ResI of int
     | ResC of char
+    | ResFn of ResFunction
+    | ResPartial of BuiltIn * (term * env) list
     | ResRaise
     | ResNil
     | ResCons of result * result
-    | ResClosure of VarPattern * term * env
-    | ResRecClosure of Ident * VarPattern * term * env
     | ResTuple of result list
     | ResRecord of (string * result) list
 and
@@ -84,9 +102,9 @@ and
 
 //#region Library and Parsing
 
-type extendedOP =
-    | Def of op
-    | Custom of string
+type Operator =
+    | BuiltInOp of BuiltIn
+    | CustomOp of string
 
 type Assoc =
     | Left
@@ -94,8 +112,8 @@ type Assoc =
     | Non
 
 type Fixity =
-    | Prefix of int * func:string
-    | Infix of int * Assoc * extendedOP
+    | Prefix of int * Operator
+    | Infix of int * Assoc * Operator
 
 type OperatorSpec =
     | OpSpec of fix:Fixity * string:string
@@ -147,23 +165,29 @@ and ExPattern =
     | ExRecordPat of bool * (string * ExVarPattern) list
     | ExNilPat
     | ExConsPat of ExVarPattern * ExVarPattern
+    | ExListPat of ExVarPattern list
 
-type ExTerm = 
+type ExFunction =
+    | ExBuiltIn of BuiltIn
+    | ExLambda of ExVarPattern list * ExTerm
+    | ExRecursive of Ident * ExVarPattern list * ExType option * ExTerm
+
+and ExTerm = 
     | ExB of bool
     | ExI of int
     | ExC of char
-    | ExOP of ExTerm * op * ExTerm
+    //| ExOP of ExTerm * op * ExTerm
     | ExX of Ident
-    | ExFn of ExVarPattern list * ExTerm
-    | ExRecFn of Ident * ExVarPattern list * ExType option * ExTerm
+    | ExFn of ExFunction
+    | ExApp of ExTerm * ExTerm
     | ExMatch of ExTerm * (ExVarPattern * ExTerm option * ExTerm) list
     | ExLet of ExDeclaration * ExTerm
     | ExNil
     | ExRaise
     | ExTuple of ExTerm list
     | ExRecord of (string * ExTerm) list
-    | ExRecordAccess of string * ExTerm * ExTerm
 
+    | ExListTerm of ExTerm list
     | Cond of ExTerm * ExTerm * ExTerm
     | Range of ExTerm * ExTerm option * ExTerm
     | Comprehension of ExTerm * ExVarPattern * ExTerm
@@ -181,14 +205,20 @@ and ExDeclaration =
 let flip f a b = f b a
 
 let rec mapOption f ls =
-    match ls with
-    | [] -> Some []
-    | x :: rest ->
-        match f x with
-        | Some x' -> 
-            match mapOption f rest with
-            | None -> None
-            | Some rest' -> Some <| x' :: rest'
+    let f' acc x = 
+        match acc with
         | None -> None
+        | Some acc -> 
+            match f x with
+            | Some x -> Some <| x :: acc
+            | None -> None
+    List.fold f' (Some []) <| List.rev ls
+
+let rec foldOption f acc ls =
+    let f' acc x = 
+        match acc with
+        | None -> None
+        | Some acc -> f acc x
+    List.fold f' acc ls
 
 //#endregion

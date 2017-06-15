@@ -78,7 +78,7 @@ let const x _ = x;
 
     [<Test>]
     member that.raise() =
-        equals (Const.func + "const 3 raise") <| ResI 3
+        equals (Const.func + "const 3 raise") <| ResRaise
         
 [<TestFixture>]
 type Flip() =
@@ -232,66 +232,6 @@ let abs x =
         equals (Abs.func + "abs 0") <| ResI 0
 
 [<TestFixture>]
-type And() =
-
-    static member func = """
-let and x y =
-    match x with
-    | false -> false
-    | _ -> y
-;
-let infixr 3 (&&) = and;
-"""
-
-    [<Test>]
-    member that.testType() =
-        hasType (And.func + "and") <| 
-            Function (Bool, Function (Bool, Bool))
-     
-    [<Test>]
-    member that.wrongParameter() =
-        throwsWrongType (And.func + "and 4")
-        throwsWrongType (And.func + "and true [true]")
-
-    [<Test>]
-    member that.shortCircuit() =
-        equals (And.func + "false && raise") <| ResB false
-        
-    [<Test>]
-    member that.works() =
-        equals (And.func + "and true false") <| ResB false
-        
-[<TestFixture>]
-type Or() =
-
-    static member func = """
-let or x y =
-    match x with
-    | true -> true
-    | _ -> y
-;
-let infixr 2 (||) = or;
-"""
-
-    [<Test>]
-    member that.testType() =
-        hasType (Or.func + "or") <| 
-            Function (Bool, Function (Bool, Bool))
-     
-    [<Test>]
-    member that.wrongParameter() =
-        throwsWrongType (Or.func + "or 4")
-        throwsWrongType (Or.func + "or true [true]")
-
-    [<Test>]
-    member that.shortCircuit() =
-        equals (Or.func + "true || raise") <| ResB true
-        
-    [<Test>]
-    member that.works() =
-        equals (Or.func + "or true false") <| ResB true
-
-[<TestFixture>]
 type Not() =
 
     static member func = """
@@ -384,7 +324,7 @@ let fst (x, _) = x;
         
     [<Test>]
     member that.raiseSecond() =
-        equals (Fst.func + "fst (3, raise)") <| ResI 3
+        equals (Fst.func + "fst (3, raise)") <| ResRaise
 
 
 [<TestFixture>]
@@ -408,7 +348,7 @@ let snd (_, y) = y;
 
     [<Test>]
     member that.raiseFirst() =
-        equals (Snd.func + "snd (raise, 3)") <| ResI 3
+        equals (Snd.func + "snd (raise, 3)") <| ResRaise
         
     [<Test>]
     member that.raiseSecond() =
@@ -435,51 +375,12 @@ let swap (x, y) = (y, x);
 
     [<Test>]
     member that.raiseFirst() =
-        equals (Swap.func + "swap (raise, 3)") <| ResTuple [ResI 3; ResRaise]
+        equals (Swap.func + "swap (raise, 3)") <| ResRaise
         
     [<Test>]
     member that.raiseSecond() =
         equals (Swap.func + "swap (3, 'a')") <| ResTuple [ResC 'a'; ResI 3]
 
-
-[<TestFixture>]
-type Get() =
-
-    static member func = Apply.func + Fst.func + """
-let get acc r = fst $ acc raise r;
-"""
-
-    [<Test>]
-    member that.testType() =
-        let w = VarType("w", [])
-        let x = VarType("x", [])
-        let y = VarType("y", [])
-        let z = VarType("z", [])
-        let accTyp = Function (x, Function (z, Type.Tuple [y; w]))
-        matchesType (Get.func + "get") <| 
-            Function (accTyp, Function (z, y))
-     
-    [<Test>]
-    member that.wrongParameter() =
-        throwsWrongType (Get.func + "get (true, 4, 4)")
-        throwsWrongType (Get.func + "get #name {names:3}")
-
-    [<Test>]
-    member that.simpleGet() =
-        equals (Get.func + "get #a {a:4, b:3}") <| ResI 4
-    
-    [<Test>]
-    member that.raiseField() =
-        equals (Get.func + "get #a {a:raise, b:3}") <| ResRaise
-    
-    [<Test>]
-    member that.nonRaiseField() =
-        equals (Get.func + "get #a {a:4, b:raise}") <| ResI 4
-
-    [<Test>]
-    member that.raiseRecord() =
-        equals (Get.func + "get #a raise") <| ResRaise
-    
 
 [<TestFixture>]
 type Set() =
@@ -510,11 +411,11 @@ let set acc v r = snd $ acc v r;
     
     [<Test>]
     member that.raiseField() =
-        equals (Set.func + "set #a 5 {a:raise, b:3}") <| ResRecord ["a", ResI 5; "b", ResI 3]
+        equals (Set.func + "set #a 5 {a:raise, b:3}") <| ResRaise
     
     [<Test>]
     member that.nonRaiseField() =
-        equals (Set.func + "set #a 5 {a:4, b:raise}") <| ResRecord ["a", ResI 5; "b", ResRaise]
+        equals (Set.func + "set #a 5 {a:4, b:raise}") <| ResRaise
 
     [<Test>]
     member that.raiseRecord() =
@@ -524,7 +425,7 @@ let set acc v r = snd $ acc v r;
 [<TestFixture>]
 type Modify() =
 
-    static member func = Get.func + Set.func + """
+    static member func = Set.func + """
 let modify acc f r =
     let oldV = get acc r;
     set acc (f oldV) r
@@ -557,11 +458,11 @@ let modify acc f r =
     
     [<Test>]
     member that.raiseField() =
-        equals (Modify.func + "modify #a (\x -> 1) {a:raise, b:3}") <| ResRecord ["a", ResI 1; "b", ResI 3]
+        equals (Modify.func + "modify #a (\x -> 1) {a:raise, b:3}") <| ResRaise
 
     [<Test>]
     member that.nonRaiseField() =
-        equals (Modify.func + "modify #a (\x -> x * 2) {a:4, b:raise}") <| ResRecord ["a", ResI 8; "b", ResRaise]
+        equals (Modify.func + "modify #a (\x -> x * 2) {a:4, b:raise}") <| ResRaise
 
     [<Test>]
     member that.raiseRecord() =
@@ -840,7 +741,7 @@ let rec length ls =
 [<TestFixture>]
 type Range() =
 
-    static member func = And.func + Or.func + """
+    static member func = """
 let rec range start finish inc =
     if (inc > 0 && start <= finish) || (inc < 0 && start >= finish) then
         start::(range (start+inc) finish inc)
@@ -990,7 +891,7 @@ let rec fold f acc ls =
     member that.wrongParameter() =
         throwsWrongType (Fold.func + "fold [1,2,3]")
         throwsWrongType (Fold.func + "fold (\\x -> x = true) true [1,2,3]")
-        throwsWrongType (Fold.func + And.func + Remainder.func + "fold (\\acc x -> acc && x % 4 = 0) true \"hi\"")
+        throwsWrongType (Fold.func + Remainder.func + "fold (\\acc x -> acc && x % 4 = 0) true \"hi\"")
 
     [<Test>]
     member that.emptyList() =
@@ -1359,7 +1260,7 @@ let rec dropWhile pred ls =
 type Sublist() =
 
     static member func = 
-        Or.func + Take.func + Drop.func + Length.func + Apply.func + """
+        Take.func + Drop.func + Length.func + Apply.func + """
 let sublist start size ls =
     if start < 0 || size > length ls then
         raise

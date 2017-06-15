@@ -83,6 +83,11 @@ and printResult result =
         (List.fold (fun acc (name, v) -> acc + ", " + name + ":" + printResult v) 
         (headName + ":" + printResult headV) v.Tail) 
         + "}"
-    | ResClosure (id, t, env) -> sprintf "Function with parameter %A" id
-    | ResRecClosure (id, id2, t, env) -> 
+    | ResFn (Lambda (id, t), env) ->
+        sprintf "Function with parameter %A" id
+    | ResFn (Recursive(id, t1, id2, t), env) -> 
         sprintf "Recursive function with name %A and parameter %A" id id2
+    | ResFn (BuiltIn b, env) ->
+        sprintf "Builtin function %A" b
+    | ResPartial (b, _) -> 
+        sprintf "Partial application of builtin function %A" b

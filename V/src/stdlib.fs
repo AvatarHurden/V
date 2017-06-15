@@ -1,4 +1,4 @@
-module stdlib
+﻿module stdlib
 
 open Compiler
 open compiledStdlib
@@ -37,11 +37,11 @@ let infixr 9 (.) = compose;
 let remainder x y = x - (x/y)*y;
 let infixl 8 (%) = remainder;
 
-let negate x = 0 - x;
+let negate x = -x;
 
 let abs x =
     if x < 0 then
-        negate x
+        -x
     else
         x
 ;
@@ -49,21 +49,6 @@ let abs x =
 // =================
 // Logical functions
 // =================
-
-let and x y =
-    match x with
-    | false -> false
-    | _ -> y
-;
-
-let or x y =
-    match x with
-    | true -> true
-    | _ -> y
-;
-
-let infixr 3 (&&) = and;
-let infixr 2 (||) = or;
 
 let not t =
     if t then
@@ -92,7 +77,7 @@ let swap (x, y) = (y, x);
 // Record Functions
 // ================
 
-let get acc r = fst $ acc raise r;
+//let get acc r = fst $ acc raise r;
 let set acc v r = snd $ acc v r;
 
 let modify acc f r =

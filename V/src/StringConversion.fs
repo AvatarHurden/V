@@ -10,23 +10,23 @@ let rec toString term =
     | B false -> "false"
     | C c -> string c
     | Nil -> "[]"
-    | OP(C c, Cons, _) -> "\"" + (toStringString term) + "\""
-    | OP(_, Cons, _) -> "[" + (toStringList term) + "]"
+    //| OP(C c, Cons, _) -> "\"" + (toStringString term) + "\""
+    //| OP(_, Cons, _) -> "[" + (toStringList term) + "]"
     | t ->
         printfn "Unexpected term at %A" t
         ""
 
 and toStringList term =
     match term with
-    | OP(t1, Cons, Nil) -> toString t1
-    | OP(t1, Cons, t2) -> toString t1 + "," + toStringList t2
+    //| OP(t1, Cons, Nil) -> toString t1
+    //| OP(t1, Cons, t2) -> toString t1 + "," + toStringList t2
     | t ->
         printfn "Unexpected list term at %A" t
         ""
 
 and toStringString term =
     match term with
-    | OP(C c, Cons, t2) -> (string c) + (toStringString t2)
+    //| OP(C c, Cons, t2) -> (string c) + (toStringString t2)
     | t -> "" 
 
 let rec fromString (string: string) =
