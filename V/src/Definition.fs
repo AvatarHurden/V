@@ -90,7 +90,7 @@ and result =
     | ResI of int
     | ResC of char
     | ResFn of ResFunction
-    | ResPartial of BuiltIn * (term * env) list
+    | ResPartial of BuiltIn * result list
     | ResRaise
     | ResNil
     | ResCons of result * result

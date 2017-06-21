@@ -244,7 +244,7 @@ let rec unify typeSubs traitSubs constraints =
         match first with
         | Equals (s, t) ->
             match s, t with
-            | s, t when s = t -> unify Map.empty Map.empty rest
+            | s, t when s = t -> unify typeSubs traitSubs rest
             | VarType (x, traits), t 
             | t, VarType (x, traits) ->
                 if occursIn x t then

@@ -194,36 +194,13 @@ let rec compareOrder t1 t2 orderType =
     
 //#endregion
 
-let rec private (|Eval|) args =
-    List.map (fun (t, env) -> eval t env) args
-
-//and private (|EvalAll|) args =
-    //let results = List.map (fun (t, env) -> eval t env) args
-    //if List.exists (function | ResRaise -> true | _ -> false) results then
-    //    ResRaise
-    //else
-    //match results with
-    //| 
-
-//and private matchTwo fn args msg =
-    //match args with
-    //| Eval [t1; t2] ->
-    //    match t1, t2 with
-    //    | AnyRaise -> ResRaise
-    //    | _ ->
-    //        try
-    //            fn t1 t2
-    //        with
-    //        | :? MatchFailureException ->
-    //            msg |> EvalException |> raise
-    //| _ ->
-        //sprintf "Wrong number of arguments to add" |> EvalException |> raise
-
-and private evalPartial b (args: (term * env) list) =
+let rec private evalPartial b results term env =
     match b with
     | Add ->
-        match args with
-        | Eval [t1; t2] ->
+        match results with
+        | [] -> ResPartial (b, [eval term env])
+        | [t1] ->
+            let t2 = eval term env
             match t1, t2 with
             | AnyRaise -> ResRaise
             | ResI i1, ResI i2 -> ResI (i1 + i2)
@@ -231,8 +208,10 @@ and private evalPartial b (args: (term * env) list) =
         | _ ->
             sprintf "Wrong number of arguments to add" |> EvalException |> raise
     | Subtract ->
-        match args with
-        | Eval [t1; t2] ->
+        match results with
+        | [] -> ResPartial (b, [eval term env])
+        | [t1] ->
+            let t2 = eval term env
             match t1, t2 with
             | AnyRaise -> ResRaise
             | ResI i1, ResI i2 -> ResI (i1 - i2)
@@ -240,8 +219,10 @@ and private evalPartial b (args: (term * env) list) =
         | _ ->
             sprintf "Wrong number of arguments to subtract" |> EvalException |> raise
     | Multiply ->
-        match args with
-        | Eval [t1; t2] ->
+        match results with
+        | [] -> ResPartial (b, [eval term env])
+        | [t1] ->
+            let t2 = eval term env
             match t1, t2 with
             | AnyRaise -> ResRaise
             | ResI i1, ResI i2 -> ResI (i1 * i2)
@@ -249,8 +230,10 @@ and private evalPartial b (args: (term * env) list) =
         | _ ->
             sprintf "Wrong number of arguments to multiply" |> EvalException |> raise
     | Divide ->
-        match args with
-        | Eval [t1; t2] ->
+        match results with
+        | [] -> ResPartial (b, [eval term env])
+        | [t1] ->
+            let t2 = eval term env
             match t1, t2 with
             | AnyRaise -> ResRaise
             | ResI i, ResI 0 -> ResRaise
@@ -259,8 +242,9 @@ and private evalPartial b (args: (term * env) list) =
         | _ ->
             sprintf "Wrong number of arguments to divide" |> EvalException |> raise
     | Negate ->
-        match args with
-        | Eval [t1] ->
+        match results with
+        | [] -> 
+            let t1 = eval term env        
             match t1 with
             | ResRaise -> ResRaise
             | ResI i -> ResI (-i)
@@ -272,48 +256,61 @@ and private evalPartial b (args: (term * env) list) =
     | LessOrEqual 
     | GreaterThan 
     | GreaterOrEqual ->
-        match args with
-        | Eval [t1; t2] ->
+        match results with
+        | [] -> ResPartial (b, [eval term env])
+        | [t1] ->
+            let t2 = eval term env
             compareOrder t1 t2 b
         | _ -> 
             sprintf "Wrong number of arguments to comparison" |> EvalException |> raise
 
     | Equal ->
-        match args with
-        | Eval [t1; t2] ->
+        match results with
+        | [] -> ResPartial (b, [eval term env])
+        | [t1] ->
+            let t2 = eval term env
             compareEquality t1 t2
         | _ -> 
             sprintf "Wrong number of arguments to equality" |> EvalException |> raise
     | Different ->
-        match evalPartial Equal args with
-        | ResRaise -> ResRaise
-        | ResB b -> ResB (not b)
-        | _ -> raise <| EvalException "Equal returned a non-expected value"
-
+        match results with
+        | [] -> ResPartial (b, [eval term env])
+        | [t1] ->
+            let t2 = eval term env
+            match compareEquality t1 t2 with
+            | ResRaise -> ResRaise
+            | ResB b -> ResB (not b)
+            | _ -> raise <| EvalException "Equal returned a non-expected value"
+        | _ -> 
+            sprintf "Wrong number of arguments to inequality" |> EvalException |> raise
     | And ->
-        match args with
-        | [(t1, env1); (t2, env2)] ->
-            match eval t1 env1 with
+        match results with
+        | [] -> ResPartial (b, [eval term env])
+        | [t1] ->
+            match t1 with
             | ResRaise -> ResRaise
             | ResB false -> ResB false
-            | ResB true -> eval t2 env2
+            | ResB true ->  eval term env
             | _ -> sprintf "And requires a boolean" |> EvalException |> raise
         | _ ->
             sprintf "Wrong number of arguments to and" |> EvalException |> raise
     | Or ->
-        match args with
-        | [(t1, env1); (t2, env2)] ->
-            match eval t1 env1 with
+        match results with
+        | [] -> ResPartial (b, [eval term env])
+        | [t1] ->
+            match t1 with
             | ResRaise -> ResRaise
             | ResB true -> ResB true
-            | ResB false -> eval t2 env2
+            | ResB false ->  eval term env
             | _ -> sprintf "Or requires a boolean" |> EvalException |> raise
         | _ ->
             sprintf "Wrong number of arguments to Or" |> EvalException |> raise
 
     | Cons ->
-        match args with
-        | Eval [t1; t2] ->
+       match results with
+        | [] -> ResPartial (b, [eval term env])
+        | [t1] ->
+            let t2 = eval term env
             match t1, t2 with
             | AnyRaise -> ResRaise
             | t1, ResNil 
@@ -323,20 +320,10 @@ and private evalPartial b (args: (term * env) list) =
             sprintf "Wrong number of arguments to equality" |> EvalException |> raise
 
     | Get ->
-        //let fn t1 t2 =
-        //    match t1, t2 with
-        //    | AnyRaise -> ResRaise
-        //    | ResFn (BuiltIn (RecordAccess s), _), ResRecord pairs ->
-        //        let names, values = List.unzip pairs
-        //        match Seq.tryFindIndex ((=) s) names with
-        //        | Some i ->
-        //            Seq.nth i values
-        //        | None ->
-        //            sprintf "Record has no entry %A at %A" s (args.Item 1) |> EvalException |> raise
-        //    | ResFn _, _ -> ResRaise
-        //matchTwo fn args "Get requires a function and a record"
-        match args with
-        | Eval [t1; t2] ->
+        match results with
+        | [] -> ResPartial (b, [eval term env])
+        | [t1] ->
+            let t2 = eval term env
             match t1, t2 with
             | AnyRaise -> ResRaise
             | ResFn (BuiltIn (RecordAccess s), _), ResRecord pairs ->
@@ -345,15 +332,17 @@ and private evalPartial b (args: (term * env) list) =
                 | Some i ->
                     Seq.nth i values
                 | None ->
-                    sprintf "Record has no entry %A at %A" s (args.Item 1) |> EvalException |> raise
+                    sprintf "Record has no entry %A at %A" s t2 |> EvalException |> raise
             | ResFn _, _ -> ResRaise
             | _, ResRecord _ -> sprintf "First argument of get is not a function" |> EvalException |> raise
             | _, _ -> sprintf "Second argument of get is not a record" |> EvalException |> raise
         | _ -> 
             sprintf "Wrong number of arguments to get" |> EvalException |> raise
     | RecordAccess s ->
-        match args with
-        | Eval [t1; t2] ->
+        match results with
+        | [] -> ResPartial (b, [eval term env])
+        | [t1] ->
+            let t2 = eval term env
             match t1, t2 with
             | AnyRaise -> ResRaise
             | t1, ResRecord pairs ->
@@ -368,7 +357,7 @@ and private evalPartial b (args: (term * env) list) =
                     let newRec = ResRecord <| List.zip names newValues 
                     ResTuple [old; newRec]
                 | None ->
-                    sprintf "Record has no entry %A at %A" s (args.Item 1) |> EvalException |> raise
+                    sprintf "Record has no entry %A at %A" s t2 |> EvalException |> raise
             | _ -> sprintf "Second argument is not a record" |> EvalException |> raise
         | _ ->
             sprintf "Wrong number of arguments to record access" |> EvalException |> raise
@@ -383,19 +372,11 @@ and private eval t env =
         match eval t1 env with
         | ResRaise -> ResRaise
         | ResPartial(b, args) ->
-            let args' = args @ [t2, env]
-            if args'.Length = numArgs b then
-                evalPartial b args'
-            else
-                ResPartial(b, args')
+            evalPartial b args t2 env
         | ResFn (fn, env') ->
             match fn with
             | BuiltIn b ->
-                let args = [t2, env]
-                if args.Length = numArgs b then
-                    evalPartial b args
-                else
-                    ResPartial(b, args)
+                evalPartial b [] t2 env
             | Lambda (pattern, e) ->
                 match eval t2 env with
                 | ResRaise -> ResRaise
