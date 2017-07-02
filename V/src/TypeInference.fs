@@ -459,14 +459,11 @@ let typeOfBuiltin b =
 // collectConstraints term environment constraints
 let rec collectConstraints term (env: Map<string, EnvAssociation>) =
     match term with
-    | B true ->
-        Bool, []
-    | B false ->
-        Bool, []
-    | I(i) ->
-        Int, []
-    | C(c) ->
-        Char, []
+    | Constructor c ->
+        match c with
+        | ConstI i -> Int, []
+        | ConstC c -> Char, []
+        | ConstB b -> Bool, []
     | Fn fn ->
         match fn with
         | BuiltIn b -> typeOfBuiltin b, []

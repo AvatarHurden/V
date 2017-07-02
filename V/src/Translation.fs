@@ -132,9 +132,13 @@ and private translateFn fn env =
 
 and private translateTerm term env =
     match term with
-    | ExB b -> B b
-    | ExI i -> I i
-    | ExC c -> C c
+    | ExConstructor c ->
+        let c' = 
+            match c with
+            | ExConstI i -> ConstI i
+            | ExConstC c -> ConstC c
+            | ExConstB b -> ConstB b
+        Constructor c'
     | ExX x -> X x
     | ExFn fn -> translateFn fn env
     | ExApp (t1, t2) ->
@@ -181,7 +185,7 @@ and private translateTerm term env =
         let last' = translateTerm last env
         let increment =
             match second with
-            | None -> I 1
+            | None -> Constructor <| ConstI 1
             | Some second -> 
                 let second' = translateTerm second env
                 App (App (Fn <| BuiltIn Subtract, second'), first')

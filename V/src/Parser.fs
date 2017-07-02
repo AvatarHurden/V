@@ -136,12 +136,13 @@ let private pEscapeChar =
 
 let private pChar = 
     between (pstring "\'") (pstring "\'") 
-        ((pEscapeChar <|> pNonEscapeChar '\'' <?> "character") |>> ExC)
+        ((pEscapeChar <|> pNonEscapeChar '\'' <?> "character") 
+            |>> (fun c -> ExConstructor (ExConstC c)))
 
 let private pString = 
     between (pstring "\"") (pstring "\"") 
         (many ((pEscapeChar <|> pNonEscapeChar '"'))) 
-        |>> fun l -> ExListTerm <| List.map ExC l
+        |>> fun l -> ExListTerm <| List.map (fun c -> ExConstructor (ExConstC c)) l
 
 //#endregion   
 
@@ -203,12 +204,12 @@ let private pNilPattern = stringReturn "nil" <| (ExNilPat, None)
 
 let private pCharPattern = 
     pChar |>> 
-         function | ExC c -> (ExCPat c, None)
+         function | ExConstructor (ExConstC c) -> (ExCPat c, None)
                   | _ -> raise <| invalidArg "char" "Parsing char did not return char"
 let private pStringPattern = 
     let convertToPat =
         function
-        | ExC c -> ExCPat c, None
+        | ExConstructor (ExConstC c) -> ExCPat c, None
         | _ -> raise <| invalidArg "string" "Parsing string did not return string"
     pString |>> function | (ExListTerm l) -> ExListPat <| List.map convertToPat l, None
                          | _ -> raise <| invalidArg "string" "Parsing string did not return string"
@@ -274,10 +275,10 @@ do pPatternRef :=
 //#region Basic Value Parsing
 
 let private pBool = 
-    (stringReturn "true"  (ExB true))
-        <|> (stringReturn "false" (ExB false))
+    (stringReturn "true"  (ExConstructor (ExConstB true)))
+        <|> (stringReturn "false" (ExConstructor (ExConstB false)))
 
-let private pNum = puint32 |>> fun ui -> ExI <| int(ui)
+let private pNum = puint32 |>> fun ui -> ExConstructor (ExConstI <| int(ui))
 
 let private pNil = stringReturn "nil" ExNil
 

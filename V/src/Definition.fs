@@ -64,15 +64,18 @@ let numArgs =
     | Negate -> 1
     | _ -> 2
 
+type Constructor =
+    | ConstI of int
+    | ConstC of char
+    | ConstB of bool
+
 type Function =
     | BuiltIn of BuiltIn
     | Lambda of VarPattern * term
     | Recursive of Ident * (Type option) * VarPattern * term
-
+    
 and term =
-    | B of bool
-    | I of int
-    | C of char
+    | Constructor of Constructor
     | X of Ident
     | Fn of Function
     | App of term * term
@@ -166,6 +169,11 @@ and ExPattern =
     | ExNilPat
     | ExConsPat of ExVarPattern * ExVarPattern
     | ExListPat of ExVarPattern list
+    
+type ExConstructor =
+    | ExConstI of int
+    | ExConstC of char
+    | ExConstB of bool
 
 type ExFunction =
     | ExBuiltIn of BuiltIn
@@ -173,9 +181,7 @@ type ExFunction =
     | ExRecursive of Ident * ExVarPattern list * ExType option * ExTerm
 
 and ExTerm = 
-    | ExB of bool
-    | ExI of int
-    | ExC of char
+    | ExConstructor of ExConstructor
     //| ExOP of ExTerm * op * ExTerm
     | ExX of Ident
     | ExFn of ExFunction

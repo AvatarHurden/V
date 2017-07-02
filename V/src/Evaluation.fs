@@ -364,9 +364,11 @@ let rec private evalPartial b results term env =
 
 and private eval t env =
     match t with
-    | B b -> ResB b
-    | I i -> ResI i
-    | C c -> ResC c
+    | Constructor c ->
+        match c with
+        | ConstI i -> ResI i
+        | ConstC c -> ResC c
+        | ConstB b -> ResB b
     | Fn fn -> ResFn (fn, env)
     | App (t1, t2) ->
         match eval t1 env with
@@ -374,7 +376,7 @@ and private eval t env =
         | ResPartial(b, args) ->
             evalPartial b args t2 env
         | ResFn (fn, env') ->
-            match fn with
+            match fn with        
             | BuiltIn b ->
                 evalPartial b [] t2 env
             | Lambda (pattern, e) ->
