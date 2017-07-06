@@ -5,11 +5,11 @@ open System
 
 let rec toString term =
     match term with
-    | Constructor (ConstI i) -> sprintf "%A" i
-    | Constructor (ConstB true) -> "true"
-    | Constructor (ConstB false) -> "false"
-    | Constructor (ConstC c) -> string c
-    | Nil -> "[]"
+    | Constructor (I i) -> sprintf "%A" i
+    | Constructor (B true) -> "true"
+    | Constructor (B false) -> "false"
+    | Constructor (C c) -> string c
+    | Constructor Nil -> "[]"
     //| OP(C c, Cons, _) -> "\"" + (toStringString term) + "\""
     //| OP(_, Cons, _) -> "[" + (toStringList term) + "]"
     | t ->

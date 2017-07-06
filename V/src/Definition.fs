@@ -24,18 +24,40 @@ and Type =
 
 type Ident = string
     
+type Constructor =
+    | I of int
+    | C of char
+    | B of bool
+    | Nil
+    | Cons
+    //| Custom of string
+
+let constructorsMatch c1 c2 =
+    match c1, c2 with
+    | I _, I _ -> true
+    | C _, C _ -> true
+    | B _, B _ -> true
+    | Nil, Nil
+    | Nil, Cons
+    | Cons, Nil
+    | Cons, Cons -> true
+    | _ -> false
+
+let constructorArgs =
+    function
+    | I _ | B _ | C _ -> 0
+    | Nil -> 0
+    | Cons -> 2 
+
 type VarPattern = Pat of Pattern * Type option
 
 and Pattern =
     | XPat of Ident
     | IgnorePat
-    | BPat of bool
-    | IPat of int
-    | CPat of char
+    | ConstructorPat of Constructor * VarPattern list
     | TuplePat of VarPattern list
     | RecordPat of bool * (string * VarPattern) list
-    | NilPat
-    | ConsPat of VarPattern * VarPattern
+    //| ConsPat of VarPattern * VarPattern
 
 type BuiltIn =
     | Get
@@ -57,46 +79,39 @@ type BuiltIn =
     | And
     | Or
 
-    | Cons
-
 let numArgs =
     function
     | Negate -> 1
     | _ -> 2
 
-type Constructor =
-    | ConstI of int
-    | ConstC of char
-    | ConstB of bool
-
 type Function =
-    | BuiltIn of BuiltIn
     | Lambda of VarPattern * term
     | Recursive of Ident * (Type option) * VarPattern * term
     
 and term =
     | Constructor of Constructor
+    | BuiltIn of BuiltIn
     | X of Ident
     | Fn of Function
     | App of term * term
     | Match of term * (VarPattern * term option * term) list
     | Let of VarPattern * term * term
-    | Nil
     | Raise
     | Tuple of term list
     | Record of (string * term) list
 
 type ResFunction = Function * env
 
+and ResPartialApp =
+    | AppBuiltIn of BuiltIn
+    | AppConstructor of Constructor
+
 and result =
-    | ResB of bool
-    | ResI of int
-    | ResC of char
     | ResFn of ResFunction
-    | ResPartial of BuiltIn * result list
+    | ResPartial of ResPartialApp * result list
+    | ResConstructor of Constructor * result list
     | ResRaise
-    | ResNil
-    | ResCons of result * result
+    //| ResCons of result * result
     | ResTuple of result list
     | ResRecord of (string * result) list
 and
@@ -171,24 +186,24 @@ and ExPattern =
     | ExListPat of ExVarPattern list
     
 type ExConstructor =
-    | ExConstI of int
-    | ExConstC of char
-    | ExConstB of bool
+    | ExI of int
+    | ExC of char
+    | ExB of bool
+    | ExNil
+    | ExCons
 
 type ExFunction =
     | ExBuiltIn of BuiltIn
     | ExLambda of ExVarPattern list * ExTerm
     | ExRecursive of Ident * ExVarPattern list * ExType option * ExTerm
+    | ExConstructor of ExConstructor
 
 and ExTerm = 
-    | ExConstructor of ExConstructor
-    //| ExOP of ExTerm * op * ExTerm
     | ExX of Ident
     | ExFn of ExFunction
     | ExApp of ExTerm * ExTerm
     | ExMatch of ExTerm * (ExVarPattern * ExTerm option * ExTerm) list
     | ExLet of ExDeclaration * ExTerm
-    | ExNil
     | ExRaise
     | ExTuple of ExTerm list
     | ExRecord of (string * ExTerm) list
