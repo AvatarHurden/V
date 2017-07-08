@@ -37,9 +37,12 @@ and Pattern =
     | NilPat
     | ConsPat of VarPattern * VarPattern
 
+type Path = string
+
 type BuiltIn =
     | Get
-    | RecordAccess of string
+    | Stack
+    | RecordAccess of Path list
 
     | Add
     | Subtract

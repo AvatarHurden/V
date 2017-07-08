@@ -445,9 +445,26 @@ let typeOfBuiltin b =
         let varType = VarType (getVarType (), [])
         Function (varType, Function (List varType, List varType))
 
-    | RecordAccess s ->
+    | Stack ->
         let varType1 = VarType (getVarType (), [])
-        let varType2 = VarType (getVarType (), [RecordLabel (s, varType1)])
+        let varType2 = VarType (getVarType (), [])
+        let varType3 = VarType (getVarType (), [])
+
+        let accessTyp1 =
+            Function (varType1, Function(varType2, Type.Tuple [varType1; varType2]))
+        let accessTyp2 =
+            Function (varType3, Function(varType1, Type.Tuple [varType3; varType1]))
+        
+        Function (accessTyp1, 
+            Function (accessTyp2, 
+                Function (varType3, 
+                    Function (varType2, Type.Tuple [varType3; varType2]))))
+    | RecordAccess path ->
+        let varType1 = VarType (getVarType (), [])
+        let f field acc =
+            VarType (getVarType (), [RecordLabel (field, acc)])
+
+        let varType2 = List.foldBack f path varType1 
         Function (varType1, Function(varType2, Type.Tuple [varType1; varType2]))
     | Get -> 
         let varType1 = VarType (getVarType (), [])

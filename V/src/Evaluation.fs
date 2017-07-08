@@ -194,6 +194,27 @@ let rec compareOrder t1 t2 orderType =
     
 //#endregion
 
+let rec traversePath path term newValue =
+    match term, path with
+    | _, [] -> sprintf "Path requires at least one field" |> EvalException |> raise
+    | ResRecord pairs, field :: xs ->
+        let names, values = List.unzip pairs
+        match Seq.tryFindIndex ((=) field) names with
+        | None -> sprintf "Record has no entry %A at %A" field term |> EvalException |> raise
+        | Some i ->
+            let start = Seq.take i values
+            let old = Seq.nth i values
+            let finish = Seq.skip (i+1) values
+            let ret, newValue' = 
+                match xs with
+                | [] -> old, newValue
+                | _ -> traversePath xs old newValue
+            let newValueSeq = [newValue'] :> seq<_>
+            let newValues = Seq.toList (Seq.concat [start; newValueSeq; finish])
+            let newRec = ResRecord <| List.zip names newValues 
+            ret, newRec
+    | _ -> sprintf "Second argument is not a record" |> EvalException |> raise
+
 let rec private evalPartial b results term env =
     match b with
     | Add ->
@@ -319,6 +340,18 @@ let rec private evalPartial b results term env =
         | _ -> 
             sprintf "Wrong number of arguments to equality" |> EvalException |> raise
 
+    | Stack ->
+        match results with
+        | [] -> ResPartial (b, [eval term env])
+        | [t1] ->
+            let t2 = eval term env
+            match t1, t2 with
+            | AnyRaise -> ResRaise
+            | ResFn (BuiltIn (RecordAccess path), env), ResFn (BuiltIn (RecordAccess path2), _) ->
+                ResFn (BuiltIn (RecordAccess <| path @ path2), env)
+            | _ -> sprintf "Compose needs a pair of record accessors" |> EvalException |> raise
+        | _ -> 
+            sprintf "Wrong number of arguments to compose" |> EvalException |> raise
     | Get ->
         match results with
         | [] -> ResPartial (b, [eval term env])
@@ -326,39 +359,32 @@ let rec private evalPartial b results term env =
             let t2 = eval term env
             match t1, t2 with
             | AnyRaise -> ResRaise
-            | ResFn (BuiltIn (RecordAccess s), _), ResRecord pairs ->
-                let names, values = List.unzip pairs
-                match Seq.tryFindIndex ((=) s) names with
-                | Some i ->
-                    Seq.nth i values
-                | None ->
-                    sprintf "Record has no entry %A at %A" s t2 |> EvalException |> raise
+            | ResFn (BuiltIn (RecordAccess path), _), t2 ->
+                let access record field =
+                    match record with
+                    | ResRecord pairs ->
+                        let names, values = List.unzip pairs
+                        match Seq.tryFindIndex ((=) field) names with
+                        | Some i ->
+                            Seq.nth i values
+                        | None ->
+                            sprintf "Record has no entry %A at %A" field t2 |> EvalException |> raise
+                    | _ -> sprintf "Second argument of get is not a record" |> EvalException |> raise
+                List.fold access t2 path
             | ResFn _, _ -> ResRaise
-            | _, ResRecord _ -> sprintf "First argument of get is not a function" |> EvalException |> raise
-            | _, _ -> sprintf "Second argument of get is not a record" |> EvalException |> raise
+            | _ -> sprintf "First argument of get is not a function" |> EvalException |> raise
         | _ -> 
             sprintf "Wrong number of arguments to get" |> EvalException |> raise
-    | RecordAccess s ->
+    | RecordAccess path ->
         match results with
         | [] -> ResPartial (b, [eval term env])
         | [t1] ->
             let t2 = eval term env
             match t1, t2 with
             | AnyRaise -> ResRaise
-            | t1, ResRecord pairs ->
-                let names, values = List.unzip pairs
-                match Seq.tryFindIndex ((=) s) names with
-                | Some i ->
-                    let start = Seq.take i values
-                    let old = Seq.nth i values
-                    let finish = Seq.skip (i+1) values
-                    let newValueSeq = [t1] :> seq<_>
-                    let newValues = Seq.toList (Seq.concat [start; newValueSeq; finish])
-                    let newRec = ResRecord <| List.zip names newValues 
-                    ResTuple [old; newRec]
-                | None ->
-                    sprintf "Record has no entry %A at %A" s t2 |> EvalException |> raise
-            | _ -> sprintf "Second argument is not a record" |> EvalException |> raise
+            | t1, t2 ->
+                let value, record = traversePath path t2 t1
+                ResTuple [value; record]
         | _ ->
             sprintf "Wrong number of arguments to record access" |> EvalException |> raise
 
