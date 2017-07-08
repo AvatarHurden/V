@@ -283,7 +283,9 @@ let private pNil = stringReturn "nil" ExNil
 
 let private pRaise = stringReturn "raise" ExRaise
 
-let private pProjection = pstring "#" >>. pIdentifier |>> fun s -> ExFn <| ExBuiltIn (RecordAccess [s])
+let private pProjection = 
+    pstring "#" >>. sepBy pIdentifier (pstring ".") 
+        |>> fun s -> ExFn <| ExBuiltIn (RecordAccess s)
 
 let private pGet = pstring "get" >>. ws |>> fun _ -> ExFn <| ExBuiltIn Get
 
