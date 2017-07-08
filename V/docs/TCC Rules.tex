@@ -32,13 +32,19 @@ e &::= &n\\
   &| &x\\
   &| &(e_1, \; \dots \; e_n) & (n\geq2)\\
   &| &\{l_1: e_1, \; \dots \; l_n: e_n\} & (n\geq1)\\
-  &| &\#l\\
+  &| &\#paths\\
+  &| &stack\\
   &| &get\\
   &| &\texttt{let} \; p = e_1 \; \texttt{in} \; e_2\\
   &| &\texttt{fn} \; p \Rightarrow e\\
   &| &e_1 \; e_2\\
   &| &raise\\
   &| &\texttt{match} \; e \; \texttt{with} \; match_1, ... \; match_n& (n\geq1)\\
+  \\
+paths &::= &path\\
+  &| &path :: paths\\
+  \\
+path &::= &l\\
   \\
 match &::= &p \rightarrow e\\
   &| &p \; \texttt{when} \; e_1 \rightarrow e_2\\
@@ -96,15 +102,17 @@ env &::= &\{\} \; | \; \{x \rightarrow v\} \cup env\\
     &| &(v_1, \; \dots \; v_n) & (n\geq2)\\
     &| &\{l_1: v_1, \; \dots \; l_n: v_n\} & (n\geq1)\\
     &| &\left\langle p, e, env\right\rangle\\
-    &| &\#l\\
-    &| &[\#l \; v]\\
+    &| &\#path\\
+    &| &[\#path \; v]\\
     &| &get\\
     &| &[get \; v]\\
+    &| &stack\\
+    &| &[stack \; v]\\
 \end{tabular}}
 
 
 
-\section{Pattern Matching}
+\subsection{Pattern Matching}
 
 
 \infax[]
@@ -147,18 +155,32 @@ env &::= &\{\} \; | \; \{x \rightarrow v\} \cup env\\
       l^1_i = l^2_i \wedge match(p_i, v_i) = true, env_i}
     {match(\{l_1^1: p_1, \dots, l^1_n: p_n\}, \{l^2_1: v_1, ... l^2_n: v_n\}) = true,  \displaystyle \bigcup_{i=1}^{n} env_i}
 
+\subsection{Path Traversing Rules}
 
+\infrule[]
+    {path = l_k \andalso 1 \leq \left\|k\right\| \leq \left\|n\right\|\\
+    r = \{l_1: v_1, \; \dots \; l_k: v, \; \ldots \; l_n: v_n\}}
+    {traverse(path, \{l_1: v_1, ... l_n: v_n\}, v) = v_k, r}
 
-\subsubsection{Big-Step Rules}
+\infrule[]
+    {path = l_k \andalso 1 \leq \left\|k\right\| \leq \left\|n\right\| \\
+    traverse(paths, v_k, v) = v', v_k' \\
+    r = \{l_1: v_1, \; \dots \; l_k: v_k', \; \ldots \; l_n: v_n\}}
+    {traverse(path :: paths, \{l_1: v_1, ... l_n: v_n\}, v) = v', r}
+
+\subsection{Big-Step Rules}
 
 \infax[BS-Num]
     {\mbox{env} \vdash n \Downarrow n}
 
 \infax[BS-Access]
-    {\mbox{env} \vdash \#l \Downarrow \#l}
+    {\mbox{env} \vdash \#path \Downarrow \#path}
 
 \infax[BS-Get]
     {\mbox{env} \vdash get \Downarrow get}
+
+\infax[BS-Stack]
+    {\mbox{env} \vdash stack \Downarrow stack}
 
 \infrule[BS-Ident]
     {\mbox{env}(x) = v}
@@ -188,13 +210,23 @@ The right-hand operand (argument) is always evaluated using the current environm
 In the case of a simple closure, the body of the function ($e$) is evaluated using the stored closure, matching the parameter pattern ($p$) with the argument ($v_2$).
 
 \infrule[BS-AppAccess]
-    {\mbox{env} \vdash e_1 \Downarrow \#l \andalso \mbox{env} \vdash e_2 \Downarrow v}
-    {\mbox{env} \vdash e_1 \; e_2 \Downarrow [\#l \; v]}
+    {\mbox{env} \vdash e_1 \Downarrow \#paths \andalso \mbox{env} \vdash e_2 \Downarrow v}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow [\#paths \; v]}
 
 \infrule[BS-AppAccess2]
-    {\mbox{env} \vdash e_1 \Downarrow [\#l \; v] \andalso \mbox{env} \vdash e_2 \Downarrow \{l_1: v_1, \; \dots \; l_n: v_n\}\\
-    l = l_k \andalso 1 \leq \left\|k\right\| \leq \left\|n\right\| \andalso r = \{l_1: v_1, \; \dots \; l_k: v, \; \ldots \; l_n: v_n\}}
-    {\mbox{env} \vdash e_1 \; e_2 \Downarrow (v_k, r)}
+    {\mbox{env} \vdash e_1 \Downarrow [\#paths \; v] \andalso \mbox{env} \vdash e_2 \Downarrow \{l_1: v_1, \; \dots \; l_n: v_n\}\\
+    traverse(paths, e_2, v) = v', r'}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow (v', r')}
+
+
+\infrule[BS-AppStack]
+    {\mbox{env} \vdash e_1 \Downarrow stack \andalso \mbox{env} \vdash e_2 \Downarrow v}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow [stack \; v]}
+
+\infrule[BS-AppStack2]
+    {\mbox{env} \vdash e_1 \Downarrow [stack \; \#paths_1] \andalso \mbox{env} \vdash e_2 \Downarrow \#paths_2\\
+    paths' = paths_1 ++ paths_2}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow \#paths'}
 
 \infrule[BS-AppGet]
     {\mbox{env} \vdash e_1 \Downarrow get \andalso \mbox{env} \vdash e_2 \Downarrow v}
@@ -205,9 +237,9 @@ In the case of a simple closure, the body of the function ($e$) is evaluated usi
     {\mbox{env} \vdash e_1 \; e_2 \Downarrow raise}
 
 \infrule[BS-AppGet2]
-    {\mbox{env} \vdash e_1 \Downarrow [get \; \#l] \andalso \mbox{env} \vdash e_2 \Downarrow \{l_1: v_1, \; \dots \; l_n: v_n\}\\
-    l = l_k \andalso 1 \leq \left\|k\right\| \leq \left\|n\right\|}
-    {\mbox{env} \vdash e_1 \; e_2 \Downarrow v_k}
+    {\mbox{env} \vdash e_1 \Downarrow [get \; \#path] \andalso \mbox{env} \vdash e_2 \Downarrow \{l_1: v_1, \; \dots \; l_n: v_n\}\\
+    traverse(path, e_2, v) = v', r'}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow v'}
 
 \infrule[BS-AppFn]
     {\mbox{env} \vdash e_1 \Downarrow \left\langle p, e, env\right\rangle \andalso \mbox{env} \vdash e_2 \Downarrow v_2\\
@@ -374,6 +406,17 @@ For every free variable in the association, a fresh variable type is declared an
     {\forall i \in \left[1, n\right] \; \; X_i \; is \; new \wedge match(p_i, X_i) = c_i, env_i}
     {match(\{l_1: p_1, \dots, l_n: p_n\}, T) = \{\{l_1: X_1, \dots, l_n: X_n\} = T\} \cup \displaystyle \bigcup_{i=1}^{n} c_i, \displaystyle \bigcup_{i=1}^{n} env_i}
 
+\subsubsection{Path Traversing Rules}
+
+\infrule[]
+    {path = l \andalso X^{\{\{l: T\}\}} \; is \; new}
+    {traverse(path, T) = X}
+
+\infrule[]
+    {traverse(paths, T) = T'\\
+    path = l \andalso X^{\{\{l: T'\}\}} \; is \; new}
+    {traverse(path :: paths, T_1) = X}
+
 \subsubsection{Constraint Collection Rules}
 Every expression in $V$ has a rule for constraint collection, similar to how every expression has a rule for its semantic evaluation.
 
@@ -393,8 +436,13 @@ Every expression in $V$ has a rule for constraint collection, similar to how eve
     {\Gamma \vdash \{l_1: e_1, \; \dots \; l_n: e_n\} : \{l_1: T_1, \; \dots \; l_n: T_n\} \; | \; C_1 \cup \cdots C_n }
 
 \infrule[T-Access]
-    {X_1 \; is\; new \andalso X_2^{\{\{l: X_1\}\}} \; is \; new}
-    {\Gamma \vdash \#l : X_1 \rightarrow X_2 \rightarrow (X_1, X_2) \; | \; \{\}}
+    {X_1 \; is\; new \andalso traverse(paths, X_1) = X_2}
+    {\Gamma \vdash \#paths : X_1 \rightarrow X_2 \rightarrow (X_1, X_2) \; | \; \{\}}
+
+\infrule[T-Stack]
+    {X_1 \; is\; new \andalso X_2 \; is \; new \andalso X_3 \; is \; new\\
+    T_1 = (X_1 \rightarrow X_2 \rightarrow (X_1, X_2)) \andalso T_2 = (X_3 \rightarrow X_1 \rightarrow (X_3, X_1))}
+    {\Gamma \vdash stack : T_1 \rightarrow T_2 \rightarrow X_3 \rightarrow X_2 \rightarrow (X_3, X_2)  \; | \; \{\}}
 
 \infrule[T-Get]
     {X_1 \; is\; new \andalso X_2 \; is \; new}

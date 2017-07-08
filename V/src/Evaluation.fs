@@ -360,17 +360,7 @@ let rec private evalPartial b results term env =
             match t1, t2 with
             | AnyRaise -> ResRaise
             | ResFn (BuiltIn (RecordAccess path), _), t2 ->
-                let access record field =
-                    match record with
-                    | ResRecord pairs ->
-                        let names, values = List.unzip pairs
-                        match Seq.tryFindIndex ((=) field) names with
-                        | Some i ->
-                            Seq.nth i values
-                        | None ->
-                            sprintf "Record has no entry %A at %A" field t2 |> EvalException |> raise
-                    | _ -> sprintf "Second argument of get is not a record" |> EvalException |> raise
-                List.fold access t2 path
+                fst <| traversePath path t2 t1
             | ResFn _, _ -> ResRaise
             | _ -> sprintf "First argument of get is not a function" |> EvalException |> raise
         | _ -> 
