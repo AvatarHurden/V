@@ -415,35 +415,38 @@ let findId id (e: Map<string, EnvAssociation>) =
     else
         raise (TypeException <| sprintf "Identifier %A undefined" id)
 
-let typeOfBuiltin b =
+let rec typeOfBuiltin b env =
     match b with
+    | Id ->
+        let varType = VarType (getVarType (), []) 
+        Function (varType, varType), []
     | Add
     | Subtract
     | Multiply
     | Divide ->
-        Function (Int, Function (Int, Int))
+        Function (Int, Function (Int, Int)), []
     | Negate ->
-        Function (Int, Int)
+        Function (Int, Int), []
 
     | Equal
     | Different ->
         let varType = VarType (getVarType (), [Equatable])
-        Function (varType, Function (varType, Bool))
+        Function (varType, Function (varType, Bool)), []
 
     | LessThan
     | LessOrEqual
     | GreaterThan
     | GreaterOrEqual ->
         let varType = VarType (getVarType (), [Orderable])
-        Function (varType, Function (varType, Bool))
+        Function (varType, Function (varType, Bool)), []
 
     | And
     | Or ->
-        Function (Bool, Function (Bool, Bool))
+        Function (Bool, Function (Bool, Bool)), []
 
     | Cons ->
         let varType = VarType (getVarType (), [])
-        Function (varType, Function (List varType, List varType))
+        Function (varType, Function (List varType, List varType)), []
 
     | Stack ->
         let varType1 = VarType (getVarType (), [])
@@ -458,23 +461,36 @@ let typeOfBuiltin b =
         Function (accessTyp1, 
             Function (accessTyp2, 
                 Function (varType3, 
-                    Function (varType2, Type.Tuple [varType3; varType2]))))
+                    Function (varType2, Type.Tuple [varType3; varType2])))), []
     | RecordAccess path ->
         let varType1 = VarType (getVarType (), [])
-        let f field acc =
-            VarType (getVarType (), [RecordLabel (field, acc)])
+        let varType2 = VarType (getVarType (), [])
 
-        let varType2 = List.foldBack f path varType1 
-        Function (varType1, Function(varType2, Type.Tuple [varType1; varType2]))
+        let f (field, getter, setter) (oldIo, oldOut, c) =
+            let t1, c1 = collectConstraints getter env
+            let t2, c2 = collectConstraints setter env
+
+            let io = oldOut
+            let storage = VarType (getVarType (), [])
+
+            let out = VarType (getVarType (), [RecordLabel (field, storage)])
+
+            let c' = 
+                [Equals (t1, Function(storage, io)); 
+                 Equals (t2, Function(io, storage))]
+
+            oldIo, out, c @ c1 @ c2 @ c'
+
+        let io, out, c = List.foldBack f path (varType1, varType2, [])
+        Function (io, Function(out, Type.Tuple [io; out])), c
     | Get -> 
         let varType1 = VarType (getVarType (), [])
         let varType2 = VarType (getVarType (), [])
         let accessTyp =
             Function (varType1, Function(varType2, Type.Tuple [varType1; varType2]))
-        Function(accessTyp, Function(varType2, varType1))
+        Function(accessTyp, Function(varType2, varType1)), []
 
-// collectConstraints term environment constraints
-let rec collectConstraints term (env: Map<string, EnvAssociation>) =
+and collectConstraints term (env: Map<string, EnvAssociation>) =
     match term with
     | B true ->
         Bool, []
@@ -486,7 +502,7 @@ let rec collectConstraints term (env: Map<string, EnvAssociation>) =
         Char, []
     | Fn fn ->
         match fn with
-        | BuiltIn b -> typeOfBuiltin b, []
+        | BuiltIn b -> typeOfBuiltin b env
         | Lambda (pattern, t1) ->
             let paramTyp = VarType (getVarType (), [])
             let env', cons = validatePattern pattern paramTyp env []

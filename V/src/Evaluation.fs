@@ -194,10 +194,10 @@ let rec compareOrder t1 t2 orderType =
     
 //#endregion
 
-let rec traversePath path term newValue =
+let rec traversePath (path: ResPath list) term (newValue: result option) =
     match term, path with
     | _, [] -> sprintf "Path requires at least one field" |> EvalException |> raise
-    | ResRecord pairs, field :: xs ->
+    | ResRecord pairs, (field, getter, setter) :: xs ->
         let names, values = List.unzip pairs
         match Seq.tryFindIndex ((=) field) names with
         | None -> sprintf "Record has no entry %A at %A" field term |> EvalException |> raise
@@ -205,23 +205,38 @@ let rec traversePath path term newValue =
             let start = Seq.take i values
             let old = Seq.nth i values
             let finish = Seq.skip (i+1) values
+            let gottenOld = applyResults getter old
             let ret, newValue' = 
                 match xs with
-                | [] -> old, newValue
-                | _ -> traversePath xs old newValue
+                | [] -> 
+                    let settedNew = 
+                        match newValue with
+                        | None -> old
+                        | Some newValue -> applyResults setter newValue
+                    gottenOld, settedNew
+                | _ -> 
+                    let ret, newRec = traversePath xs gottenOld newValue
+                    ret, applyResults setter newRec
+            //let newValue' = if newValue'.IsSome then newValue'.Value else old
             let newValueSeq = [newValue'] :> seq<_>
             let newValues = Seq.toList (Seq.concat [start; newValueSeq; finish])
             let newRec = ResRecord <| List.zip names newValues 
             ret, newRec
     | _ -> sprintf "Second argument is not a record" |> EvalException |> raise
 
-let rec private evalPartial b results term env =
+and private evalPartial b results t2_thunk =
     match b with
+    | Id -> 
+        match results with
+        | [] -> t2_thunk ()
+        | _ ->
+            sprintf "Wrong number of arguments to Id" |> EvalException |> raise
+        
     | Add ->
         match results with
-        | [] -> ResPartial (b, [eval term env])
+        | [] -> ResPartial (b, [t2_thunk ()])
         | [t1] ->
-            let t2 = eval term env
+            let t2 = t2_thunk ()
             match t1, t2 with
             | AnyRaise -> ResRaise
             | ResI i1, ResI i2 -> ResI (i1 + i2)
@@ -230,9 +245,9 @@ let rec private evalPartial b results term env =
             sprintf "Wrong number of arguments to add" |> EvalException |> raise
     | Subtract ->
         match results with
-        | [] -> ResPartial (b, [eval term env])
+        | [] -> ResPartial (b, [t2_thunk ()])
         | [t1] ->
-            let t2 = eval term env
+            let t2 = t2_thunk ()
             match t1, t2 with
             | AnyRaise -> ResRaise
             | ResI i1, ResI i2 -> ResI (i1 - i2)
@@ -241,9 +256,9 @@ let rec private evalPartial b results term env =
             sprintf "Wrong number of arguments to subtract" |> EvalException |> raise
     | Multiply ->
         match results with
-        | [] -> ResPartial (b, [eval term env])
+        | [] -> ResPartial (b, [t2_thunk ()])
         | [t1] ->
-            let t2 = eval term env
+            let t2 = t2_thunk ()
             match t1, t2 with
             | AnyRaise -> ResRaise
             | ResI i1, ResI i2 -> ResI (i1 * i2)
@@ -252,9 +267,9 @@ let rec private evalPartial b results term env =
             sprintf "Wrong number of arguments to multiply" |> EvalException |> raise
     | Divide ->
         match results with
-        | [] -> ResPartial (b, [eval term env])
+        | [] -> ResPartial (b, [t2_thunk ()])
         | [t1] ->
-            let t2 = eval term env
+            let t2 = t2_thunk ()
             match t1, t2 with
             | AnyRaise -> ResRaise
             | ResI i, ResI 0 -> ResRaise
@@ -265,7 +280,7 @@ let rec private evalPartial b results term env =
     | Negate ->
         match results with
         | [] -> 
-            let t1 = eval term env        
+            let t1 = t2_thunk ()
             match t1 with
             | ResRaise -> ResRaise
             | ResI i -> ResI (-i)
@@ -278,26 +293,26 @@ let rec private evalPartial b results term env =
     | GreaterThan 
     | GreaterOrEqual ->
         match results with
-        | [] -> ResPartial (b, [eval term env])
+        | [] -> ResPartial (b, [t2_thunk ()])
         | [t1] ->
-            let t2 = eval term env
+            let t2 = t2_thunk ()
             compareOrder t1 t2 b
         | _ -> 
             sprintf "Wrong number of arguments to comparison" |> EvalException |> raise
 
     | Equal ->
         match results with
-        | [] -> ResPartial (b, [eval term env])
+        | [] -> ResPartial (b, [t2_thunk ()])
         | [t1] ->
-            let t2 = eval term env
+            let t2 = t2_thunk ()
             compareEquality t1 t2
         | _ -> 
             sprintf "Wrong number of arguments to equality" |> EvalException |> raise
     | Different ->
         match results with
-        | [] -> ResPartial (b, [eval term env])
+        | [] -> ResPartial (b, [t2_thunk ()])
         | [t1] ->
-            let t2 = eval term env
+            let t2 = t2_thunk ()
             match compareEquality t1 t2 with
             | ResRaise -> ResRaise
             | ResB b -> ResB (not b)
@@ -306,32 +321,32 @@ let rec private evalPartial b results term env =
             sprintf "Wrong number of arguments to inequality" |> EvalException |> raise
     | And ->
         match results with
-        | [] -> ResPartial (b, [eval term env])
+        | [] -> ResPartial (b, [t2_thunk ()])
         | [t1] ->
             match t1 with
             | ResRaise -> ResRaise
             | ResB false -> ResB false
-            | ResB true ->  eval term env
+            | ResB true -> t2_thunk ()
             | _ -> sprintf "And requires a boolean" |> EvalException |> raise
         | _ ->
             sprintf "Wrong number of arguments to and" |> EvalException |> raise
     | Or ->
         match results with
-        | [] -> ResPartial (b, [eval term env])
+        | [] -> ResPartial (b, [t2_thunk ()])
         | [t1] ->
             match t1 with
             | ResRaise -> ResRaise
             | ResB true -> ResB true
-            | ResB false ->  eval term env
+            | ResB false -> t2_thunk ()
             | _ -> sprintf "Or requires a boolean" |> EvalException |> raise
         | _ ->
             sprintf "Wrong number of arguments to Or" |> EvalException |> raise
 
     | Cons ->
        match results with
-        | [] -> ResPartial (b, [eval term env])
+        | [] -> ResPartial (b, [t2_thunk ()])
         | [t1] ->
-            let t2 = eval term env
+            let t2 = t2_thunk ()
             match t1, t2 with
             | AnyRaise -> ResRaise
             | t1, ResNil 
@@ -342,73 +357,105 @@ let rec private evalPartial b results term env =
 
     | Stack ->
         match results with
-        | [] -> ResPartial (b, [eval term env])
+        | [] -> ResPartial (b, [t2_thunk ()])
         | [t1] ->
-            let t2 = eval term env
+            let t2 = t2_thunk ()
             match t1, t2 with
             | AnyRaise -> ResRaise
-            | ResFn (BuiltIn (RecordAccess path), env), ResFn (BuiltIn (RecordAccess path2), _) ->
-                ResFn (BuiltIn (RecordAccess <| path @ path2), env)
+            | ResFn (BuiltIn (ResRecordAcess path), env), ResFn (BuiltIn (ResRecordAcess path2), _) ->
+                ResFn (BuiltIn (ResRecordAcess <| path @ path2), env)
             | _ -> sprintf "Compose needs a pair of record accessors" |> EvalException |> raise
         | _ -> 
             sprintf "Wrong number of arguments to compose" |> EvalException |> raise
     | Get ->
         match results with
-        | [] -> ResPartial (b, [eval term env])
+        | [] -> ResPartial (b, [t2_thunk ()])
         | [t1] ->
-            let t2 = eval term env
+            let t2 = t2_thunk ()
             match t1, t2 with
             | AnyRaise -> ResRaise
-            | ResFn (BuiltIn (RecordAccess path), _), t2 ->
-                fst <| traversePath path t2 t1
+            | ResFn (BuiltIn (ResRecordAcess paths), _), t2 ->
+                fst <| traversePath paths t2 None
             | ResFn _, _ -> ResRaise
             | _ -> sprintf "First argument of get is not a function" |> EvalException |> raise
         | _ -> 
             sprintf "Wrong number of arguments to get" |> EvalException |> raise
-    | RecordAccess path ->
+    | ResRecordAcess paths ->
         match results with
-        | [] -> ResPartial (b, [eval term env])
+        | [] -> ResPartial (b, [t2_thunk ()])
         | [t1] ->
-            let t2 = eval term env
+            let t2 = t2_thunk ()
             match t1, t2 with
             | AnyRaise -> ResRaise
             | t1, t2 ->
-                let value, record = traversePath path t2 t1
+                let value, record = traversePath paths t2 <| Some t1
                 ResTuple [value; record]
         | _ ->
             sprintf "Wrong number of arguments to record access" |> EvalException |> raise
 
-and private eval t env =
+and private applyResults fn res =
+    match fn with
+    | ResRaise -> ResRaise
+    | ResPartial(b, args) ->
+        evalPartial b args (fun _ -> res)
+    | ResFn (fn, env') ->
+        match fn with
+        | BuiltIn b ->
+            evalPartial b [] (fun _ -> res)
+        | Lambda (pattern, e) ->
+            match res with
+            | ResRaise -> ResRaise
+            | t2' -> 
+                match validatePattern pattern t2' env' with
+                | None -> ResRaise
+                | Some env' -> eval e env'
+        | Recursive (id, _, pattern, e) ->
+            match res with
+            | ResRaise -> ResRaise
+            | t2' -> 
+                match validatePattern pattern t2' env' with
+                | None -> ResRaise
+                | Some env' -> eval e <| env'.Add(id, ResFn(fn, env'))
+    | t1' -> sprintf "First operand %A is not a function" t1' |> EvalException |> raise
+
+and private apply fn t2 (env: env) =
+    match fn with
+    | ResRaise -> ResRaise
+    | ResPartial(b, args) ->
+        evalPartial b args (fun _ -> eval t2 env)
+    | ResFn (fn, env') ->
+        match fn with
+        | BuiltIn b ->
+            evalPartial b [] (fun _ -> eval t2 env)
+        | Lambda (pattern, e) ->
+            match eval t2 env with
+            | ResRaise -> ResRaise
+            | t2' -> 
+                match validatePattern pattern t2' env' with
+                | None -> ResRaise
+                | Some env' -> eval e env'
+        | Recursive (id, _, pattern, e) ->
+            match eval t2 env with
+            | ResRaise -> ResRaise
+            | t2' -> 
+                match validatePattern pattern t2' env' with
+                | None -> ResRaise
+                | Some env' -> eval e <| env'.Add(id, ResFn(fn, env'))
+    | t1' -> sprintf "First operand %A is not a function" t1' |> EvalException |> raise
+
+and private eval (t: term) (env: env) =
     match t with
     | B b -> ResB b
     | I i -> ResI i
     | C c -> ResC c
-    | Fn fn -> ResFn (fn, env)
+    | Fn fn -> 
+        match fn with
+        | BuiltIn (RecordAccess paths) ->
+            let paths' = List.map (fun (s, getter, setter) -> s, eval getter env, eval setter env) paths
+            ResFn (BuiltIn (ResRecordAcess paths'), env)
+        | _ -> ResFn (fn, env)
     | App (t1, t2) ->
-        match eval t1 env with
-        | ResRaise -> ResRaise
-        | ResPartial(b, args) ->
-            evalPartial b args t2 env
-        | ResFn (fn, env') ->
-            match fn with
-            | BuiltIn b ->
-                evalPartial b [] t2 env
-            | Lambda (pattern, e) ->
-                match eval t2 env with
-                | ResRaise -> ResRaise
-                | t2' -> 
-                    match validatePattern pattern t2' env' with
-                    | None -> ResRaise
-                    | Some env' -> eval e env'
-            | Recursive (id, _, pattern, e) ->
-                match eval t2 env with
-                | ResRaise -> ResRaise
-                | t2' -> 
-                    match validatePattern pattern t2' env' with
-                    | None -> ResRaise
-                    | Some env' -> eval e <| env'.Add(id, ResFn(fn, env'))
-        | t1' -> sprintf "First operand %A is not a function at %A" t1' t |> EvalException |> raise
-    
+        apply (eval t1 env) t2 env
     | Match (t1, patterns) ->
         match eval t1 env with
         | t1' ->

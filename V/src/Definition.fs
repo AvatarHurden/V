@@ -37,12 +37,16 @@ and Pattern =
     | NilPat
     | ConsPat of VarPattern * VarPattern
 
-type Path = string
+type Path = string * term * term
+and ResPath = string * result * result
 
-type BuiltIn =
+and BuiltIn =
+    | Id
+
     | Get
     | Stack
     | RecordAccess of Path list
+    | ResRecordAcess of ResPath list
 
     | Add
     | Subtract
@@ -62,13 +66,9 @@ type BuiltIn =
 
     | Cons
 
-let numArgs =
-    function
-    | Negate -> 1
-    | _ -> 2
-
-type Function =
+and Function =
     | BuiltIn of BuiltIn
+    //| CustomAccessor of term * 
     | Lambda of VarPattern * term
     | Recursive of Ident * (Type option) * VarPattern * term
 
@@ -86,7 +86,7 @@ and term =
     | Tuple of term list
     | Record of (string * term) list
 
-type ResFunction = Function * env
+and ResFunction = Function * env
 
 and result =
     | ResB of bool

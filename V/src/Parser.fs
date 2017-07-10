@@ -284,8 +284,9 @@ let private pNil = stringReturn "nil" ExNil
 let private pRaise = stringReturn "raise" ExRaise
 
 let private pProjection = 
+    let f s = (s, Fn (BuiltIn Id), Fn (BuiltIn Id))
     pstring "#" >>. sepBy pIdentifier (pstring ".") 
-        |>> fun s -> ExFn <| ExBuiltIn (RecordAccess s)
+        |>> fun s -> ExFn <| ExBuiltIn (RecordAccess (List.map f s))
 
 let private pGet = pstring "get" >>. ws |>> fun _ -> ExFn <| ExBuiltIn Get
 
