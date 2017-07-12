@@ -70,6 +70,8 @@ and printResult result =
     | ResI i -> string i
     | ResRaise -> "raise"
     | ResNil -> "[]"
+    | ResRecordAcess paths ->
+        List.fold (fun acc (s, res1, res2) -> sprintf "%O.(%O, %A, %A)" acc s res1 res2) "#" paths
     | ResCons (ResC head, tail) -> "\"" + printResultString result + "\""
     | ResCons (head, tail) -> "[" + printResultList result + "]"
     | ResTuple v -> 

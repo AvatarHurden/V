@@ -284,11 +284,6 @@ let private pNil = stringReturn "nil" ExNil
 
 let private pRaise = stringReturn "raise" ExRaise
 
-let private pProjection = 
-    let f s = (s, Fn (BuiltIn Id), Fn (BuiltIn Id))
-    pstring "#" >>. sepBy pIdentifier (pstring ".") 
-        |>> fun s -> ExFn <| ExBuiltIn (RecordAccess (List.map f s))
-
 let private pGet = pstring "get" >>. ws |>> fun _ -> ExFn <| ExBuiltIn Get
 
 let private pSet = pstring "set" >>. ws |>> fun _ -> ExFn <| ExBuiltIn Set
@@ -298,6 +293,23 @@ let private pStack = pstring "stack" >>. ws |>> fun _ -> ExFn <| ExBuiltIn Stack
 //#endregion   
 
 let private pTerm, private pTermRef = createParserForwardedToRef<ExTerm, UserState>()
+
+//#region Parse Accessors
+
+let private pPath = 
+    (pIdentifier |>> fun s -> (s, ExFn (ExBuiltIn Id), ExFn (ExBuiltIn Id)))
+    <|> pBetween "(" ")" 
+        (tuple3
+            (pIdentifier .>> ws .>> pstring "," .>> ws)
+            (pTerm .>> pstring "," .>> ws)
+            (pTerm))
+
+
+let private pProjection = 
+    pstring "#" >>. sepBy pPath (pstring ".") |>> ExRecordAccess
+
+
+//#endregion
 
 //#region Parse Functions
 

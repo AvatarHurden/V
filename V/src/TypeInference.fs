@@ -462,6 +462,30 @@ let rec typeOfBuiltin b env =
             Function (accessTyp2, 
                 Function (varType3, 
                     Function (varType2, Type.Tuple [varType3; varType2])))), []
+
+    | Get -> 
+        let varType1 = VarType (getVarType (), [])
+        let varType2 = VarType (getVarType (), [])
+        let accessTyp = 
+            Function (varType1, Function(varType2, Type.Tuple [varType1; varType2]))
+        Function(accessTyp, Function(varType2, varType1)), []
+    | Set -> 
+        let varType1 = VarType (getVarType (), [])
+        let varType2 = VarType (getVarType (), [])
+        let accessTyp =
+            Function (varType1, Function(varType2, Type.Tuple [varType1; varType2]))
+        Function(accessTyp, Function (varType1, Function(varType2, varType2))), []
+
+and collectConstraints term (env: Map<string, EnvAssociation>) =
+    match term with
+    | B true ->
+        Bool, []
+    | B false ->
+        Bool, []
+    | I(i) ->
+        Int, []
+    | C(c) ->
+        Char, []
     | RecordAccess path ->
         let varType1 = VarType (getVarType (), [])
         let varType2 = VarType (getVarType (), [])
@@ -483,29 +507,6 @@ let rec typeOfBuiltin b env =
 
         let io, out, c = List.foldBack f path (varType1, varType2, [])
         Function (io, Function(out, Type.Tuple [io; out])), c
-    | Get -> 
-        let varType1 = VarType (getVarType (), [])
-        let varType2 = VarType (getVarType (), [])
-        let accessTyp =
-            Function (varType1, Function(varType2, Type.Tuple [varType1; varType2]))
-        Function(accessTyp, Function(varType2, varType1)), []
-    | Set -> 
-        let varType1 = VarType (getVarType (), [])
-        let varType2 = VarType (getVarType (), [])
-        let accessTyp =
-            Function (varType1, Function(varType2, Type.Tuple [varType1; varType2]))
-        Function(accessTyp, Function (varType1, Function(varType2, varType2))), []
-
-and collectConstraints term (env: Map<string, EnvAssociation>) =
-    match term with
-    | B true ->
-        Bool, []
-    | B false ->
-        Bool, []
-    | I(i) ->
-        Int, []
-    | C(c) ->
-        Char, []
     | Fn fn ->
         match fn with
         | BuiltIn b -> typeOfBuiltin b env

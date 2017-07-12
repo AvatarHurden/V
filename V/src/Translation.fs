@@ -136,6 +136,8 @@ and private translateTerm term env =
     | ExI i -> I i
     | ExC c -> C c
     | ExX x -> X x
+    | ExRecordAccess paths ->
+        RecordAccess <| List.map (fun (s, t1, t2) -> (s, translateTerm t1 env, translateTerm t2 env)) paths
     | ExFn fn -> translateFn fn env
     | ExApp (t1, t2) ->
         App(translateTerm t1 env, translateTerm t2 env)

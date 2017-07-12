@@ -362,8 +362,8 @@ and private evalPartial b results t2_thunk =
             let t2 = t2_thunk ()
             match t1, t2 with
             | AnyRaise -> ResRaise
-            | ResFn (BuiltIn (ResRecordAcess path), env), ResFn (BuiltIn (ResRecordAcess path2), _) ->
-                ResFn (BuiltIn (ResRecordAcess <| path @ path2), env)
+            | ResRecordAcess path, ResRecordAcess path2 ->
+                ResRecordAcess <| path @ path2
             | _ -> sprintf "Compose needs a pair of record accessors" |> EvalException |> raise
         | _ -> 
             sprintf "Wrong number of arguments to compose" |> EvalException |> raise
@@ -374,7 +374,7 @@ and private evalPartial b results t2_thunk =
             let t2 = t2_thunk ()
             match t1, t2 with
             | AnyRaise -> ResRaise
-            | ResFn (BuiltIn (ResRecordAcess paths), _), t2 ->
+            | ResRecordAcess paths, t2 ->
                 fst <| traversePath paths t2 None
             | ResFn _, _ -> ResRaise
             | _ -> sprintf "First argument of get is not a function" |> EvalException |> raise
@@ -390,24 +390,12 @@ and private evalPartial b results t2_thunk =
             | ResRaise, _, _ -> ResRaise
             | _, ResRaise, _ -> ResRaise
             | _, _, ResRaise -> ResRaise
-            | ResFn (BuiltIn (ResRecordAcess paths), _), value, record ->
+            | ResRecordAcess paths, value, record ->
                 snd <| traversePath paths record (Some value)
             | ResFn _, _, _ -> ResRaise
-            | _ -> sprintf "First argument of get is not a function" |> EvalException |> raise
+            | _ -> sprintf "First argument of set is not a function" |> EvalException |> raise
         | _ -> 
-            sprintf "Wrong number of arguments to get" |> EvalException |> raise
-    | ResRecordAcess paths ->
-        match results with
-        | [] -> ResPartial (b, [t2_thunk ()])
-        | [t1] ->
-            let t2 = t2_thunk ()
-            match t1, t2 with
-            | AnyRaise -> ResRaise
-            | t1, t2 ->
-                let value, record = traversePath paths t2 <| Some t1
-                ResTuple [value; record]
-        | _ ->
-            sprintf "Wrong number of arguments to record access" |> EvalException |> raise
+            sprintf "Wrong number of arguments to set" |> EvalException |> raise
 
 and private applyResults fn res =
     match fn with
@@ -464,12 +452,10 @@ and private eval (t: term) (env: env) =
     | B b -> ResB b
     | I i -> ResI i
     | C c -> ResC c
-    | Fn fn -> 
-        match fn with
-        | BuiltIn (RecordAccess paths) ->
-            let paths' = List.map (fun (s, getter, setter) -> s, eval getter env, eval setter env) paths
-            ResFn (BuiltIn (ResRecordAcess paths'), env)
-        | _ -> ResFn (fn, env)
+    | RecordAccess paths ->
+        let paths' = List.map (fun (s, getter, setter) -> s, eval getter env, eval setter env) paths
+        ResRecordAcess paths'
+    | Fn fn -> ResFn (fn, env)
     | App (t1, t2) ->
         apply (eval t1 env) t2 env
     | Match (t1, patterns) ->

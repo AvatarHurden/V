@@ -37,17 +37,12 @@ and Pattern =
     | NilPat
     | ConsPat of VarPattern * VarPattern
 
-type Path = string * term * term
-and ResPath = string * result * result
-
-and BuiltIn =
+type BuiltIn =
     | Id
 
     | Get
     | Set
     | Stack
-    | RecordAccess of Path list
-    | ResRecordAcess of ResPath list
 
     | Add
     | Subtract
@@ -67,17 +62,21 @@ and BuiltIn =
 
     | Cons
 
-and Function =
+type Function =
     | BuiltIn of BuiltIn
     //| CustomAccessor of term * 
     | Lambda of VarPattern * term
     | Recursive of Ident * (Type option) * VarPattern * term
 
-and term =
+and Path = string * term * term
+   
+and 
+    term =
     | B of bool
     | I of int
     | C of char
     | X of Ident
+    | RecordAccess of Path list
     | Fn of Function
     | App of term * term
     | Match of term * (VarPattern * term option * term) list
@@ -89,10 +88,13 @@ and term =
 
 and ResFunction = Function * env
 
+and ResPath = string * result * result
+
 and result =
     | ResB of bool
     | ResI of int
     | ResC of char
+    | ResRecordAcess of ResPath list
     | ResFn of ResFunction
     | ResPartial of BuiltIn * result list
     | ResRaise
@@ -176,12 +178,15 @@ type ExFunction =
     | ExLambda of ExVarPattern list * ExTerm
     | ExRecursive of Ident * ExVarPattern list * ExType option * ExTerm
 
+and ExPath = string * ExTerm * ExTerm
+
 and ExTerm = 
     | ExB of bool
     | ExI of int
     | ExC of char
     //| ExOP of ExTerm * op * ExTerm
     | ExX of Ident
+    | ExRecordAccess of ExPath list
     | ExFn of ExFunction
     | ExApp of ExTerm * ExTerm
     | ExMatch of ExTerm * (ExVarPattern * ExTerm option * ExTerm) list
