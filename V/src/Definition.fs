@@ -44,6 +44,7 @@ and BuiltIn =
     | Id
 
     | Get
+    | Set
     | Stack
     | RecordAccess of Path list
     | ResRecordAcess of ResPath list

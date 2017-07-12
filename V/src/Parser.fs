@@ -62,12 +62,13 @@ let private pBetween s1 s2 p =
 //#region Identifier and Operator Parsing
 
 let keywords = 
-    Set["let" ; "true"  ; "false" ; "if"   ; "then"   ; "else"  ;
+    Collections.Set
+       ["let" ; "true"  ; "false" ; "if"   ; "then"   ; "else"  ;
         "rec" ; "nil"   ; "raise" ; "when" ; "match"  ; "with"  ;
         "for" ; "in"    ; "import"; "infix"; "infixl" ; "infixr";
-        "type"; "alias" ; "get"   ; "stack"; "_"]
+        "type"; "alias" ; "get"   ; "set"  ;"stack"   ; "_"]
 
-let typeKeywords = Set["Int"; "Bool"; "Char"] 
+let typeKeywords = Collections.Set["Int"; "Bool"; "Char"] 
 
 let private isAsciiIdStart c =
     isAsciiLower c || c = '_'
@@ -289,6 +290,8 @@ let private pProjection =
         |>> fun s -> ExFn <| ExBuiltIn (RecordAccess (List.map f s))
 
 let private pGet = pstring "get" >>. ws |>> fun _ -> ExFn <| ExBuiltIn Get
+
+let private pSet = pstring "set" >>. ws |>> fun _ -> ExFn <| ExBuiltIn Set
 
 let private pStack = pstring "stack" >>. ws |>> fun _ -> ExFn <| ExBuiltIn Stack
 
@@ -524,6 +527,7 @@ let private pValue =
             pRecLambda;
             pLet;
             pGet;
+            pSet;
             pStack] <?> "term")
 
 //#region Expression Parsing

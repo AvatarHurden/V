@@ -54,7 +54,7 @@ let rec getFreeVars typ env =
                 getFreeVarsInTraits traits env
             else
                 [x, traits] @ getFreeVarsInTraits traits env
-    in Set(f typ) |> Set.toList
+    in Collections.Set(f typ) |> Set.toList
 
 and getFreeVarsInTraits traits env =
     let f =
@@ -476,7 +476,7 @@ let rec typeOfBuiltin b env =
             let out = VarType (getVarType (), [RecordLabel (field, storage)])
 
             let c' = 
-                [Equals (t1, Function(storage, io)); 
+                [Equals (t1, Function(storage, io));
                  Equals (t2, Function(io, storage))]
 
             oldIo, out, c @ c1 @ c2 @ c'
@@ -489,6 +489,12 @@ let rec typeOfBuiltin b env =
         let accessTyp =
             Function (varType1, Function(varType2, Type.Tuple [varType1; varType2]))
         Function(accessTyp, Function(varType2, varType1)), []
+    | Set -> 
+        let varType1 = VarType (getVarType (), [])
+        let varType2 = VarType (getVarType (), [])
+        let accessTyp =
+            Function (varType1, Function(varType2, Type.Tuple [varType1; varType2]))
+        Function(accessTyp, Function (varType1, Function(varType2, varType2))), []
 
 and collectConstraints term (env: Map<string, EnvAssociation>) =
     match term with
@@ -570,7 +576,7 @@ and collectConstraints term (env: Map<string, EnvAssociation>) =
         Type.Tuple types, List.reduce (@) constraints
     | Record(pairs) ->
         let names, types = List.unzip pairs
-        if Set(names).Count < List.length names then
+        if Collections.Set(names).Count < List.length names then
             sprintf "Record has duplicate fields at %A" term |> TypeException |> raise
         let types', constraints = 
             List.unzip <| 

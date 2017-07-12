@@ -78,7 +78,7 @@ let swap (x, y) = (y, x);
 // ================
 
 // let get acc r = fst $ acc raise r;
-let set acc v r = snd $ acc v r;
+// let set acc v r = snd $ acc v r;
 
 let modify acc f r =
     let oldV = get acc r;
@@ -86,13 +86,12 @@ let modify acc f r =
 ;
 
 let infixl 8 (^.) = flip get;
-let infixr 8 (^&) r acc v = set acc v r;
+let infixr 8 (^=) = set;
+let infixr 8 (^~) = modify;
 
-let infixr 1 (^=) = apply;
-let infixr 8 (^$) = flip apply;
+let infixl 1 (&) = flip apply;
 
-let infixr 8 (^:) = modify;
-let infixl 9 (.:) = stack;
+let infixl 9 (:.) = stack;
 
 // ====================
 // Basic List functions

@@ -380,6 +380,22 @@ and private evalPartial b results t2_thunk =
             | _ -> sprintf "First argument of get is not a function" |> EvalException |> raise
         | _ -> 
             sprintf "Wrong number of arguments to get" |> EvalException |> raise
+    | Set ->
+        match results with
+        | [] -> ResPartial (b, [t2_thunk ()])
+        | [t1] -> ResPartial (b, [t1; t2_thunk ()])
+        | [t1; t2] ->
+            let t3 = t2_thunk ()
+            match t1, t2, t3 with
+            | ResRaise, _, _ -> ResRaise
+            | _, ResRaise, _ -> ResRaise
+            | _, _, ResRaise -> ResRaise
+            | ResFn (BuiltIn (ResRecordAcess paths), _), value, record ->
+                snd <| traversePath paths record (Some value)
+            | ResFn _, _, _ -> ResRaise
+            | _ -> sprintf "First argument of get is not a function" |> EvalException |> raise
+        | _ -> 
+            sprintf "Wrong number of arguments to get" |> EvalException |> raise
     | ResRecordAcess paths ->
         match results with
         | [] -> ResPartial (b, [t2_thunk ()])
@@ -501,7 +517,7 @@ and private eval (t: term) (env: env) =
 
         //ResTuple <| List.map (fun t -> eval t env) terms
     | Record(pairs) ->
-        if Set(List.unzip pairs |> fst).Count < List.length pairs then
+        if Collections.Set(List.unzip pairs |> fst).Count < List.length pairs then
             sprintf "Record has duplicate fields at %A" t |> EvalException |> raise
         
         let f (name, t) =
