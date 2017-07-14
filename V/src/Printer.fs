@@ -7,7 +7,7 @@ let rec printTrait trt =
     | Orderable -> "Orderable"
     | Equatable -> "Equatable"
     | RecordLabel (label, typ) ->
-        sprintf "%A at label %A" (printType typ) label
+        sprintf "%O at label %A" (printType typ) label
 
 and printTraits traits =
     match traits with
@@ -32,11 +32,15 @@ and printRecord pairs =
 and printType typ =
     match typ with
     | VarType(s, traits) -> 
-        s + " (" + printTraits traits + ")"
+        match traits with
+        | [] -> s
+        | _ -> s + " (" + printTraits traits + ")"
     | Int -> "Int"
     | Bool -> "Bool"
     | Char -> "Char"
     | List Char -> "String"
+    | Accessor (t1, t2) ->
+        sprintf "#(%O -> %O)" (printType t1) (printType t2)
     | Function(t1, t2) ->  
         match t1 with
         | Function(_,_) -> 

@@ -18,6 +18,7 @@ and Type =
     | Bool
     | Char
     | Function of Type * Type
+    | Accessor of io:Type * record:Type
     | List of Type
     | Tuple of Type list
     | Record of (string * Type) list

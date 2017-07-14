@@ -39,6 +39,7 @@ let rec getFreeVars typ env =
         | Bool
         | Char -> []
         | List(t1) -> getFreeVars t1 env
+        | Accessor(t1, t2) -> getFreeVars t1 env @ getFreeVars t2 env
         | Function(t1, t2) -> getFreeVars t1 env @ getFreeVars t2 env
         | Type.Tuple(types) -> 
             List.fold (fun acc x -> getFreeVars x env @ acc) [] types
@@ -72,6 +73,7 @@ let rec substituteInType (sub: Substitution) typ' =
     | Bool -> Bool
     | Char -> Char
     | List(s1) -> List(substituteInType sub s1)
+    | Accessor(s1, s2) -> Accessor(substituteInType sub s1, substituteInType sub s2)
     | Function(s1, s2) -> Function(substituteInType sub s1, substituteInType sub s2)
     | Type.Tuple(types) ->
         Type.Tuple <| List.map (substituteInType sub) types
@@ -123,6 +125,10 @@ let rec validateTrait trt typ =
     | Char ->
         match trt with
         | Orderable | Equatable -> Some Char, []
+        | RecordLabel _ -> None, []
+    | Accessor (typ1, typ2) ->
+        match trt with
+        | Orderable | Equatable
         | RecordLabel _ -> None, []
     | Function (typ1, typ2) ->
         match trt with
@@ -225,6 +231,7 @@ let rec occursIn x typ =
     | Bool 
     | Char -> false
     | List(t1) -> occursIn x t1
+    | Accessor(t1, t2) -> occursIn x t1 || occursIn x t2
     | Function(t1, t2) -> occursIn x t1 || occursIn x t2
     | Type.Tuple(types) ->
         List.exists (occursIn x) types
@@ -265,6 +272,8 @@ let rec unify typeSubs traitSubs constraints =
                             unify newSubs (traitsToMap traitSubs free) <| replaceVarTypes free replacedX                                
             | List s1, List t1 -> 
                 unify typeSubs traitSubs <| rest @ [Equals (s1, t1)]
+            | Accessor(s1, s2), Accessor(t1, t2) -> 
+                unify typeSubs traitSubs <| rest @ [Equals (s1, t1); Equals (s2, t2)]
             | Function(s1, s2), Function(t1, t2) -> 
                 unify typeSubs traitSubs <| rest @ [Equals (s1, t1); Equals (s2, t2)]
             | Type.Tuple typs1, Type.Tuple typs2 when typs1.Length = typs2.Length ->
@@ -296,6 +305,8 @@ let rec applyUniToType typ (unified: Unified) =
     | Char -> Char
     | List(t1) -> 
         List(applyUniToType t1 unified)
+    | Accessor (t1, t2) ->
+        Accessor(applyUniToType t1 unified, applyUniToType t2 unified)
     | Function(t1, t2) -> 
         Function(applyUniToType t1 unified, applyUniToType t2 unified)
     | Type.Tuple(types) ->
@@ -453,27 +464,23 @@ let rec typeOfBuiltin b env =
         let varType2 = VarType (getVarType (), [])
         let varType3 = VarType (getVarType (), [])
 
-        let accessTyp1 =
-            Function (varType1, Function(varType2, Type.Tuple [varType1; varType2]))
-        let accessTyp2 =
-            Function (varType3, Function(varType1, Type.Tuple [varType3; varType1]))
-        
-        Function (accessTyp1, 
-            Function (accessTyp2, 
-                Function (varType3, 
-                    Function (varType2, Type.Tuple [varType3; varType2])))), []
+        let accessTyp1 = Accessor (varType1, varType2)
+        let accessTyp2 = Accessor (varType3, varType1)
+        let accessTyp3 = Accessor (varType3, varType2)
+
+        Function (accessTyp1, Function (accessTyp2, accessTyp3)), []
 
     | Get -> 
         let varType1 = VarType (getVarType (), [])
         let varType2 = VarType (getVarType (), [])
-        let accessTyp = 
-            Function (varType1, Function(varType2, Type.Tuple [varType1; varType2]))
+        let accessTyp = Accessor (varType1, varType2)
+
         Function(accessTyp, Function(varType2, varType1)), []
     | Set -> 
         let varType1 = VarType (getVarType (), [])
         let varType2 = VarType (getVarType (), [])
-        let accessTyp =
-            Function (varType1, Function(varType2, Type.Tuple [varType1; varType2]))
+        let accessTyp = Accessor (varType1, varType2)
+
         Function(accessTyp, Function (varType1, Function(varType2, varType2))), []
 
 and collectConstraints term (env: Map<string, EnvAssociation>) =
@@ -488,9 +495,8 @@ and collectConstraints term (env: Map<string, EnvAssociation>) =
         Char, []
     | RecordAccess path ->
         let varType1 = VarType (getVarType (), [])
-        let varType2 = VarType (getVarType (), [])
 
-        let f (field, getter, setter) (oldIo, oldOut, c) =
+        let f (field, getter, setter) (oldOut, c) =
             let t1, c1 = collectConstraints getter env
             let t2, c2 = collectConstraints setter env
 
@@ -503,10 +509,11 @@ and collectConstraints term (env: Map<string, EnvAssociation>) =
                 [Equals (t1, Function(storage, io));
                  Equals (t2, Function(io, storage))]
 
-            oldIo, out, c @ c1 @ c2 @ c'
+            out, c @ c1 @ c2 @ c'
 
-        let io, out, c = List.foldBack f path (varType1, varType2, [])
-        Function (io, Function(out, Type.Tuple [io; out])), c
+        let out, c = List.foldBack f path (varType1, [])
+
+        Accessor (varType1, out), c
     | Fn fn ->
         match fn with
         | BuiltIn b -> typeOfBuiltin b env
