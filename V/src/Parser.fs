@@ -297,12 +297,12 @@ let private pTerm, private pTermRef = createParserForwardedToRef<ExTerm, UserSta
 //#region Parse Accessors
 
 let private pPath = 
-    (pIdentifier |>> fun s -> (s, ExFn (ExBuiltIn Id), ExFn (ExBuiltIn Id)))
+    (pIdentifier |>> ExLabel)
     <|> pBetween "(" ")" 
-        (tuple3
+        ((tuple3
             (pIdentifier .>> ws .>> pstring "," .>> ws)
             (pTerm .>> pstring "," .>> ws)
-            (pTerm))
+            (pTerm)) |>> ExReadWrite)
 
 
 let private pProjection = 

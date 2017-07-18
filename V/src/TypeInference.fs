@@ -496,9 +496,16 @@ and collectConstraints term (env: Map<string, EnvAssociation>) =
     | RecordAccess path ->
         let varType1 = VarType (getVarType (), [])
 
-        let f (field, getter, setter) (oldOut, c) =
-            let t1, c1 = collectConstraints getter env
-            let t2, c2 = collectConstraints setter env
+        let f path (oldOut, c) =
+            let field, t1, c1, t2, c2 =
+                match path with
+                | Label s -> 
+                    let x = VarType (getVarType (), [])
+                    s, Function (x, x), [], Function (x, x), []
+                | ReadWrite (s, getter, setter) ->
+                    let t1, c1 = collectConstraints getter env
+                    let t2, c2 = collectConstraints setter env
+                    s, t1, c1, t2, c2
 
             let io = oldOut
             let storage = VarType (getVarType (), [])

@@ -197,30 +197,51 @@ let rec compareOrder t1 t2 orderType =
 let rec traversePath (path: ResPath list) term (newValue: result option) =
     match term, path with
     | _, [] -> sprintf "Path requires at least one field" |> EvalException |> raise
-    | ResRecord pairs, (field, getter, setter) :: xs ->
+    | ResRecord pairs, path :: xs ->
         let names, values = List.unzip pairs
+
+        let field, getter, setter =
+            match path with
+            | ResLabel s -> s, None, None
+            //| ResReadOnly (s, t) -> s, Some t, None 
+            | ResReadWrite (s, getter, setter) -> s, Some getter, Some setter
+
         match Seq.tryFindIndex ((=) field) names with
         | None -> sprintf "Record has no entry %A at %A" field term |> EvalException |> raise
         | Some i ->
             let start = Seq.take i values
-            let old = Seq.nth i values
             let finish = Seq.skip (i+1) values
-            let gottenOld = applyResults getter old
+
+            let old = 
+                match getter with
+                | None -> Seq.nth i values
+                | Some getter -> applyResults getter <| Seq.nth i values
+
             let ret, newValue' = 
                 match xs with
                 | [] -> 
                     let settedNew = 
                         match newValue with
                         | None -> old
-                        | Some newValue -> applyResults setter newValue
-                    gottenOld, settedNew
+                        | Some newValue -> 
+                            match getter with
+                            | None -> newValue
+                            | Some setter -> applyResults setter newValue
+                    old, settedNew
                 | _ -> 
-                    let ret, newRec = traversePath xs gottenOld newValue
-                    ret, applyResults setter newRec
-            //let newValue' = if newValue'.IsSome then newValue'.Value else old
+                    let ret, newRec = traversePath xs old newValue
+
+                    let newRec' = 
+                        match getter with
+                        | None -> newRec
+                        | Some setter -> applyResults setter newRec
+
+                    ret, newRec'
+
             let newValueSeq = [newValue'] :> seq<_>
             let newValues = Seq.toList (Seq.concat [start; newValueSeq; finish])
             let newRec = ResRecord <| List.zip names newValues 
+
             ret, newRec
     | _ -> sprintf "Second argument is not a record" |> EvalException |> raise
 
@@ -453,7 +474,12 @@ and private eval (t: term) (env: env) =
     | I i -> ResI i
     | C c -> ResC c
     | RecordAccess paths ->
-        let paths' = List.map (fun (s, getter, setter) -> s, eval getter env, eval setter env) paths
+        let f = 
+            function
+            | Label s -> ResLabel s
+            //| ReadOnly (s, t) -> ResReadOnly (s, eval t env)
+            | ReadWrite (s, getter, setter) -> ResReadWrite (s, eval getter env, eval setter env)
+        let paths' = List.map f paths
         ResRecordAcess paths'
     | Fn fn -> ResFn (fn, env)
     | App (t1, t2) ->

@@ -137,7 +137,12 @@ and private translateTerm term env =
     | ExC c -> C c
     | ExX x -> X x
     | ExRecordAccess paths ->
-        RecordAccess <| List.map (fun (s, t1, t2) -> (s, translateTerm t1 env, translateTerm t2 env)) paths
+        let f = 
+            function
+            | ExLabel s -> Label s
+            //| ExReadOnly (s, t) -> ReadOnly (s, translateTerm t env)
+            | ExReadWrite (s, getter, setter) -> ReadWrite (s, translateTerm getter env, translateTerm setter env)
+        RecordAccess <| List.map f paths
     | ExFn fn -> translateFn fn env
     | ExApp (t1, t2) ->
         App(translateTerm t1 env, translateTerm t2 env)

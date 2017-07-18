@@ -75,7 +75,12 @@ and printResult result =
     | ResRaise -> "raise"
     | ResNil -> "[]"
     | ResRecordAcess paths ->
-        List.fold (fun acc (s, res1, res2) -> sprintf "%O.(%O, %A, %A)" acc s res1 res2) "#" paths
+        let f acc path =
+            match path with
+            | ResLabel s -> sprintf "%O.%O" acc s
+            | ResReadWrite (s, res1, res2) -> 
+                sprintf "%O.(%O, %O, %O)" acc s (printResult res1) (printResult res2)
+        List.fold f "#" paths
     | ResCons (ResC head, tail) -> "\"" + printResultString result + "\""
     | ResCons (head, tail) -> "[" + printResultList result + "]"
     | ResTuple v -> 

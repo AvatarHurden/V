@@ -29,7 +29,6 @@ let hasType text typ =
     let typ' = typeInfer <| parsed
     typ |> should equal typ'
 
-
 let equals text term =
     let parsed = text |> parsePure |> flip translate stdlib.stdEnv
     let typ = typeInfer <| parsed

@@ -69,7 +69,10 @@ type Function =
     | Lambda of VarPattern * term
     | Recursive of Ident * (Type option) * VarPattern * term
 
-and Path = string * term * term
+and Path = 
+    | Label of string
+    //| ReadOnly of string * term
+    | ReadWrite of string * term * term
    
 and 
     term =
@@ -89,7 +92,10 @@ and
 
 and ResFunction = Function * env
 
-and ResPath = string * result * result
+and ResPath = 
+    | ResLabel of string
+    //| ResReadOnly of string * result
+    | ResReadWrite of string * result * result
 
 and result =
     | ResB of bool
@@ -179,7 +185,10 @@ type ExFunction =
     | ExLambda of ExVarPattern list * ExTerm
     | ExRecursive of Ident * ExVarPattern list * ExType option * ExTerm
 
-and ExPath = string * ExTerm * ExTerm
+and ExPath = 
+    | ExLabel of string
+    //| ExReadOnly of string * ExTerm
+    | ExReadWrite of string * ExTerm * ExTerm
 
 and ExTerm = 
     | ExB of bool
