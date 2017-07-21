@@ -44,6 +44,7 @@ type BuiltIn =
     | Get
     | Set
     | Stack
+    | Distort
 
     | Add
     | Subtract
@@ -69,18 +70,19 @@ type Function =
     | Lambda of VarPattern * term
     | Recursive of Ident * (Type option) * VarPattern * term
 
-and Path = 
-    | Label of string
-    //| ReadOnly of string * term
-    | ReadWrite of string * term * term
-   
+and Path =
+    | Component of string
+    | Stacked of Path * Path
+    | Joined of term list
+    | Distorted of Path * getter:term * setter:term
+
 and 
     term =
     | B of bool
     | I of int
     | C of char
     | X of Ident
-    | RecordAccess of Path list
+    | RecordAccess of Path
     | Fn of Function
     | App of term * term
     | Match of term * (VarPattern * term option * term) list
@@ -93,15 +95,16 @@ and
 and ResFunction = Function * env
 
 and ResPath = 
-    | ResLabel of string
-    //| ResReadOnly of string * result
-    | ResReadWrite of string * result * result
+    | ResComponent of string
+    | ResStacked of ResPath * ResPath
+    | ResJoined of ResPath list
+    | ResDistorted of ResPath * getter:result * setter:result
 
 and result =
     | ResB of bool
     | ResI of int
     | ResC of char
-    | ResRecordAcess of ResPath list
+    | ResRecordAcess of ResPath
     | ResFn of ResFunction
     | ResPartial of BuiltIn * result list
     | ResRaise
@@ -186,9 +189,10 @@ type ExFunction =
     | ExRecursive of Ident * ExVarPattern list * ExType option * ExTerm
 
 and ExPath = 
-    | ExLabel of string
-    //| ExReadOnly of string * ExTerm
-    | ExReadWrite of string * ExTerm * ExTerm
+    | ExComponent of string
+    | ExStacked of ExPath * ExPath
+    | ExJoined of ExTerm list
+    | ExDistorted of ExPath * getter:ExTerm * setter:ExTerm
 
 and ExTerm = 
     | ExB of bool
@@ -196,7 +200,7 @@ and ExTerm =
     | ExC of char
     //| ExOP of ExTerm * op * ExTerm
     | ExX of Ident
-    | ExRecordAccess of ExPath list
+    | ExRecordAccess of ExPath
     | ExFn of ExFunction
     | ExApp of ExTerm * ExTerm
     | ExMatch of ExTerm * (ExVarPattern * ExTerm option * ExTerm) list

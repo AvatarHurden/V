@@ -469,6 +469,19 @@ let rec typeOfBuiltin b env =
         let accessTyp3 = Accessor (varType3, varType2)
 
         Function (accessTyp1, Function (accessTyp2, accessTyp3)), []
+    | Distort ->
+        let varType1 = VarType (getVarType (), [])
+        let varType2 = VarType (getVarType (), [])
+        let varType3 = VarType (getVarType (), [])
+
+        let accessTyp1 = Accessor (varType1, varType2)
+
+        let getterTyp = Function (varType1, varType3)
+        let setterTyp = Function (varType3, varType1)
+
+        let accessTyp2 = Accessor (varType3, varType2)
+
+        Function (accessTyp1, Function (getterTyp, Function (setterTyp, accessTyp2))), []
 
     | Get -> 
         let varType1 = VarType (getVarType (), [])
@@ -496,31 +509,50 @@ and collectConstraints term (env: Map<string, EnvAssociation>) =
     | RecordAccess path ->
         let varType1 = VarType (getVarType (), [])
 
-        let f path (oldOut, c) =
-            let field, t1, c1, t2, c2 =
-                match path with
-                | Label s -> 
-                    let x = VarType (getVarType (), [])
-                    s, Function (x, x), [], Function (x, x), []
-                | ReadWrite (s, getter, setter) ->
-                    let t1, c1 = collectConstraints getter env
-                    let t2, c2 = collectConstraints setter env
-                    s, t1, c1, t2, c2
+        // returns (IO type, record type, storage type, constraints)
+        let rec f = 
+            function
+            | Component s ->
+                let x = VarType (getVarType (), [])
+                let recordTyp = VarType (getVarType (), [RecordLabel (s, x)])
+                x, recordTyp, x, []
+            | Distorted (p, getter, setter) ->
+                let t1, c1 = collectConstraints getter env
+                let t2, c2 = collectConstraints setter env
 
-            let io = oldOut
-            let storage = VarType (getVarType (), [])
+                let io = VarType (getVarType (), [])
+                let storage = VarType (getVarType (), [])
 
-            let out = VarType (getVarType (), [RecordLabel (field, storage)])
+                let pIo, pRec, pStorage, pC = f p
 
-            let c' = 
-                [Equals (t1, Function(storage, io));
-                 Equals (t2, Function(io, storage))]
+                let c' = 
+                    [Equals (t1, Function(storage, io));
+                    Equals (t2, Function(io, storage));
+                    Equals (storage, pIo)]
 
-            out, c @ c1 @ c2 @ c'
+                io, pRec, pStorage, c1 @ c2 @ c'
+            | Stacked (p1, p2) ->
+                let io1, rec1, storage1, c1 = f p1
+                let io2, rec2, storage2, c2 = f p2
 
-        let out, c = List.foldBack f path (varType1, [])
+                let c' =
+                    [Equals (storage1, io2)]
 
-        Accessor (varType1, out), c
+                io2, rec1, storage1, c1 @ c2 @ c'
+            | Joined paths ->
+
+                let ios = List.map (fun _ -> VarType (getVarType (), [])) paths
+
+                let stdRecordTyp = VarType (getVarType (), [])
+
+                let f' acc tupleIo (typ, c) =
+                    Equals (typ, Accessor(tupleIo, stdRecordTyp)) :: c @ acc
+                let c = List.fold2 f' [] ios <| List.map (flip collectConstraints env) paths
+
+                Type.Tuple ios, stdRecordTyp, Type.Tuple ios, c
+
+        let io, r, storage, c = f path
+        Accessor (io, r), c
     | Fn fn ->
         match fn with
         | BuiltIn b -> typeOfBuiltin b env

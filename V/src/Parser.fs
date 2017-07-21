@@ -66,7 +66,7 @@ let keywords =
        ["let" ; "true"  ; "false" ; "if"   ; "then"   ; "else"  ;
         "rec" ; "nil"   ; "raise" ; "when" ; "match"  ; "with"  ;
         "for" ; "in"    ; "import"; "infix"; "infixl" ; "infixr";
-        "type"; "alias" ; "get"   ; "set"  ;"stack"   ; "_"]
+        "type"; "alias" ; "get"   ; "set"  ; "stack"  ; "distort";  "_"]
 
 let typeKeywords = Collections.Set["Int"; "Bool"; "Char"] 
 
@@ -290,6 +290,9 @@ let private pSet = pstring "set" >>. ws |>> fun _ -> ExFn <| ExBuiltIn Set
 
 let private pStack = pstring "stack" >>. ws |>> fun _ -> ExFn <| ExBuiltIn Stack
 
+let private pDistort = pstring "distort" >>. ws |>> fun _ -> ExFn <| ExBuiltIn Distort
+
+
 //#endregion   
 
 let private pTerm, private pTermRef = createParserForwardedToRef<ExTerm, UserState>()
@@ -297,17 +300,14 @@ let private pTerm, private pTermRef = createParserForwardedToRef<ExTerm, UserSta
 //#region Parse Accessors
 
 let private pPath = 
-    (pIdentifier |>> ExLabel)
-    <|> pBetween "(" ")" 
-        ((tuple3
-            (pIdentifier .>> ws .>> pstring "," .>> ws)
-            (pTerm .>> pstring "," .>> ws)
-            (pTerm)) |>> ExReadWrite)
+    (pIdentifier |>> ExComponent)
+    <|> (pBetween "(" ")" 
+        (sepBy pTerm (pstring "," .>> ws)) 
+            |>> ExJoined)
 
 
 let private pProjection = 
-    pstring "#" >>. sepBy pPath (pstring ".") |>> ExRecordAccess
-
+    pstring "#" >>. pPath |>> ExRecordAccess
 
 //#endregion
 
@@ -540,7 +540,8 @@ let private pValue =
             pLet;
             pGet;
             pSet;
-            pStack] <?> "term")
+            pStack;
+            pDistort] <?> "term")
 
 //#region Expression Parsing
 

@@ -136,13 +136,17 @@ and private translateTerm term env =
     | ExI i -> I i
     | ExC c -> C c
     | ExX x -> X x
-    | ExRecordAccess paths ->
-        let f = 
+    | ExRecordAccess path ->
+        let rec f = 
             function
-            | ExLabel s -> Label s
-            //| ExReadOnly (s, t) -> ReadOnly (s, translateTerm t env)
-            | ExReadWrite (s, getter, setter) -> ReadWrite (s, translateTerm getter env, translateTerm setter env)
-        RecordAccess <| List.map f paths
+            | ExComponent s -> Component s
+            | ExDistorted (p, getter, setter) ->
+                Distorted (f p, translateTerm getter env, translateTerm setter env)
+            | ExStacked (p1, p2) ->
+                Stacked (f p1, f p2)
+            | ExJoined paths ->
+                Joined <| List.map (flip translateTerm env) paths
+        RecordAccess <| f path
     | ExFn fn -> translateFn fn env
     | ExApp (t1, t2) ->
         App(translateTerm t1 env, translateTerm t2 env)

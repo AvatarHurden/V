@@ -194,55 +194,64 @@ let rec compareOrder t1 t2 orderType =
     
 //#endregion
 
-let rec traversePath (path: ResPath list) term (newValue: result option) =
-    match term, path with
-    | _, [] -> sprintf "Path requires at least one field" |> EvalException |> raise
-    | ResRecord pairs, path :: xs ->
-        let names, values = List.unzip pairs
+// Returns (result, result option),
+// first result is old value of field
+// second result is modified record
+let rec traversePath (path: ResPath) term (newValue: result option) =
+    match term with
+    | ResRecord pairs ->
+        
+        match path with
+        | ResComponent s ->
+            let names, values = List.unzip pairs
+            match Seq.tryFindIndex ((=) s) names with
+            | None -> sprintf "Record %A doesn't contain label %A" term s |> EvalException |> raise
+            | Some i ->
+                let array = List.toArray values
 
-        let field, getter, setter =
-            match path with
-            | ResLabel s -> s, None, None
-            //| ResReadOnly (s, t) -> s, Some t, None 
-            | ResReadWrite (s, getter, setter) -> s, Some getter, Some setter
+                let old = Array.get array i
+                    
+                match newValue with
+                | None -> 
+                    old, term
+                | Some value -> 
+                    Array.set array i value
 
-        match Seq.tryFindIndex ((=) field) names with
-        | None -> sprintf "Record has no entry %A at %A" field term |> EvalException |> raise
-        | Some i ->
-            let start = Seq.take i values
-            let finish = Seq.skip (i+1) values
+                    let newValues = List.ofArray array
+                    let newRecord = ResRecord <| List.zip names newValues
 
-            let old = 
-                match getter with
-                | None -> Seq.nth i values
-                | Some getter -> applyResults getter <| Seq.nth i values
+                    old, newRecord
+        | ResDistorted (path, getter, setter) ->
+            let newValue' =
+                match newValue with
+                | None -> None
+                | Some value -> Some <| applyResults setter value
 
-            let ret, newValue' = 
-                match xs with
-                | [] -> 
-                    let settedNew = 
-                        match newValue with
-                        | None -> old
-                        | Some newValue -> 
-                            match getter with
-                            | None -> newValue
-                            | Some setter -> applyResults setter newValue
-                    old, settedNew
-                | _ -> 
-                    let ret, newRec = traversePath xs old newValue
+            let oldValue, newRec = traversePath path term newValue'
+            let oldValue' = applyResults getter oldValue
 
-                    let newRec' = 
-                        match getter with
-                        | None -> newRec
-                        | Some setter -> applyResults setter newRec
+            oldValue', newRec
 
-                    ret, newRec'
+        | ResJoined paths ->
+            match newValue with
+            | None ->
+                let values = List.map (fun p -> fst <| traversePath p term None) paths
+                ResTuple values, term
+            | Some (ResTuple oldValues) when oldValues.Length = paths.Length ->
+                let f = 
+                    fun (oldValues, record) p value ->
+                        let value, record' = traversePath p record <| Some value
+                        value :: oldValues, record'
+                let newValues, record = List.fold2 f ([], term) paths oldValues
+                ResTuple newValues, record
+            | Some _ ->
+                raise <| EvalException "joined paths must be set using a tuple"
+        | ResStacked (p1, p2) ->
+            let internalRecord, _ = traversePath p1 term None
+            let oldValue, internalRecord' = traversePath p2 internalRecord newValue
+            let _, newRecord = traversePath p1 term (Some internalRecord')
+            oldValue, newRecord
 
-            let newValueSeq = [newValue'] :> seq<_>
-            let newValues = Seq.toList (Seq.concat [start; newValueSeq; finish])
-            let newRec = ResRecord <| List.zip names newValues 
-
-            ret, newRec
     | _ -> sprintf "Second argument is not a record" |> EvalException |> raise
 
 and private evalPartial b results t2_thunk =
@@ -384,7 +393,22 @@ and private evalPartial b results t2_thunk =
             match t1, t2 with
             | AnyRaise -> ResRaise
             | ResRecordAcess path, ResRecordAcess path2 ->
-                ResRecordAcess <| path @ path2
+                ResRecordAcess <| ResStacked (path, path2)
+            | _ -> sprintf "Stack needs a pair of record accessors" |> EvalException |> raise
+        | _ -> 
+            sprintf "Wrong number of arguments to stack" |> EvalException |> raise
+    | Distort ->
+        match results with
+        | [] -> ResPartial (b, [t2_thunk ()])
+        | [t1] -> ResPartial (b, [t1; t2_thunk ()])
+        | [t1; t2] ->
+            let t3 = t2_thunk ()
+            match t1, t2, t3 with
+            | ResRaise, _, _ -> ResRaise
+            | _, ResRaise, _ -> ResRaise
+            | _, _, ResRaise -> ResRaise
+            | ResRecordAcess path, getter, setter ->
+                ResRecordAcess <| ResDistorted (path, getter, setter)
             | _ -> sprintf "Compose needs a pair of record accessors" |> EvalException |> raise
         | _ -> 
             sprintf "Wrong number of arguments to compose" |> EvalException |> raise
@@ -473,14 +497,19 @@ and private eval (t: term) (env: env) =
     | B b -> ResB b
     | I i -> ResI i
     | C c -> ResC c
-    | RecordAccess paths ->
-        let f = 
+    | RecordAccess path ->
+        let rec f = 
             function
-            | Label s -> ResLabel s
-            //| ReadOnly (s, t) -> ResReadOnly (s, eval t env)
-            | ReadWrite (s, getter, setter) -> ResReadWrite (s, eval getter env, eval setter env)
-        let paths' = List.map f paths
-        ResRecordAcess paths'
+            | Component s -> ResComponent s
+            | Distorted (p, getter, setter) -> ResDistorted (f p, eval getter env, eval setter env)
+            | Stacked (p1, p2) -> ResStacked (f p1, f p2)
+            | Joined paths -> 
+                let reduce p =
+                    match eval p env with
+                    | ResRecordAcess p -> p
+                    | _ -> sprintf "%A is not a record access at joined record access %A" p t |> EvalException |> raise
+                ResJoined <| List.map reduce paths
+        ResRecordAcess <| f path
     | Fn fn -> ResFn (fn, env)
     | App (t1, t2) ->
         apply (eval t1 env) t2 env

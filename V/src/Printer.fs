@@ -74,13 +74,21 @@ and printResult result =
     | ResI i -> string i
     | ResRaise -> "raise"
     | ResNil -> "[]"
-    | ResRecordAcess paths ->
-        let f acc path =
+    | ResRecordAcess path ->
+        let rec f path =
             match path with
-            | ResLabel s -> sprintf "%O.%O" acc s
-            | ResReadWrite (s, res1, res2) -> 
-                sprintf "%O.(%O, %O, %O)" acc s (printResult res1) (printResult res2)
-        List.fold f "#" paths
+            | ResComponent s -> s
+            | ResStacked (p1, p2) ->
+                sprintf "%O.%O" (f p1) (f p2)
+            | ResJoined paths ->
+                String.concat ", " <| List.map f paths
+            | ResDistorted (p, getter, setter) ->
+                sprintf "(%O, %O, %O)" (f p) getter setter
+//            | ResLabel s -> sprintf "%O.%O" acc s
+//            | ResReadWrite (s, res1, res2) -> 
+//                sprintf "%O.(%O, %O, %O)" acc s (printResult res1) (printResult res2)
+        //List.fold f "#" paths
+        sprintf "#%O" <| f path
     | ResCons (ResC head, tail) -> "\"" + printResultString result + "\""
     | ResCons (head, tail) -> "[" + printResultList result + "]"
     | ResTuple v -> 
