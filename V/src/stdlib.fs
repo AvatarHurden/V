@@ -92,6 +92,7 @@ let infixr 8 (^~) = modify;
 let infixl 1 (&) = flip apply;
 
 let infixl 9 (:.) = stack;
+let infixl 9 (~.) acc (getter, setter) = distort acc getter setter;
 
 // ====================
 // Basic List functions
