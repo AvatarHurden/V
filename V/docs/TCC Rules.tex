@@ -44,7 +44,7 @@ e &::= &n\\
   &| &\texttt{match} \; e \; \texttt{with} \; match_1, ... \; match_n& (n\geq1)\\
   \\
 path &::= &l\\
-  &| &path . path\\
+  &| &path_1 \; . \; path_2\\
   &| &(e_1, \; \dots \; e_n) & (n\geq2)\\
   &| &path \; [e_1, \; e_2] \\
   \\
@@ -107,7 +107,7 @@ v &::= &n\\
   &| &\#path\\
   \\
 path &::= &l\\
-  &| &path . path\\
+  &| &path_1 \; . \; path_2\\
   &| &(path_1, \; \dots \; path_n) & (n\geq2)\\
   &| &path \; [v_1, \; v_2] \\
   \\
@@ -156,18 +156,45 @@ path &::= &l\\
       l^1_i = l^2_i \wedge match(p_i, v_i) = true, env_i}
     {match(\{l_1^1: p_1, \dots, l^1_n: p_n\}, \{l^2_1: v_1, ... l^2_n: v_n\}) = true,  \displaystyle \bigcup_{i=1}^{n} env_i}
 
+\subsection{Path Evaluation Rules}
+
+\infax[BS-Label]
+    {\mbox{env} \vdash l \Downarrow l}
+
+\infrule[BS-Stacked]
+    {\mbox{env} \vdash path_1 \Downarrow path_1' \andalso \mbox{env} \vdash path_2 \Downarrow path_2'}
+    {\mbox{env} \vdash path_1 \; . \; path_2 \Downarrow path_1' \; . \; path_2'}
+
+\infrule[BS-Joined]
+    {\forall \; k \in \left[1, n\right] \; \; \mbox{env} \vdash e_k \Downarrow \#path_k}
+    {\mbox{env} \vdash (e_1, \; \dots \; e_n) \Downarrow (path_1, \; \dots \; path_n)}
+
+\infrule[BS-Distorted]
+    {\mbox{env} \vdash path_1 \Downarrow path' \andalso \mbox{env} \vdash e_1 \Downarrow v_1 \andalso \mbox{env} \vdash e_2 \Downarrow v_2}
+    {\mbox{env} \vdash path \; [e_1, \; e_2] \Downarrow path \; [v_1, \; v_2]}
+
+
 \subsection{Path Traversing Rules}
 
 \infrule[]
-    {path = l_k \andalso 1 \leq \left\|k\right\| \leq \left\|n\right\|\\
+    {1 \leq \left\|k\right\| \leq \left\|n\right\|\\
     r = \{l_1: v_1, \; \dots \; l_k: v, \; \ldots \; l_n: v_n\}}
-    {traverse(path, \{l_1: v_1, ... l_n: v_n\}, v) = v_k, r}
+    {traverse(l_k, \{l_1: v_1, ... l_n: v_n\}, v) = v_k, r}
 
 \infrule[]
-    {path = l_k \andalso 1 \leq \left\|k\right\| \leq \left\|n\right\| \\
-    traverse(paths, v_k, v) = v', v_k' \\
-    r = \{l_1: v_1, \; \dots \; l_k: v_k', \; \ldots \; l_n: v_n\}}
-    {traverse(path :: paths, \{l_1: v_1, ... l_n: v_n\}, v) = v', r}
+    {traverse(path_1, \{l_1: v_1, ... l_n: v_n\}, v') = rec, r'\\
+    traverse(path_2, rec, v) = v', rec'}
+    {traverse(path_1 \; . \; path_2, \{l_1: v_1, ... l_n: v_n\}, v) = v', r'}
+
+\infrule[]
+    {\{\} \vdash v_2 \; v \Downarrow v' \andalso traverse(path, \{l_1: v_1, ... l_n: v_n\}, v') = v'', r\\
+    \{\} \vdash v_1 \; v'' \Downarrow v'''}
+    {traverse(path [v_1, \; v_2], \{l_1: v_1, ... l_n: v_n\}, v) = v''', r}
+
+\infrule[]
+    {r_0 = \{l_1: v_1, ... l_n: v_n\}\\
+    \forall i \in [1, \; n] \; . \; traverse(path_i, r_{i-1}, v_i) = v'_i, r_i}
+    {traverse((path_1, \; \dots \; path_n), \{l_1: v_1, ... l_n: v_n\}, (v_1, \; \dots \; v_n)) = (v'_1, \; \dots \; v'_n), r_n}
 
 \subsection{Big-Step Rules}
 
@@ -176,12 +203,6 @@ path &::= &l\\
 
 \infax[BS-Access]
     {\mbox{env} \vdash \#path \Downarrow \#path}
-
-\infax[BS-Get]
-    {\mbox{env} \vdash get \Downarrow get}
-
-\infax[BS-Stack]
-    {\mbox{env} \vdash stack \Downarrow stack}
 
 \infrule[BS-Ident]
     {\mbox{env}(x) = v}
@@ -198,6 +219,27 @@ A record construction expression $\{l_1: e_1, \; \dots \; l_n: e_n\}$ evaluates 
     {\forall \; k \in \left[1, n\right] \; \; \mbox{env} \vdash e_k \Downarrow v_k}
     {\mbox{env} \vdash \{l_1: e_1, \; \dots \; l_n: e_n\} \Downarrow \{l_1: v_1, \; \dots \; l_n: v_n\}}
 
+\infrule[BS-Get]
+    {\mbox{env} \vdash e_1 \Downarrow \#path \andalso \mbox{env} \vdash e_2 \Downarrow \{l_1: v_1, \; \dots \; l_n: v_n\}\\
+    traverse(path, e_2, v) = v', r'}
+    {\mbox{env} \vdash get \; e_1 \; e_2 \Downarrow v'}
+
+\infrule[BS-Set]
+    {\mbox{env} \vdash e_1 \Downarrow \#path \andalso \mbox{env} \vdash e_2 \Downarrow v \andalso \mbox{env} \vdash e_3 \Downarrow \{l_1: v_1, \; \dots \; l_n: v_n\}\\
+    traverse(path, e_2, v) = v', r'}
+    {\mbox{env} \vdash set \; e_1 \; e_2 \; e_3 \Downarrow r'}
+
+\infrule[BS-Distort]
+    {\mbox{env} \vdash e_1 \Downarrow \#path \andalso \mbox{env} \vdash v_1 \Downarrow v \andalso \mbox{env} \vdash e_3 \Downarrow v_2\\
+    traverse(path, e_2, v) = v', r'}
+    {\mbox{env} \vdash distort \; e_1 \; e_2 \; e_3 \Downarrow \#path [v_1 \; v_2]}
+
+\infrule[BS-Stack]
+    {\mbox{env} \vdash e_1 \Downarrow \#path_1 \andalso \mbox{env} \vdash e_2 \Downarrow \#path_2}
+    {\mbox{env} \vdash stack \; e_1 \; e_2 \Downarrow \#path_1 \; path_2}
+
+
+
 \paragraph{Function Expressions}
 
 \infax[BS-Fn]
@@ -209,38 +251,6 @@ The right-hand operand (argument) is always evaluated using the current environm
 \smallskip
 
 In the case of a simple closure, the body of the function ($e$) is evaluated using the stored closure, matching the parameter pattern ($p$) with the argument ($v_2$).
-
-\infrule[BS-AppAccess]
-    {\mbox{env} \vdash e_1 \Downarrow \#paths \andalso \mbox{env} \vdash e_2 \Downarrow v}
-    {\mbox{env} \vdash e_1 \; e_2 \Downarrow [\#paths \; v]}
-
-\infrule[BS-AppAccess2]
-    {\mbox{env} \vdash e_1 \Downarrow [\#paths \; v] \andalso \mbox{env} \vdash e_2 \Downarrow \{l_1: v_1, \; \dots \; l_n: v_n\}\\
-    traverse(paths, e_2, v) = v', r'}
-    {\mbox{env} \vdash e_1 \; e_2 \Downarrow (v', r')}
-
-
-\infrule[BS-AppStack]
-    {\mbox{env} \vdash e_1 \Downarrow stack \andalso \mbox{env} \vdash e_2 \Downarrow v}
-    {\mbox{env} \vdash e_1 \; e_2 \Downarrow [stack \; v]}
-
-\infrule[BS-AppStack2]
-    {\mbox{env} \vdash e_1 \Downarrow [stack \; \#paths_1] \andalso \mbox{env} \vdash e_2 \Downarrow \#paths_2\\
-    paths' = paths_1 ++ paths_2}
-    {\mbox{env} \vdash e_1 \; e_2 \Downarrow \#paths'}
-
-\infrule[BS-AppGet]
-    {\mbox{env} \vdash e_1 \Downarrow get \andalso \mbox{env} \vdash e_2 \Downarrow v}
-    {\mbox{env} \vdash e_1 \; e_2 \Downarrow [get \; v]}
-
-\infrule[BS-AppGetRaise]
-    {\mbox{env} \vdash e_1 \Downarrow [get \; \left\langle p, e, env\right\rangle]}
-    {\mbox{env} \vdash e_1 \; e_2 \Downarrow raise}
-
-\infrule[BS-AppGet2]
-    {\mbox{env} \vdash e_1 \Downarrow [get \; \#path] \andalso \mbox{env} \vdash e_2 \Downarrow \{l_1: v_1, \; \dots \; l_n: v_n\}\\
-    traverse(path, e_2, v) = v', r'}
-    {\mbox{env} \vdash e_1 \; e_2 \Downarrow v'}
 
 \infrule[BS-AppFn]
     {\mbox{env} \vdash e_1 \Downarrow \left\langle p, e, env\right\rangle \andalso \mbox{env} \vdash e_2 \Downarrow v_2\\
@@ -411,6 +421,12 @@ For every free variable in the association, a fresh variable type is declared an
 
 \infrule[]
     {path = l \andalso X^{\{\{l: T\}\}} \; is \; new}
+    {traverse(path, T) = X}
+
+\infrule[]
+    {path = l \; e_1 \; e_2\\
+    env \cup \Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso env \cup \Gamma \vdash e_2 : T_2 \; | \; C_2\\
+     X^{\{\{l: T\}\}} \; is \; new}
     {traverse(path, T) = X}
 
 \infrule[]
