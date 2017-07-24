@@ -302,7 +302,7 @@ let private pTerm, private pTermRef = createParserForwardedToRef<ExTerm, UserSta
 let private pPath = 
     (pIdentifier |>> ExComponent)
     <|> (pBetween "(" ")" 
-        (sepBy pTerm (pstring "," .>> ws)) 
+        (sepBy1 pTerm (pstring "," .>> ws)) 
             |>> ExJoined)
 
 

@@ -144,6 +144,9 @@ and private translateTerm term env =
                 Distorted (f p, translateTerm getter env, translateTerm setter env)
             | ExStacked (p1, p2) ->
                 Stacked (f p1, f p2)
+            | ExJoined [x] as p ->
+                sprintf "Joined accessor %A must have at least 2 terms at %A" p term 
+                    |> ParseException |> raise
             | ExJoined paths ->
                 Joined <| List.map (flip translateTerm env) paths
         RecordAccess <| f path
