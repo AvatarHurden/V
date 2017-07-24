@@ -32,19 +32,21 @@ e &::= &n\\
   &| &x\\
   &| &(e_1, \; \dots \; e_n) & (n\geq2)\\
   &| &\{l_1: e_1, \; \dots \; l_n: e_n\} & (n\geq1)\\
-  &| &\#paths\\
-  &| &stack\\
-  &| &get\\
+  &| &\#path\\
+  &| &stack \; e_1 \; e_2 \\
+  &| &distort \; e_1 \; e_2 \; e_3\\
+  &| &get \; e_1 \; e_2\\
+  &| &set \; e_1 \; e_2 \; e_3\\
   &| &\texttt{let} \; p = e_1 \; \texttt{in} \; e_2\\
   &| &\texttt{fn} \; p \Rightarrow e\\
   &| &e_1 \; e_2\\
   &| &raise\\
   &| &\texttt{match} \; e \; \texttt{with} \; match_1, ... \; match_n& (n\geq1)\\
   \\
-paths &::= &path\\
-  &| &path :: paths\\
-  \\
 path &::= &l\\
+  &| &path . path\\
+  &| &(e_1, \; \dots \; e_n) & (n\geq2)\\
+  &| &path \; [e_1, \; e_2] \\
   \\
 match &::= &p \rightarrow e\\
   &| &p \; \texttt{when} \; e_1 \rightarrow e_2\\
@@ -96,21 +98,20 @@ To define the set of types that belong to a record label $\{l: T\}$, the followi
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
 env &::= &\{\} \; | \; \{x \rightarrow v\} \cup env\\
-\\
-    v &::= &n\\
-    &| &raise\\
-    &| &(v_1, \; \dots \; v_n) & (n\geq2)\\
-    &| &\{l_1: v_1, \; \dots \; l_n: v_n\} & (n\geq1)\\
-    &| &\left\langle p, e, env\right\rangle\\
-    &| &\#path\\
-    &| &[\#path \; v]\\
-    &| &get\\
-    &| &[get \; v]\\
-    &| &stack\\
-    &| &[stack \; v]\\
+  \\
+v &::= &n\\
+  &| &raise\\
+  &| &(v_1, \; \dots \; v_n) & (n\geq2)\\
+  &| &\{l_1: v_1, \; \dots \; l_n: v_n\} & (n\geq1)\\
+  &| &\left\langle p, e, env\right\rangle\\
+  &| &\#path\\
+  \\
+path &::= &l\\
+  &| &path . path\\
+  &| &(path_1, \; \dots \; path_n) & (n\geq2)\\
+  &| &path \; [v_1, \; v_2] \\
+  \\
 \end{tabular}}
-
-
 
 \subsection{Pattern Matching}
 
