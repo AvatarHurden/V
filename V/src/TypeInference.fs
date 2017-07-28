@@ -530,7 +530,7 @@ and collectConstraints term (env: Map<string, EnvAssociation>) =
                     Equals (t2, Function(io, storage));
                     Equals (storage, pIo)]
 
-                io, pRec, pStorage, c1 @ c2 @ c'
+                io, pRec, pStorage, c1 @ c2 @ pC @ c'
             | Stacked (p1, p2) ->
                 let io1, rec1, storage1, c1 = f p1
                 let io2, rec2, storage2, c2 = f p2
