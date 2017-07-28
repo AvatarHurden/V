@@ -70,6 +70,7 @@ T &::= &\mbox{Int}\\
 &| &T_1 \rightarrow T_2\\
 &| &(T_1, \; \dots \; T_n) & (n\geq2)\\
 &| &\{l_1: T_1, \; \dots \; l_n: T_n\} & (n\geq1)\\
+&| &\#(T_1 \rightarrow T_2) & Accessor\\
 &| &X^{Traits}\\
 \\
 X &::= &{X_1, X_2, ...}\\
@@ -230,13 +231,12 @@ A record construction expression $\{l_1: e_1, \; \dots \; l_n: e_n\}$ evaluates 
     {\mbox{env} \vdash set \; e_1 \; e_2 \; e_3 \Downarrow r'}
 
 \infrule[BS-Distort]
-    {\mbox{env} \vdash e_1 \Downarrow \#path \andalso \mbox{env} \vdash v_1 \Downarrow v \andalso \mbox{env} \vdash e_3 \Downarrow v_2\\
-    traverse(path, e_2, v) = v', r'}
+    {\mbox{env} \vdash e_1 \Downarrow \#path \andalso \mbox{env} \vdash v_1 \Downarrow v \andalso \mbox{env} \vdash e_3 \Downarrow v_2}
     {\mbox{env} \vdash distort \; e_1 \; e_2 \; e_3 \Downarrow \#path [v_1 \; v_2]}
 
 \infrule[BS-Stack]
     {\mbox{env} \vdash e_1 \Downarrow \#path_1 \andalso \mbox{env} \vdash e_2 \Downarrow \#path_2}
-    {\mbox{env} \vdash stack \; e_1 \; e_2 \Downarrow \#path_1 \; path_2}
+    {\mbox{env} \vdash stack \; e_1 \; e_2 \Downarrow \#path_1 \; . \; path_2}
 
 
 
@@ -417,22 +417,29 @@ For every free variable in the association, a fresh variable type is declared an
     {\forall i \in \left[1, n\right] \; \; X_i \; is \; new \wedge match(p_i, X_i) = c_i, env_i}
     {match(\{l_1: p_1, \dots, l_n: p_n\}, T) = \{\{l_1: X_1, \dots, l_n: X_n\} = T\} \cup \displaystyle \bigcup_{i=1}^{n} c_i, \displaystyle \bigcup_{i=1}^{n} env_i}
 
-\subsubsection{Path Traversing Rules}
+\subsubsection{Path Typing Rules}
 
 \infrule[]
-    {path = l \andalso X^{\{\{l: T\}\}} \; is \; new}
-    {traverse(path, T) = X}
+    {X_1 \; is \; new \andalso X_2^{\{\{l: X_1\}\}} \; is \; new}
+    {traverse(\Gamma, l) = X_1, \; X_2, \; X_1 \; | \; \{\} }
 
 \infrule[]
-    {path = l \; e_1 \; e_2\\
-    env \cup \Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso env \cup \Gamma \vdash e_2 : T_2 \; | \; C_2\\
-     X^{\{\{l: T\}\}} \; is \; new}
-    {traverse(path, T) = X}
+    {traverse(\Gamma, path_1) =  IO_1, \; Rec_1, \; Store_1 \; | \; C_1\\
+    traverse(\Gamma, path_2) =  IO_2, \; Rec_2, \; Store_2 \; | \; C_2}
+    {traverse(\Gamma, path_1 \; . \; path_2) = IO_2, \; Rec_1, \; Store_1 \; | \; C_1 \cup C_2 \cup \{Store_1 = IO_2\}}
 
 \infrule[]
-    {traverse(paths, T) = T'\\
-    path = l \andalso X^{\{\{l: T'\}\}} \; is \; new}
-    {traverse(path :: paths, T_1) = X}
+    {traverse(\Gamma, path) = IO, \; Rec, \; Store \; | \; C\\
+    \Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2\\
+    X_{io} \; is \; new \andalso X_{store} \; is \; new\\
+    C' = \{T_1 =  X_{store} \rightarrow X_{io}, T_2 = X_{io} \rightarrow  X_{store},  X_{store} = IO\}}
+    {traverse(\Gamma, path \; [e_1, \; e_2]) = X_{io}, \; Rec, \; Store \; | \; C \cup C_1 \cup C_2 \cup C'}
+
+\infrule[]
+    {T = (X_1, \; \dots \; X_n) \; is \; new \andalso X_{rec} \; is \; new\\
+    \forall i \in [1, n] \; . \; \Gamma \vdash e_i : T_i \; | \; C_i\\
+    \forall i \in [1, n] \; . C_i' = C \cup \{T_i = \#(X_i \rightarrow X_{rec})\}}
+    {traverse(\Gamma, (e_1, \; \dots \; e_n)) = T, \; X_{rec}, \; T \; | \; \displaystyle \bigcup_{i=1}^{n} C_i'}
 
 \subsubsection{Constraint Collection Rules}
 Every expression in $V$ has a rule for constraint collection, similar to how every expression has a rule for its semantic evaluation.
@@ -453,21 +460,30 @@ Every expression in $V$ has a rule for constraint collection, similar to how eve
     {\Gamma \vdash \{l_1: e_1, \; \dots \; l_n: e_n\} : \{l_1: T_1, \; \dots \; l_n: T_n\} \; | \; C_1 \cup \cdots C_n }
 
 \infrule[T-Access]
-    {X_1 \; is\; new \andalso traverse(paths, X_1) = X_2}
-    {\Gamma \vdash \#paths : X_1 \rightarrow X_2 \rightarrow (X_1, X_2) \; | \; \{\}}
-
-\infrule[T-Stack]
-    {X_1 \; is\; new \andalso X_2 \; is \; new \andalso X_3 \; is \; new\\
-    T_1 = (X_1 \rightarrow X_2 \rightarrow (X_1, X_2)) \andalso T_2 = (X_3 \rightarrow X_1 \rightarrow (X_3, X_1))}
-    {\Gamma \vdash stack : T_1 \rightarrow T_2 \rightarrow X_3 \rightarrow X_2 \rightarrow (X_3, X_2)  \; | \; \{\}}
+    {X_1 \; is\; new \andalso traverse(paths, X_1) = IO, Rec, _, C}
+    {\Gamma \vdash \#paths : \#(IO \rightarrow Rec) \; | \; \{\}}
 
 \infrule[T-Get]
     {X_1 \; is\; new \andalso X_2 \; is \; new}
-    {\Gamma \vdash get : (X_1 \rightarrow X_2 \rightarrow (X_1, X_2)) \rightarrow X_2 \rightarrow X_1  \; | \; \{\}}
+    {\Gamma \vdash get : \#(X_1 \rightarrow X_2) \rightarrow X_2 \rightarrow X_1  \; | \; \{\}}
+
+\infrule[T-Set]
+    {X_1 \; is\; new \andalso X_2 \; is \; new}
+    {\Gamma \vdash get : \#(X_1 \rightarrow X_2) \rightarrow X_1 \rightarrow X_2 \rightarrow X_2  \; | \; \{\}}
+
+\infrule[T-Stack]
+    {X_1 \; is\; new \andalso X_2 \; is \; new \andalso X_3 \; is \; new\\
+    T_1 = \#(X_1 \rightarrow X_2) \andalso T_2 = \#(X_3 \rightarrow X_1)}
+    {\Gamma \vdash stack : T_1 \rightarrow T_2 \rightarrow \#(X_3 \rightarrow X_2)  \; | \; \{\}}
+
+\infrule[T-Distort]
+    {X_1 \; is\; new \andalso X_2 \; is \; new \andalso X_3 \; is \; new\\
+    T_1 = \#(X_1 \rightarrow X_2) \andalso T_2 = X_1 \rightarrow X_3 \andalso T_3 = X_3 \rightarrow X_1}
+    {\Gamma \vdash stack : T_1 \rightarrow T_2 \rightarrow T_3 \rightarrow \#(X_3 \rightarrow X_2)  \; | \; \{\}}
 
 \infrule[T-App]
     {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2  \andalso X_1 \; is \; new}
-    {\Gamma \vdash e_1 \; e_2 : X \; | \; C_1 \cup C_2 \cup \{T1 = T_2 \rightarrow X_1}
+    {\Gamma \vdash e_1 \; e_2 : X \; | \; C_1 \cup C_2 \cup \{T1 = T_2 \rightarrow X_1\}}
 
 \infrule[T-Fn]
     {X \; is \; new \andalso match(p, X) = C, env \andalso env \cup \Gamma \vdash e : T_1 \; | \; C_1}
