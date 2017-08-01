@@ -10,6 +10,7 @@ let rec private translateType typ (env: TranslationEnv) =
     | ExInt -> Int
     | ExList t -> List <| translateType t env
     | ExFunction (t1, t2) -> Function (translateType t1 env, translateType t2 env)
+    | ExAccessor (t1, t2) -> Accessor (translateType t1 env, translateType t2 env)
     | ExTupleType ts -> 
         Type.Tuple <| List.map (fun t -> translateType t env) ts
     | ExRecordType ts -> 

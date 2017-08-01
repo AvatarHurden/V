@@ -163,6 +163,7 @@ type ExType =
     | ExBool
     | ExChar
     | ExFunction of ExType * ExType
+    | ExAccessor of ExType * ExType
     | ExList of ExType
     | ExTupleType of ExType list
     | ExRecordType of (string * ExType) list

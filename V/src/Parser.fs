@@ -149,6 +149,7 @@ let private pString =
 //#region Type Parsing
 
 let private pType, private pTypeRef = createParserForwardedToRef<ExType, UserState>()
+let private pTypeValue, private pTypeValueRef = createParserForwardedToRef<ExType, UserState>()
 
 let private pVarType = pTypeIdentifier |>> ExTypeAlias
 let private pIntType = stringReturn "Int" ExInt
@@ -166,13 +167,19 @@ let private pRecordType =
 
 let private pListType = pBetween "[" "]" pType |>> ExList
 
-let private pTypeValue = choice [pVarType;
+let private pAccessorType =
+    pstring "#" >>. pBetween "(" ")"
+        (tuple2 (pTypeValue .>> ws .>> pstring "->" .>> ws) 
+            (pTypeValue .>> ws)) |>> ExAccessor
+
+do pTypeValueRef := choice [pVarType;
                         pParenType;
                         pRecordType;
                         pIntType;
                         pBoolType;
                         pCharType;
-                        pListType] <?> "type"
+                        pListType;
+                        pAccessorType] <?> "type"
 
 do pTypeRef :=
     let fold = List.reduceBack (fun x acc -> ExFunction(x, acc))
