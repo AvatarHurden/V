@@ -26,6 +26,13 @@
 
 \maketitle
 
+\tableofcontents
+\newpage
+
+\section{Abstract Syntax Tree}
+
+\subsection{Terms}
+
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
 e &::= &n\\
@@ -64,6 +71,8 @@ p &::= &x\\
   n &::= &\mathbb{Z}\\
 \end{tabular}}
 
+\subsection{Types and Traits}
+
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
 T &::= &\mbox{Int}\\
@@ -94,6 +103,103 @@ To define the set of types that belong to a record label $\{l: T\}$, the followi
     \{l_1: T_1, \; \dots \; l_n: T_n, \; \dots \; T_k\} \in \{l: T\} \iff l_n = l \wedge T_{n} = T & (1 \leq n \leq k)\\
     X^{Traits} \in \{l: T\} \implies \{l: T\} \in Traits\\
 \end{tabular}}
+
+\section{Unnamed Section}
+
+Accessors are constructs that allow reading and writing to fields within a record.
+
+In their most basic form, they consist of a single label ($\#l$).
+In this state, an accessor creates a link to a specific field of a record, allowing it to be read from and written to directly.
+
+One of the features that make accessors powerful is the fact that they can operate of different types of records.
+
+In the following example, the same accessor (\texttt{\#age}) is used on two different data types.
+
+\begin{lstlisting}
+  get #age {name: "John", age: 35}
+  // Getting the age of a person
+  get #age {type: "red", age: 12}
+  // Getting the age of wine
+\end{lstlisting}
+
+This is possible because accessors create a loose restriction on the record they access.
+Instead of requiring a specific type, they only require that the record conform to a trait.
+In the example above, the only requirement made by the \texttt{\#age} accessor is that the record contain the field \texttt{age}.
+
+\medskip
+
+Another feature of accessors is their ability to be ``stacked''.
+With this, it is easy to access arbitratily deep nested records.
+
+In the example below, a stacked accessor is used to modify the street number of a record inside another record.
+
+\begin{lstlisting}
+  let address = {street: "Infinite Loop", number: 1}
+  let company = {name: "Apple Inc", headquarters: address}
+
+  set #headquarters.number 4 company
+\end{lstlisting}
+
+Stacked accessors, like their non-stacked brethren, also create the smallest restriction possible on its type.
+In the case above, the expression \texttt{\#headquarters.number} specifies that the accessed record must have a field with the label \texttt{headquarters}.
+
+It also specifies that this field is a record that, in turn, has a field with the label \texttt{number}.
+Furthermore, the fact that we are using the \texttt{set} function with an integer argument \texttt{4} tells us that the value associated with the label \texttt{number} is an integer.
+
+\medskip
+
+Besides stacking, it is also possible to join accessors.
+Joined accessors operate on different fields of the same record.
+The values are treated as tuples, both for setting new values and for getting the current values.
+
+Below is a simple example of accessing the fields \texttt{width} and \texttt{height} in a record.
+
+\begin{lstlisting}
+  get #(#width, #height) {width: 40, height: 30}
+  // Returns (40, 30)
+  set #(#width, #height) (60, 20) {width: 40, height: 30}
+  // Returns {width: 60, height: 20}
+\end{lstlisting}
+
+Joined accessors create multiple restrictions on the record they access.
+In the case above, the record is required to have both fields \texttt{width} and \texttt{height} (and, because of the \texttt{set} argument, we know these fields are integers).
+
+When setting, joined accessors are ``applied'' from left to right.
+This means that, if multiple components of the accessor refer to the same field, the last component is used.
+
+\begin{lstlisting}
+  set #(#width, #width) (60, 20) {width: 40, height: 30}
+  // Returns {width: 20, height: 30}
+\end{lstlisting}
+
+\medskip
+
+It is possible to ``distort'' accessors, defining ``getter'' and ``setter'' functions to be applied on the values.
+These functions allow a value to be stored in a different format (or even type) than the one used when operating on it.
+
+\begin{lstlisting}
+  let ctoF x = x * 9 / 5 + 32;
+  let ftoC x = (x - 32) * 5 / 9;
+
+  let fahrenheit = #celsius [ctoF, ftoC];
+
+  get fahrenheit {celsius: 30}
+  // Returns 86
+\end{lstlisting}
+
+This distortion, combined with joined accessors, allows very powerful and expressive operations.
+In the example below, we define a custom accessor to return the area of a record.
+
+\begin{lstlisting}
+  let tupleToArea (x, y) = x + y;
+  let areaToTuple a = (a, 1);
+
+  let area = #(#width, #height) [tupleToArea, areaToTuple];
+
+  get area {width: 40, height: 30}
+  // Returns 1200
+\end{lstlisting}
+
 \section{Evaluation}
 
 {\setlength\tabcolsep{8pt}
@@ -115,7 +221,6 @@ path &::= &l\\
 \end{tabular}}
 
 \subsection{Pattern Matching}
-
 
 \infax[]
     {match(x, v) = true, \{x \rightarrow v\}}
@@ -340,7 +445,7 @@ Besides violation of semantic rules, the only other expression that evaluates to
 \infax[BS-Raise]
     {\mbox{env} \vdash raise \Downarrow raise}
 
-\section{Type Inference}
+\section{Type System}
 
 The type inference algorithm is divided into 3 parts:
 
