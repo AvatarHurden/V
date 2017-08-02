@@ -9,13 +9,11 @@ let private (|AnyRaise|_|) (t1, t2) =
     | _, ResRaise -> Some()
     | _ -> None
 
-//#endregion
-
 //#region Pattern Matching
 
-let rec matchPattern (Pat (pattern, _)) result (env: Map<Ident, result>) =
+let rec matchPattern (Pat (pattern, _)) result (env: Env) =
     match pattern with
-    | XPat x -> Some <| env.Add(x, result)
+    | XPat x -> Some <| env.addId x result
     | IgnorePat -> Some env 
     | ConstructorPat (c, arguments) ->
         match result with
@@ -25,7 +23,7 @@ let rec matchPattern (Pat (pattern, _)) result (env: Map<Ident, result>) =
                 | None -> None
                 | Some env -> matchPattern p r env
             List.fold2 f (Some env) arguments arguments'
-        | ResConstructor (c', arguments') when constructorsMatch c c' ->
+        | ResConstructor (c', arguments') when env.areCompatible c c' ->
             None
         | ResConstructor _ ->
             raise <| EvalException "Wrong constructor passed for constructor pattern"
@@ -73,21 +71,21 @@ let rec matchPattern (Pat (pattern, _)) result (env: Map<Ident, result>) =
         | _ -> 
             raise <| EvalException "Invalid result for record pattern"
 
-let validatePattern pattern result (env: Map<Ident, result>) =
+let validatePattern pattern result (env: Env) =
     matchPattern pattern result env
         
 //#endregion
 
 //#region Comparisons
 
-let rec compareEquality t1 t2 =
+let rec compareEquality t1 t2 (env: Env) =
     match t1, t2 with
     | AnyRaise -> ResRaise
     | ResConstructor (c, arguments), ResConstructor (c', arguments') ->
-        if not <| constructorsMatch c c' then
+        if not <| env.areCompatible c c' then
             sprintf "Cannot compare %A and %A" c c' |> EvalException |> raise  
         let f acc r1 r2 =
-            match acc, compareEquality r1 r2 with
+            match acc, compareEquality r1 r2 env with
             | AnyRaise -> ResRaise
             | ResConstructor (B false, []), _ -> ResConstructor (B false, [])
             | ResConstructor (B true, []), ResConstructor (B b2, []) -> ResConstructor (B b2, [])
@@ -95,7 +93,7 @@ let rec compareEquality t1 t2 =
         List.fold2 f (ResConstructor (B (c = c'), [])) arguments arguments'
     | ResTuple v1, ResTuple v2 when v1.Length = v2.Length ->
         let f acc r1 r2 =
-            match acc, compareEquality r1 r2 with
+            match acc, compareEquality r1 r2 env with
             | AnyRaise -> ResRaise
             | ResConstructor (B false, []), _ -> ResConstructor (B false, [])
             | ResConstructor (B true, []), ResConstructor (B b2, []) -> ResConstructor (B b2, [])
@@ -108,7 +106,7 @@ let rec compareEquality t1 t2 =
         let f acc (n1, r1) (n2, r2) =
             if n1 <> n2 then
                 raise <| EvalException (sprintf "Records %A and %A have different fields" t1 t2)
-            match acc, compareEquality r1 r2 with
+            match acc, compareEquality r1 r2 env with
             | AnyRaise -> ResRaise
             | ResConstructor (B false, []), _ -> ResConstructor (B false, [])
             | ResConstructor (B true, []), ResConstructor (B b2, []) -> ResConstructor (B b2, [])
@@ -116,7 +114,7 @@ let rec compareEquality t1 t2 =
         List.fold2 f (ResConstructor (B true, [])) v1' v2'
     | _ , _ -> sprintf "Values %A and %A are not comparable" t1 t2 |> EvalException |> raise  
 
-let rec compareOrder t1 t2 orderType =
+let rec compareOrder t1 t2 orderType (env: Env) =
     let func = 
         match orderType with
         | LessThan -> (<)
@@ -127,17 +125,17 @@ let rec compareOrder t1 t2 orderType =
     match t1, t2 with
     | AnyRaise -> ResRaise
     | ResConstructor (c, arguments), ResConstructor (c', arguments') ->
-        if not <| constructorsMatch c c' then
+        if not <| env.areCompatible c c' then
             sprintf "Cannot compare %A and %A" c c' |> EvalException |> raise  
         match c = c' with
         | false -> (ResConstructor (B (func c c'), []))
         | true ->
             let f (acc: result option) r1 r2 =
-                match acc, compareEquality r1 r2 with
+                match acc, compareEquality r1 r2 env with
                 | Some res, _ -> Some res
                 | None, ResRaise -> Some ResRaise
                 | None, ResConstructor (B true, []) -> None
-                | None, ResConstructor (B false, []) -> Some <| compareOrder r1 r2 orderType
+                | None, ResConstructor (B false, []) -> Some <| compareOrder r1 r2 orderType env
                 | _ -> raise <| EvalException "Equal returned a non-expected value"
             match List.fold2 f None arguments arguments' with
             | Some res -> res
@@ -236,7 +234,7 @@ let rec private evalPartial b results term env =
             | t1 -> ResPartial (AppBuiltIn b, [t1])
         | [t1] ->
             let t2 = eval term env
-            compareOrder t1 t2 b
+            compareOrder t1 t2 b env
         | _ -> 
             sprintf "Wrong number of arguments to comparison" |> EvalException |> raise
 
@@ -249,7 +247,7 @@ let rec private evalPartial b results term env =
             | t1 -> ResPartial (AppBuiltIn b, [t1])
         | [t1] ->
             let t2 = eval term env
-            compareEquality t1 t2
+            compareEquality t1 t2 env
         | _ -> 
             sprintf "Wrong number of arguments to equality" |> EvalException |> raise
     | Different ->
@@ -261,7 +259,7 @@ let rec private evalPartial b results term env =
             | t1 -> ResPartial (AppBuiltIn b, [t1])
         | [t1] ->
             let t2 = eval term env
-            match compareEquality t1 t2 with
+            match compareEquality t1 t2 env with
             | ResRaise -> ResRaise
             | ResConstructor (B b, []) -> ResConstructor (B (not b), [])
             | _ -> raise <| EvalException "Equal returned a non-expected value"
@@ -349,11 +347,11 @@ let rec private evalPartial b results term env =
         | _ ->
             sprintf "Wrong number of arguments to record access" |> EvalException |> raise
 
-and private eval t env =
+and private eval t (env: Env) =
     match t with
     | BuiltIn b -> ResPartial(AppBuiltIn b, [])
     | Constructor c -> 
-        match constructorArgs c with
+        match env.numArgsFor c with
         | 0 -> ResConstructor (c, [])
         | _ -> ResPartial (AppConstructor c, [])
     | Fn fn -> ResFn (fn, env)
@@ -366,7 +364,7 @@ and private eval t env =
             match eval t2 env with
             | ResRaise -> ResRaise
             | t2' ->
-                if constructorArgs c = args.Length + 1 then
+                if env.numArgsFor c = args.Length + 1 then
                     ResConstructor (c, args @ [t2'])
                 else
                     ResPartial (AppConstructor c, args @ [t2'])
@@ -385,7 +383,7 @@ and private eval t env =
                 | t2' -> 
                     match validatePattern pattern t2' env' with
                     | None -> ResRaise
-                    | Some env' -> eval e <| env'.Add(id, ResFn(fn, env'))
+                    | Some env' -> eval e <| env'.addId id (ResFn(fn, env'))
         | t1' -> sprintf "First operand %A is not a function at %A" t1' t |> EvalException |> raise
     
     | Match (t1, patterns) ->
@@ -446,11 +444,10 @@ and private eval t env =
 
         //ResRecord <| List.map (fun (name, t) -> name, eval t env) pairs
     | X(id) -> 
-        if env.ContainsKey id then
-            env.[id]
-        else
-            sprintf "Could not find identifier %A" id |> EvalException |> raise
+        match env.ids.TryFind id with
+        | None -> sprintf "Could not find identifier %A" id |> EvalException |> raise
+        | Some r -> r            
 
 
 let evaluate t =
-    eval t Map.empty
+    eval t defaultEnv

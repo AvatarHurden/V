@@ -32,23 +32,6 @@ type Constructor =
     | Cons
     //| Custom of string
 
-let constructorsMatch c1 c2 =
-    match c1, c2 with
-    | I _, I _ -> true
-    | C _, C _ -> true
-    | B _, B _ -> true
-    | Nil, Nil
-    | Nil, Cons
-    | Cons, Nil
-    | Cons, Cons -> true
-    | _ -> false
-
-let constructorArgs =
-    function
-    | I _ | B _ | C _ -> 0
-    | Nil -> 0
-    | Cons -> 2 
-
 type VarPattern = Pat of Pattern * Type option
 
 and Pattern =
@@ -100,7 +83,7 @@ and term =
     | Tuple of term list
     | Record of (string * term) list
 
-type ResFunction = Function * env
+type ResFunction = Function * Env
 
 and ResPartialApp =
     | AppBuiltIn of BuiltIn
@@ -115,8 +98,56 @@ and result =
     | ResTuple of result list
     | ResRecord of (string * result) list
 and
-    env = Map<Ident, result>
 
+//#region Evaluation Environment
+
+    Env =
+    {numArgs: Map<Constructor, int>;
+     groups: Set<Constructor> list;
+     ids: Map<Ident, result>}
+
+     member this.areCompatible c1 c2 =
+        match c1, c2 with
+        | I _, I _ -> true
+        | _, I _
+        | I _, _ -> false
+        | C _, C _ -> true
+        | _, C _
+        | C _, _ -> false
+        | B _, B _ -> true
+        | _, B _
+        | B _, _ -> false
+        | c1, c2 ->
+            let f x = fun (s: Set<Constructor>) -> s.Contains x
+            match List.tryFind (f c1) this.groups with
+            | None -> sprintf "Constructor %A is not in any group" c1 |> EvalException |> raise
+            | Some s -> s.Contains c2
+
+    member this.numArgsFor c =
+        match c with
+        | I _ | B _ | C _ -> 0
+        | c -> 
+            match this.numArgs.TryFind c with
+            | None -> sprintf "Constructor %A does not have a number of arguments" c |> EvalException |> raise
+            | Some i -> i
+
+    member this.addId id result =
+        let newIds = this.ids.Add(id, result)
+        {numArgs = this.numArgs; groups = this.groups; ids = newIds}
+
+
+let defaultEnv = 
+    {numArgs = 
+        [Cons, 2; 
+        Nil, 0] 
+        |> Map.ofList
+     groups = 
+        [
+            [Nil; Cons] |> Set.ofList
+        ]
+     ids = Map.empty}
+
+//#endregion
 
 //#region Library and Parsing
 
