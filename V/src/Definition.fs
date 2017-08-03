@@ -133,7 +133,7 @@ and
 
     member this.addId id result =
         let newIds = this.ids.Add(id, result)
-        {numArgs = this.numArgs; groups = this.groups; ids = newIds}
+        {this with ids = newIds}
 
 
 let defaultEnv = 
