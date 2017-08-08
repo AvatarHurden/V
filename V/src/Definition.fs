@@ -273,6 +273,9 @@ and ExDeclaration =
 
 let flip f a b = f b a
 
+let curry f a b = f (a, b)
+let uncurry f (a, b) = f a b
+
 let rec mapOption f ls =
     let f' acc x = 
         match acc with
