@@ -17,8 +17,8 @@ let compare (text, term) =
 let matchesType text typ =
     let parsed = text |> parsePure |> flip translate stdlib.stdEnv
     let typ' = typeInfer <| parsed
-    let freeVars = List.sort <| getFreeVars typ Map.empty |> List.unzip |> fst
-    let freeVars' = List.sort <| getFreeVars typ' Map.empty  |> List.unzip |> fst
+    let freeVars = List.sort <| getFreeVars typ defaultEnv |> List.unzip |> fst
+    let freeVars' = List.sort <| getFreeVars typ' defaultEnv  |> List.unzip |> fst
     let freePairs = List.zip freeVars freeVars'
     let replaced = List.fold (fun acc (x, x') -> substituteInType (NameSub (x', x)) acc)
                         typ' freePairs

@@ -12,13 +12,21 @@ type Trait =
     | Orderable
     | RecordLabel of string * Type
 
-and Type =
-    | VarType of string * Trait list
+and ConstructorType =
     | Int
     | Bool
     | Char
-    | Function of Type * Type
     | List of Type
+    //| Custom of string * Type list
+
+and Type =
+    | VarType of string * Trait list
+    | ConstType of ConstructorType
+//    | Int
+//    | Bool
+//    | Char
+    | Function of Type * Type
+//    | List of Type
     | Tuple of Type list
     | Record of (string * Type) list
 
