@@ -405,6 +405,15 @@ let rec unify typeSubs traitSubs constraints =
                             unify newSubs (traitsToMap traitSubs free) <| replaceVarTypes free replacedX                                
 //            | List s1, List t1 -> 
 //                unify typeSubs traitSubs <| rest @ [Equals (s1, t1)]
+            | ConstType c1, ConstType c2 ->
+                match c1, c2 with
+                | Int, Int
+                | Bool, Bool
+                | Char, Char -> unify typeSubs traitSubs rest
+                | List t1, List t2 -> unify typeSubs traitSubs <| rest @@ [Equals (t1, t2)]
+                | _ -> raise <| TypeException (sprintf "Constructor types %A and %A do not match" c1 c2)
+                //| Custom (s1, types1), Custom (s2, types2) when s1 = s2 ->
+                    // unify typeSubs traitSubs <| rest @@ List.map2 (fun typ1 typ2 -> Equals (typ1, typ2)) types1 types2
             | Function(s1, s2), Function(t1, t2) -> 
                 unify typeSubs traitSubs <| rest @@ [Equals (s1, t1); Equals (s2, t2)]
             | Type.Tuple typs1, Type.Tuple typs2 when typs1.Length = typs2.Length ->
