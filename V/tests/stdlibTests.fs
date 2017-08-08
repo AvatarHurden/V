@@ -139,11 +139,11 @@ let infixl 8 (%) = remainder;
 
     [<Test>]
     member that.testType() =
-        hasType (Remainder.func + "remainder") <| Function (Int, Function (Int, Int))
+        hasType (Remainder.func + "remainder") <| Function ((ConstType Int), Function ((ConstType Int), (ConstType Int)))
      
     [<Test>]
     member that.testType2() =
-        hasType (Remainder.func + "remainder 4") <| Function (Int, Int)
+        hasType (Remainder.func + "remainder 4") <| Function ((ConstType Int), (ConstType Int))
      
     [<Test>]
     member that.wrongParameter() =
@@ -153,11 +153,11 @@ let infixl 8 (%) = remainder;
 
     [<Test>]
     member that.largerX() =
-        equals (Remainder.func + "remainder 10 3") <| ResI 1
+        equals (Remainder.func + "remainder 10 3") <| ResConstructor (I 1, [])
         
     [<Test>]
     member that.largerY() =
-        equals (Remainder.func + "remainder 3 6") <| ResI 3
+        equals (Remainder.func + "remainder 3 6") <| ResConstructor (I 3, [])
 
     [<Test>]
     member that.Y0() =
@@ -175,7 +175,7 @@ let negate x =
 
     [<Test>]
     member that.testType() =
-        hasType (Negate.func + "negate") <| Function (Int, Int)
+        hasType (Negate.func + "negate") <| Function ((ConstType Int), (ConstType Int))
      
     [<Test>]
     member that.wrongParameter() =
@@ -185,15 +185,15 @@ let negate x =
 
     [<Test>]
     member that.positive() =
-        equals (Negate.func + "negate 5") <| ResI -5
+        equals (Negate.func + "negate 5") <| ResConstructor (I -5, [])
         
     [<Test>]
     member that.negative() =
-        equals (Negate.func + "negate (0-5)") <| ResI 5
+        equals (Negate.func + "negate (0-5)") <| ResConstructor (I 5, [])
 
     [<Test>]
     member that.zero() =
-        equals (Negate.func + "negate 0") <| ResI 0
+        equals (Negate.func + "negate 0") <| ResConstructor (I 0, [])
         
 
 [<TestFixture>]
@@ -211,7 +211,7 @@ let abs x =
 
     [<Test>]
     member that.testType() =
-        hasType (Abs.func + "abs") <| Function (Int, Int)
+        hasType (Abs.func + "abs") <| Function ((ConstType Int), (ConstType Int))
      
     [<Test>]
     member that.wrongParameter() =
@@ -221,15 +221,15 @@ let abs x =
 
     [<Test>]
     member that.positive() =
-        equals (Abs.func + "abs 5") <| ResI 5
+        equals (Abs.func + "abs 5") <| ResConstructor (I 5, [])
         
     [<Test>]
     member that.negative() =
-        equals (Abs.func + "abs (0-5)") <| ResI 5
+        equals (Abs.func + "abs (0-5)") <| ResConstructor (I 5, [])
 
     [<Test>]
     member that.zero() =
-        equals (Abs.func + "abs 0") <| ResI 0
+        equals (Abs.func + "abs 0") <| ResConstructor (I 0, [])
 
 [<TestFixture>]
 type Not() =
@@ -245,7 +245,7 @@ let not t =
 
     [<Test>]
     member that.testType() =
-        hasType (Not.func + "not") <| Function (Bool, Bool)
+        hasType (Not.func + "not") <| Function ((ConstType Bool), (ConstType Bool))
      
     [<Test>]
     member that.wrongParameter() =
@@ -254,11 +254,11 @@ let not t =
 
     [<Test>]
     member that.negateTrue() =
-        equals (Not.func + "not true") <| ResB false
+        equals (Not.func + "not true") <| ResConstructor (B false, [])
         
     [<Test>]
     member that.negateFalse() =
-        equals (Not.func + "not false") <| ResB true
+        equals (Not.func + "not false") <| ResConstructor (B true, [])
 
 
 [<TestFixture>]
@@ -276,7 +276,7 @@ let xor t1 t2 =
 
     [<Test>]
     member that.testType() =
-        hasType (Xor.func + "xor") <| Function (Bool, Function (Bool, Bool))
+        hasType (Xor.func + "xor") <| Function ((ConstType Bool), Function ((ConstType Bool), (ConstType Bool)))
      
     [<Test>]
     member that.wrongParameter() =
@@ -285,19 +285,19 @@ let xor t1 t2 =
 
     [<Test>]
     member that.xorTrueFalse() =
-        equals (Xor.func + "xor true false") <| ResB true
+        equals (Xor.func + "xor true false") <| ResConstructor (B true, [])
         
     [<Test>]
     member that.xorTrueTrue() =
-        equals (Xor.func + "xor true true") <| ResB false
+        equals (Xor.func + "xor true true") <| ResConstructor (B false, [])
         
     [<Test>]
     member that.xorFalseFalse() =
-        equals (Xor.func + "xor false false") <| ResB false
+        equals (Xor.func + "xor false false") <| ResConstructor (B false, [])
         
     [<Test>]
     member that.xorFalseTrue() =
-        equals (Xor.func + "xor false true") <| ResB true
+        equals (Xor.func + "xor false true") <| ResConstructor (B true, [])
 
 [<TestFixture>]
 type Fst() =
@@ -379,7 +379,7 @@ let swap (x, y) = (y, x);
         
     [<Test>]
     member that.raiseSecond() =
-        equals (Swap.func + "swap (3, 'a')") <| ResTuple [ResC 'a'; ResI 3]
+        equals (Swap.func + "swap (3, 'a')") <| ResTuple [ResConstructor (C 'a', []); ResConstructor (I 3, [])]
 
 
 [<TestFixture>]
@@ -407,7 +407,7 @@ let set acc v r = snd $ acc v r;
 
     [<Test>]
     member that.simple() =
-        equals (Set.func + "set #a 5 {a:4, b:3}") <| ResRecord ["a", ResI 5; "b", ResI 3]
+        equals (Set.func + "set #a 5 {a:4, b:3}") <| ResRecord ["a", ResConstructor (I 5, []); "b", ResConstructor (I 3, [])]
     
     [<Test>]
     member that.raiseField() =
@@ -450,11 +450,11 @@ let modify acc f r =
 
     [<Test>]
     member that.simple() =
-        equals (Modify.func + "modify #a (\x -> x) {a:4, b:3}") <| ResRecord ["a", ResI 4; "b", ResI 3]
+        equals (Modify.func + "modify #a (\x -> x) {a:4, b:3}") <| ResRecord ["a", ResConstructor (I 4, []); "b", ResConstructor (I 3, [])]
     
     [<Test>]
     member that.simpleMod() =
-        equals (Modify.func + "modify #a ((+) 1) {a:2, b:3}") <| ResRecord ["a", ResI 3; "b", ResI 3]
+        equals (Modify.func + "modify #a ((+) 1) {a:2, b:3}") <| ResRecord ["a", ResConstructor (I 3, []); "b", ResConstructor (I 3, [])]
     
     [<Test>]
     member that.raiseField() =
@@ -480,7 +480,7 @@ let head (x :: xs) = x;
     member that.testType() =
         let x1 = VarType ("x", [])
         matchesType (Head.func + "head") <| 
-            Function (List x1, x1)
+            Function (ConstType (List x1), x1)
 
     [<Test>]
     member that.wrongParameter() =
@@ -506,7 +506,7 @@ let tail (x :: xs) = xs;
     member that.testType() =
         let x1 = VarType ("x", [])
         matchesType (Tail.func + "tail") <| 
-            Function (List x1, List x1)
+            Function (ConstType (List x1), ConstType (List x1))
      
     [<Test>]
     member that.wrongParameter() =
@@ -536,7 +536,7 @@ let empty? x =
     member that.testType() =
         let x1 = VarType ("x", [])
         matchesType (Empty.func + "empty?") <| 
-            Function (List x1, Bool)
+            Function (ConstType (List x1), (ConstType Bool))
      
     [<Test>]
     member that.wrongParameter() =
@@ -566,12 +566,12 @@ let rec append x ls =
     member that.testType() =
         let x1 = VarType ("x", [])
         matchesType (Append.func + "append") <| 
-            Function (x1, Function (List x1, List x1))
+            Function (x1, Function (ConstType (List x1), ConstType (List x1)))
      
     [<Test>]
     member that.testType2() =
         matchesType (Append.func + "append 4") <| 
-            Function (List Int, List Int)
+            Function (ConstType (List (ConstType Int)), ConstType (List (ConstType Int)))
      
     [<Test>]
     member that.wrongParameter() =
@@ -608,12 +608,12 @@ let (@) = concat;
     member that.testType() =
         let x1 = VarType ("x", [])
         matchesType (Concat.func + "concat") <| 
-            Function (List x1, Function (List x1, List x1))
+            Function (ConstType (List x1), Function (ConstType (List x1), ConstType (List x1)))
      
     [<Test>]
     member that.testType2() =
         matchesType (Concat.func + "concat [true]") <| 
-            Function (List Bool, List Bool)
+            Function (ConstType (List (ConstType Bool)), ConstType (List (ConstType Bool)))
      
     [<Test>]
     member that.wrongParameter() =
@@ -652,7 +652,7 @@ let rec last ls =
     [<Test>]
     member that.testType() =
         let x1 = VarType ("x", [])
-        matchesType (Last.func + "last") <| Function (List x1, x1)
+        matchesType (Last.func + "last") <| Function (ConstType (List x1), x1)
      
     [<Test>]
     member that.wrongParameter() =
@@ -686,7 +686,7 @@ let rec init ls =
     [<Test>]
     member that.testType() =
         let x1 = VarType ("x", [])
-        matchesType (Init.func + "init") <| Function (List x1, List x1)
+        matchesType (Init.func + "init") <| Function (ConstType (List x1), ConstType (List x1))
      
     [<Test>]
     member that.wrongParameter() =
@@ -719,7 +719,7 @@ let rec length ls =
     [<Test>]
     member that.testType() =
         let x1 = VarType ("x", [])
-        matchesType (Length.func + "length") <| Function (List x1, Int)
+        matchesType (Length.func + "length") <| Function (ConstType (List x1), (ConstType Int))
      
     [<Test>]
     member that.wrongParameter() =
@@ -753,7 +753,7 @@ let rec range start finish inc =
     [<Test>]
     member that.testType() =
         hasType (Range.func + "range") <| 
-            Function (Int, Function (Int, Function (Int, List Int)))
+            Function ((ConstType Int), Function ((ConstType Int), Function ((ConstType Int), ConstType (List (ConstType Int)))))
      
     [<Test>]
     member that.wrongParameter() =
@@ -802,7 +802,7 @@ let reverse ls =
     member that.testType() =
         let x1 = VarType ("x", [])
         matchesType (Reverse.func + "reverse") <| 
-            Function (List x1, List x1)
+            Function (ConstType (List x1), ConstType (List x1))
      
     [<Test>]
     member that.wrongParameter() =
@@ -842,7 +842,7 @@ let rec map f ls =
         let x1 = VarType ("y", [])
         let x2 = VarType ("x", [])
         matchesType (Map.func + "map") <| 
-            Function (Function (x2, x1), Function (List x2, List x1))
+            Function (Function (x2, x1), Function (ConstType (List x2), ConstType (List x1)))
      
     [<Test>]
     member that.wrongParameter() =
@@ -885,7 +885,7 @@ let rec fold f acc ls =
         let x2 = VarType ("x", [])
         let x1 = VarType ("y", [])
         matchesType (Fold.func + "fold") <| 
-            Function (Function (x2, Function (x1, x2)), Function (x2, Function (List x1, x2)))
+            Function (Function (x2, Function (x1, x2)), Function (x2, Function (ConstType (List x1), x2)))
      
     [<Test>]
     member that.wrongParameter() =
@@ -925,7 +925,7 @@ let reduce f (x :: xs) = fold f x xs;
     member that.testType() =
         let x1 = VarType ("x", [])
         matchesType (Reduce.func + "reduce") <| 
-            Function (Function (x1, Function (x1, x1)), Function (List x1, x1))
+            Function (Function (x1, Function (x1, x1)), Function (ConstType (List x1), x1))
      
     [<Test>]
     member that.wrongParameter() =
@@ -963,7 +963,7 @@ let rec all pred ls =
     member that.testType() =
         let x1 = VarType ("x", [])
         matchesType (All.func + "all") <| 
-            Function (Function (x1, Bool), Function (List x1, Bool))
+            Function (Function (x1, (ConstType Bool)), Function (ConstType (List x1), (ConstType Bool)))
      
     [<Test>]
     member that.wrongParameter() =
@@ -999,7 +999,7 @@ let rec any pred ls =
     member that.testType() =
         let x1 = VarType ("x", [])
         matchesType (Any.func + "any") <| 
-            Function (Function (x1, Bool), Function (List x1, Bool))
+            Function (Function (x1, (ConstType Bool)), Function (ConstType (List x1), (ConstType Bool)))
      
     [<Test>]
     member that.wrongParameter() =
@@ -1032,7 +1032,7 @@ let maximum ls =
     member that.testType() =
         let x1 = VarType ("x", [Orderable])
         matchesType (Maximum.func + "maximum") <| 
-            Function (List x1, x1)
+            Function (ConstType (List x1), x1)
      
     [<Test>]
     member that.wrongParameter() =
@@ -1066,7 +1066,7 @@ let minimum ls =
     member that.testType() =
         let x1 = VarType ("x", [Orderable])
         matchesType (Minimum.func + "minimum") <| 
-            Function (List x1, x1)
+            Function (ConstType (List x1), x1)
      
     [<Test>]
     member that.wrongParameter() =
@@ -1102,7 +1102,7 @@ let rec take n ls =
     member that.testType() =
         let x1 = VarType ("x", [])
         matchesType (Take.func + "take") <| 
-            Function (Int, Function (List x1, List x1))
+            Function ((ConstType Int), Function (ConstType (List x1), ConstType (List x1)))
      
     [<Test>]
     member that.wrongParameter() =
@@ -1146,7 +1146,7 @@ let rec drop n ls =
     member that.testType() =
         let x1 = VarType ("x", [])
         matchesType (Drop.func + "drop") <| 
-            Function (Int, Function (List x1, List x1))
+            Function ((ConstType Int), Function (ConstType (List x1), ConstType (List x1)))
      
     [<Test>]
     member that.wrongParameter() =
@@ -1191,7 +1191,7 @@ let rec takeWhile pred ls =
     member that.testType() =
         let x1 = VarType ("x", [])
         matchesType (TakeWhile.func + "takeWhile") <| 
-            Function (Function(x1, Bool), Function (List x1, List x1))
+            Function (Function(x1, (ConstType Bool)), Function (ConstType (List x1), ConstType (List x1)))
      
     [<Test>]
     member that.wrongParameter() =
@@ -1232,7 +1232,7 @@ let rec dropWhile pred ls =
     member that.testType() =
         let x1 = VarType ("x", [])
         matchesType (DropWhile.func + "dropWhile") <| 
-            Function (Function(x1, Bool), Function (List x1, List x1))
+            Function (Function(x1, (ConstType Bool)), Function (ConstType (List x1), ConstType (List x1)))
      
     [<Test>]
     member that.wrongParameter() =
@@ -1273,7 +1273,7 @@ let sublist start size ls =
     member that.testType() =
         let x1 = VarType ("x", [])
         matchesType (Sublist.func + "sublist") <| 
-            Function (Int, Function (Int, Function (List x1, List x1)))
+            Function ((ConstType Int), Function ((ConstType Int), Function (ConstType (List x1), ConstType (List x1))))
      
     [<Test>]
     member that.wrongParameter() =
@@ -1318,7 +1318,7 @@ let rec exists t ls =
     member that.testType() =
         let x1 = VarType ("x", [Equatable])
         matchesType (Exists.func + "exists") <| 
-            Function (x1, Function (List x1, Bool))
+            Function (x1, Function (ConstType (List x1), (ConstType Bool)))
      
     [<Test>]
     member that.wrongParameter() =
@@ -1359,7 +1359,7 @@ let rec filter pred ls =
     member that.testType() =
         let x1 = VarType ("x", [])
         matchesType (Filter.func + "filter") <| 
-            Function (Function (x1, Bool), Function (List x1, List x1))
+            Function (Function (x1, (ConstType Bool)), Function (ConstType (List x1), ConstType (List x1)))
      
     [<Test>]
     member that.wrongParameter() =
@@ -1402,7 +1402,7 @@ let indexOf t ls =
     member that.testType() =
         let x1 = VarType ("x", [Equatable])
         matchesType (IndexOf.func + "indexOf") <| 
-            Function (x1, Function (List x1, Int))
+            Function (x1, Function (ConstType (List x1), (ConstType Int)))
      
     [<Test>]
     member that.wrongParameter() =
@@ -1443,7 +1443,7 @@ let infixl 9 (!!) = flip nth;
     member that.testType() =
         let x1 = VarType ("x", [])
         matchesType (Nth.func + "nth") <| 
-            Function (Int, Function (List x1, x1))
+            Function ((ConstType Int), Function (ConstType (List x1), x1))
      
     [<Test>]
     member that.wrongParameter() =
@@ -1492,7 +1492,7 @@ let rec sort ls =
         let x1 = VarType ("x", [Orderable])
         
         matchesType (Sort.func + "sort") <| 
-            Function (List x1, List x1)
+            Function (ConstType (List x1), ConstType (List x1))
      
     [<Test>]
     member that.wrongParameter() =
@@ -1535,7 +1535,7 @@ let rec zip x y =
         let x2 = VarType ("y", [])
 
         matchesType (Zip.func + "zip") <| 
-            Function (List x1, Function (List x2, List <| Type.Tuple [x1;x2]))
+            Function (ConstType (List x1), Function (ConstType (List x2), ConstType (List <| Type.Tuple [x1;x2])))
      
     [<Test>]
     member that.wrongParameter() =
@@ -1579,7 +1579,7 @@ let rec zipWith f x y =
 
         matchesType (ZipWith.func + "zipWith") <| 
             Function (Function (y, Function (x, z)), 
-                Function (List y, Function (List x, List z)))
+                Function (ConstType (List y), Function (ConstType (List x), ConstType (List z))))
      
     [<Test>]
     member that.wrongParameter() =
@@ -1621,7 +1621,7 @@ let unzip ls =
         let x3 = Type.Tuple [x1; x2]
 
         matchesType (Unzip.func + "unzip") <| 
-            Function (List x3, Type.Tuple [List x1; List x2])
+            Function (ConstType (List x3), Type.Tuple [ConstType (List x1); ConstType (List x2)])
      
     [<Test>]
     member that.wrongParameter() =
@@ -1643,10 +1643,10 @@ type ParseInt() =
 
     static member func = 
         Negate.func + Reverse.func + Compose.func + """
-let parseInt (s: String): Int =
+let parseInt (s: String): (Int) =
     match s with
     | x :: xs ->
-        let rec f (s: String): Int =
+        let rec f (s: String): (Int) =
             match s with
             | [] -> 0
             | x :: xs ->
@@ -1674,7 +1674,7 @@ let parseInt (s: String): Int =
     [<Test>]
     member that.testType() =
         matchesType (ParseInt.func + "parseInt") <| 
-            Function (List Char, Int)
+            Function (ConstType (List (ConstType Char)), (ConstType Int))
      
     [<Test>]
     member that.wrongParameter() =
@@ -1732,7 +1732,7 @@ let rec printInt (i: Int): String =
     [<Test>]
     member that.testType() =
         matchesType (PrintInt.func + "printInt") <| 
-            Function (Int, List Char)
+            Function ((ConstType Int), ConstType (List (ConstType Char)))
      
     [<Test>]
     member that.wrongParameter() =
@@ -1769,7 +1769,7 @@ let parseBool (s: String): Bool =
     [<Test>]
     member that.testType() =
         matchesType (ParseBool.func + "parseBool") <| 
-            Function (List Char, Bool)
+            Function (ConstType (List (ConstType Char)), (ConstType Bool))
      
     [<Test>]
     member that.wrongParameter() =
@@ -1810,7 +1810,7 @@ let printBool (b: Bool): String =
     [<Test>]
     member that.testType() =
         matchesType (PrintBool.func + "printBool") <| 
-            Function (Bool, List Char)
+            Function ((ConstType Bool), ConstType (List (ConstType Char)))
      
     [<Test>]
     member that.wrongParameter() =

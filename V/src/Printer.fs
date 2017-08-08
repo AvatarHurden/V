@@ -33,17 +33,17 @@ and printType typ =
     match typ with
     | VarType(s, traits) -> 
         s + " (" + printTraits traits + ")"
-    | Int -> "Int"
-    | Bool -> "Bool"
-    | Char -> "Char"
-    | List Char -> "String"
+    | ConstType Int -> "Int"
+    | ConstType Bool -> "Bool"
+    | ConstType Char -> "Char"
+    | ConstType (List (ConstType Char)) -> "String"
     | Function(t1, t2) ->  
         match t1 with
         | Function(_,_) -> 
             sprintf "(%s) -> %s" (printType t1) (printType t2)
         | _ ->
             sprintf "%s -> %s" (printType t1) (printType t2)
-    | List(t) ->
+    | ConstType (List t) ->
         sprintf "[%s]" (printType t)
     | Type.Tuple (types) ->
         sprintf "(%s)" (printTuple types)
@@ -52,26 +52,26 @@ and printType typ =
 
 let rec printResultList result =
     match result with
-    | ResCons (head, ResNil) -> printResult head
-    | ResCons (head, tail) -> printResult head + ", " + printResultList tail
+    | ResConstructor (Cons, [head; ResConstructor (Nil, [])]) -> printResult head
+    | ResConstructor (Cons, [head; tail]) -> printResult head + ", " + printResultList tail
     | t -> sprintf "Result %A is not list to be printed" t
 
 and printResultString result =
     match result with
-    | ResCons (ResC head, ResNil) -> string head
-    | ResCons (ResC head, tail) -> string head + printResultString tail
+    | ResConstructor (Cons, [ResConstructor (C head, []); ResConstructor (Nil, [])]) -> string head
+    | ResConstructor (Cons, [ResConstructor (C head, []); tail]) -> string head + printResultString tail
     | t -> sprintf "Result %A is not list to be printed" t
 
 and printResult result =
     match result with
-    | ResB true -> "true"
-    | ResB false -> "false"
-    | ResC c -> string c
-    | ResI i -> string i
+    | ResConstructor (B true, []) -> "true"
+    | ResConstructor (B false, []) -> "false"
+    | ResConstructor (C c, []) -> string c
+    | ResConstructor (I i, []) -> string i
     | ResRaise -> "raise"
-    | ResNil -> "[]"
-    | ResCons (ResC head, tail) -> "\"" + printResultString result + "\""
-    | ResCons (head, tail) -> "[" + printResultList result + "]"
+    | ResConstructor (Nil, []) -> "[]"
+    | ResConstructor (Cons, [ResConstructor (C head, []); tail]) -> "\"" + printResultString result + "\""
+    | ResConstructor (Cons, [head; tail]) -> "[" + printResultList result + "]"
     | ResTuple v -> 
         "(" + 
         (List.fold (fun acc v -> acc + ", " + printResult v) 
@@ -87,7 +87,5 @@ and printResult result =
         sprintf "Function with parameter %A" id
     | ResFn (Recursive(id, t1, id2, t), env) -> 
         sprintf "Recursive function with name %A and parameter %A" id id2
-    | ResFn (BuiltIn b, env) ->
-        sprintf "Builtin function %A" b
     | ResPartial (b, _) -> 
         sprintf "Partial application of builtin function %A" b
