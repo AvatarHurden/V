@@ -2,17 +2,17 @@
 
 open Definition
 
-let rec private translateConstructorType cTyp (env: TranslationEnv) =
-    match cTyp with
-    | ExChar -> Char
-    | ExInt -> Int
-    | ExBool -> Bool
-    | ExList t -> List <| translateType t env
+//let rec private translateConstructorType cTyp (env: TranslationEnv) =
+    //match cTyp with
+    //| ExChar -> Char
+    //| ExInt -> Int
+    //| ExBool -> Bool
+    //| ExList t -> List <| translateType t env
 
-and private translateType typ (env: TranslationEnv) =
+let rec private translateType typ (env: TranslationEnv) =
     match typ with
     | ExVarType (s, traits) -> VarType (s, traits)
-    | ExConstType c -> ConstType <| translateConstructorType c env
+    | ExConstType (c, types) -> ConstType (c, List.map (fun t -> translateType t env) types)
     | ExFunction (t1, t2) -> Function (translateType t1 env, translateType t2 env)
     | ExTupleType ts -> 
         Type.Tuple <| List.map (fun t -> translateType t env) ts

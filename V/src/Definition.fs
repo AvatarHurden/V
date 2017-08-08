@@ -16,12 +16,12 @@ and ConstructorType =
     | Int
     | Bool
     | Char
-    | List of Type
+    | List
     //| Custom of string * Type list
 
 and Type =
     | VarType of string * Trait list
-    | ConstType of ConstructorType
+    | ConstType of ConstructorType * Type list
 //    | Int
 //    | Bool
 //    | Char
@@ -199,18 +199,18 @@ let emptyLib = {terms = []; operators = []; translationEnv = emptyTransEnv}
 
 //#region Extended Language
 
-type ExConstructorType =
-    | ExInt
-    | ExBool
-    | ExChar
-    | ExList of ExType
+//type ExConstructorType =
+    //| ExInt
+    //| ExBool
+    //| ExChar
+    //| ExList// of ExType
 
-and ExType =
+type ExType =
     | ExVarType of string * Trait list
     //| ExInt
     //| ExBool
     //| ExChar
-    | ExConstType of ExConstructorType
+    | ExConstType of ConstructorType * ExType list
     | ExFunction of ExType * ExType
     //| ExList of ExType
     | ExTupleType of ExType list

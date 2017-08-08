@@ -152,9 +152,9 @@ let private pString =
 let private pType, private pTypeRef = createParserForwardedToRef<ExType, UserState>()
 
 let private pVarType = pTypeIdentifier |>> ExTypeAlias
-let private pIntType = stringReturn "Int" (ExConstType ExInt)
-let private pBoolType = stringReturn "Bool" (ExConstType ExBool)
-let private pCharType = stringReturn "Char" (ExConstType ExChar)
+let private pIntType = stringReturn "Int" (ExConstType (Int, []))
+let private pBoolType = stringReturn "Bool" (ExConstType (Bool, []))
+let private pCharType = stringReturn "Char" (ExConstType (Char, []))
 
 let private pParenType = 
     pBetween "(" ")" (sepBy1 pType (pstring "," .>> ws))
@@ -165,7 +165,7 @@ let private pRecordCompType = tuple2 (pIdentifier .>> ws .>> pstring ":" .>> ws)
 let private pRecordType =
     pBetween "{" "}" (sepBy1 pRecordCompType (pstring "," .>> ws)) |>> ExRecordType
 
-let private pListType = pBetween "[" "]" pType |>> (fun t -> ExConstType (ExList t))
+let private pListType = pBetween "[" "]" pType |>> (fun t -> ExConstType (List, [t]))
 
 let private pTypeValue = choice [pVarType;
                         pParenType;

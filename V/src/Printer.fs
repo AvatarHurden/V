@@ -33,17 +33,17 @@ and printType typ =
     match typ with
     | VarType(s, traits) -> 
         s + " (" + printTraits traits + ")"
-    | ConstType Int -> "Int"
-    | ConstType Bool -> "Bool"
-    | ConstType Char -> "Char"
-    | ConstType (List (ConstType Char)) -> "String"
+    | ConstType (Int, []) -> "Int"
+    | ConstType (Bool, []) -> "Bool"
+    | ConstType (Char, []) -> "Char"
+    | ConstType (List, [ConstType (Char, [])]) -> "String"
     | Function(t1, t2) ->  
         match t1 with
         | Function(_,_) -> 
             sprintf "(%s) -> %s" (printType t1) (printType t2)
         | _ ->
             sprintf "%s -> %s" (printType t1) (printType t2)
-    | ConstType (List t) ->
+    | ConstType (List, [t]) ->
         sprintf "[%s]" (printType t)
     | Type.Tuple (types) ->
         sprintf "(%s)" (printTuple types)
