@@ -161,6 +161,7 @@ let defaultEnv =
 
 type Operator =
     | BuiltInOp of BuiltIn
+    | ConstructorOp of Constructor
     | CustomOp of string
 
 type Assoc =
@@ -198,13 +199,20 @@ let emptyLib = {terms = []; operators = []; translationEnv = emptyTransEnv}
 
 //#region Extended Language
 
-type ExType =
-    | ExVarType of string * Trait list
+type ExConstructorType =
     | ExInt
     | ExBool
     | ExChar
-    | ExFunction of ExType * ExType
     | ExList of ExType
+
+and ExType =
+    | ExVarType of string * Trait list
+    //| ExInt
+    //| ExBool
+    //| ExChar
+    | ExConstType of ExConstructorType
+    | ExFunction of ExType * ExType
+    //| ExList of ExType
     | ExTupleType of ExType list
     | ExRecordType of (string * ExType) list
 
@@ -215,13 +223,14 @@ type ExVarPattern = ExPattern * ExType option
 and ExPattern =
     | ExXPat of Ident
     | ExIgnorePat
-    | ExBPat of bool
-    | ExIPat of int
-    | ExCPat of char
+    //| ExBPat of bool
+    //| ExIPat of int
+    //| ExCPat of char
     | ExTuplePat of ExVarPattern list
     | ExRecordPat of bool * (string * ExVarPattern) list
-    | ExNilPat
-    | ExConsPat of ExVarPattern * ExVarPattern
+    //| ExNilPat
+    //| ExConsPat of ExVarPattern * ExVarPattern
+    | ExConstructorPat of Constructor * ExVarPattern list
     | ExListPat of ExVarPattern list
     
 type ExConstructor =
@@ -232,13 +241,13 @@ type ExConstructor =
     | ExCons
 
 type ExFunction =
-    | ExBuiltIn of BuiltIn
     | ExLambda of ExVarPattern list * ExTerm
     | ExRecursive of Ident * ExVarPattern list * ExType option * ExTerm
-    | ExConstructor of ExConstructor
 
 and ExTerm = 
     | ExX of Ident
+    | ExBuiltIn of BuiltIn
+    | ExConstructor of Constructor
     | ExFn of ExFunction
     | ExApp of ExTerm * ExTerm
     | ExMatch of ExTerm * (ExVarPattern * ExTerm option * ExTerm) list

@@ -31,7 +31,7 @@ let defaultOPs =[
     OpSpec (Infix  (7, Left , BuiltInOp Add           ), "+" );
     OpSpec (Infix  (7, Left , BuiltInOp Subtract      ), "-" );
 
-    OpSpec (Infix  (6, Right, BuiltInOp Cons          ), "::");
+    OpSpec (Infix  (6, Right, ConstructorOp Cons      ), "::");
 
     OpSpec (Infix  (4, Non  , BuiltInOp LessOrEqual   ), "<=");
     OpSpec (Infix  (4, Non  , BuiltInOp LessThan      ), "<" );
@@ -107,7 +107,7 @@ let private pOperator =
         | "!=" -> BuiltInOp Different
         | ">=" -> BuiltInOp GreaterOrEqual
         | ">" -> BuiltInOp GreaterThan
-        | "::" -> BuiltInOp Cons
+        | "::" -> ConstructorOp Cons
         | c -> CustomOp c)
 
 let private pCustomOperator: Parser<string, UserState> = 
@@ -119,6 +119,7 @@ let private pCustomOperator: Parser<string, UserState> =
         else
             match reply.Result with
             | CustomOp c -> Reply(c)
+            | ConstructorOp _
             | BuiltInOp _ -> 
                 stream.BacktrackTo state
                 Reply(Error, unexpected "cannot redefine built-in operators")
@@ -137,12 +138,12 @@ let private pEscapeChar =
 let private pChar = 
     between (pstring "\'") (pstring "\'") 
         ((pEscapeChar <|> pNonEscapeChar '\'' <?> "character") 
-            |>> (fun c -> ExConstructor (ExConstC c)))
+            |>> (fun c -> ExConstructor (C c)))
 
 let private pString = 
     between (pstring "\"") (pstring "\"") 
         (many ((pEscapeChar <|> pNonEscapeChar '"'))) 
-        |>> fun l -> ExListTerm <| List.map (fun c -> ExConstructor (ExConstC c)) l
+        |>> fun l -> ExListTerm <| List.map (fun c -> ExConstructor (C c)) l
 
 //#endregion   
 
@@ -151,9 +152,9 @@ let private pString =
 let private pType, private pTypeRef = createParserForwardedToRef<ExType, UserState>()
 
 let private pVarType = pTypeIdentifier |>> ExTypeAlias
-let private pIntType = stringReturn "Int" ExInt
-let private pBoolType = stringReturn "Bool" ExBool
-let private pCharType = stringReturn "Char" ExChar
+let private pIntType = stringReturn "Int" (ExConstType ExInt)
+let private pBoolType = stringReturn "Bool" (ExConstType ExBool)
+let private pCharType = stringReturn "Char" (ExConstType ExChar)
 
 let private pParenType = 
     pBetween "(" ")" (sepBy1 pType (pstring "," .>> ws))
@@ -164,7 +165,7 @@ let private pRecordCompType = tuple2 (pIdentifier .>> ws .>> pstring ":" .>> ws)
 let private pRecordType =
     pBetween "{" "}" (sepBy1 pRecordCompType (pstring "," .>> ws)) |>> ExRecordType
 
-let private pListType = pBetween "[" "]" pType |>> ExList
+let private pListType = pBetween "[" "]" pType |>> (fun t -> ExConstType (ExList t))
 
 let private pTypeValue = choice [pVarType;
                         pParenType;
@@ -197,19 +198,19 @@ let private pIdentPattern = pIdentifier |>> fun id -> (ExXPat id, None)
 let private pIgnorePattern = stringReturn "_" <| (ExIgnorePat, None)
 
 let private pBoolPattern = 
-        (stringReturn "true" <| (ExBPat true, None))
-            <|> (stringReturn "false" <| (ExBPat false, None))
-let private pNumPattern = puint32 |>> fun ui -> (ExIPat (int ui), None)
-let private pNilPattern = stringReturn "nil" <| (ExNilPat, None)
+        (stringReturn "true" <| (ExConstructorPat (B true, []), None))
+            <|> (stringReturn "false" <| (ExConstructorPat (B false, []), None))
+let private pNumPattern = puint32 |>> fun ui -> (ExConstructorPat (I (int ui), []), None)
+let private pNilPattern = stringReturn "nil" <| (ExConstructorPat (Nil, []), None)
 
 let private pCharPattern = 
     pChar |>> 
-         function | ExConstructor (ExConstC c) -> (ExCPat c, None)
+         function | ExConstructor (C c) -> (ExConstructorPat (C c, []), None)
                   | _ -> raise <| invalidArg "char" "Parsing char did not return char"
 let private pStringPattern = 
     let convertToPat =
         function
-        | ExConstructor (ExConstC c) -> ExCPat c, None
+        | ExConstructor (C c) -> (ExConstructorPat (C c, []), None)
         | _ -> raise <| invalidArg "string" "Parsing string did not return string"
     pString |>> function | (ExListTerm l) -> ExListPat <| List.map convertToPat l, None
                          | _ -> raise <| invalidArg "string" "Parsing string did not return string"
@@ -252,7 +253,7 @@ let private pPatternValue =
 let private pConsPattern =
     let reduce ls =
         let rev = List.rev ls
-        List.reduce (fun acc p -> (ExConsPat(p, acc), None)) rev
+        List.reduce (fun acc p -> (ExConstructorPat (Cons, [p; acc]), None)) rev
 
     sepBy1 (pPatternValue .>> ws) (pstring "::" >>. ws) |>> reduce
 
@@ -275,18 +276,18 @@ do pPatternRef :=
 //#region Basic Value Parsing
 
 let private pBool = 
-    (stringReturn "true"  (ExConstructor (ExConstB true)))
-        <|> (stringReturn "false" (ExConstructor (ExConstB false)))
+    (stringReturn "true"  (ExConstructor (B true)))
+        <|> (stringReturn "false" (ExConstructor (B false)))
 
-let private pNum = puint32 |>> fun ui -> ExConstructor (ExConstI <| int(ui))
+let private pNum = puint32 |>> fun ui -> ExConstructor (I <| int(ui))
 
-let private pNil = stringReturn "nil" ExNil
+let private pNil = stringReturn "nil" <| ExConstructor Nil
 
 let private pRaise = stringReturn "raise" ExRaise
 
-let private pProjection = pstring "#" >>. pIdentifier |>> fun s -> ExFn <| ExBuiltIn (RecordAccess s)
+let private pProjection = pstring "#" >>. pIdentifier |>> fun s -> ExBuiltIn (RecordAccess s)
 
-let private pGet = pstring "get" >>. ws |>> fun _ -> ExFn <| ExBuiltIn Get
+let private pGet = pstring "get" >>. ws |>> fun _ -> ExBuiltIn Get
 
 //#endregion   
 
@@ -322,8 +323,8 @@ let private pParen =
     let pPrefixOP =
         pBetween "(" ")" (pOperator .>> ws)
             |>> (function
-                  | BuiltInOp op ->
-                      ExFn <| ExBuiltIn op
+                  | ConstructorOp c -> ExConstructor c
+                  | BuiltInOp op -> ExBuiltIn op
                       //ExFn <| ExLambda([(ExXPat "x", None); (ExXPat "y", None)], 
                         //ExOP(ExX "x", op, ExX "y"))
                   | CustomOp c ->
@@ -537,13 +538,19 @@ let private toOPP x: Operator<ExTerm, string, UserState> =
         | Non -> Associativity.None
     match x with
     | OpSpec (Prefix (pri, BuiltInOp op), string) ->
-        upcast PrefixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, false, fun x -> ExApp (ExFn <| ExBuiltIn op, x))
+        upcast PrefixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, false, fun x -> ExApp (ExBuiltIn op, x))
+            : Operator<ExTerm, string, UserState>
+    | OpSpec (Prefix (pri, ConstructorOp op), string) ->
+        upcast PrefixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, false, fun x -> ExApp (ExConstructor op, x))
             : Operator<ExTerm, string, UserState>
     | OpSpec (Prefix (pri, CustomOp op), string) ->
         upcast PrefixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, false, fun x -> ExApp (ExX op, x))
             : Operator<ExTerm, string, UserState>
     | OpSpec (Infix (pri, assoc, BuiltInOp op), string) ->
-        upcast InfixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, updateAssoc assoc, fun x y -> ExApp (ExApp (ExFn <| ExBuiltIn op, x), y))
+        upcast InfixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, updateAssoc assoc, fun x y -> ExApp (ExApp (ExBuiltIn op, x), y))
+            : Operator<ExTerm, string, UserState>
+    | OpSpec (Infix (pri, assoc, ConstructorOp op), string) ->
+        upcast InfixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, updateAssoc assoc, fun x y -> ExApp (ExApp (ExConstructor op, x), y))
             : Operator<ExTerm, string, UserState>
     | OpSpec (Infix (pri, assoc, CustomOp op), string) ->
         upcast InfixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, updateAssoc assoc, fun x y -> ExApp (ExApp (ExX op, x), y))
