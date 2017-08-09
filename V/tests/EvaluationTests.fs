@@ -99,7 +99,7 @@ type TestMatchEval() =
             ", ResRaise)
     [<Test>]
     member that.simpleTuple() =
-        compare ("let (x, y) = (3, 4); x", ResConstructor (I 7, []))
+        compare ("let (x, y) = (3, 4); x", ResConstructor (I 3, []))
 
     [<Test>]
     member that.longList() =

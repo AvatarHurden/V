@@ -83,14 +83,18 @@ let rec compareEquality t1 t2 (env: Env) =
     | AnyRaise -> ResRaise
     | ResConstructor (c, arguments), ResConstructor (c', arguments') ->
         if not <| env.areCompatible c c' then
-            sprintf "Cannot compare %A and %A" c c' |> EvalException |> raise  
-        let f acc r1 r2 =
-            match acc, compareEquality r1 r2 env with
-            | AnyRaise -> ResRaise
-            | ResConstructor (B false, []), _ -> ResConstructor (B false, [])
-            | ResConstructor (B true, []), ResConstructor (B b2, []) -> ResConstructor (B b2, [])
-            | _ -> raise <| EvalException "Equal returned a non-expected value"
-        List.fold2 f (ResConstructor (B (c = c'), [])) arguments arguments'
+            sprintf "Cannot compare %A and %A" c c' |> EvalException |> raise
+        
+        match env.compare c c' Equal with
+        | false -> ResConstructor (B false, [])
+        | true ->
+            let f acc r1 r2 =
+                match acc, compareEquality r1 r2 env with
+                | AnyRaise -> ResRaise
+                | ResConstructor (B false, []), _ -> ResConstructor (B false, [])
+                | ResConstructor (B true, []), ResConstructor (B b2, []) -> ResConstructor (B b2, [])
+                | _ -> raise <| EvalException "Equal returned a non-expected value"
+            List.fold2 f (ResConstructor (B true, [])) arguments arguments'
     | ResTuple v1, ResTuple v2 when v1.Length = v2.Length ->
         let f acc r1 r2 =
             match acc, compareEquality r1 r2 env with
@@ -115,20 +119,13 @@ let rec compareEquality t1 t2 (env: Env) =
     | _ , _ -> sprintf "Values %A and %A are not comparable" t1 t2 |> EvalException |> raise  
 
 let rec compareOrder t1 t2 orderType (env: Env) =
-    let func = 
-        match orderType with
-        | LessThan -> (<)
-        | LessOrEqual -> (<=)
-        | GreaterOrEqual -> (>=)
-        | GreaterThan -> (>)
-        | _ -> sprintf "Cannot order %A and %A with %A" t1 t2 orderType |> EvalException |> raise  
     match t1, t2 with
     | AnyRaise -> ResRaise
     | ResConstructor (c, arguments), ResConstructor (c', arguments') ->
         if not <| env.areCompatible c c' then
             sprintf "Cannot compare %A and %A" c c' |> EvalException |> raise  
-        match c = c' with
-        | false -> (ResConstructor (B (func c c'), []))
+        match env.compare c c' Equal with
+        | false -> (ResConstructor (B (env.compare c c' orderType), []))
         | true ->
             let f (acc: result option) r1 r2 =
                 match acc, compareEquality r1 r2 env with
