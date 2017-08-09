@@ -200,7 +200,7 @@ let private pIgnorePattern = stringReturn "_" <| (ExIgnorePat, None)
 let private pBoolPattern = 
         (stringReturn "true" <| (ExConstructorPat (B true, []), None))
             <|> (stringReturn "false" <| (ExConstructorPat (B false, []), None))
-let private pNumPattern = puint32 |>> fun ui -> (ExConstructorPat (I (int ui), []), None)
+let private pNumPattern = pint32 |>> fun ui -> (ExConstructorPat (I ui, []), None)
 let private pNilPattern = stringReturn "nil" <| (ExConstructorPat (Nil, []), None)
 
 let private pCharPattern = 
