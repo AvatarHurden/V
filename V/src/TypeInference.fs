@@ -36,14 +36,10 @@ let getVarType unit =
 type Env =
     {
      //traits: Trait list // Only useful when trait creation is allowed
-     
-     // Constructed and used only when collecting
      types: ConstructorType list
      constructors: Map<Constructor, (Type * Type list)>
      vars: Map<string, EnvAssociation>
      mutable lastVarIndex: int
-
-     // Used only when unifying
     }
 
     member this.getNextVarType x =
@@ -101,7 +97,6 @@ type UniEnv =
 
     static member empty = {traitAssoc = Map.empty; constraints = []}
 
-//let (|Empty|Split|) (env: UniEnv) = env.constraints.IsEmpty
 let (|Empty|Split|) (env: UniEnv) = 
     match env.constraints with
     | [] -> Empty
@@ -109,7 +104,6 @@ let (|Empty|Split|) (env: UniEnv) =
 
 
 let LIST = ConstType (List, [VarType ("a", [])])
-
 let defaultEnv = 
     {
      //traits = []
@@ -138,38 +132,9 @@ let defaultUniEnv =
     constraints = []
     }
 
-let rec typeOf constr env =
-    match constr with
-        | C _ -> ConstType (Char, [])
-        | I _ -> ConstType (Int, [])
-        | B _ -> ConstType (Bool, [])
-        | _ -> 
-            match Map.tryFind constr env.constructors with
-            | None -> sprintf "Undeclared constructor %A" constr |> TypeException |> raise
-            | Some (ret, args) ->
-                let typ = List.foldBack (curry Function) args ret
-                let freeVars = getFreeVars typ env
-                let subs = List.map (fun x -> NameSub(fst x, getVarType ())) freeVars
-                List.fold (flip substituteInType) typ subs
-
-and private parametersOf constr env =
-    match constr with
-    | C _ -> ConstType (Char, []), []
-    | I _ -> ConstType (Int, []), []
-    | B _ -> ConstType (Bool, []), []
-    | _ ->
-        match Map.tryFind constr env.constructors with
-        | None -> sprintf "Undeclared constructor %A" constr |> TypeException |> raise
-        | Some (ret, args) ->
-            let typ = List.fold (curry Function) ret args
-            let freeVars = getFreeVars typ env
-            let subs = List.map (fun x -> NameSub(fst x, getVarType ())) freeVars
-            let ret' = List.fold (flip substituteInType) ret subs
-            let args' = List.map (fun typ -> List.fold (flip substituteInType) typ subs) args
-            ret', args'
 
 //#region Free Variable Collection Functions
-and getFreeVars typ env =
+let rec getFreeVars typ env =
     let f typ = 
         match typ with
         | ConstType (_, types) -> List.fold (fun acc x -> getFreeVars x env @ acc) [] types
@@ -260,6 +225,37 @@ let substituteInConstraints sub env =
     {env with constraints = List.map f env.constraints }
 
 //#endregion
+
+type Env with
+    member env.typeOf constr =
+        match constr with
+            | C _ -> ConstType (Char, [])
+            | I _ -> ConstType (Int, [])
+            | B _ -> ConstType (Bool, [])
+            | _ -> 
+                match Map.tryFind constr env.constructors with
+                | None -> sprintf "Undeclared constructor %A" constr |> TypeException |> raise
+                | Some (ret, args) ->
+                    let typ = List.foldBack (curry Function) args ret
+                    let freeVars = getFreeVars typ env
+                    let subs = List.map (fun x -> NameSub(fst x, getVarType ())) freeVars
+                    List.fold (flip substituteInType) typ subs
+
+    member env.parametersOf constr =
+        match constr with
+        | C _ -> ConstType (Char, []), []
+        | I _ -> ConstType (Int, []), []
+        | B _ -> ConstType (Bool, []), []
+        | _ ->
+            match Map.tryFind constr env.constructors with
+            | None -> sprintf "Undeclared constructor %A" constr |> TypeException |> raise
+            | Some (ret, args) ->
+                let typ = List.fold (curry Function) ret args
+                let freeVars = getFreeVars typ env
+                let subs = List.map (fun x -> NameSub(fst x, getVarType ())) freeVars
+                let ret' = List.fold (flip substituteInType) ret subs
+                let args' = List.map (fun typ -> List.fold (flip substituteInType) typ subs) args
+                ret', args'
 
 //#region Trait Validation Functions
 let rec validateTrait trt typ (env: UniEnv) =
@@ -513,7 +509,7 @@ let rec matchPattern pattern typ (env: Env) cons =
     | Pat (IgnorePat, Some typ') -> env, Equals (typ', typ) :: cons
 
     | Pat (ConstructorPat (c, patterns), typ') ->
-        let retTyp, parameters = parametersOf c env
+        let retTyp, parameters = env.parametersOf c
         //let paramTypes = List.map (fun _ -> VarType (getVarType (), [])) patterns
         let f = fun (env, cons) p t -> matchPattern p t env cons
         let acc = 
@@ -580,9 +576,6 @@ let rec matchPattern pattern typ (env: Env) cons =
 //        let env', cons' = matchPattern p1 newTyp env cons' 
 //        matchPattern p2 (List newTyp) env' cons'
 
-    | Pat (ConstructorPat _, _) ->
-        sprintf "Wrong constructor pattern" |> TypeException |> raise 
-
 let validatePattern = matchPattern
        
 //#endregion
@@ -642,7 +635,7 @@ let typeOfBuiltin b =
 // collectConstraints term environment constraints
 let rec collectConstraints term (env: Env) =
     match term with
-    | Constructor c -> typeOf c env, UniEnv.empty
+    | Constructor c -> env.typeOf c, UniEnv.empty
         //match Map.tryFind c env.constructors with
         //| None -> sprintf "Undeclared constructor %A at %A" c term |> TypeException |> raise
         //| Some typ -> typ, []

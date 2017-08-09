@@ -238,5 +238,4 @@ empty2 [1,2,3]
 	| [] -> true
 	| x :: xs -> false
 ;
-empty2 []
-", (ConstType (Bool, [])))
+empty2 []", (ConstType (Bool, [])))

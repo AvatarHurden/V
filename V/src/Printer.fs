@@ -37,14 +37,14 @@ and printType typ =
     | ConstType (Bool, []) -> "Bool"
     | ConstType (Char, []) -> "Char"
     | ConstType (List, [ConstType (Char, [])]) -> "String"
+    | ConstType (List, [t]) -> sprintf "[%s]" (printType t)
+    | ConstType _ -> sprintf "The type %A is invalid" typ |> TypeException |> raise
     | Function(t1, t2) ->  
         match t1 with
         | Function(_,_) -> 
             sprintf "(%s) -> %s" (printType t1) (printType t2)
         | _ ->
             sprintf "%s -> %s" (printType t1) (printType t2)
-    | ConstType (List, [t]) ->
-        sprintf "[%s]" (printType t)
     | Type.Tuple (types) ->
         sprintf "(%s)" (printTuple types)
     | Type.Record (pairs) ->
@@ -72,6 +72,7 @@ and printResult result =
     | ResConstructor (Nil, []) -> "[]"
     | ResConstructor (Cons, [ResConstructor (C head, []); tail]) -> "\"" + printResultString result + "\""
     | ResConstructor (Cons, [head; tail]) -> "[" + printResultList result + "]"
+    | ResConstructor _ -> sprintf "The value %A is invalid" result |> EvalException |> raise
     | ResTuple v -> 
         "(" + 
         (List.fold (fun acc v -> acc + ", " + printResult v) 
