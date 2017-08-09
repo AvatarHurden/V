@@ -137,16 +137,10 @@ let defaultUniEnv =
 let rec getFreeVars typ env =
     let f typ = 
         match typ with
-        | ConstType (_, types) -> List.fold (fun acc x -> getFreeVars x env @ acc) [] types
-            //match c with
-            //| Int | Bool | Char -> []
-            //| List t -> getFreeVars t env
-            //| Custom (s, types) -> List.fold (fun acc x -> getFreeVars x env @ acc) [] types
-//        | Int
-//        | Bool
-//        | Char -> []
-//        | List(t1) -> getFreeVars t1 env
-        | Function(t1, t2) -> getFreeVars t1 env @ getFreeVars t2 env
+        | ConstType (_, types) -> 
+            List.fold (fun acc x -> getFreeVars x env @ acc) [] types
+        | Function(t1, t2) -> 
+            getFreeVars t1 env @ getFreeVars t2 env
         | Type.Tuple(types) -> 
             List.fold (fun acc x -> getFreeVars x env @ acc) [] types
         | Type.Record(pairs) -> 
@@ -175,21 +169,10 @@ and getFreeVarsInTraits traits env =
 //#region Type Substitution Functions
 and substituteInType (sub: Substitution) typ' =
     match typ' with
-    | ConstType (c, types) -> ConstType (c, List.map (substituteInType sub) types)
-        //let c' =
-            //match c with
-            //| Int -> Int
-            //| Bool -> Bool
-            //| Char -> Char
-            //| List(s1) -> List(substituteInType sub s1)
-            //| Custom (s, types) -> 
-                //Custom (s,  List.map (substituteInType sub) types)
-        //ConstType c'
-//    | Int -> Int
-//    | Bool -> Bool
-//    | Char -> Char
-//    | List(s1) -> List(substituteInType sub s1)
-    | Function(s1, s2) -> Function(substituteInType sub s1, substituteInType sub s2)
+    | ConstType (c, types) -> 
+        ConstType (c, List.map (substituteInType sub) types)
+    | Function(s1, s2) -> 
+        Function(substituteInType sub s1, substituteInType sub s2)
     | Type.Tuple(types) ->
         Type.Tuple <| List.map (substituteInType sub) types
     | Type.Record(pairs) ->
@@ -260,31 +243,10 @@ type Env with
 //#region Trait Validation Functions
 let rec validateTrait trt typ (env: UniEnv) =
     match typ with
-    | ConstType _ as c -> env.validateTrait trt c
-    | Function _ -> None, []
-//    | Int ->
-//        match trt with
-//        | Orderable | Equatable -> Some Int, []
-//        | RecordLabel _ -> None, []
-//    | Bool ->
-//        match trt with
-//        | Equatable -> Some Bool, []
-//        | Orderable | RecordLabel _ -> None, []
-//    | Char ->
-//        match trt with
-//        | Orderable | Equatable -> Some Char, []
-//        | RecordLabel _ -> None, []
-//    | Function (typ1, typ2) ->
-//        match trt with
-//        | Orderable | Equatable
-//        | RecordLabel _ -> None, []
-//    | List typ1 ->
-//        match trt with
-//        | Orderable | Equatable ->
-//            match validateTrait trt typ1 with
-//            | None, cons -> None, cons
-//            | Some typ1, cons -> Some <| List typ1, cons
-//        | RecordLabel _ -> None, []
+    | ConstType _ as c -> 
+        env.validateTrait trt c
+    | Function _ -> 
+        None, []
     | Type.Tuple (types) ->
         match trt with
         | Equatable ->
@@ -371,14 +333,10 @@ let rec addTraitsToUnified vars (unified: Unified) =
 
 let rec occursIn x typ =
     match typ with
-    | ConstType (_, types) -> List.exists (occursIn x) types
-        //match c with
-        //| Int
-        //| Bool 
-        //| Char -> false
-        //| List t1 -> occursIn x t1
-        //|Custom (s, types) -> List.exists (occursIn x) types
-    | Function(t1, t2) -> occursIn x t1 || occursIn x t2
+    | ConstType (_, types) -> 
+        List.exists (occursIn x) types
+    | Function(t1, t2) -> 
+        occursIn x t1 || occursIn x t2
     | Type.Tuple(types) ->
         List.exists (occursIn x) types
     | Type.Record(pairs) ->
@@ -416,18 +374,8 @@ let rec unify typeSubs traitSubs constraints =
                         else
                             let free = getFreeVars t' defaultEnv
                             unify newSubs (traitsToMap traitSubs free) <| replaceVarTypes free replacedX                                
-//            | List s1, List t1 -> 
-//                unify typeSubs traitSubs <| rest @ [Equals (s1, t1)]
             | ConstType (c1, types1), ConstType (c2, types2) when c1 = c2 ->
                 unify typeSubs traitSubs <| rest @@ List.map2 (fun typ1 typ2 -> Equals (typ1, typ2)) types1 types2
-                //match c1, c2 with
-                //| Int, Int
-                //| Bool, Bool
-                //| Char, Char -> unify typeSubs traitSubs rest
-                //| List t1, List t2 -> unify typeSubs traitSubs <| rest @@ [Equals (t1, t2)]
-                //| _ -> raise <| TypeException (sprintf "Constructor types %A and %A do not match" c1 c2)
-                //| Custom (s1, types1), Custom (s2, types2) when s1 = s2 ->
-                    // unify typeSubs traitSubs <| rest @@ List.map2 (fun typ1 typ2 -> Equals (typ1, typ2)) types1 types2
             | Function(s1, s2), Function(t1, t2) -> 
                 unify typeSubs traitSubs <| rest @@ [Equals (s1, t1); Equals (s2, t2)]
             | Type.Tuple typs1, Type.Tuple typs2 when typs1.Length = typs2.Length ->
@@ -454,15 +402,8 @@ let rec unify typeSubs traitSubs constraints =
 //#region Unification Application Functions
 let rec applyUniToType typ (unified: Unified) =
     match typ with
-    | ConstType (c, types) -> ConstType (c, List.map (fun typ -> applyUniToType typ unified) types)
-        //let c' =
-            //match c with
-            //| Int -> Int
-            //| Bool -> Bool
-            //| Char -> Char
-            //| List t1 -> List (applyUniToType t1 unified)
-            //|Custom (s, types) -> Custom (s, List.map (fun typ -> applyUniToType typ unified) types)
-        //ConstType c'
+    | ConstType (c, types) -> 
+        ConstType (c, List.map (fun typ -> applyUniToType typ unified) types)
     | Function(t1, t2) -> 
         Function(applyUniToType t1 unified, applyUniToType t2 unified)
     | Type.Tuple(types) ->
@@ -510,7 +451,6 @@ let rec matchPattern pattern typ (env: Env) cons =
 
     | Pat (ConstructorPat (c, patterns), typ') ->
         let retTyp, parameters = env.parametersOf c
-        //let paramTypes = List.map (fun _ -> VarType (getVarType (), [])) patterns
         let f = fun (env, cons) p t -> matchPattern p t env cons
         let acc = 
             match typ' with
@@ -519,15 +459,6 @@ let rec matchPattern pattern typ (env: Env) cons =
             | None ->
                 env, Equals (retTyp, typ) :: cons
         List.fold2 f acc patterns parameters
-
-//    | Pat (ConstructorPat (B b, []), None) -> env, Equals (typ, Bool) :: cons
-//    | Pat (ConstructorPat (B b, []), Some typ') -> env, Equals (typ, Bool) :: Equals (typ', Bool) :: cons
-//    
-//    | Pat (ConstructorPat (I i, []), None) -> env, Equals (typ, Int) :: cons
-//    | Pat (ConstructorPat (I i, []), Some typ') -> env, Equals (typ, Int) :: Equals (typ', Int) :: cons
-//    
-//    | Pat (ConstructorPat (C c, []), None) -> env, Equals (typ, Char) :: cons
-//    | Pat (ConstructorPat (C c, []), Some typ') -> env, Equals (typ, Char) :: Equals (typ', Char) :: cons
 
     | Pat (TuplePat patterns, typ') ->
         let tupleTypes = List.map (fun _ -> VarType (getVarType (), [])) patterns
@@ -554,27 +485,6 @@ let rec matchPattern pattern typ (env: Env) cons =
             | None -> []
             | Some typ' -> [Equals (typ', typ)]
         List.fold2 f (env, recordCons :: cons @ typeCons) patterns recordTypes
-
-//    | Pat (ConstructorPat (Nil, []), typ') ->
-//        let newTyp = List (VarType (getVarType (), []))
-//        let cons' =
-//            match typ' with
-//            | None ->
-//                Equals (newTyp, typ) :: cons
-//            | Some typ' ->
-//                Equals (newTyp, typ) :: Equals (newTyp, typ') :: cons
-//        env, cons'
-//
-//    | Pat (ConstructorPat (Cons, [p1; p2]), typ') ->
-//        let newTyp = VarType (getVarType (), [])
-//        let cons' = 
-//            match typ' with
-//            | None ->
-//                Equals (List newTyp, typ) :: cons
-//            | Some typ' ->
-//                Equals (List newTyp, typ') :: Equals (List newTyp, typ) :: cons
-//        let env', cons' = matchPattern p1 newTyp env cons' 
-//        matchPattern p2 (List newTyp) env' cons'
 
 let validatePattern = matchPattern
        
@@ -636,18 +546,6 @@ let typeOfBuiltin b =
 let rec collectConstraints term (env: Env) =
     match term with
     | Constructor c -> env.typeOf c, UniEnv.empty
-        //match Map.tryFind c env.constructors with
-        //| None -> sprintf "Undeclared constructor %A at %A" c term |> TypeException |> raise
-        //| Some typ -> typ, []
-//    | Constructor c ->
-//        match c with
-//        | I i -> Int, []
-//        | C c -> Char, []
-//        | B b -> Bool, []
-//        | Nil -> List <| VarType (getVarType (), []), []
-//        | Cons -> 
-//            let paramTyp = VarType (getVarType (), [])
-//            Function (paramTyp, Function (List paramTyp, List paramTyp)), []
     | BuiltIn b -> typeOfBuiltin b, UniEnv.empty
     | Fn fn ->
         match fn with

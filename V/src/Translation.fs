@@ -2,13 +2,6 @@
 
 open Definition
 
-//let rec private translateConstructorType cTyp (env: TranslationEnv) =
-    //match cTyp with
-    //| ExChar -> Char
-    //| ExInt -> Int
-    //| ExBool -> Bool
-    //| ExList t -> List <| translateType t env
-
 let rec private translateType typ (env: TranslationEnv) =
     match typ with
     | ExVarType (s, traits) -> VarType (s, traits)
@@ -38,10 +31,6 @@ let private translatePatterns patterns env =
                 (acc', newPat :: pats)
             let (ids', pats) = List.foldBack f patterns (ids, [])
             Pat (ConstructorPat (c, pats), translateSomeType typ env), ids'
-        //| ExNilPat -> Pat (NilPat, translateSomeType typ env), ids
-        //| ExBPat b -> Pat (BPat b, translateSomeType typ env), ids
-        //| ExIPat i -> Pat (IPat i, translateSomeType typ env), ids
-        //| ExCPat c -> Pat (CPat c, translateSomeType typ env), ids
         | ExXPat x -> 
             if ids.Contains x then
                 raise <| ParseException (sprintf "The identifier %s is bound twice" x)
@@ -59,10 +48,6 @@ let private translatePatterns patterns env =
                 (acc', (s, newPat) :: pats)
             let (ids', pats) = List.foldBack f patterns (ids, [])
             Pat (RecordPat (b, pats), translateSomeType typ env), ids'
-        //| ExConsPat (p1, p2) ->
-            //let p1', ids' = findRepeats ids p1
-            //let p2', ids' = findRepeats ids' p2
-            //Pat (ConsPat (p1', p2'), translateSomeType typ env), ids'
         | ExListPat patterns ->
             let f pat (acc, pats) =
                 let (newPat, acc') = findRepeats acc pat
@@ -128,7 +113,6 @@ and private translateDecl decl env =
 
 and private translateFn fn env =
     match fn with
-    //| ExBuiltIn b -> Fn <| BuiltIn b
     | ExLambda (pars, t) -> 
         let pars' = translatePatterns pars env
         let t' = translateTerm t env
