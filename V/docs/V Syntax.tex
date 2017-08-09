@@ -109,30 +109,32 @@ Each expression is a member of the abstract syntax tree defined below.
 The syntax tree will be constructed in parts, with an explanation of what each expression means and their uses.
 The full syntax tree can be obtained by simply joining all the separate sections.
 
-\paragraph{Constants and Variables}
+\paragraph{Constructors and Variables}
 
-$V$ has support for a few basic constants and variables.
+$V$ has support for a few basic constructors and variables.
 
 \medskip
 
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
-e &::= &n\\
-  &| &b\\
+e &::= &con\\
+    &| &x\\
+\\
+con &::= &n\\
+    &| &b\\
     &| &c\\
-  &| &x\\
-    \\
-    x &::= &\{ x_0, x_1, \ldots \}\\
-    \\
-    b &::= &true \; | \; false\\
-    n &::= &\mathbb{Z}\\
-    c &::= & \lq char \rq\\
-    char&::= &\texttt{ASCII} \; \texttt{characters}\\
+\\
+x &::= &\{ x_0, x_1, \ldots \}\\
+\\
+b &::= &true \; | \; false\\
+n &::= &\mathbb{Z}\\
+c &::= & \lq char \rq\\
+char&::= &\texttt{ASCII} \; \texttt{characters}\\
 \end{tabular}}
 
 \bigskip
 
-The constants available for the language are:
+The basic constructors available for the language are:
 
     \begin{quote}
         \begin{itemize}
@@ -190,25 +192,28 @@ It allows getting and setting specific fields of a record, by evaluating to a tu
 
 The $V$ language has built-in lists.
 Each list is an ordered homogeneous finite-length collection of values, meaning that a list contains only elements of the same type.
-There are also basic operations on lists, such as appending, obtaining the first element of a list, etc.
 
 \medskip
 
 {\setlength\tabcolsep{8pt}
-\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
-e &::= &\cdots\\
-    &| &nil\\
-    &| &e_1 :: e_2\\
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+con &::= &\cdots\\
+    &| &nil & \text{empty list}\\
+    &| &:: & \text{list constructor}\\
 \end{tabular}}
 
 \bigskip
 
-The first expression is the empty list.
-It is the only zero-length list possible, and all other lists are constructed on top of it.
+Lists add two new constructors to the language.
+The first of these constructors is the empty list.
+It doesn't take any parameters, and is used as a base to construct lists.
+The second constructor is the list constructor.
+It takes 2 parameters: the first is a term, and the second is a list.
 
-\medskip
+Intuitively, the list constructor is a function that takes 2 parameters.
+The second parameter must be a list, and the first parameter is any value.
+The first parameter is then added to the front of the list, and the new list is returned.
 
-The second expression is the append operation, adding $e_1$ to the front of the list $e_2$.
 
 \paragraph{Binary Operations}
 
@@ -240,12 +245,12 @@ The following list describes the requirements and meaning of each category of bu
     \item Equality
 
     These operators ($=, \neq$) compare two different values for equality, returning a boolean.
-    The value’s type must conform to the Equatable trait.
+    The value's type must conform to the Equatable trait.
 
     \item Inequality
 
     These operators compare two different values for order, returning a boolean.
-    The value’s type must conform to the Equatable and Orderable trait.
+    The value's type must conform to the Orderable trait.
 
     \item Boolean Operators
 
@@ -272,11 +277,7 @@ p &::= &patt\\
     \\
 patt &::= &x\\
     &| &\_\\
-    &| &n\\
-    &| &b\\
-    &| &c\\
-    &| &nil\\
-    &| &p_1 :: p_2\\
+    &| &con \; p_1, \; \dots \; p_n & \text{constructor pattern}\\
     &| &(p_1, \; \dots \; p_n) & (n\geq2)\\
     &| &\{l_1: p_1, \; \dots \; l_n: p_n\} & (n\geq1)\\
     &| &\{l_1: p_1, \; \dots \; l_n: p_n, \dots\} & (\text{partial record}, n\geq1)\\
@@ -292,9 +293,9 @@ This expression works by replacing all occurrences of $x$ by the value of $e_1$ 
 The patterns $x$ and $\_$ match any value, with the difference that the second does not bind the value to any identifier.
 This can be used when a value is not wanted, such as an element of a collection.
 
-The patterns $n$, $b$ and $c$ match the equivalent constants for numbers, booleans and characters, respectively.
-
-The pattern $nil$ matches only the empty list, while $p_1 :: p_2$ matches any list with at least one element ($p_1$ matches the head of the list, while $p_2$ matches the tail).
+The constructor pattern matches a completely applied constructor.
+Different constructors require different amounts of arguments (e.g. a number constructor takes 0 arguments, while the list constructor ($::$) takes 2 arguments).
+The amount of sub-patterns in the constructor pattern must be equal to that of the applied constructor.
 
 The pattern $(p_1, \; \dots \; p_n)$ matches a tuple with exactly $n$ elements, and $\{l_1: p_1, \; \dots \; l_n: p_n\}$ matches a record with only the fields $l_1, \; \dots \; l_n$.
 
