@@ -22,11 +22,7 @@ and ConstructorType =
 and Type =
     | VarType of string * Trait list
     | ConstType of ConstructorType * Type list
-//    | Int
-//    | Bool
-//    | Char
     | Function of Type * Type
-//    | List of Type
     | Tuple of Type list
     | Record of (string * Type) list
 
@@ -48,7 +44,6 @@ and Pattern =
     | ConstructorPat of Constructor * VarPattern list
     | TuplePat of VarPattern list
     | RecordPat of bool * (string * VarPattern) list
-    //| ConsPat of VarPattern * VarPattern
 
 type BuiltIn =
     | Get
@@ -102,7 +97,6 @@ and result =
     | ResPartial of ResPartialApp * result list
     | ResConstructor of Constructor * result list
     | ResRaise
-    //| ResCons of result * result
     | ResTuple of result list
     | ResRecord of (string * result) list
 and
@@ -168,20 +162,10 @@ let emptyLib = {terms = []; operators = []; translationEnv = emptyTransEnv}
 
 //#region Extended Language
 
-//type ExConstructorType =
-    //| ExInt
-    //| ExBool
-    //| ExChar
-    //| ExList// of ExType
-
 type ExType =
     | ExVarType of string * Trait list
-    //| ExInt
-    //| ExBool
-    //| ExChar
     | ExConstType of ConstructorType * ExType list
     | ExFunction of ExType * ExType
-    //| ExList of ExType
     | ExTupleType of ExType list
     | ExRecordType of (string * ExType) list
 
@@ -192,13 +176,8 @@ type ExVarPattern = ExPattern * ExType option
 and ExPattern =
     | ExXPat of Ident
     | ExIgnorePat
-    //| ExBPat of bool
-    //| ExIPat of int
-    //| ExCPat of char
     | ExTuplePat of ExVarPattern list
     | ExRecordPat of bool * (string * ExVarPattern) list
-    //| ExNilPat
-    //| ExConsPat of ExVarPattern * ExVarPattern
     | ExConstructorPat of Constructor * ExVarPattern list
     | ExListPat of ExVarPattern list
     
