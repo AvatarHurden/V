@@ -34,11 +34,11 @@ type TestTypeInfer() =
         if b then
 	        (x + y)
         else
-	        (x - y)", Int)
+	        (x - y)", ConstType (Int, []))
 
     [<Test>]
     member that.IntList() =
-         compare ("[(let x = 3; x*2), 8, (\x -> x+1) 4]", List (ConstType Int))
+         compare ("[(let x = 3; x*2), 8, (\x -> x+1) 4]", ConstType (List, [ConstType (Int, [])]))
 
     [<Test>]
     member that.IntMap() =
@@ -48,7 +48,7 @@ type TestTypeInfer() =
     else
         (f (head ls))::(map f (tail ls))
 ;
-map (\x -> x + 1) [1,2,3,4]", List (ConstType Int))
+map (\x -> x + 1) [1,2,3,4]", ConstType (List, [ConstType (Int, [])]))
 
     [<Test>]
     member that.polymorphicIdentity() =
@@ -56,12 +56,12 @@ map (\x -> x + 1) [1,2,3,4]", List (ConstType Int))
                 if (f true) then
                     f 1
                 else
-                    f 4", (ConstType Int))
+                    f 4", (ConstType (Int, [])))
 
     [<Test>]
     member that.polymorphicRec() =
         compare ("let rec count ls = if empty? ls then 0 else 1 + count (tail ls);
-                count [1,2,3] + count [true,false]", (ConstType Int))
+                count [1,2,3] + count [true,false]", (ConstType (Int, [])))
 
     [<Test>]
     member that.wrongPolymorphism() =
@@ -69,7 +69,7 @@ map (\x -> x + 1) [1,2,3,4]", List (ConstType Int))
                 if (f [true]) then
                     f 1
                 else
-                    f 4", (ConstType Int)) |> ignore) |> should throw typeof<TypeException>
+                    f 4", (ConstType (Int, []))) |> ignore) |> should throw typeof<TypeException>
 
     [<Test>]
     member that.polymorphicHead() =
@@ -77,14 +77,14 @@ map (\x -> x + 1) [1,2,3,4]", List (ConstType Int))
                 if (f [true]) then
                     f [1]
                 else
-                    f [4]", (ConstType Int))
+                    f [4]", (ConstType (Int, [])))
 
     [<Test>]
     member that.multipleFolds() =
         compare ("if (fold (\\acc x -> if x then acc else false) true [true,true,false]) then
 	fold (\\acc x -> acc + x) 0 [1,2,3]
 else
-	fold (\\acc x -> if x then acc+1 else acc) 0 [true,false,true]", (ConstType Int))
+	fold (\\acc x -> if x then acc+1 else acc) 0 [true,false,true]", (ConstType (Int, [])))
 
     [<Test>]
     member that.wrongReduces() =
@@ -93,25 +93,25 @@ else
                 "if (reduce (\\acc x -> x && acc) [true,true,false]) then
 	        reduce (\\acc x -> acc + x) [1,2,3]
         else
-	        reduce (\\acc x -> x || acc) [true,false,true]", (ConstType Int)) |> ignore) |> 
+	        reduce (\\acc x -> x || acc) [true,false,true]", (ConstType (Int, []))) |> ignore) |> 
         should throw typeof<TypeException>
 
     [<Test>]
     member that.extendedPatFunction() =
         compare ("let f {age: x, ...} = x + 1; f", 
-            Function (VarType ("X529",[RecordLabel ("age",(ConstType Int))]),(ConstType Int)))
+            Function (VarType ("X26791",[RecordLabel ("age",(ConstType (Int, [])))]),(ConstType (Int, []))))
 
     [<Test>]
     member that.simplePatFunction() =
         compare ("let f {age: x} = x + 1; f", 
-            Function (Type.Record [("age", (ConstType Int))],(ConstType Int)))
+            Function (Type.Record [("age", (ConstType (Int, [])))],(ConstType (Int, []))))
 
     [<Test>]
     member that.extendedPatMatch() =
         compare ("match {name: \"arthur\", age: 21, male: true} with
                     | {age: x, ...} when x > 50 -> 0
                     | {male: true, age: x, ...} when x < 30 -> 1
-                    | _ -> 2", (ConstType Int))
+                    | _ -> 2", (ConstType (Int, [])))
 
     [<Test>]
     member that.extendedPatMatchFunction() =
@@ -121,7 +121,7 @@ else
                     | {male: true, age: x, ...} when x < 30 -> 1
                     | _ -> 2
                     ; f", 
-            Function (VarType ("X535",[RecordLabel ("male",(ConstType Bool)); RecordLabel ("age",(ConstType Int))]),(ConstType Int)))
+            Function (VarType ("X28262",[RecordLabel ("male",(ConstType (Bool, []))); RecordLabel ("age",(ConstType (Int, [])))]),(ConstType (Int, []))))
 
     [<Test>]
     member that.simplePatMatchFunction() =
@@ -130,7 +130,7 @@ else
                     | {age: x, ...} when x > 50 -> 0
                     | {male: true, age: x} when x < 30 -> 1
                     | _ -> 2
-                    ; f", Function (Type.Record [("age", ConstType Int); ("male", (ConstType Bool))],ConstType Int))
+                    ; f", Function (Type.Record [("age", ConstType (Int, [])); ("male", (ConstType (Bool, [])))],ConstType (Int, [])))
 
 
 [<TestFixture>]
@@ -138,11 +138,11 @@ type TestMatchInfer() =
 
     [<Test>]
     member that.simpleUntyped() =
-        compare ("let x = 3; x", ConstType Int)
+        compare ("let x = 3; x", ConstType (Int, []))
 
     [<Test>]
     member that.simpleTyped() =
-        compare ("let x: Int = 3; x", ConstType Int)
+        compare ("let x: Int = 3; x", ConstType (Int, []))
 
     [<Test>]
     member that.simpleTypedWrong() =
@@ -150,15 +150,15 @@ type TestMatchInfer() =
             
     [<Test>]
     member that.simpleTuple() =
-        compare ("let (x, y) = (3,4); x + y", Int)
+        compare ("let (x, y) = (3,4); x + y", ConstType (Int, []))
            
     [<Test>]
     member that.simpleTupleInternalType() =
-        compare ("let (x: [Int], y) = ([], 4); x", List (ConstType Int))
+        compare ("let (x: [Int], y) = ([], 4); x", ConstType (List, [ConstType (Int, [])]))
 
     [<Test>]
     member that.simpleTupleExternalType() =
-        compare ("let (x, y): (Int, Int) = (3,4); x", ConstType Int)
+        compare ("let (x, y): (Int, Int) = (3,4); x", ConstType (Int, []))
         
     [<Test>]
     member that.wrongTuple() =
@@ -166,11 +166,11 @@ type TestMatchInfer() =
                
     [<Test>]
     member that.simpleRecord() =
-        compare ("let {a: x, b: y} = {a: 4, b: 5}; x + y", ConstType Int)
+        compare ("let {a: x, b: y} = {a: 4, b: 5}; x + y", ConstType (Int, []))
 
     [<Test>]
     member that.simpleRecordTyped() =
-        compare ("let {a: x: Int, b: y} = {a: 4, b: 'c'}; x", ConstType Int)
+        compare ("let {a: x: Int, b: y} = {a: 4, b: 'c'}; x", ConstType (Int, []))
         
     [<Test>]
     member that.wrongRecord() =
@@ -186,39 +186,39 @@ type TestMatchInfer() =
 
     [<Test>]
     member that.listHead() =
-        compare ("let x :: y = [3,4]; x", ConstType Int)
+        compare ("let x :: y = [3,4]; x", ConstType (Int, []))
 
     [<Test>]
     member that.lisTail() =
-        compare ("let x :: y = [3,4]; y", List <| ConstType Int)
+        compare ("let x :: y = [3,4]; y", ConstType (List, [ConstType (Int, [])]))
 
     [<Test>]
     member that.listTyped() =
-        compare ("let (x: Int) :: (y: [Int]) = [3,4]; y", List <| ConstType Int)
+        compare ("let (x: Int) :: (y: [Int]) = [3,4]; y", ConstType (List, [ConstType (Int, [])]))
 
     [<Test>]
     member that.listTotalTyped() =
-        compare ("let  ((x: Int) :: (y: [Int])): [Int] = [3,4]; y", List <| ConstType Int)
+        compare ("let  ((x: Int) :: (y: [Int])): [Int] = [3,4]; y", ConstType (List, [ConstType (Int, [])]))
 
     [<Test>]
     member that.FnParamaterTuple() =
         compare ("\(x: Int,y: Char) -> (y,x)",
-            (Function(Type.Tuple [ConstType Int; (ConstType Char)], Type.Tuple [(ConstType Char);ConstType Int])))
+            (Function(Type.Tuple [ConstType (Int, []); (ConstType (Char, []))], Type.Tuple [(ConstType (Char, []));ConstType (Int, [])])))
 
     [<Test>]
     member that.FnParamater2Tuple() =
         compare ("\(x: Int,y: Char) -> x",
-            (Function(Type.Tuple [ConstType Int; (ConstType Char)], ConstType Int)))
+            (Function(Type.Tuple [ConstType (Int, []); (ConstType (Char, []))], ConstType (Int, []))))
 
     [<Test>]
     member that.FnParamaterList() =
         compare ("\((x :: y): [Int]) -> (y,x)",
-            (Function(ConstType <| List (ConstType Int), Type.Tuple [ConstType <| List (ConstType Int);ConstType Int])))
+            (Function(ConstType (List, [ConstType (Int, [])]), Type.Tuple [ConstType (List, [ConstType (Int, [])]);ConstType (Int, [])])))
 
     [<Test>]
     member that.FnParamaterListPassingFailingParameter() =
         compare ("(\((x :: y): [Int]) -> (y, x)) []",
-            (Type.Tuple [ConstType <| List (ConstType Int);ConstType Int]))
+            (Type.Tuple [ConstType (List, [ConstType (Int, [])]);ConstType (Int, [])]))
     
     [<Test>]
     member that.differentTypesMatch() =
@@ -239,4 +239,4 @@ empty2 [1,2,3]
 	| x :: xs -> false
 ;
 empty2 []
-", (ConstType Bool))
+", (ConstType (Bool, [])))
