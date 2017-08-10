@@ -116,13 +116,13 @@ $V$ has support for a few basic constructors and variables.
 \medskip
 
 {\setlength\tabcolsep{8pt}
-\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
 e &::= &con\\
     &| &x\\
 \\
-con &::= &n\\
-    &| &b\\
-    &| &c\\
+con &::= &n & (\text{arity} \; 0)\\
+    &| &b & (\text{arity} \; 0)\\
+    &| &c & (\text{arity} \; 0)\\
 \\
 x &::= &\{ x_0, x_1, \ldots \}\\
 \\
@@ -198,8 +198,8 @@ Each list is an ordered homogeneous finite-length collection of values, meaning 
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
 con &::= &\cdots\\
-    &| &nil & \text{empty list}\\
-    &| &:: & \text{list constructor}\\
+    &| &nil & \text{empty list, arity} \; 0\\
+    &| &:: & \text{list constructor, arity} \; 2\\
 \end{tabular}}
 
 \bigskip
@@ -277,7 +277,7 @@ p &::= &patt\\
     \\
 patt &::= &x\\
     &| &\_\\
-    &| &con \; p_1, \; \dots \; p_n & \text{constructor pattern}\\
+    &| &con \; p_1, \; \dots \; p_n & (\text{constructor pattern}, \; n = \text{arity} \; con)\\
     &| &(p_1, \; \dots \; p_n) & (n\geq2)\\
     &| &\{l_1: p_1, \; \dots \; l_n: p_n\} & (n\geq1)\\
     &| &\{l_1: p_1, \; \dots \; l_n: p_n, \dots\} & (\text{partial record}, n\geq1)\\
