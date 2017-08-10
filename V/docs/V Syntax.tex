@@ -603,54 +603,19 @@ The following are the rules for the match function:
 \infax[]
     {match(\_, v) = true, \{\}}
 
-\infrule[]
-    {\left\|n_1\right\|=\left\|n_2\right\|}
-    {match(n_1, n_2) = true, \{\}}
-
-\infrule[]
-    {\left\|n_1\right\|\neq\left\|n_2\right\|}
-    {match(n_1, n_2) = false, \{\}}
-
-\infrule[]
-    {\left\|b_1\right\|=\left\|b_2\right\|}
-    {match(b_1, b_2) = true, \{\}}
-
-\infrule[]
-    {\left\|b_1\right\|\neq\left\|b_2\right\|}
-    {match(b_1, b_2) = false, \{\}}
-
-\infrule[]
-    {\left\|c_1\right\|=\left\|c_2\right\|}
-    {match(c_1, c_2) = true, \{\}}
-
-\infrule[]
-    {\left\|c_1\right\|\neq\left\|c_2\right\|}
-    {match(c_1, c_2) = false, \{\}}
-
 \smallskip
 
-\infax[]
-    {match(nil, v_1 :: v_2) = false, \{\}}
-
-\infax[]
-    {match(nil, nil) = true, \{\}}
-
-\smallskip
-
-\infax[]
-    {match(p_1 :: p_2, nil) = false, \{\}}
+\infrule[]
+    {con_1 \neq con_2}
+    {match(con_1 \; v_1, \; \dots v_n, con_2 \; p_1, \; \dots p_k) = false, \{\}}
 
 \infrule[]
-    {match(p_1, v_1) = false, env_1}
-    {match(p_1 :: p_2, v_1 :: v_2) = false, \{\}}
+    {\exists \; i \in \left[1, n\right] \; \; match(p_i, v_i) = false, env_i}
+    {match(con \; v_1, \; \dots v_n, con \; p_1, \; \dots p_n) = false, \{\}}
 
 \infrule[]
-    {match(p_1, v_1) = true, env_1 \andalso match(p_2, v_2) = false, env_2}
-    {match(p_1 :: p_2, v_1 :: v_2) = false, \{\}}
-
-\infrule[]
-    {match(p_1, v_1) = true, env_1 \andalso match(p_2, v_2) = true, env_2}
-    {match(p_1 :: p_2, v_1 :: v_2) = true, env_1 \cup env_2}
+    {\forall \; i \in \left[1, n\right] \; \; match(p_i, v_i) = true, env_i}
+    {match(con \; v_1, \; \dots v_n, con \; p_1, \; \dots p_n) = true, \displaystyle\bigcup_{i=1}^{n} env_i}
 
 \smallskip
 
