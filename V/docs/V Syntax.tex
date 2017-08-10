@@ -386,33 +386,36 @@ Some expressions require the programmer to explicitly declare types of identifie
 Other expressions, such as $e_1 = e_2$, or even constants, such as $1$ or $true$, have types implicitly associated with them.
 These types are used by the type system (see \ref{Type System}) to check whether an expression is valid or not, avoiding run-time errors that can be detected at compile time.
 
-\paragraph{Base Types}
-These are all of the base types available in $V$.
-They are considered constant, and cannot be deconstructed or replaced by other types.
-
-\medskip
-
-{\setlength\tabcolsep{8pt}
-\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
-    T &::= &\mbox{Int}\\
-    &| &\mbox{Bool}\\
-    &| &\mbox{Char}\\
-\end{tabular}}
-
-\paragraph{Parametric Types}
-These types are composed of 1 or more other types.
-If the argument types of a parametric type are constant, we can say that the parametric type itself is also constant.
-This means that `Int $list$' is a constant type, while `$VarType_1 \rightarrow Int$' is not.
+\paragraph{Types}
+Below are all the types availabe in $V$.
+The first type is a fully applied constructor type.
+The second type is a single-parameter function type.
+The second and third types are tuple and record, respectively.
 
 \medskip
 
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
     T &::= &\cdots\\
+    &| &conT \; T_1, \; \dots \; T_n & (n = \text{arity} \; conT))\\
     &| &T_1 \rightarrow T_2\\
-    &| &T \; list\\
     &| &(T_1, \; \dots \; T_n) & (n\geq2)\\
     &| &\{l_1: T_1, \; \dots \; l_n: T_n\} & (n\geq1)\\
+\end{tabular}}
+
+\paragraph{Constructor Types}
+These are types associated with constructors.
+Much like constructors, they can take any amount of arguments to be fully applied, and the number of arguments they take is described by their arity.
+Instead of taking values as arguments, however, constructor types take types as arguments.
+
+\medskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+    conT &::= &\mbox{Int} & (\text{arity} \; 0)\\
+    &| &\mbox{Bool} & (\text{arity} \; 0)\\
+    &| &\mbox{Char} & (\text{arity} \; 0)\\
+    &| &\mbox{List} & (\text{arity} \; 1)\\
 \end{tabular}}
 
 \paragraph{Variable Types}
@@ -469,7 +472,7 @@ To define the set of types that belong to $Equatable$, the following rules are u
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
     \{\mbox{Int}, \mbox{Bool}, \mbox{Char}\} \subset Equatable\\
-    T \in Equatable \implies T \; list \in Equatable\\
+    T \in Equatable \implies List \; T \in Equatable\\
     X^{Traits} \in Equatable \implies Equatable \in Traits\\
 \end{tabular}}
 
@@ -486,7 +489,7 @@ To define the set of types that belong to $Orderable$, the following rules are u
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
     \{\mbox{Int}, \mbox{Char}\} \subset Orderable\\
-    T \in Orderable \implies T \; list \in Orderable\\
+    T \in Orderable \implies List \; T \in Orderable\\
     X^{Traits} \in Orderable \implies Orderable \in Traits\\
 \end{tabular}}
 
