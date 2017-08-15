@@ -520,7 +520,7 @@ A value is the result of the evaluation of an expression in big-step.
 This set of values is different from the set of expressions of $V$, even though they share many similarities.
 
 \paragraph{Environment}\label{environment}
-An evaluation environment is a 3-tuple which contains the following information:
+An evaluation environment is a 2-tuple which contains the following information:
 
 \begin{enumerate}
     \item Arity of constructors
@@ -532,11 +532,6 @@ An evaluation environment is a 3-tuple which contains the following information:
         A new association is created every time a value is bound.
         This happens in \texttt{let} declarations, function application and \texttt{match} expressions.
 
-    \item Groups of constructors
-
-        Constructors belong to the same group if they represent the same `type' of data.
-        This means that they have different treatment when it comes to pattern matching and comparison.
-
 \end{enumerate}
 
 \bigskip
@@ -547,11 +542,10 @@ Below are the definitions of both values and environments:
 
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
-env &::= &(arities, vars, groups)\\
+env &::= &(arities, vars)\\
 \\
 arities &:: = &\{\} \; | \; \{con \rightarrow n\} \cup arities &(n \in \mathbb{N})\\
 vars &:: = &\{\} \; | \; \{x \rightarrow v\} \cup vars\\
-groups &:: = &\{\} \; | \; \{[con_1, \; \dots \; con_n]\} \cup groups\\
 \\
     v &::= &con \; v_1, \; \dots \; v_n & (n = \text{arity} \; con)\\
     &| &raise\\
@@ -610,12 +604,12 @@ The following are the rules for the match function:
     {match(con_1 \; v_1, \; \dots v_n, con_2 \; p_1, \; \dots p_k) = false, \{\}}
 
 \infrule[]
-    {\exists \; i \in \left[1, n\right] \; \; match(p_i, v_i) = false, env_i}
-    {match(con \; v_1, \; \dots v_n, con \; p_1, \; \dots p_n) = false, \{\}}
+    {con_1 = con_2 \andalso \exists \; i \in \left[1, n\right] \; \; match(p_i, v_i) = false, env_i}
+    {match(con_1 \; v_1, \; \dots v_n, con_2 \; p_1, \; \dots p_n) = false, \{\}}
 
 \infrule[]
-    {\forall \; i \in \left[1, n\right] \; \; match(p_i, v_i) = true, env_i}
-    {match(con \; v_1, \; \dots v_n, con \; p_1, \; \dots p_n) = true, \displaystyle\bigcup_{i=1}^{n} env_i}
+    {con_1 = con_2 \andalso \forall \; i \in \left[1, n\right] \; \; match(p_i, v_i) = true, env_i}
+    {match(con_1 \; v_1, \; \dots v_n, con_2 \; p_1, \; \dots p_n) = true, \displaystyle\bigcup_{i=1}^{n} env_i}
 
 \smallskip
 
