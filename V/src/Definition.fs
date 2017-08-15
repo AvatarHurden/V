@@ -12,30 +12,38 @@ type Trait =
     | Orderable
     | RecordLabel of string * Type
 
-and Type =
-    | VarType of string * Trait list
+and ConstructorType =
     | Int
     | Bool
     | Char
+    | List
+    //| Custom of string * Type list
+
+and Type =
+    | VarType of string * Trait list
+    | ConstType of ConstructorType * Type list
     | Function of Type * Type
-    | List of Type
     | Tuple of Type list
     | Record of (string * Type) list
 
 type Ident = string
     
+type Constructor =
+    | I of int
+    | C of char
+    | B of bool
+    | Nil
+    | Cons
+    //| Custom of string
+
 type VarPattern = Pat of Pattern * Type option
 
 and Pattern =
     | XPat of Ident
     | IgnorePat
-    | BPat of bool
-    | IPat of int
-    | CPat of char
+    | ConstructorPat of Constructor * VarPattern list
     | TuplePat of VarPattern list
     | RecordPat of bool * (string * VarPattern) list
-    | NilPat
-    | ConsPat of VarPattern * VarPattern
 
 type BuiltIn =
     | Get
@@ -57,53 +65,66 @@ type BuiltIn =
     | And
     | Or
 
-    | Cons
-
 let numArgs =
     function
     | Negate -> 1
     | _ -> 2
 
 type Function =
-    | BuiltIn of BuiltIn
     | Lambda of VarPattern * term
     | Recursive of Ident * (Type option) * VarPattern * term
-
+    
 and term =
-    | B of bool
-    | I of int
-    | C of char
+    | Constructor of Constructor
+    | BuiltIn of BuiltIn
     | X of Ident
     | Fn of Function
     | App of term * term
     | Match of term * (VarPattern * term option * term) list
     | Let of VarPattern * term * term
-    | Nil
     | Raise
     | Tuple of term list
     | Record of (string * term) list
 
-type ResFunction = Function * env
+type ResFunction = Function * Env
+
+and ResPartialApp =
+    | AppBuiltIn of BuiltIn
+    | AppConstructor of Constructor
 
 and result =
-    | ResB of bool
-    | ResI of int
-    | ResC of char
     | ResFn of ResFunction
-    | ResPartial of BuiltIn * result list
+    | ResPartial of ResPartialApp * result list
+    | ResConstructor of Constructor * result list
     | ResRaise
-    | ResNil
-    | ResCons of result * result
     | ResTuple of result list
     | ResRecord of (string * result) list
 and
-    env = Map<Ident, result>
 
+//#region Evaluation Environment
+    Env =
+    {numArgs: Map<Constructor, int>;
+     groups: (Constructor list) list;
+     ids: Map<Ident, result>}
+
+let defaultEnv = 
+    {numArgs = 
+        [Cons, 2; 
+        Nil, 0] 
+        |> Map.ofList
+     groups = 
+        [
+            [Nil; Cons]
+        ]
+     ids = Map.empty}
+
+//#endregion
 
 //#region Library and Parsing
 
 type Operator =
     | BuiltInOp of BuiltIn
+    | ConstructorOp of Constructor
     | CustomOp of string
 
 type Assoc =
@@ -143,11 +164,8 @@ let emptyLib = {terms = []; operators = []; translationEnv = emptyTransEnv}
 
 type ExType =
     | ExVarType of string * Trait list
-    | ExInt
-    | ExBool
-    | ExChar
+    | ExConstType of ConstructorType * ExType list
     | ExFunction of ExType * ExType
-    | ExList of ExType
     | ExTupleType of ExType list
     | ExRecordType of (string * ExType) list
 
@@ -158,31 +176,30 @@ type ExVarPattern = ExPattern * ExType option
 and ExPattern =
     | ExXPat of Ident
     | ExIgnorePat
-    | ExBPat of bool
-    | ExIPat of int
-    | ExCPat of char
     | ExTuplePat of ExVarPattern list
     | ExRecordPat of bool * (string * ExVarPattern) list
-    | ExNilPat
-    | ExConsPat of ExVarPattern * ExVarPattern
+    | ExConstructorPat of Constructor * ExVarPattern list
     | ExListPat of ExVarPattern list
+    
+type ExConstructor =
+    | ExI of int
+    | ExC of char
+    | ExB of bool
+    | ExNil
+    | ExCons
 
 type ExFunction =
-    | ExBuiltIn of BuiltIn
     | ExLambda of ExVarPattern list * ExTerm
     | ExRecursive of Ident * ExVarPattern list * ExType option * ExTerm
 
 and ExTerm = 
-    | ExB of bool
-    | ExI of int
-    | ExC of char
-    //| ExOP of ExTerm * op * ExTerm
     | ExX of Ident
+    | ExBuiltIn of BuiltIn
+    | ExConstructor of Constructor
     | ExFn of ExFunction
     | ExApp of ExTerm * ExTerm
     | ExMatch of ExTerm * (ExVarPattern * ExTerm option * ExTerm) list
     | ExLet of ExDeclaration * ExTerm
-    | ExNil
     | ExRaise
     | ExTuple of ExTerm list
     | ExRecord of (string * ExTerm) list
@@ -203,6 +220,9 @@ and ExDeclaration =
 //#region Helper Functions
 
 let flip f a b = f b a
+
+let curry f a b = f (a, b)
+let uncurry f (a, b) = f a b
 
 let rec mapOption f ls =
     let f' acc x = 

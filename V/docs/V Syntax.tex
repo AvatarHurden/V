@@ -109,30 +109,32 @@ Each expression is a member of the abstract syntax tree defined below.
 The syntax tree will be constructed in parts, with an explanation of what each expression means and their uses.
 The full syntax tree can be obtained by simply joining all the separate sections.
 
-\paragraph{Constants and Variables}
+\paragraph{Constructors and Variables}
 
-$V$ has support for a few basic constants and variables.
+$V$ has support for a few basic constructors and variables.
 
 \medskip
 
 {\setlength\tabcolsep{8pt}
-\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
-e &::= &n\\
-  &| &b\\
-    &| &c\\
-  &| &x\\
-    \\
-    x &::= &\{ x_0, x_1, \ldots \}\\
-    \\
-    b &::= &true \; | \; false\\
-    n &::= &\mathbb{Z}\\
-    c &::= & \lq char \rq\\
-    char&::= &\texttt{ASCII} \; \texttt{characters}\\
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+e &::= &con\\
+    &| &x\\
+\\
+con &::= &n & (\text{arity} \; 0)\\
+    &| &b & (\text{arity} \; 0)\\
+    &| &c & (\text{arity} \; 0)\\
+\\
+x &::= &\{ x_0, x_1, \ldots \}\\
+\\
+b &::= &true \; | \; false\\
+n &::= &\mathbb{Z}\\
+c &::= & \lq char \rq\\
+char&::= &\texttt{ASCII} \; \texttt{characters}\\
 \end{tabular}}
 
 \bigskip
 
-The constants available for the language are:
+The basic constructors available for the language are:
 
     \begin{quote}
         \begin{itemize}
@@ -190,25 +192,28 @@ It allows getting and setting specific fields of a record, by evaluating to a tu
 
 The $V$ language has built-in lists.
 Each list is an ordered homogeneous finite-length collection of values, meaning that a list contains only elements of the same type.
-There are also basic operations on lists, such as appending, obtaining the first element of a list, etc.
 
 \medskip
 
 {\setlength\tabcolsep{8pt}
-\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
-e &::= &\cdots\\
-    &| &nil\\
-    &| &e_1 :: e_2\\
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+con &::= &\cdots\\
+    &| &nil & \text{empty list, arity} \; 0\\
+    &| &:: & \text{list constructor, arity} \; 2\\
 \end{tabular}}
 
 \bigskip
 
-The first expression is the empty list.
-It is the only zero-length list possible, and all other lists are constructed on top of it.
+Lists add two new constructors to the language.
+The first of these constructors is the empty list.
+It doesn't take any parameters, and is used as a base to construct lists.
+The second constructor is the list constructor.
+It takes 2 parameters: the first is a term, and the second is a list.
 
-\medskip
+Intuitively, the list constructor is a function that takes 2 parameters.
+The second parameter must be a list, and the first parameter is any value.
+The first parameter is then added to the front of the list, and the new list is returned.
 
-The second expression is the append operation, adding $e_1$ to the front of the list $e_2$.
 
 \paragraph{Binary Operations}
 
@@ -240,12 +245,12 @@ The following list describes the requirements and meaning of each category of bu
     \item Equality
 
     These operators ($=, \neq$) compare two different values for equality, returning a boolean.
-    The value’s type must conform to the Equatable trait.
+    The value's type must conform to the Equatable trait.
 
     \item Inequality
 
     These operators compare two different values for order, returning a boolean.
-    The value’s type must conform to the Equatable and Orderable trait.
+    The value's type must conform to the Orderable trait.
 
     \item Boolean Operators
 
@@ -272,11 +277,7 @@ p &::= &patt\\
     \\
 patt &::= &x\\
     &| &\_\\
-    &| &n\\
-    &| &b\\
-    &| &c\\
-    &| &nil\\
-    &| &p_1 :: p_2\\
+    &| &con \; p_1, \; \dots \; p_n & (\text{constructor pattern}, \; n = \text{arity} \; con)\\
     &| &(p_1, \; \dots \; p_n) & (n\geq2)\\
     &| &\{l_1: p_1, \; \dots \; l_n: p_n\} & (n\geq1)\\
     &| &\{l_1: p_1, \; \dots \; l_n: p_n, \dots\} & (\text{partial record}, n\geq1)\\
@@ -292,9 +293,9 @@ This expression works by replacing all occurrences of $x$ by the value of $e_1$ 
 The patterns $x$ and $\_$ match any value, with the difference that the second does not bind the value to any identifier.
 This can be used when a value is not wanted, such as an element of a collection.
 
-The patterns $n$, $b$ and $c$ match the equivalent constants for numbers, booleans and characters, respectively.
-
-The pattern $nil$ matches only the empty list, while $p_1 :: p_2$ matches any list with at least one element ($p_1$ matches the head of the list, while $p_2$ matches the tail).
+The constructor pattern matches a completely applied constructor.
+Different constructors require different amounts of arguments (e.g. a number constructor takes 0 arguments, while the list constructor ($::$) takes 2 arguments).
+The amount of sub-patterns in the constructor pattern must be equal to that of the applied constructor.
 
 The pattern $(p_1, \; \dots \; p_n)$ matches a tuple with exactly $n$ elements, and $\{l_1: p_1, \; \dots \; l_n: p_n\}$ matches a record with only the fields $l_1, \; \dots \; l_n$.
 
@@ -385,33 +386,36 @@ Some expressions require the programmer to explicitly declare types of identifie
 Other expressions, such as $e_1 = e_2$, or even constants, such as $1$ or $true$, have types implicitly associated with them.
 These types are used by the type system (see \ref{Type System}) to check whether an expression is valid or not, avoiding run-time errors that can be detected at compile time.
 
-\paragraph{Base Types}
-These are all of the base types available in $V$.
-They are considered constant, and cannot be deconstructed or replaced by other types.
-
-\medskip
-
-{\setlength\tabcolsep{8pt}
-\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
-    T &::= &\mbox{Int}\\
-    &| &\mbox{Bool}\\
-    &| &\mbox{Char}\\
-\end{tabular}}
-
-\paragraph{Parametric Types}
-These types are composed of 1 or more other types.
-If the argument types of a parametric type are constant, we can say that the parametric type itself is also constant.
-This means that `Int $list$' is a constant type, while `$VarType_1 \rightarrow Int$' is not.
+\paragraph{Types}
+Below are all the types availabe in $V$.
+The first type is a fully applied constructor type.
+The second type is a single-parameter function type.
+The second and third types are tuple and record, respectively.
 
 \medskip
 
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
     T &::= &\cdots\\
+    &| &conT \; T_1, \; \dots \; T_n & (n = \text{arity} \; conT))\\
     &| &T_1 \rightarrow T_2\\
-    &| &T \; list\\
     &| &(T_1, \; \dots \; T_n) & (n\geq2)\\
     &| &\{l_1: T_1, \; \dots \; l_n: T_n\} & (n\geq1)\\
+\end{tabular}}
+
+\paragraph{Constructor Types}
+These are types associated with constructors.
+Much like constructors, they can take any amount of arguments to be fully applied, and the number of arguments they take is described by their arity.
+Instead of taking values as arguments, however, constructor types take types as arguments.
+
+\medskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+    conT &::= &\mbox{Int} & (\text{arity} \; 0)\\
+    &| &\mbox{Bool} & (\text{arity} \; 0)\\
+    &| &\mbox{Char} & (\text{arity} \; 0)\\
+    &| &\mbox{List} & (\text{arity} \; 1)\\
 \end{tabular}}
 
 \paragraph{Variable Types}
@@ -468,7 +472,7 @@ To define the set of types that belong to $Equatable$, the following rules are u
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
     \{\mbox{Int}, \mbox{Bool}, \mbox{Char}\} \subset Equatable\\
-    T \in Equatable \implies T \; list \in Equatable\\
+    T \in Equatable \implies List \; T \in Equatable\\
     X^{Traits} \in Equatable \implies Equatable \in Traits\\
 \end{tabular}}
 
@@ -485,7 +489,7 @@ To define the set of types that belong to $Orderable$, the following rules are u
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
     \{\mbox{Int}, \mbox{Char}\} \subset Orderable\\
-    T \in Orderable \implies T \; list \in Orderable\\
+    T \in Orderable \implies List \; T \in Orderable\\
     X^{Traits} \in Orderable \implies Orderable \in Traits\\
 \end{tabular}}
 
@@ -516,8 +520,19 @@ A value is the result of the evaluation of an expression in big-step.
 This set of values is different from the set of expressions of $V$, even though they share many similarities.
 
 \paragraph{Environment}\label{environment}
-An environment is a mapping of identifiers to values that is extended each time a $let$ declaration in encountered.
-Every expression must be evaluated before being stored in the environment, which means that $V$ has eager evaluation.
+An evaluation environment is a 2-tuple which contains the following information:
+
+\begin{enumerate}
+    \item Arity of constructors
+
+        If a constructor has arity $n$, it requires $n$ arguments to become fully evaluated.
+
+    \item Associations between identifiers and values
+
+        A new association is created every time a value is bound.
+        This happens in \texttt{let} declarations, function application and \texttt{match} expressions.
+
+\end{enumerate}
 
 \bigskip
 
@@ -527,13 +542,12 @@ Below are the definitions of both values and environments:
 
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
-env &::= &\{\} \; | \; \{x \rightarrow v\} \cup env\\
+env &::= &(arities, vars)\\
 \\
-    v &::= &n\\
-  &| &b\\
-    &| &c\\
-    &| &nil\\
-    &| &v_1 :: v_2\\
+arities &:: = &\{\} \; | \; \{con \rightarrow n\} \cup arities &(n \in \mathbb{N})\\
+vars &:: = &\{\} \; | \; \{x \rightarrow v\} \cup vars\\
+\\
+    v &::= &con \; v_1, \; \dots \; v_n & (n = \text{arity} \; con)\\
     &| &raise\\
     &| &(v_1, \; \dots \; v_n) & (n\geq2)\\
     &| &\{l_1: v_1, \; \dots \; l_n: v_n\} & (n\geq1)\\
@@ -583,54 +597,19 @@ The following are the rules for the match function:
 \infax[]
     {match(\_, v) = true, \{\}}
 
-\infrule[]
-    {\left\|n_1\right\|=\left\|n_2\right\|}
-    {match(n_1, n_2) = true, \{\}}
-
-\infrule[]
-    {\left\|n_1\right\|\neq\left\|n_2\right\|}
-    {match(n_1, n_2) = false, \{\}}
-
-\infrule[]
-    {\left\|b_1\right\|=\left\|b_2\right\|}
-    {match(b_1, b_2) = true, \{\}}
-
-\infrule[]
-    {\left\|b_1\right\|\neq\left\|b_2\right\|}
-    {match(b_1, b_2) = false, \{\}}
-
-\infrule[]
-    {\left\|c_1\right\|=\left\|c_2\right\|}
-    {match(c_1, c_2) = true, \{\}}
-
-\infrule[]
-    {\left\|c_1\right\|\neq\left\|c_2\right\|}
-    {match(c_1, c_2) = false, \{\}}
-
 \smallskip
 
-\infax[]
-    {match(nil, v_1 :: v_2) = false, \{\}}
-
-\infax[]
-    {match(nil, nil) = true, \{\}}
-
-\smallskip
-
-\infax[]
-    {match(p_1 :: p_2, nil) = false, \{\}}
+\infrule[]
+    {con_1 \neq con_2}
+    {match(con_1 \; v_1, \; \dots v_n, con_2 \; p_1, \; \dots p_k) = false, \{\}}
 
 \infrule[]
-    {match(p_1, v_1) = false, env_1}
-    {match(p_1 :: p_2, v_1 :: v_2) = false, \{\}}
+    {con_1 = con_2 \andalso \exists \; i \in \left[1, n\right] \; \; match(p_i, v_i) = false, env_i}
+    {match(con_1 \; v_1, \; \dots v_n, con_2 \; p_1, \; \dots p_n) = false, \{\}}
 
 \infrule[]
-    {match(p_1, v_1) = true, env_1 \andalso match(p_2, v_2) = false, env_2}
-    {match(p_1 :: p_2, v_1 :: v_2) = false, \{\}}
-
-\infrule[]
-    {match(p_1, v_1) = true, env_1 \andalso match(p_2, v_2) = true, env_2}
-    {match(p_1 :: p_2, v_1 :: v_2) = true, env_1 \cup env_2}
+    {con_1 = con_2 \andalso \forall \; i \in \left[1, n\right] \; \; match(p_i, v_i) = true, env_i}
+    {match(con_1 \; v_1, \; \dots v_n, con_2 \; p_1, \; \dots p_n) = true, \displaystyle\bigcup_{i=1}^{n} env_i}
 
 \smallskip
 

@@ -5,10 +5,7 @@ open Definition
 let rec private translateType typ (env: TranslationEnv) =
     match typ with
     | ExVarType (s, traits) -> VarType (s, traits)
-    | ExChar -> Char
-    | ExBool -> Bool
-    | ExInt -> Int
-    | ExList t -> List <| translateType t env
+    | ExConstType (c, types) -> ConstType (c, List.map (fun t -> translateType t env) types)
     | ExFunction (t1, t2) -> Function (translateType t1 env, translateType t2 env)
     | ExTupleType ts -> 
         Type.Tuple <| List.map (fun t -> translateType t env) ts
@@ -28,10 +25,12 @@ let private translatePatterns patterns env =
     let rec findRepeats (ids: Set<Ident>) ((pattern, typ)) =
         match pattern with
         | ExIgnorePat -> Pat (IgnorePat, translateSomeType typ env), ids
-        | ExNilPat -> Pat (NilPat, translateSomeType typ env), ids
-        | ExBPat b -> Pat (BPat b, translateSomeType typ env), ids
-        | ExIPat i -> Pat (IPat i, translateSomeType typ env), ids
-        | ExCPat c -> Pat (CPat c, translateSomeType typ env), ids
+        | ExConstructorPat (c, patterns) -> 
+            let f pat (acc, pats) =
+                let (newPat, acc') = findRepeats acc pat
+                (acc', newPat :: pats)
+            let (ids', pats) = List.foldBack f patterns (ids, [])
+            Pat (ConstructorPat (c, pats), translateSomeType typ env), ids'
         | ExXPat x -> 
             if ids.Contains x then
                 raise <| ParseException (sprintf "The identifier %s is bound twice" x)
@@ -49,16 +48,12 @@ let private translatePatterns patterns env =
                 (acc', (s, newPat) :: pats)
             let (ids', pats) = List.foldBack f patterns (ids, [])
             Pat (RecordPat (b, pats), translateSomeType typ env), ids'
-        | ExConsPat (p1, p2) ->
-            let p1', ids' = findRepeats ids p1
-            let p2', ids' = findRepeats ids' p2
-            Pat (ConsPat (p1', p2'), translateSomeType typ env), ids'
         | ExListPat patterns ->
             let f pat (acc, pats) =
                 let (newPat, acc') = findRepeats acc pat
                 (acc', newPat :: pats)
             let (ids', pats) = List.foldBack f patterns (ids, [])
-            List.foldBack (fun p acc -> Pat (ConsPat(p, acc), None)) pats (Pat (NilPat, None)), ids'
+            List.foldBack (fun p acc -> Pat (ConstructorPat (Cons, [p; acc]), None)) pats (Pat (ConstructorPat (Nil, []), None)), ids'
      
     let f pat (acc, pats) =
         let (newPat, acc') = findRepeats acc pat
@@ -118,7 +113,6 @@ and private translateDecl decl env =
 
 and private translateFn fn env =
     match fn with
-    | ExBuiltIn b -> Fn <| BuiltIn b
     | ExLambda (pars, t) -> 
         let pars' = translatePatterns pars env
         let t' = translateTerm t env
@@ -132,9 +126,8 @@ and private translateFn fn env =
 
 and private translateTerm term env =
     match term with
-    | ExB b -> B b
-    | ExI i -> I i
-    | ExC c -> C c
+    | ExBuiltIn b -> BuiltIn b
+    | ExConstructor c -> Constructor c
     | ExX x -> X x
     | ExFn fn -> translateFn fn env
     | ExApp (t1, t2) ->
@@ -160,9 +153,8 @@ and private translateTerm term env =
         let t2' = translateTerm t2 env'
         List.foldBack (fun (p, t) acc -> Let(p, t, acc)) comps t2'
             
-    | ExNil -> Nil
     | ExListTerm l ->
-        List.foldBack (fun x acc -> App (App (Fn <| BuiltIn Cons, translateTerm x env), acc)) l Nil
+        List.foldBack (fun x acc -> App (App (Constructor Cons, translateTerm x env), acc)) l (Constructor Nil)
 
     | ExRaise -> Raise
     | ExTuple terms -> 
@@ -174,17 +166,17 @@ and private translateTerm term env =
         let t2' = translateTerm t2 env
         let t3' = translateTerm t3 env
         Match(t1', 
-            [Pat(BPat true, None), None, t2'; 
-             Pat(BPat false, None), None, t3'])
+            [Pat(ConstructorPat (B true, []), None), None, t2'; 
+             Pat(ConstructorPat (B false, []), None), None, t3'])
     | Range (first, second, last) ->
         let first' = translateTerm first env
         let last' = translateTerm last env
         let increment =
             match second with
-            | None -> I 1
+            | None -> Constructor <| I 1
             | Some second -> 
                 let second' = translateTerm second env
-                App (App (Fn <| BuiltIn Subtract, second'), first')
+                App (App (BuiltIn Subtract, second'), first')
         App (App (App (X "range", first'), last'), increment)
     | Comprehension (retTerm, p, source) ->
         let f = Fn <| Lambda (translatePattern p env, translateTerm retTerm env)
