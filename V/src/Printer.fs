@@ -1,4 +1,4 @@
-﻿module Printer
+module Printer
 
 open Definition
 
@@ -7,7 +7,7 @@ let rec printTrait trt =
     | Orderable -> "Orderable"
     | Equatable -> "Equatable"
     | RecordLabel (label, typ) ->
-        sprintf "%A at label %A" (printType typ) label
+        sprintf "%O at label %A" (printType typ) label
 
 and printTraits traits =
     match traits with
@@ -32,13 +32,17 @@ and printRecord pairs =
 and printType typ =
     match typ with
     | VarType(s, traits) -> 
-        s + " (" + printTraits traits + ")"
+        match traits with
+        | [] -> s
+        | _ -> s + " (" + printTraits traits + ")"
     | ConstType (Int, []) -> "Int"
     | ConstType (Bool, []) -> "Bool"
     | ConstType (Char, []) -> "Char"
     | ConstType (List, [ConstType (Char, [])]) -> "String"
     | ConstType (List, [t]) -> sprintf "[%s]" (printType t)
     | ConstType _ -> sprintf "The type %A is invalid" typ |> TypeException |> raise
+    | Accessor (t1, t2) ->
+        sprintf "#(%O -> %O)" (printType t1) (printType t2)
     | Function(t1, t2) ->  
         match t1 with
         | Function(_,_) -> 
@@ -73,6 +77,21 @@ and printResult result =
     | ResConstructor (Cons, [ResConstructor (C head, []); tail]) -> "\"" + printResultString result + "\""
     | ResConstructor (Cons, [head; tail]) -> "[" + printResultList result + "]"
     | ResConstructor _ -> sprintf "The value %A is invalid" result |> EvalException |> raise
+    | ResRecordAcess path ->
+        let rec f path =
+            match path with
+            | ResComponent s -> s
+            | ResStacked (p1, p2) ->
+                sprintf "%O.%O" (f p1) (f p2)
+            | ResJoined paths ->
+                String.concat ", " <| List.map f paths
+            | ResDistorted (p, getter, setter) ->
+                sprintf "(%O, %O, %O)" (f p) getter setter
+//            | ResLabel s -> sprintf "%O.%O" acc s
+//            | ResReadWrite (s, res1, res2) -> 
+//                sprintf "%O.(%O, %O, %O)" acc s (printResult res1) (printResult res2)
+        //List.fold f "#" paths
+        sprintf "#%O" <| f path
     | ResTuple v -> 
         "(" + 
         (List.fold (fun acc v -> acc + ", " + printResult v) 

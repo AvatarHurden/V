@@ -119,6 +119,7 @@
     <Compile Include="tests\TypeInferenceTests.fs" />
     <Compile Include="tests\stdlibTests.fs" />
     <Compile Include="tests\ExternalParserTests.fs" />
+    <Compile Include="tests\RecordTests.fs" />
     <Compile Include="Program.fs" />
     <None Include="README.md" />
     <None Include="Scripts\load-references-debug.fsx" />

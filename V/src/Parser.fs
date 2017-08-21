@@ -62,12 +62,13 @@ let private pBetween s1 s2 p =
 //#region Identifier and Operator Parsing
 
 let keywords = 
-    Set["let" ; "true"  ; "false" ; "if"   ; "then"   ; "else"  ;
+    Collections.Set
+       ["let" ; "true"  ; "false" ; "if"   ; "then"   ; "else"  ;
         "rec" ; "nil"   ; "raise" ; "when" ; "match"  ; "with"  ;
         "for" ; "in"    ; "import"; "infix"; "infixl" ; "infixr";
-        "type"; "alias" ; "get"   ; "_"]
+        "type"; "alias" ; "get"   ; "set"  ; "stack"  ; "distort";  "_"]
 
-let typeKeywords = Set["Int"; "Bool"; "Char"] 
+let typeKeywords = Collections.Set["Int"; "Bool"; "Char"] 
 
 let private isAsciiIdStart c =
     isAsciiLower c || c = '_'
@@ -150,6 +151,7 @@ let private pString =
 //#region Type Parsing
 
 let private pType, private pTypeRef = createParserForwardedToRef<ExType, UserState>()
+let private pTypeValue, private pTypeValueRef = createParserForwardedToRef<ExType, UserState>()
 
 let private pVarType = pTypeIdentifier |>> ExTypeAlias
 let private pIntType = stringReturn "Int" (ExConstType (Int, []))
@@ -167,13 +169,19 @@ let private pRecordType =
 
 let private pListType = pBetween "[" "]" pType |>> (fun t -> ExConstType (List, [t]))
 
-let private pTypeValue = choice [pVarType;
+let private pAccessorType =
+    pstring "#" >>. pBetween "(" ")"
+        (tuple2 (pTypeValue .>> ws .>> pstring "->" .>> ws) 
+            (pTypeValue .>> ws)) |>> ExAccessor
+
+do pTypeValueRef := choice [pVarType;
                         pParenType;
                         pRecordType;
                         pIntType;
                         pBoolType;
                         pCharType;
-                        pListType] <?> "type"
+                        pListType;
+                        pAccessorType] <?> "type"
 
 do pTypeRef :=
     let fold = List.reduceBack (fun x acc -> ExFunction(x, acc))
@@ -285,13 +293,32 @@ let private pNil = stringReturn "nil" <| ExConstructor Nil
 
 let private pRaise = stringReturn "raise" ExRaise
 
-let private pProjection = pstring "#" >>. pIdentifier |>> fun s -> ExBuiltIn (RecordAccess s)
-
 let private pGet = pstring "get" >>. ws |>> fun _ -> ExBuiltIn Get
+
+let private pSet = pstring "set" >>. ws |>> fun _ -> ExBuiltIn Set
+
+let private pStack = pstring "stack" >>. ws |>> fun _ -> ExBuiltIn Stack
+
+let private pDistort = pstring "distort" >>. ws |>> fun _ -> ExBuiltIn Distort
+
 
 //#endregion   
 
 let private pTerm, private pTermRef = createParserForwardedToRef<ExTerm, UserState>()
+
+//#region Parse Accessors
+
+let private pPath = 
+    (pIdentifier |>> ExComponent)
+    <|> (pBetween "(" ")" 
+        (sepBy1 pTerm (pstring "," .>> ws)) 
+            |>> ExJoined)
+
+
+let private pProjection = 
+    pstring "#" >>. pPath |>> ExRecordAccess
+
+//#endregion
 
 //#region Parse Functions
 
@@ -520,7 +547,10 @@ let private pValue =
             pLambda;
             pRecLambda;
             pLet;
-            pGet] <?> "term")
+            pGet;
+            pSet;
+            pStack;
+            pDistort] <?> "term")
 
 //#region Expression Parsing
 

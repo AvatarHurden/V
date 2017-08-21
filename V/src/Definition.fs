@@ -1,4 +1,4 @@
-﻿module Definition
+module Definition
 
 exception ParseException of string
 exception EvalException of string
@@ -23,6 +23,7 @@ and Type =
     | VarType of string * Trait list
     | ConstType of ConstructorType * Type list
     | Function of Type * Type
+    | Accessor of io:Type * record:Type
     | Tuple of Type list
     | Record of (string * Type) list
 
@@ -46,8 +47,12 @@ and Pattern =
     | RecordPat of bool * (string * VarPattern) list
 
 type BuiltIn =
+    | Id
+
     | Get
-    | RecordAccess of string
+    | Set
+    | Stack
+    | Distort
 
     | Add
     | Subtract
@@ -65,19 +70,21 @@ type BuiltIn =
     | And
     | Or
 
-let numArgs =
-    function
-    | Negate -> 1
-    | _ -> 2
-
 type Function =
     | Lambda of VarPattern * term
     | Recursive of Ident * (Type option) * VarPattern * term
-    
+
+and Path =
+    | Component of string
+    | Stacked of Path * Path
+    | Joined of term list
+    | Distorted of Path * getter:term * setter:term
+
 and term =
     | Constructor of Constructor
     | BuiltIn of BuiltIn
     | X of Ident
+    | RecordAccess of Path
     | Fn of Function
     | App of term * term
     | Match of term * (VarPattern * term option * term) list
@@ -88,11 +95,18 @@ and term =
 
 type ResFunction = Function * Env
 
+and ResPath = 
+    | ResComponent of string
+    | ResStacked of ResPath * ResPath
+    | ResJoined of ResPath list
+    | ResDistorted of ResPath * getter:result * setter:result
+
 and ResPartialApp =
     | AppBuiltIn of BuiltIn
     | AppConstructor of Constructor
 
 and result =
+    | ResRecordAcess of ResPath
     | ResFn of ResFunction
     | ResPartial of ResPartialApp * result list
     | ResConstructor of Constructor * result list
@@ -166,6 +180,7 @@ type ExType =
     | ExVarType of string * Trait list
     | ExConstType of ConstructorType * ExType list
     | ExFunction of ExType * ExType
+    | ExAccessor of ExType * ExType
     | ExTupleType of ExType list
     | ExRecordType of (string * ExType) list
 
@@ -192,8 +207,15 @@ type ExFunction =
     | ExLambda of ExVarPattern list * ExTerm
     | ExRecursive of Ident * ExVarPattern list * ExType option * ExTerm
 
+and ExPath = 
+    | ExComponent of string
+    | ExStacked of ExPath * ExPath
+    | ExJoined of ExTerm list
+    | ExDistorted of ExPath * getter:ExTerm * setter:ExTerm
+
 and ExTerm = 
     | ExX of Ident
+    | ExRecordAccess of ExPath
     | ExBuiltIn of BuiltIn
     | ExConstructor of Constructor
     | ExFn of ExFunction

@@ -1,4 +1,4 @@
-﻿module stdlibTests
+module stdlibTests
 
 open NUnit.Framework
 open FsUnit
@@ -28,7 +28,6 @@ let hasType text typ =
     let parsed = text |> parsePure |> flip translate stdlib.stdEnv
     let typ' = typeInfer <| parsed
     typ |> should equal typ'
-
 
 let equals text term =
     let parsed = text |> parsePure |> flip translate stdlib.stdEnv
@@ -381,51 +380,12 @@ let swap (x, y) = (y, x);
     member that.raiseSecond() =
         equals (Swap.func + "swap (3, 'a')") <| ResTuple [ResConstructor (C 'a', []); ResConstructor (I 3, [])]
 
-
-[<TestFixture>]
-type Set() =
-
-    static member func = Apply.func + Snd.func + """
-let set acc v r = snd $ acc v r;
-"""
-
-    [<Test>]
-    member that.testType() =
-        let w = VarType("w", [])
-        let x = VarType("x", [])
-        let y = VarType("y", [])
-        let z = VarType("z", [])
-        let accTyp = Function (z, Function (w, Type.Tuple [x; y]))
-        matchesType (Set.func + "set") <| 
-            Function (accTyp, Function (z, Function (w, y)))
-     
-    [<Test>]
-    member that.wrongParameter() =
-        throwsWrongType (Set.func + "set (true, 4, 4)")
-        throwsWrongType (Set.func + "set #name 4 {names:3}")
-        throwsWrongType (Set.func + "set #name 4 {name:'a'}")
-
-    [<Test>]
-    member that.simple() =
-        equals (Set.func + "set #a 5 {a:4, b:3}") <| ResRecord ["a", ResConstructor (I 5, []); "b", ResConstructor (I 3, [])]
-    
-    [<Test>]
-    member that.raiseField() =
-        equals (Set.func + "set #a 5 {a:raise, b:3}") <| ResRaise
-    
-    [<Test>]
-    member that.nonRaiseField() =
-        equals (Set.func + "set #a 5 {a:4, b:raise}") <| ResRaise
-
-    [<Test>]
-    member that.raiseRecord() =
-        equals (Set.func + "set #a 4 raise") <| ResRaise
-    
+          
 
 [<TestFixture>]
 type Modify() =
 
-    static member func = Set.func + """
+    static member func = """
 let modify acc f r =
     let oldV = get acc r;
     set acc (f oldV) r

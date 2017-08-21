@@ -7,6 +7,7 @@ let rec private translateType typ (env: TranslationEnv) =
     | ExVarType (s, traits) -> VarType (s, traits)
     | ExConstType (c, types) -> ConstType (c, List.map (fun t -> translateType t env) types)
     | ExFunction (t1, t2) -> Function (translateType t1 env, translateType t2 env)
+    | ExAccessor (t1, t2) -> Accessor (translateType t1 env, translateType t2 env)
     | ExTupleType ts -> 
         Type.Tuple <| List.map (fun t -> translateType t env) ts
     | ExRecordType ts -> 
@@ -129,6 +130,20 @@ and private translateTerm term env =
     | ExBuiltIn b -> BuiltIn b
     | ExConstructor c -> Constructor c
     | ExX x -> X x
+    | ExRecordAccess path ->
+        let rec f = 
+            function
+            | ExComponent s -> Component s
+            | ExDistorted (p, getter, setter) ->
+                Distorted (f p, translateTerm getter env, translateTerm setter env)
+            | ExStacked (p1, p2) ->
+                Stacked (f p1, f p2)
+            | ExJoined [x] as p ->
+                sprintf "Joined accessor %A must have at least 2 terms at %A" p term 
+                    |> ParseException |> raise
+            | ExJoined paths ->
+                Joined <| List.map (flip translateTerm env) paths
+        RecordAccess <| f path
     | ExFn fn -> translateFn fn env
     | ExApp (t1, t2) ->
         App(translateTerm t1 env, translateTerm t2 env)

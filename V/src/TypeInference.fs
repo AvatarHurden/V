@@ -139,8 +139,8 @@ let rec getFreeVars typ env =
         match typ with
         | ConstType (_, types) -> 
             List.fold (fun acc x -> getFreeVars x env @ acc) [] types
-        | Function(t1, t2) -> 
-            getFreeVars t1 env @ getFreeVars t2 env
+        | Accessor(t1, t2) -> getFreeVars t1 env @ getFreeVars t2 env
+        | Function(t1, t2) -> getFreeVars t1 env @ getFreeVars t2 env
         | Type.Tuple(types) -> 
             List.fold (fun acc x -> getFreeVars x env @ acc) [] types
         | Type.Record(pairs) -> 
@@ -155,7 +155,7 @@ let rec getFreeVars typ env =
                 getFreeVarsInTraits traits env
             else
                 [x, traits] @ getFreeVarsInTraits traits env
-    in Set(f typ) |> Set.toList
+    in Collections.Set(f typ) |> Set.toList
 
 and getFreeVarsInTraits traits env =
     let f =
@@ -171,8 +171,8 @@ and substituteInType (sub: Substitution) typ' =
     match typ' with
     | ConstType (c, types) -> 
         ConstType (c, List.map (substituteInType sub) types)
-    | Function(s1, s2) -> 
-        Function(substituteInType sub s1, substituteInType sub s2)
+    | Accessor(s1, s2) -> Accessor(substituteInType sub s1, substituteInType sub s2)
+    | Function(s1, s2) -> Function(substituteInType sub s1, substituteInType sub s2)
     | Type.Tuple(types) ->
         Type.Tuple <| List.map (substituteInType sub) types
     | Type.Record(pairs) ->
@@ -245,8 +245,14 @@ let rec validateTrait trt typ (env: UniEnv) =
     match typ with
     | ConstType _ as c -> 
         env.validateTrait trt c
-    | Function _ -> 
-        None, []
+    | Accessor (typ1, typ2) ->
+        match trt with
+        | Orderable | Equatable
+        | RecordLabel _ -> None, []
+    | Function (typ1, typ2) ->
+        match trt with
+        | Orderable | Equatable
+        | RecordLabel _ -> None, []
     | Type.Tuple (types) ->
         match trt with
         | Equatable ->
@@ -335,8 +341,8 @@ let rec occursIn x typ =
     match typ with
     | ConstType (_, types) -> 
         List.exists (occursIn x) types
-    | Function(t1, t2) -> 
-        occursIn x t1 || occursIn x t2
+    | Accessor(t1, t2) -> occursIn x t1 || occursIn x t2
+    | Function(t1, t2) -> occursIn x t1 || occursIn x t2
     | Type.Tuple(types) ->
         List.exists (occursIn x) types
     | Type.Record(pairs) ->
@@ -376,6 +382,8 @@ let rec unify typeSubs traitSubs constraints =
                             unify newSubs (traitsToMap traitSubs free) <| replaceVarTypes free replacedX                                
             | ConstType (c1, types1), ConstType (c2, types2) when c1 = c2 ->
                 unify typeSubs traitSubs <| rest @@ List.map2 (fun typ1 typ2 -> Equals (typ1, typ2)) types1 types2
+            | Accessor(s1, s2), Accessor(t1, t2) ->
+                unify typeSubs traitSubs <| rest @@ [Equals (s1, t1); Equals (s2, t2)]
             | Function(s1, s2), Function(t1, t2) -> 
                 unify typeSubs traitSubs <| rest @@ [Equals (s1, t1); Equals (s2, t2)]
             | Type.Tuple typs1, Type.Tuple typs2 when typs1.Length = typs2.Length ->
@@ -404,6 +412,8 @@ let rec applyUniToType typ (unified: Unified) =
     match typ with
     | ConstType (c, types) -> 
         ConstType (c, List.map (fun typ -> applyUniToType typ unified) types)
+    | Accessor (t1, t2) ->
+        Accessor(applyUniToType t1 unified, applyUniToType t2 unified)
     | Function(t1, t2) -> 
         Function(applyUniToType t1 unified, applyUniToType t2 unified)
     | Type.Tuple(types) ->
@@ -505,8 +515,11 @@ let findId id env =
             let typ' = List.fold (fun acc sub -> substituteInType (NameSub sub) acc) typ newVars
             typ', UniEnv.empty
 
-let typeOfBuiltin b =
+let rec typeOfBuiltin b =
     match b with
+    | Id ->
+        let varType = VarType (getVarType (), []) 
+        Function (varType, varType)
     | Add
     | Subtract
     | Multiply
@@ -531,22 +544,95 @@ let typeOfBuiltin b =
     | Or ->
         Function (ConstType (Bool, []), Function (ConstType (Bool, []), ConstType (Bool, [])))
 
-    | RecordAccess s ->
+    | Stack ->
         let varType1 = VarType (getVarType (), [])
-        let varType2 = VarType (getVarType (), [RecordLabel (s, varType1)])
-        Function (varType1, Function(varType2, Type.Tuple [varType1; varType2]))
+        let varType2 = VarType (getVarType (), [])
+        let varType3 = VarType (getVarType (), [])
+
+        let accessTyp1 = Accessor (varType1, varType2)
+        let accessTyp2 = Accessor (varType3, varType1)
+        let accessTyp3 = Accessor (varType3, varType2)
+
+        Function (accessTyp1, Function (accessTyp2, accessTyp3))
+    | Distort ->
+        let varType1 = VarType (getVarType (), [])
+        let varType2 = VarType (getVarType (), [])
+        let varType3 = VarType (getVarType (), [])
+
+        let accessTyp1 = Accessor (varType1, varType2)
+
+        let getterTyp = Function (varType1, varType3)
+        let setterTyp = Function (varType3, varType1)
+
+        let accessTyp2 = Accessor (varType3, varType2)
+
+        Function (accessTyp1, Function (getterTyp, Function (setterTyp, accessTyp2)))
+
     | Get -> 
         let varType1 = VarType (getVarType (), [])
         let varType2 = VarType (getVarType (), [])
-        let accessTyp =
-            Function (varType1, Function(varType2, Type.Tuple [varType1; varType2]))
+        let accessTyp = Accessor (varType1, varType2)
+
         Function(accessTyp, Function(varType2, varType1))
+    | Set -> 
+        let varType1 = VarType (getVarType (), [])
+        let varType2 = VarType (getVarType (), [])
+        let accessTyp = Accessor (varType1, varType2)
+
+        Function(accessTyp, Function (varType1, Function(varType2, varType2)))
 
 // collectConstraints term environment constraints
 let rec collectConstraints term (env: Env) =
     match term with
     | Constructor c -> env.typeOf c, UniEnv.empty
     | BuiltIn b -> typeOfBuiltin b, UniEnv.empty
+    | RecordAccess path ->
+        let varType1 = VarType (getVarType (), [])
+
+        // returns (IO type, record type, storage type, constraints)
+        let rec f = 
+            function
+            | Component s ->
+                let x = VarType (getVarType (), [])
+                let recordTyp = VarType (getVarType (), [RecordLabel (s, x)])
+                x, recordTyp, x, UniEnv.empty
+            | Distorted (p, getter, setter) ->
+                let t1, c1 = collectConstraints getter env
+                let t2, c2 = collectConstraints setter env
+
+                let io = VarType (getVarType (), [])
+                let storage = VarType (getVarType (), [])
+
+                let pIo, pRec, pStorage, pC = f p
+
+                let c' = 
+                    [Equals (t1, Function(storage, io));
+                    Equals (t2, Function(io, storage));
+                    Equals (storage, pIo)]
+
+                io, pRec, pStorage, c' @@ c1 @@ c2 @@ pC
+            | Stacked (p1, p2) ->
+                let io1, rec1, storage1, c1 = f p1
+                let io2, rec2, storage2, c2 = f p2
+
+                let c' =
+                    [Equals (storage1, io2)]
+
+                io2, rec1, storage1, c' @@ c1 @@ c2
+            | Joined paths ->
+
+                let ios = List.map (fun _ -> VarType (getVarType (), [])) paths
+
+                let stdRecordTyp = VarType (getVarType (), [])
+
+                let f' acc tupleIo (typ, c) =
+                    [Equals (typ, Accessor(tupleIo, stdRecordTyp))] @@ c @@ acc
+                let c = List.fold2 f' UniEnv.empty ios <| List.map (flip collectConstraints env) paths
+
+                Type.Tuple ios, stdRecordTyp, Type.Tuple ios, c
+
+        let io, r, storage, c = f path
+        Accessor (io, r), c
     | Fn fn ->
         match fn with
         | Lambda (pattern, t1) ->
@@ -614,7 +700,7 @@ let rec collectConstraints term (env: Env) =
         Type.Tuple types, List.reduce (@@) constraints
     | Record(pairs) ->
         let names, types = List.unzip pairs
-        if Set(names).Count < List.length names then
+        if Collections.Set(names).Count < List.length names then
             sprintf "Record has duplicate fields at %A" term |> TypeException |> raise
         let types', constraints = 
             List.unzip <| 
