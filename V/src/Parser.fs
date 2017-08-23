@@ -232,7 +232,7 @@ let private pRecordCompPattern = tuple2 (pIdentifier .>> ws .>> pstring ":" .>> 
 let private pRecord' p f =
     Inline.ManyTill(stateFromFirstElement = (fun x -> [x]),
                      foldState = (fun acc x -> x :: acc),
-                     resultFromStateAndEnd = (fun acc allowsExtra -> f acc allowsExtra),
+                     resultFromStateAndEnd = (fun acc allowsExtra -> f (List.rev acc) allowsExtra),
                      elementParser = (pstring "," >>. ws >>. p),
                      endParser = 
                         (attempt (opt (pstring "," >>. ws >>. pstring "..." .>> ws)) 

@@ -10,11 +10,11 @@ open TypeInference
 
 
 let compare (text, typ) =
-    let evaluated = text |> parse |> flip translate stdlib.stdEnv |> typeInfer
+    let evaluated = text |> parsePure |> flip translate emptyTransEnv|> typeInfer
     evaluated |> should equal typ
 
 let shouldFail text =
-    (fun () -> text |> parse |> flip translate stdlib.stdEnv |> typeInfer |> ignore) |> should throw typeof<TypeException> 
+    (fun () -> text |> parsePure |> flip translate emptyTransEnv |> typeInfer |> ignore) |> should throw typeof<TypeException> 
    
 let compareDirect term typ =
     let evaluated = typeInfer term
@@ -43,10 +43,9 @@ type TestTypeInfer() =
     [<Test>]
     member that.IntMap() =
         compare ("let rec map (f: Int -> Int) (ls: [Int]): [Int] =
-    if empty? ls then
-        nil
-    else
-        (f (head ls))::(map f (tail ls))
+    match ls with
+    | [] -> []
+    | x :: xs -> f x :: map f xs
 ;
 map (\x -> x + 1) [1,2,3,4]", ConstType (List, [ConstType (Int, [])]))
 
@@ -60,7 +59,11 @@ map (\x -> x + 1) [1,2,3,4]", ConstType (List, [ConstType (Int, [])]))
 
     [<Test>]
     member that.polymorphicRec() =
-        compare ("let rec count ls = if empty? ls then 0 else 1 + count (tail ls);
+        compare ("let rec count ls = 
+            match ls with
+            | [] -> 0
+            | x :: xs -> 1 + count xs
+            ;
                 count [1,2,3] + count [true,false]", (ConstType (Int, [])))
 
     [<Test>]
@@ -73,7 +76,8 @@ map (\x -> x + 1) [1,2,3,4]", ConstType (List, [ConstType (Int, [])]))
 
     [<Test>]
     member that.polymorphicHead() =
-        compare ("let f x = head x;
+        compare ("let head (x :: xs) = x;
+                let f x = head x;
                 if (f [true]) then
                     f [1]
                 else
@@ -81,7 +85,13 @@ map (\x -> x + 1) [1,2,3,4]", ConstType (List, [ConstType (Int, [])]))
 
     [<Test>]
     member that.multipleFolds() =
-        compare ("if (fold (\\acc x -> if x then acc else false) true [true,true,false]) then
+        compare ("
+let rec fold f acc ls =
+    match ls with
+    | [] -> acc
+    | x :: xs -> fold f (f acc x) xs
+;
+if (fold (\\acc x -> if x then acc else false) true [true,true,false]) then
 	fold (\\acc x -> acc + x) 0 [1,2,3]
 else
 	fold (\\acc x -> if x then acc+1 else acc) 0 [true,false,true]", (ConstType (Int, [])))
