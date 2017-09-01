@@ -8,8 +8,8 @@ let rec private translateType typ (env: TranslationEnv) =
     | ExConstType (c, types) -> ConstType (c, List.map (fun t -> translateType t env) types)
     | ExFunction (t1, t2) -> Function (translateType t1 env, translateType t2 env)
     | ExAccessor (t1, t2) -> Accessor (translateType t1 env, translateType t2 env)
-    | ExTupleType ts -> 
-        Type.Tuple <| List.map (fun t -> translateType t env) ts
+//    | ExTupleType ts -> 
+//        Type.Tuple <| List.map (fun t -> translateType t env) ts
     | ExRecordType ts -> 
         Type.Record <| List.map (fun (s, t) -> s, translateType t env) ts
     | ExTypeAlias s -> 
@@ -37,12 +37,12 @@ let private translatePatterns patterns env =
                 raise <| ParseException (sprintf "The identifier %s is bound twice" x)
             else
                 Pat (XPat x, translateSomeType typ env), ids.Add x
-        | ExTuplePat patterns ->
-            let f pat (acc, pats) =
-                let (newPat, acc') = findRepeats acc pat
-                (acc', newPat :: pats)
-            let (ids', pats) = List.foldBack f patterns (ids, [])
-            Pat (TuplePat pats, translateSomeType typ env), ids'
+//        | ExTuplePat patterns ->
+//            let f pat (acc, pats) =
+//                let (newPat, acc') = findRepeats acc pat
+//                (acc', newPat :: pats)
+//            let (ids', pats) = List.foldBack f patterns (ids, [])
+//            Pat (TuplePat pats, translateSomeType typ env), ids'
         | ExRecordPat (b, patterns) ->
             let f (s, pat) (acc, pats) =
                 let (newPat, acc') = findRepeats acc pat
@@ -173,7 +173,8 @@ and private translateTerm term env =
 
     | ExRaise -> Raise
     | ExTuple terms -> 
-        Tuple <| List.map (fun t -> translateTerm t env) terms
+        let f = (fun acc x -> App (acc, translateTerm x env))
+        List.fold f (Constructor (Tuple terms.Length)) terms
     | ExRecord pairs -> 
         Record <| List.map (fun (s, t) -> (s, translateTerm t env)) pairs
     | Cond (t1, t2, t3) -> 
