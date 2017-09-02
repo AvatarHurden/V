@@ -17,6 +17,7 @@ and ConstructorType =
     | Bool
     | Char
     | List
+    | Tuple of components:int
     //| Custom of string * Type list
 
 and Type =
@@ -24,7 +25,7 @@ and Type =
     | ConstType of ConstructorType * Type list
     | Function of Type * Type
     | Accessor of io:Type * record:Type
-    | Tuple of Type list
+//    | Tuple of Type list
     | Record of (string * Type) list
 
 type Ident = string
@@ -35,6 +36,7 @@ type Constructor =
     | B of bool
     | Nil
     | Cons
+    | Tuple of components:int
     //| Custom of string
 
 type VarPattern = Pat of Pattern * Type option
@@ -43,7 +45,7 @@ and Pattern =
     | XPat of Ident
     | IgnorePat
     | ConstructorPat of Constructor * VarPattern list
-    | TuplePat of VarPattern list
+//    | TuplePat of VarPattern list
     | RecordPat of bool * (string * VarPattern) list
 
 type BuiltIn =
@@ -90,7 +92,7 @@ and term =
     | Match of term * (VarPattern * term option * term) list
     | Let of VarPattern * term * term
     | Raise
-    | Tuple of term list
+//    | Tuple of term list
     | Record of (string * term) list
 
 type ResFunction = Function * Env
@@ -111,7 +113,7 @@ and result =
     | ResPartial of ResPartialApp * result list
     | ResConstructor of Constructor * result list
     | ResRaise
-    | ResTuple of result list
+//    | ResTuple of result list
     | ResRecord of (string * result) list
 and
 
@@ -181,7 +183,7 @@ type ExType =
     | ExConstType of ConstructorType * ExType list
     | ExFunction of ExType * ExType
     | ExAccessor of ExType * ExType
-    | ExTupleType of ExType list
+//    | ExTupleType of ExType list
     | ExRecordType of (string * ExType) list
 
     | ExTypeAlias of string
@@ -191,7 +193,7 @@ type ExVarPattern = ExPattern * ExType option
 and ExPattern =
     | ExXPat of Ident
     | ExIgnorePat
-    | ExTuplePat of ExVarPattern list
+//    | ExTuplePat of ExVarPattern list
     | ExRecordPat of bool * (string * ExVarPattern) list
     | ExConstructorPat of Constructor * ExVarPattern list
     | ExListPat of ExVarPattern list
@@ -202,6 +204,7 @@ type ExConstructor =
     | ExB of bool
     | ExNil
     | ExCons
+    | ExTuple of components: int
 
 type ExFunction =
     | ExLambda of ExVarPattern list * ExTerm
@@ -223,9 +226,9 @@ and ExTerm =
     | ExMatch of ExTerm * (ExVarPattern * ExTerm option * ExTerm) list
     | ExLet of ExDeclaration * ExTerm
     | ExRaise
-    | ExTuple of ExTerm list
     | ExRecord of (string * ExTerm) list
-
+    
+    | ExTuple of ExTerm list
     | ExListTerm of ExTerm list
     | Cond of ExTerm * ExTerm * ExTerm
     | Range of ExTerm * ExTerm option * ExTerm

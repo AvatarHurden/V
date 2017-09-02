@@ -22,6 +22,7 @@ type Env with
         | B _, B _ -> true
         | _, B _
         | B _, _ -> false
+        | Tuple len1, Tuple len2 -> len1 = len2
         | c1, c2 ->
             let f x = fun (s: Constructor list) -> List.exists ((=) x) s
             match List.tryFind (f c1) this.groups with
@@ -42,6 +43,7 @@ type Env with
         | I i1, I i2 -> func i1 i2
         | C c1, C c2 -> func c1 c2
         | B b1, B b2 -> func b1 b2
+        | Tuple len1, Tuple len2 when len1 = len2 -> func len1 len2        
         | c1, c2 ->
             if not <| this.areCompatible c1 c2 then
                 sprintf "Cannot compare %A and %A" c1 c2 |> EvalException |> raise
@@ -57,6 +59,7 @@ type Env with
     member this.numArgsFor c =
         match c with
         | I _ | B _ | C _ -> 0
+        | Tuple len -> len
         | c -> 
             match this.numArgs.TryFind c with
             | None -> sprintf "Constructor %A does not have a number of arguments" c |> EvalException |> raise
@@ -87,19 +90,19 @@ let rec matchPattern (Pat (pattern, _)) result (env: Env) =
         | _ -> 
             printf "hello world"
             raise <| EvalException "Non constructor passed for constructor pattern"
-    | TuplePat patterns ->
-        match result with
-        | ResRaise -> None
-        | ResTuple results when results.Length = patterns.Length ->
-            let f acc p r =
-                match acc with
-                | None -> None
-                | Some env -> matchPattern p r env
-            List.fold2 f (Some env) patterns results
-        | ResTuple results ->
-            raise <| EvalException "Tuples do not match in pattern"
-        | _ -> 
-            raise <| EvalException "Invalid result for tuple pattern"
+//    | TuplePat patterns ->
+//        match result with
+//        | ResRaise -> None
+//        | ResTuple results when results.Length = patterns.Length ->
+//            let f acc p r =
+//                match acc with
+//                | None -> None
+//                | Some env -> matchPattern p r env
+//            List.fold2 f (Some env) patterns results
+//        | ResTuple results ->
+//            raise <| EvalException "Tuples do not match in pattern"
+//        | _ -> 
+//            raise <| EvalException "Invalid result for tuple pattern"
     | RecordPat (allowsExtras, patterns) ->
         match result with
         | ResRaise -> None
@@ -152,14 +155,14 @@ let rec compareEquality t1 t2 (env: Env) =
                 | ResConstructor (B true, []), ResConstructor (B b2, []) -> ResConstructor (B b2, [])
                 | _ -> raise <| EvalException "Equal returned a non-expected value"
             List.fold2 f (ResConstructor (B true, [])) arguments arguments'
-    | ResTuple v1, ResTuple v2 when v1.Length = v2.Length ->
-        let f acc r1 r2 =
-            match acc, compareEquality r1 r2 env with
-            | AnyRaise -> ResRaise
-            | ResConstructor (B false, []), _ -> ResConstructor (B false, [])
-            | ResConstructor (B true, []), ResConstructor (B b2, []) -> ResConstructor (B b2, [])
-            | _ -> raise <| EvalException "Equal returned a non-expected value"
-        List.fold2 f (ResConstructor (B true, [])) v1 v2
+//    | ResTuple v1, ResTuple v2 when v1.Length = v2.Length ->
+//        let f acc r1 r2 =
+//            match acc, compareEquality r1 r2 env with
+//            | AnyRaise -> ResRaise
+//            | ResConstructor (B false, []), _ -> ResConstructor (B false, [])
+//            | ResConstructor (B true, []), ResConstructor (B b2, []) -> ResConstructor (B b2, [])
+//            | _ -> raise <| EvalException "Equal returned a non-expected value"
+//        List.fold2 f (ResConstructor (B true, [])) v1 v2
     | ResRecord v1, ResRecord v2 when v1.Length = v2.Length ->
         let v1' = List.sortWith (fun (s1, t1) (s2, t2) -> compare s1 s2) v1
         let v2' = List.sortWith (fun (s1, t1) (s2, t2) -> compare s1 s2) v2
@@ -244,14 +247,16 @@ let rec traversePath (path: ResPath) term (newValue: result option) env =
             match newValue with
             | None ->
                 let values = List.map (fun p -> fst <| traversePath p term None env) paths
-                ResTuple values, term
-            | Some (ResTuple oldValues) when oldValues.Length = paths.Length ->
+                let len = values.Length
+                ResConstructor (Constructor.Tuple len, values), term
+            | Some (ResConstructor (Constructor.Tuple len, oldValues)) when oldValues.Length = paths.Length ->
                 let f = 
                     fun (oldValues, record) p value ->
                         let value, record' = traversePath p record (Some value) env
                         value :: oldValues, record'
                 let newValues, record = List.fold2 f ([], term) paths oldValues
-                ResTuple newValues, record
+                let len = newValues.Length
+                ResConstructor (Constructor.Tuple len, newValues), record
             | Some _ ->
                 raise <| EvalException "joined paths must be set using a tuple"
         | ResStacked (p1, p2) ->
@@ -551,18 +556,18 @@ and private eval (t: term) (env: Env) =
             | None -> ResRaise
             | Some env' -> eval t2 env'
     | Raise -> ResRaise
-    | Tuple(terms) ->
-        if List.length terms < 2 then
-            sprintf "Tuple must have more than 2 components at %A" t |> EvalException |> raise
-    
-        let f t =
-            match eval t env with
-            | ResRaise -> None
-            | t' -> Some t'
-
-        match mapOption f terms with
-        | None -> ResRaise
-        | Some results -> ResTuple results
+//    | Tuple(terms) ->
+//        if List.length terms < 2 then
+//            sprintf "Tuple must have more than 2 components at %A" t |> EvalException |> raise
+//    
+//        let f t =
+//            match eval t env with
+//            | ResRaise -> None
+//            | t' -> Some t'
+//
+//        match mapOption f terms with
+//        | None -> ResRaise
+//        | Some results -> ResTuple results
 
         //ResTuple <| List.map (fun t -> eval t env) terms
     | Record(pairs) ->

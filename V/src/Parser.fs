@@ -160,7 +160,7 @@ let private pCharType = stringReturn "Char" (ExConstType (Char, []))
 
 let private pParenType = 
     pBetween "(" ")" (sepBy1 pType (pstring "," .>> ws))
-        |>> (function | [x] -> x | xs -> ExTupleType xs)
+        |>> (function | [x] -> x | xs -> ExConstType ((ConstructorType.Tuple xs.Length), xs))
 
 let private pRecordCompType = tuple2 (pIdentifier .>> ws .>> pstring ":" .>> ws) pType
 
@@ -225,7 +225,7 @@ let private pStringPattern =
 
 let private pParenPattern = 
     pBetween "(" ")" (sepBy1 pPattern (pstring "," .>> ws))
-        |>> (function | [x] -> x | xs -> (ExTuplePat xs, None))
+        |>> (function | [x] -> x | xs -> (ExConstructorPat ((Tuple xs.Length), xs), None))
 
 let private pRecordCompPattern = tuple2 (pIdentifier .>> ws .>> pstring ":" .>> ws) pPattern
 
@@ -345,7 +345,8 @@ let private pRecLambda: Parser<ExTerm, UserState> =
 //#region Compound Value Parsing (Tuple, Record, List)
 
 let private pParen =
-    let pTuple = sepBy1 pTerm (pstring "," .>> ws) |>> (function | [x] -> x | xs -> ExTuple xs)
+    let pTuple = sepBy1 pTerm (pstring "," .>> ws) 
+                |>> (function | [x] -> x | xs -> ExTuple xs)
 
     let pPrefixOP =
         pBetween "(" ")" (pOperator .>> ws)

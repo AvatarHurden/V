@@ -109,7 +109,7 @@ else
     [<Test>]
     member that.extendedPatFunction() =
         compare ("let f {age: x, ...} = x + 1; f", 
-            Function (VarType ("X26791",[RecordLabel ("age",(ConstType (Int, [])))]),(ConstType (Int, []))))
+            Function (VarType ("X5",[RecordLabel ("age",(ConstType (Int, [])))]),(ConstType (Int, []))))
 
     [<Test>]
     member that.simplePatFunction() =
@@ -131,7 +131,7 @@ else
                     | {male: true, age: x, ...} when x < 30 -> 1
                     | _ -> 2
                     ; f", 
-            Function (VarType ("X28262",[RecordLabel ("male",(ConstType (Bool, []))); RecordLabel ("age",(ConstType (Int, [])))]),(ConstType (Int, []))))
+            Function (VarType ("X13",[RecordLabel ("male",(ConstType (Bool, []))); RecordLabel ("age",(ConstType (Int, [])))]),(ConstType (Int, []))))
 
     [<Test>]
     member that.simplePatMatchFunction() =
@@ -140,8 +140,27 @@ else
                     | {age: x, ...} when x > 50 -> 0
                     | {male: true, age: x} when x < 30 -> 1
                     | _ -> 2
-                    ; f", Function (Type.Record [("age", ConstType (Int, [])); ("male", (ConstType (Bool, [])))],ConstType (Int, [])))
+                    ; f", Function (Type.Record [("male", (ConstType (Bool, []))); ("age", ConstType (Int, []))],ConstType (Int, [])))
 
+    [<Test>]
+    member that.polymorphismInTuples() =
+        compare ("let (x, y) = ((\x -> x), (\x -> x)); 
+            if x true then x 0 else x 1", ConstType (Int, []))
+            
+    [<Test>]
+    member that.polymorphicEmptyList() =
+        let listInt = ConstType (List, [ConstType (Int, [])])
+        let listChar = ConstType (List, [ConstType (Char, [])])
+        compare ("let x = []; (3 :: x, 'a' :: x)", 
+            ConstType (ConstructorType.Tuple 2, [listInt; listChar]))
+
+    [<Test>]
+    member that.polymorphicTupling() =
+        let x1 = VarType ("X6", [])
+        let x2 = VarType ("X7", [])
+        compare ("let f x y = (let g = (x,y); g); f", 
+            Function (x1, Function (x2, 
+                        ConstType (ConstructorType.Tuple 2, [x1; x2]))))
 
 [<TestFixture>]
 type TestMatchInfer() =
@@ -213,22 +232,25 @@ type TestMatchInfer() =
     [<Test>]
     member that.FnParamaterTuple() =
         compare ("\(x: Int,y: Char) -> (y,x)",
-            (Function(Type.Tuple [ConstType (Int, []); (ConstType (Char, []))], Type.Tuple [(ConstType (Char, []));ConstType (Int, [])])))
+            (Function(ConstType (ConstructorType.Tuple 2, [ConstType (Int, []); (ConstType (Char, []))]), 
+                    ConstType (ConstructorType.Tuple 2, [(ConstType (Char, []));ConstType (Int, [])]))))
 
     [<Test>]
     member that.FnParamater2Tuple() =
         compare ("\(x: Int,y: Char) -> x",
-            (Function(Type.Tuple [ConstType (Int, []); (ConstType (Char, []))], ConstType (Int, []))))
+            (Function(ConstType (ConstructorType.Tuple 2, [ConstType (Int, []); (ConstType (Char, []))]),
+                ConstType (Int, []))))
 
     [<Test>]
     member that.FnParamaterList() =
         compare ("\((x :: y): [Int]) -> (y,x)",
-            (Function(ConstType (List, [ConstType (Int, [])]), Type.Tuple [ConstType (List, [ConstType (Int, [])]);ConstType (Int, [])])))
+            (Function(ConstType (List, [ConstType (Int, [])]), 
+                ConstType (ConstructorType.Tuple 2, [ConstType (List, [ConstType (Int, [])]);ConstType (Int, [])]))))
 
     [<Test>]
     member that.FnParamaterListPassingFailingParameter() =
         compare ("(\((x :: y): [Int]) -> (y, x)) []",
-            (Type.Tuple [ConstType (List, [ConstType (Int, [])]);ConstType (Int, [])]))
+            (ConstType (ConstructorType.Tuple 2, [ConstType (List, [ConstType (Int, [])]);ConstType (Int, [])])))
     
     [<Test>]
     member that.differentTypesMatch() =
