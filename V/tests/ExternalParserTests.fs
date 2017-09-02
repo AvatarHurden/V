@@ -231,7 +231,7 @@ type TestTupleRecords() =
 
     [<Test>]
     member that.twoTuple() =
-        compare "( 3 + 4, true  )" <| ResTuple [ResConstructor (I 7, []); ResConstructor (B true, [])]
+        compare "( 3 + 4, true  )" <| ResConstructor (Tuple 2, [ResConstructor (I 7, []); ResConstructor (B true, [])])
         
     [<Test>]
     member that.mixedNaming() =

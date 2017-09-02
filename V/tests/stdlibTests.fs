@@ -122,11 +122,11 @@ let infixr 9 (.) = compose;
     [<Test>]
     member that.testType() =
         let x = VarType ("x", [])
-        let z = VarType ("y", [])
-        let y = VarType ("z", [])     
+        let y = VarType ("y", [])
+        let z = VarType ("z", [])     
         matchesType (Compose.func + "compose") <| 
-            Function (Function (y, x), 
-                Function (Function(z, y), Function (z, x)))
+            Function (Function (y, z), 
+                Function (Function(x, y), Function (x, z)))
 
 [<TestFixture>]
 type Remainder() =
@@ -310,7 +310,7 @@ let fst (x, _) = x;
         let x = VarType("x", [])
         let y = VarType("y", [])
         matchesType (Fst.func + "fst") <| 
-            Function (Type.Tuple [x; y], x)
+            Function (ConstType (ConstructorType.Tuple 2, [x; y]), x)
      
     [<Test>]
     member that.wrongParameter() =
@@ -338,7 +338,7 @@ let snd (_, y) = y;
         let x = VarType("x", [])
         let y = VarType("y", [])
         matchesType (Snd.func + "snd") <| 
-            Function (Type.Tuple [x; y], y)
+            Function (ConstType (ConstructorType.Tuple 2, [x; y]), y)
      
     [<Test>]
     member that.wrongParameter() =
@@ -365,7 +365,8 @@ let swap (x, y) = (y, x);
         let x = VarType("x", [])
         let y = VarType("y", [])
         matchesType (Swap.func + "swap") <| 
-            Function (Type.Tuple [x; y], Type.Tuple [y; x])
+            Function (ConstType (ConstructorType.Tuple 2, [x; y]), 
+                      ConstType (ConstructorType.Tuple 2, [y; x]))
      
     [<Test>]
     member that.wrongParameter() =
@@ -378,7 +379,8 @@ let swap (x, y) = (y, x);
         
     [<Test>]
     member that.raiseSecond() =
-        equals (Swap.func + "swap (3, 'a')") <| ResTuple [ResConstructor (C 'a', []); ResConstructor (I 3, [])]
+        equals (Swap.func + "swap (3, 'a')") <| 
+            ResConstructor (Tuple 2, [ResConstructor (C 'a', []); ResConstructor (I 3, [])])
 
           
 
@@ -394,13 +396,11 @@ let modify acc f r =
 
     [<Test>]
     member that.testType() =
-        let w = VarType("w", [])
         let x = VarType("x", [])
         let y = VarType("y", [])
-        let z = VarType("z", [])
-        let accTyp = Function (z, Function (w, Type.Tuple [y; x]))
+        let accTyp = Accessor (x, y)
         matchesType (Modify.func + "modify") <| 
-            Function (accTyp, Function (Function (y, z), Function (w, x)))
+            Function (accTyp, Function (Function (x, x), Function (y, y)))
      
     [<Test>]
     member that.wrongParameter() =
@@ -843,8 +843,8 @@ let rec fold f acc ls =
 
     [<Test>]
     member that.testType() =
-        let x2 = VarType ("x", [])
-        let x1 = VarType ("y", [])
+        let x1 = VarType ("x", [])
+        let x2 = VarType ("y", [])
         matchesType (Fold.func + "fold") <| 
             Function (Function (x2, Function (x1, x2)), Function (x2, Function (ConstType (List, [x1]), x2)))
      
@@ -1496,7 +1496,8 @@ let rec zip x y =
         let x2 = VarType ("y", [])
 
         matchesType (Zip.func + "zip") <| 
-            Function (ConstType (List, [x1]), Function (ConstType (List, [x2]), ConstType (List, [Type.Tuple [x1;x2]])))
+            Function (ConstType (List, [x1]), Function (ConstType (List, [x2]), 
+                        ConstType (List, [ConstType (ConstructorType.Tuple 2, [x1; x2])])))
      
     [<Test>]
     member that.wrongParameter() =
@@ -1534,8 +1535,8 @@ let rec zipWith f x y =
 
     [<Test>]
     member that.testType() =
-        let x = VarType ("x", [])
-        let y = VarType ("y", [])
+        let y = VarType ("x", [])
+        let x = VarType ("y", [])
         let z = VarType ("z", [])
 
         matchesType (ZipWith.func + "zipWith") <| 
@@ -1579,10 +1580,10 @@ let unzip ls =
     member that.testType() =
         let x1 = VarType ("x", [])
         let x2 = VarType ("z", [])
-        let x3 = Type.Tuple [x1; x2]
+        let x3 =  ConstType (ConstructorType.Tuple 2, [x1; x2])
 
         matchesType (Unzip.func + "unzip") <| 
-            Function (ConstType (List, [x3]), Type.Tuple [ConstType (List, [x1]); ConstType (List, [x2])])
+            Function (ConstType (List, [x3]), ConstType (ConstructorType.Tuple 2, [ConstType (List, [x1]); ConstType (List, [x2])]))
      
     [<Test>]
     member that.wrongParameter() =

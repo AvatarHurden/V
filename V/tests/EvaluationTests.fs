@@ -115,11 +115,11 @@ type TestMatchEval() =
         
     [<Test>]
     member that.FnParamater() =
-        compare ("(\(x,y) -> (y,x)) (3,4)", (ResTuple [ResConstructor (I 4, []); ResConstructor (I 3, [])]))
+        compare ("(\(x,y) -> (y,x)) (3,4)", (ResConstructor (Tuple 2, [ResConstructor (I 4, []); ResConstructor (I 3, [])])))
         
     [<Test>]
     member that.FnParamaterRecord() =
-        compare ("(\{a: x, b: y} -> (y,x)) {a: 3, b: 4}", (ResTuple [ResConstructor (I 4, []); ResConstructor (I 3, [])]))
+        compare ("(\{a: x, b: y} -> (y,x)) {a: 3, b: 4}", (ResConstructor (Tuple 2, [ResConstructor (I 4, []); ResConstructor (I 3, [])])))
 
     [<Test>]
     member that.FnParamaterFail() =
