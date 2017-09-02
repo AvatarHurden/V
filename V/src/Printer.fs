@@ -40,6 +40,8 @@ and printType typ =
     | ConstType (Char, []) -> "Char"
     | ConstType (List, [ConstType (Char, [])]) -> "String"
     | ConstType (List, [t]) -> sprintf "[%s]" (printType t)
+    | ConstType (ConstructorType.Tuple _, types) ->
+        sprintf "(%s)" (printTuple types)
     | ConstType _ -> sprintf "The type %A is invalid" typ |> TypeException |> raise
     | Accessor (t1, t2) ->
         sprintf "#(%O -> %O)" (printType t1) (printType t2)
@@ -49,8 +51,6 @@ and printType typ =
             sprintf "(%s) -> %s" (printType t1) (printType t2)
         | _ ->
             sprintf "%s -> %s" (printType t1) (printType t2)
-    | Type.Tuple (types) ->
-        sprintf "(%s)" (printTuple types)
     | Type.Record (pairs) ->
         sprintf "{%s}" (printRecord pairs)
 
@@ -76,6 +76,11 @@ and printResult result =
     | ResConstructor (Nil, []) -> "[]"
     | ResConstructor (Cons, [ResConstructor (C head, []); tail]) -> "\"" + printResultString result + "\""
     | ResConstructor (Cons, [head; tail]) -> "[" + printResultList result + "]"
+    | ResConstructor (Tuple _, v) -> 
+        "(" + 
+        (List.fold (fun acc v -> acc + ", " + printResult v) 
+        (printResult v.Head) v.Tail) 
+        + ")"
     | ResConstructor _ -> sprintf "The value %A is invalid" result |> EvalException |> raise
     | ResRecordAcess path ->
         let rec f path =
@@ -92,11 +97,6 @@ and printResult result =
 //                sprintf "%O.(%O, %O, %O)" acc s (printResult res1) (printResult res2)
         //List.fold f "#" paths
         sprintf "#%O" <| f path
-    | ResTuple v -> 
-        "(" + 
-        (List.fold (fun acc v -> acc + ", " + printResult v) 
-        (printResult v.Head) v.Tail) 
-        + ")"
     | ResRecord v -> 
         let headName, headV = v.Head
         "{" + 
