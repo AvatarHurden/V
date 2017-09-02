@@ -56,24 +56,13 @@ type UniEnv =
      constraints: Constraint list
     }
 
-    member this.validateTrait trt typ =
-        match typ with
-        | ConstType (c, args) ->
-            match this.traitAssoc.TryFind c with
-            | None -> None, []
-            | Some spec ->
-                match Seq.tryFind (fun (t, _) -> t = trt) spec with
-                | None -> None, []
-                | Some (t, reqs) ->
-                    let getComponent i c =
-                        if args.Length > i then
-                            List.nth args i
-                         else
-                            sprintf "Constructor type %A doesn't have an argument at index %A" typ i |> TypeException |> raise
-                    let f acc index trt =
-                        Equals (getComponent index c, VarType (getVarType(), trt)) :: acc
-                    Some (ConstType (c, args)), Map.fold f [] reqs
-        | _ -> raise <| TypeException "Requested the environment to valide a non-constructor type"
+    member this.findTraitSpecs c =
+        match c with
+        | ConstructorType.Tuple n ->
+            let indexes = [1..n]
+            let traitsList = List.map (fun _ -> [Equatable]) indexes
+            Some <| [Equatable, Map.ofList (List.zip indexes traitsList)]
+        | _ -> this.traitAssoc.TryFind c
 
     static member private joinAssoc assoc1 assoc2 =
         let f acc consType l =
@@ -141,8 +130,6 @@ let rec getFreeVars typ env =
             List.fold (fun acc x -> getFreeVars x env @ acc) [] types
         | Accessor(t1, t2) -> getFreeVars t1 env @ getFreeVars t2 env
         | Function(t1, t2) -> getFreeVars t1 env @ getFreeVars t2 env
-        | Type.Tuple(types) -> 
-            List.fold (fun acc x -> getFreeVars x env @ acc) [] types
         | Type.Record(pairs) -> 
             pairs |> List.unzip |> snd |> 
             List.fold (fun acc x -> getFreeVars x env @ acc) []
@@ -173,8 +160,6 @@ and substituteInType (sub: Substitution) typ' =
         ConstType (c, List.map (substituteInType sub) types)
     | Accessor(s1, s2) -> Accessor(substituteInType sub s1, substituteInType sub s2)
     | Function(s1, s2) -> Function(substituteInType sub s1, substituteInType sub s2)
-    | Type.Tuple(types) ->
-        Type.Tuple <| List.map (substituteInType sub) types
     | Type.Record(pairs) ->
         let names, types = List.unzip pairs
         Type.Record (List.zip names <| List.map (substituteInType sub) types)
@@ -216,6 +201,10 @@ type Env with
         | C _ -> ConstType (Char, [])
         | I _ -> ConstType (Int, [])
         | B _ -> ConstType (Bool, [])
+        | Tuple n -> 
+            let args = List.map (fun x -> VarType (getVarType (), [])) [1..n]
+            let ret = ConstType (ConstructorType.Tuple n, args)
+            List.foldBack (curry Function) args ret
         | _ -> 
             match Map.tryFind constr env.constructors with
             | None -> sprintf "Undeclared constructor %A" constr |> TypeException |> raise
@@ -233,8 +222,6 @@ type Env with
             env.findSubs t1 t1' @ env.findSubs t2 t2'
         | Function(t1, t2), Function(t1', t2') -> 
             env.findSubs t1 t1' @ env.findSubs t2 t2'
-        | Type.Tuple(types), Type.Tuple(types') -> 
-            List.fold2 (fun acc x y -> env.findSubs x y @ acc) [] types types'
         | Type.Record(pairs), Type.Record(pairs') -> 
             let types = pairs |> List.unzip |> snd
             let types' = pairs' |> List.unzip |> snd
@@ -250,6 +237,19 @@ type Env with
         | C _ -> ConstType (Char, []), []
         | I _ -> ConstType (Int, []), []
         | B _ -> ConstType (Bool, []), []
+        | Tuple n -> 
+            let args = List.map (fun x -> VarType (getVarType (), [])) [1..n]
+            let ret = ConstType (ConstructorType.Tuple n, args)
+
+            let subs =
+                match basedOn with
+                | None -> []
+                | Some t -> env.findSubs ret t
+
+            let ret' = List.fold (flip substituteInType) ret subs
+            let args' = List.map (fun typ -> List.fold (flip substituteInType) typ subs) args
+                
+            ret', args'
         | _ ->
             match Map.tryFind constr env.constructors with
             | None -> sprintf "Undeclared constructor %A" constr |> TypeException |> raise
@@ -273,51 +273,36 @@ type Env with
 //#region Trait Validation Functions
 let rec validateTrait trt typ (env: UniEnv) =
     match typ with
-    | ConstType _ as c -> 
-        env.validateTrait trt c
+    | ConstType (c, args) -> 
+        validateTraitsConstructor trt c args env
     | Accessor (typ1, typ2) ->
         match trt with
         | Orderable | Equatable
-        | RecordLabel _ -> None, []
+        | RecordLabel _ -> None
     | Function (typ1, typ2) ->
         match trt with
         | Orderable | Equatable
-        | RecordLabel _ -> None, []
-    | Type.Tuple (types) ->
-        match trt with
-        | Equatable ->
-            let f typ =
-                match validateTrait trt typ env with
-                | None, [] -> None
-                | Some typ', [] -> Some typ'
-                | _ ->
-                    sprintf "Validating Equatable resulted in constraint at %A" typ 
-                        |> TypeException |> raise 
-            match mapOption f types with
-            | None -> None, []
-            | Some types' -> Some <| Type.Tuple types', []
-        | Orderable | RecordLabel _ -> None, []
+        | RecordLabel _ -> None
     | Type.Record (pairs) ->
         match trt with
         | Equatable ->
             let f (name, typ) =
                 match validateTrait trt typ env with
-                | None, [] -> None
-                | Some typ', [] -> Some (name, typ')
-                | _ ->
-                    sprintf "Validating Equatable resulted in constraint at %A" typ 
-                        |> TypeException |> raise 
+                | None -> None
+                | Some (typ', cons') -> Some ((name, typ'), cons')
             match mapOption f pairs with
-            | None -> None, []
-            | Some pairs' -> Some <| Type.Record pairs' , []
+            | None -> None
+            | Some res -> 
+                let pairs', cons' = List.unzip res 
+                Some (Type.Record pairs', List.concat cons')
         | RecordLabel (label, typ) ->
             let names, values = List.unzip pairs
             match Seq.tryFindIndex ((=) label) names with
             | Some i ->
-                 Some <| Type.Record pairs, [Equals (typ, values.[i])]
+                 Some (Type.Record pairs, [Equals (typ, values.[i])])
             | None ->
-                None, []
-        | Orderable -> None, []
+                None
+        | Orderable -> None
     | VarType (x, traits) ->               
         match trt with
         | RecordLabel (name, t) ->
@@ -327,22 +312,38 @@ let rec validateTrait trt typ (env: UniEnv) =
                 | _ -> None
             let constraints = List.choose recordMatch traits
             if constraints.IsEmpty then
-                Some <| VarType (x, trt::traits), []
+                Some (VarType (x, trt::traits), [])
             else
-                Some <| VarType (x, traits), constraints
+                Some (VarType (x, traits), constraints)
         | _ ->
             if List.exists ((=) trt) traits then
-                Some typ, []
+                Some (typ, [])
             else
-                Some <| VarType (x, trt::traits), []
-        
+                Some (VarType (x, trt::traits), [])
 
-let rec validateTraits traits typ env =
-    let f (typ', cons') trt = 
-        let newTyp, newCons = validateTrait trt typ' env
-        match newTyp with
+and validateTraitsConstructor trt c (args: Type list) env =
+    match env.findTraitSpecs c with
+    | None -> None
+    | Some spec ->
+        match Seq.tryFind (fun (t, _) -> t = trt) spec with
         | None -> None
-        | Some newTyp -> Some (newTyp, newCons @ cons')
+        | Some (t, reqs) ->
+            let f (index, trts) =
+                if args.Length <= index then
+                        sprintf "Constructor type %A doesn't have an argument at index %A" c index |> TypeException |> raise
+                let typ = List.nth args index
+                validateTraits trts typ env
+            match mapOption f (Map.toList reqs) with
+            | None -> None
+            | Some res -> 
+                let comps, cons' = List.unzip res
+                Some (ConstType (c, comps), List.concat cons')
+
+and validateTraits traits typ env =
+    let f (typ', cons') trt = 
+        match validateTrait trt typ' env with
+        | None -> None
+        | Some (newTyp, newCons) -> Some (newTyp, newCons @ cons')
     foldOption f (Some (typ, [])) traits
 
 //#endregion
@@ -373,8 +374,6 @@ let rec occursIn x typ =
         List.exists (occursIn x) types
     | Accessor(t1, t2) -> occursIn x t1 || occursIn x t2
     | Function(t1, t2) -> occursIn x t1 || occursIn x t2
-    | Type.Tuple(types) ->
-        List.exists (occursIn x) types
     | Type.Record(pairs) ->
         pairs |> List.unzip |> snd |> List.exists (occursIn x)
     | VarType(id, ls) -> id = x
@@ -416,8 +415,6 @@ let rec unify typeSubs traitSubs constraints =
                 unify typeSubs traitSubs <| rest @@ [Equals (s1, t1); Equals (s2, t2)]
             | Function(s1, s2), Function(t1, t2) -> 
                 unify typeSubs traitSubs <| rest @@ [Equals (s1, t1); Equals (s2, t2)]
-            | Type.Tuple typs1, Type.Tuple typs2 when typs1.Length = typs2.Length ->
-                unify typeSubs traitSubs <| rest @@ List.map2 (fun typ1 typ2 -> Equals (typ1, typ2)) typs1 typs2
             | Type.Record pairs1, Type.Record pairs2 when pairs1.Length = pairs2.Length ->
             
                 let v1' = List.sortWith (fun (s1, t1) (s2, t2) -> compare s1 s2) pairs1
@@ -446,8 +443,6 @@ let rec applyUniToType typ (unified: Unified) =
         Accessor(applyUniToType t1 unified, applyUniToType t2 unified)
     | Function(t1, t2) -> 
         Function(applyUniToType t1 unified, applyUniToType t2 unified)
-    | Type.Tuple(types) ->
-        Type.Tuple <| List.map (fun typ -> applyUniToType typ unified) types
     | Type.Record(pairs) ->
         let names, types = List.unzip pairs
         List.map (fun typ -> applyUniToType typ unified) types |>
@@ -500,17 +495,6 @@ let rec matchPattern pattern typ (env: Env) cons =
                 env, Equals (retTyp, typ) :: cons
         List.fold2 f acc patterns parameters
 
-    | Pat (TuplePat patterns, typ') ->
-        let tupleTypes = List.map (fun _ -> VarType (getVarType (), [])) patterns
-        let f = fun (env, cons) p t -> matchPattern p t env cons
-        let acc = 
-            match typ' with
-            | Some typ' ->
-                env, Equals (typ', typ) :: Equals (Type.Tuple tupleTypes, typ) :: cons
-            | None ->
-                env, Equals (Type.Tuple tupleTypes, typ) :: cons
-        List.fold2 f acc patterns tupleTypes
-    
     | Pat (RecordPat (allowsExtra, patterns), typ') ->
         let recordTypes = List.map (fun (name, _) -> name, VarType (getVarType (), [])) patterns
         let f = fun (env, cons) (_, p) (_, t) -> matchPattern p t env cons
@@ -551,25 +535,6 @@ let rec matchUniversalPattern pattern typ (env: Env) =
                 env, [Equals (retTyp, typ)]
         List.fold2 f acc patterns parameters
 
-    | Pat (TuplePat patterns, typ') ->
-        let tupleTypes = 
-            match typ with
-            | Type.Tuple typs -> typs
-            | _ -> sprintf "Invalid type %A for universal match" typ |> TypeException |> raise
-        
-        if tupleTypes.Length <> patterns.Length then
-            sprintf "Pattern %A and tuple %A have different lengths" pattern typ |> TypeException |> raise
-
-        
-        let f = fun (env, cons) p t -> matchUniversalPattern p t env
-        let acc = 
-            match typ' with
-            | Some typ' ->
-                env, [Equals (typ', typ)]
-            | None ->
-                env, []
-        List.fold2 f acc patterns tupleTypes
-    
     | Pat (RecordPat (allowsExtra, patterns), typ') ->
         let recordTypes = 
             match typ with
@@ -731,7 +696,8 @@ let rec collectConstraints term (env: Env) =
                     [Equals (typ, Accessor(tupleIo, stdRecordTyp))] @@ c @@ acc
                 let c = List.fold2 f' UniEnv.empty ios <| List.map (flip collectConstraints env) paths
 
-                Type.Tuple ios, stdRecordTyp, Type.Tuple ios, c
+                let t = ConstType (ConstructorType.Tuple ios.Length, ios)
+                t, stdRecordTyp, t, c
 
         let io, r, storage, c = f path
         Accessor (io, r), c
@@ -783,13 +749,6 @@ let rec collectConstraints term (env: Env) =
         typ2, cons @@ c1 @@ c2
     | Raise ->
         VarType (getVarType (), []), UniEnv.empty
-    | Tuple(terms) ->
-        if List.length terms < 2 then
-            sprintf "Tuple must have more than 2 components at %A" term |> TypeException |> raise
-        let types, constraints = 
-            List.unzip <| 
-            List.map (fun t -> collectConstraints t env) terms
-        Type.Tuple types, List.reduce (@@) constraints
     | Record(pairs) ->
         let names, types = List.unzip pairs
         if Collections.Set(names).Count < List.length names then
