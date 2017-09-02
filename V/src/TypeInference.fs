@@ -134,9 +134,10 @@ let rec getFreeVars typ env =
             pairs |> List.unzip |> snd |> 
             List.fold (fun acc x -> getFreeVars x env @ acc) []
         | VarType (x, traits) ->
-            let freeChecker x' assoc =
+            let freeChecker _ assoc =
                 match assoc with
-                | Simple (VarType (x1, traits)) -> x1 = x
+                | Simple typ' -> 
+                    List.exists (fun (x', _) -> x = x') <| getFreeVars typ' defaultEnv
                 | _ -> false
             if Map.exists freeChecker env.vars then
                 getFreeVarsInTraits traits env
