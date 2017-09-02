@@ -183,7 +183,7 @@ type ExType =
     | ExConstType of ConstructorType * ExType list
     | ExFunction of ExType * ExType
     | ExAccessor of ExType * ExType
-    | ExTupleType of ExType list
+//    | ExTupleType of ExType list
     | ExRecordType of (string * ExType) list
 
     | ExTypeAlias of string
@@ -226,9 +226,9 @@ and ExTerm =
     | ExMatch of ExTerm * (ExVarPattern * ExTerm option * ExTerm) list
     | ExLet of ExDeclaration * ExTerm
     | ExRaise
-//    | ExTuple of ExTerm list
     | ExRecord of (string * ExTerm) list
-
+    
+    | ExTuple of ExTerm list
     | ExListTerm of ExTerm list
     | Cond of ExTerm * ExTerm * ExTerm
     | Range of ExTerm * ExTerm option * ExTerm
