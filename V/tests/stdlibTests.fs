@@ -147,7 +147,7 @@ let infixl 8 (%) = remainder;
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (Remainder.func + "remainder 'c' 3")
-        throwsWrongType (Remainder.func + "remainder true 2")
+        throwsWrongType (Remainder.func + "remainder True 2")
         throwsWrongType (Remainder.func + "remainder [1,2] 4")
 
     [<Test>]
@@ -178,7 +178,7 @@ let negate x =
      
     [<Test>]
     member that.wrongParameter() =
-        throwsWrongType (Negate.func + "negate true")
+        throwsWrongType (Negate.func + "negate True")
         throwsWrongType (Negate.func + "negate \"hj\"")
         throwsWrongType (Negate.func + "negate 'c'")
 
@@ -215,7 +215,7 @@ let abs x =
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (Abs.func + "abs [1,2]")
-        throwsWrongType (Abs.func + "abs true")
+        throwsWrongType (Abs.func + "abs True")
         throwsWrongType (Abs.func + "abs 'c'")
 
     [<Test>]
@@ -236,9 +236,9 @@ type Not() =
     static member func = """
 let not t =
 	if t then
-		false
+		False
 	else
-		true
+		True
 ;
 """
 
@@ -249,15 +249,15 @@ let not t =
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (Not.func + "not 4")
-        throwsWrongType (Not.func + "not [true]")
+        throwsWrongType (Not.func + "not [True]")
 
     [<Test>]
     member that.negateTrue() =
-        equals (Not.func + "not true") <| ResConstructor (B false, [])
+        equals (Not.func + "not True") <| ResConstructor (B false, [])
         
     [<Test>]
     member that.negateFalse() =
-        equals (Not.func + "not false") <| ResConstructor (B true, [])
+        equals (Not.func + "not False") <| ResConstructor (B true, [])
 
 
 [<TestFixture>]
@@ -279,24 +279,24 @@ let xor t1 t2 =
      
     [<Test>]
     member that.wrongParameter() =
-        throwsWrongType (Xor.func + "xor true 4")
-        throwsWrongType (Xor.func + "xor \"string\" true")
+        throwsWrongType (Xor.func + "xor True 4")
+        throwsWrongType (Xor.func + "xor \"string\" True")
 
     [<Test>]
     member that.xorTrueFalse() =
-        equals (Xor.func + "xor true false") <| ResConstructor (B true, [])
+        equals (Xor.func + "xor True False") <| ResConstructor (B true, [])
         
     [<Test>]
     member that.xorTrueTrue() =
-        equals (Xor.func + "xor true true") <| ResConstructor (B false, [])
+        equals (Xor.func + "xor True True") <| ResConstructor (B false, [])
         
     [<Test>]
     member that.xorFalseFalse() =
-        equals (Xor.func + "xor false false") <| ResConstructor (B false, [])
+        equals (Xor.func + "xor False False") <| ResConstructor (B false, [])
         
     [<Test>]
     member that.xorFalseTrue() =
-        equals (Xor.func + "xor false true") <| ResConstructor (B true, [])
+        equals (Xor.func + "xor False True") <| ResConstructor (B true, [])
 
 [<TestFixture>]
 type Fst() =
@@ -314,7 +314,7 @@ let fst (x, _) = x;
      
     [<Test>]
     member that.wrongParameter() =
-        throwsWrongType (Fst.func + "fst (true, 4, 4)")
+        throwsWrongType (Fst.func + "fst (True, 4, 4)")
         throwsWrongType (Fst.func + "fst 3")
 
     [<Test>]
@@ -342,7 +342,7 @@ let snd (_, y) = y;
      
     [<Test>]
     member that.wrongParameter() =
-        throwsWrongType (Snd.func + "snd (true, 4, 4)")
+        throwsWrongType (Snd.func + "snd (True, 4, 4)")
         throwsWrongType (Snd.func + "snd 3")
 
     [<Test>]
@@ -370,7 +370,7 @@ let swap (x, y) = (y, x);
      
     [<Test>]
     member that.wrongParameter() =
-        throwsWrongType (Swap.func + "swap (true, 4, 4)")
+        throwsWrongType (Swap.func + "swap (True, 4, 4)")
         throwsWrongType (Swap.func + "swap 3")
 
     [<Test>]
@@ -404,7 +404,7 @@ let modify acc f r =
      
     [<Test>]
     member that.wrongParameter() =
-        throwsWrongType (Modify.func + "modify (true, 4, 4)")
+        throwsWrongType (Modify.func + "modify (True, 4, 4)")
         throwsWrongType (Modify.func + "modify #name (\x -> x + 1) {names:3}")
         throwsWrongType (Modify.func + "modify #name (\x -> x + 1) {name:'a'}")
 
@@ -444,7 +444,7 @@ let head (x :: xs) = x;
 
     [<Test>]
     member that.wrongParameter() =
-        throwsWrongType (Head.func + "head 4 [true]")
+        throwsWrongType (Head.func + "head 4 [True]")
 
     [<Test>]
     member that.empty() =
@@ -487,8 +487,8 @@ type Empty() =
     static member func = """
 let empty? x =
     match x with
-    | [] -> true
-    | _ -> false
+    | [] -> True
+    | _ -> False
 ;
 """
 
@@ -504,11 +504,11 @@ let empty? x =
 
     [<Test>]
     member that.empty() =
-        equalsParsed (Empty.func + "empty? []") "true"
+        equalsParsed (Empty.func + "empty? []") "True"
         
     [<Test>]
     member that.firstString() =
-        equalsParsed (Empty.func + "empty? \"hi\"") "false"
+        equalsParsed (Empty.func + "empty? \"hi\"") "False"
         
         
 [<TestFixture>]
@@ -535,13 +535,13 @@ let rec append x ls =
      
     [<Test>]
     member that.wrongParameter() =
-        throwsWrongType (Append.func + "append 4 [true]")
+        throwsWrongType (Append.func + "append 4 [True]")
         throwsWrongType (Append.func + "append \"string\" \"hi\"")
-        throwsWrongType (Append.func + "append true [1,2,3]")
+        throwsWrongType (Append.func + "append True [1,2,3]")
 
     [<Test>]
     member that.toEmpty() =
-        equalsParsed (Append.func + "append true []") "[true]"
+        equalsParsed (Append.func + "append True []") "[True]"
         
     [<Test>]
     member that.goesToEnd() =
@@ -572,22 +572,22 @@ let (@) = concat;
      
     [<Test>]
     member that.testType2() =
-        matchesType (Concat.func + "concat [true]") <| 
+        matchesType (Concat.func + "concat [True]") <| 
             Function (ConstType (List, [ConstType (Bool, [])]), ConstType (List, [ConstType (Bool, [])]))
      
     [<Test>]
     member that.wrongParameter() =
-        throwsWrongType (Concat.func + "concat [4] [true]")
+        throwsWrongType (Concat.func + "concat [4] [True]")
         throwsWrongType (Concat.func + "concat 's' \"hi\"")
         throwsWrongType (Concat.func + "concat [4] [[1,2,3]]")
 
     [<Test>]
     member that.toEmpty() =
-        equalsParsed (Concat.func + "concat [] [true]") "[true]"
+        equalsParsed (Concat.func + "concat [] [True]") "[True]"
         
     [<Test>]
     member that.toEmpty2() =
-        equalsParsed (Concat.func + "concat [true] []") "[true]"
+        equalsParsed (Concat.func + "concat [True] []") "[True]"
 
     [<Test>]
     member that.goesToEnd() =
@@ -617,7 +617,7 @@ let rec last ls =
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (Last.func + "last 4")
-        throwsWrongType (Last.func + "last true")
+        throwsWrongType (Last.func + "last True")
 
     [<Test>]
     member that.empty() =
@@ -625,7 +625,7 @@ let rec last ls =
         
     [<Test>]
     member that.oneItem() =
-        equalsParsed (Last.func + "last [true]") "true"
+        equalsParsed (Last.func + "last [True]") "True"
 
     [<Test>]
     member that.multipleItems() =
@@ -658,7 +658,7 @@ let rec init ls =
         
     [<Test>]
     member that.oneItem() =
-        equalsParsed (Init.func + "init [true]") "[]"
+        equalsParsed (Init.func + "init [True]") "[]"
 
     [<Test>]
     member that.multipleItems() =
@@ -691,7 +691,7 @@ let rec length ls =
         
     [<Test>]
     member that.oneItem() =
-        equalsParsed (Length.func + "length [true]") "1"
+        equalsParsed (Length.func + "length [True]") "1"
 
     [<Test>]
     member that.multipleItems() =
@@ -719,7 +719,7 @@ let rec range start finish inc =
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (Range.func + "range 'c'")
-        throwsWrongType (Range.func + "range 4 true")
+        throwsWrongType (Range.func + "range 4 True")
         throwsWrongType (Range.func + "range 4 3 []")
         throwsWrongType (Range.func + "range [4] 3 []")
 
@@ -808,8 +808,8 @@ let rec map f ls =
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (Map.func + "map [1,2,3]")
-        throwsWrongType (Map.func + "map (\\x -> x = true) [1,2,3]")
-        throwsWrongType (Map.func + "map (\\x -> x = true) true")
+        throwsWrongType (Map.func + "map (\\x -> x = True) [1,2,3]")
+        throwsWrongType (Map.func + "map (\\x -> x = True) True")
 
     [<Test>]
     member that.emptyList() =
@@ -827,7 +827,7 @@ let rec map f ls =
     [<Test>]
     member that.mapOtherType() =
         equalsParsed (Map.func + "map (\\x -> x > 3) [2,5,3,6]") 
-            "[false, true, false, true]"
+            "[False, True, False, True]"
         
 
 [<TestFixture>]
@@ -851,8 +851,8 @@ let rec fold f acc ls =
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (Fold.func + "fold [1,2,3]")
-        throwsWrongType (Fold.func + "fold (\\x -> x = true) true [1,2,3]")
-        throwsWrongType (Fold.func + Remainder.func + "fold (\\acc x -> acc && x % 4 = 0) true \"hi\"")
+        throwsWrongType (Fold.func + "fold (\\x -> x = True) True [1,2,3]")
+        throwsWrongType (Fold.func + Remainder.func + "fold (\\acc x -> acc && x % 4 = 0) True \"hi\"")
 
     [<Test>]
     member that.emptyList() =
@@ -865,12 +865,12 @@ let rec fold f acc ls =
     [<Test>]
     member that.foldXor() =
         equalsParsed (Fold.func + Xor.func + 
-            "fold xor true [true,false,true]") "true"
+            "fold xor True [True,False,True]") "True"
        
     [<Test>]
     member that.foldChangeType() =
         equalsParsed (Fold.func + 
-            "fold (\\acc x -> if x then acc+1 else acc) 0 [true,false,true]") 
+            "fold (\\acc x -> if x then acc+1 else acc) 0 [True,False,True]") 
             "2"
    
 
@@ -891,7 +891,7 @@ let reduce f (x :: xs) = fold f x xs;
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (Reduce.func + "reduce [1,2,3]")
-        throwsWrongType (Reduce.func + "reduce (\\x -> x = true) [1,2,3]")
+        throwsWrongType (Reduce.func + "reduce (\\x -> x = True) [1,2,3]")
 
     [<Test>]
     member that.emptyList() =
@@ -904,7 +904,7 @@ let reduce f (x :: xs) = fold f x xs;
     [<Test>]
     member that.reduceXor() =
         equalsParsed (Reduce.func + Xor.func + 
-            "reduce xor [true,false,true]") "false"
+            "reduce xor [True,False,True]") "False"
        
 
 [<TestFixture>]
@@ -914,8 +914,8 @@ type All() =
         Not.func + Apply.func + """
 let rec all pred ls =
     match ls with
-    | [] -> true
-    | x :: _ when not $ pred x -> false
+    | [] -> True
+    | x :: _ when not $ pred x -> False
     | _ :: xs -> all pred xs
 ;
 """
@@ -929,19 +929,19 @@ let rec all pred ls =
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (All.func + "all [1,2,3]")
-        throwsWrongType (All.func + "all (\\x -> x = true) [1,2,3]")
+        throwsWrongType (All.func + "all (\\x -> x = True) [1,2,3]")
 
     [<Test>]
     member that.emptyList() =
-        equalsParsed (All.func + "all (\\x -> x > 2) []") "true"
+        equalsParsed (All.func + "all (\\x -> x > 2) []") "True"
         
     [<Test>]
     member that.allMatch() =
-        equalsParsed (All.func + "all (\\x -> x > 3) [4,5,6]") "true"
+        equalsParsed (All.func + "all (\\x -> x > 3) [4,5,6]") "True"
         
     [<Test>]
     member that.oneFails() =
-        equalsParsed (All.func + "all (\\x -> x > 3) [3,5,6]") "false"
+        equalsParsed (All.func + "all (\\x -> x > 3) [3,5,6]") "False"
 
 
 [<TestFixture>]
@@ -950,8 +950,8 @@ type Any() =
     static member func = """
 let rec any pred ls =
     match ls with
-    | [] -> false
-    | x :: _ when pred x -> true
+    | [] -> False
+    | x :: _ when pred x -> True
     | _ :: xs -> any pred xs
 ;
 """
@@ -965,19 +965,19 @@ let rec any pred ls =
     [<Test>]
     member that.wrongParameter() =
         throwsWrongType (Any.func + "any [1,2,3]")
-        throwsWrongType (Any.func + "any (\\x -> x = true) [1,2,3]")
+        throwsWrongType (Any.func + "any (\\x -> x = True) [1,2,3]")
 
     [<Test>]
     member that.emptyList() =
-        equalsParsed (Any.func + "any (\\x -> x > 2) []") "false"
+        equalsParsed (Any.func + "any (\\x -> x > 2) []") "False"
         
     [<Test>]
     member that.allFail() =
-        equalsParsed (Any.func + "any (\\x -> x < 3) [4,5,6]") "false"
+        equalsParsed (Any.func + "any (\\x -> x < 3) [4,5,6]") "False"
         
     [<Test>]
     member that.oneMatches() =
-        equalsParsed (Any.func + "any (\\x -> x > 3) [3,5,2]") "true"
+        equalsParsed (Any.func + "any (\\x -> x > 3) [3,5,2]") "True"
 
 [<TestFixture>]
 type Maximum() =
@@ -997,7 +997,7 @@ let maximum ls =
      
     [<Test>]
     member that.wrongParameter() =
-        throwsWrongType (Maximum.func + "maximum [true,false,true]")
+        throwsWrongType (Maximum.func + "maximum [True,False,True]")
         throwsWrongType (Maximum.func + "maximum 3")
 
     [<Test>]
@@ -1031,7 +1031,7 @@ let minimum ls =
      
     [<Test>]
     member that.wrongParameter() =
-        throwsWrongType (Minimum.func + "minimum [true,false,true]")
+        throwsWrongType (Minimum.func + "minimum [True,False,True]")
         throwsWrongType (Minimum.func + "minimum 3")
 
     [<Test>]
@@ -1067,7 +1067,7 @@ let rec take n ls =
      
     [<Test>]
     member that.wrongParameter() =
-        throwsWrongType (Take.func + "take true [true,false,true]")
+        throwsWrongType (Take.func + "take True [True,False,True]")
         throwsWrongType (Take.func + "take 4 'c'")
 
     [<Test>]
@@ -1111,7 +1111,7 @@ let rec drop n ls =
      
     [<Test>]
     member that.wrongParameter() =
-        throwsWrongType (Drop.func + "drop true [true,false,true]")
+        throwsWrongType (Drop.func + "drop True [True,False,True]")
         throwsWrongType (Drop.func + "drop 4 'c'")
 
     [<Test>]
@@ -1156,7 +1156,7 @@ let rec takeWhile pred ls =
      
     [<Test>]
     member that.wrongParameter() =
-        throwsWrongType (TakeWhile.func + "takeWhile true [true,false,true]")
+        throwsWrongType (TakeWhile.func + "takeWhile True [True,False,True]")
         throwsWrongType (TakeWhile.func + "takeWhile 4 'c'")
 
     [<Test>]
@@ -1197,7 +1197,7 @@ let rec dropWhile pred ls =
      
     [<Test>]
     member that.wrongParameter() =
-        throwsWrongType (DropWhile.func + "dropWhile true [true,false,true]")
+        throwsWrongType (DropWhile.func + "dropWhile True [True,False,True]")
         throwsWrongType (DropWhile.func + "dropWhile 4 'c'")
 
     [<Test>]
@@ -1269,8 +1269,8 @@ type Exists() =
     static member func = """
 let rec exists t ls =
     match ls with
-    | [] -> false
-    | x :: _ when x = t -> true
+    | [] -> False
+    | x :: _ when x = t -> True
     | _ :: xs -> exists t xs
 ;
 """
@@ -1285,23 +1285,23 @@ let rec exists t ls =
     member that.wrongParameter() =
         throwsWrongType (Exists.func + "exists 'c' [1,2,3]")
         throwsWrongType (Exists.func + "exists (\x -> x) []")
-        throwsWrongType (Exists.func + "exists true [2,6]")
+        throwsWrongType (Exists.func + "exists True [2,6]")
         
     [<Test>]
     member that.emptyList() =
-        equalsParsed (Exists.func + "exists 5 []") "false"
+        equalsParsed (Exists.func + "exists 5 []") "False"
         
     [<Test>]
     member that.doesntExist() =
-        equalsParsed (Exists.func + "exists false [true, true, true]") "false"
+        equalsParsed (Exists.func + "exists False [True, True, True]") "False"
         
     [<Test>]
     member that.exists() =
-        equalsParsed (Exists.func + "exists 4 [1,2,3,4]") "true"
+        equalsParsed (Exists.func + "exists 4 [1,2,3,4]") "True"
 
     [<Test>]
     member that.listOfLists() =
-        equalsParsed (Exists.func + "exists [5] [[1],[2],[],[5]]") "true"
+        equalsParsed (Exists.func + "exists [5] [[1],[2],[],[5]]") "True"
         
 
 [<TestFixture>]
@@ -1335,7 +1335,7 @@ let rec filter pred ls =
         
     [<Test>]
     member that.doesntExist() =
-        equalsParsed (Filter.func + "filter (\x -> x) [false,false,false]") "[]"
+        equalsParsed (Filter.func + "filter (\x -> x) [False,False,False]") "[]"
         
     [<Test>]
     member that.exists() =
@@ -1369,7 +1369,7 @@ let indexOf t ls =
     member that.wrongParameter() =
         throwsWrongType (IndexOf.func + "indexOf 'c' [1,2,3]")
         throwsWrongType (IndexOf.func + "indexOf (\x -> x) []")
-        throwsWrongType (IndexOf.func + "indexOf 1 [true,false]")
+        throwsWrongType (IndexOf.func + "indexOf 1 [True,False]")
         
     [<Test>]
     member that.emptyList() =
@@ -1377,7 +1377,7 @@ let indexOf t ls =
         
     [<Test>]
     member that.doesntExist() =
-        equalsParsed (IndexOf.func + "indexOf false [true, true, true]") "0-1"
+        equalsParsed (IndexOf.func + "indexOf False [True, True, True]") "0-1"
         
     [<Test>]
     member that.exists() =
@@ -1459,7 +1459,7 @@ let rec sort ls =
     member that.wrongParameter() =
         throwsWrongType (Sort.func + "sort 'c'")
         throwsWrongType (Sort.func + "sort [(\x -> x)]")
-        throwsWrongType (Sort.func + "sort [true, false]")
+        throwsWrongType (Sort.func + "sort [True, False]")
         
     [<Test>]
     member that.emptyList() =
@@ -1503,7 +1503,7 @@ let rec zip x y =
     member that.wrongParameter() =
         throwsWrongType (Zip.func + "zip 'c'")
         throwsWrongType (Zip.func + "zip 3")
-        throwsWrongType (Zip.func + "zip [true, false] false")
+        throwsWrongType (Zip.func + "zip [True, False] False")
         
     [<Test>]
     member that.emptyList() =
@@ -1547,7 +1547,7 @@ let rec zipWith f x y =
     member that.wrongParameter() =
         throwsWrongType (ZipWith.func + "zipWith (\x y -> x + y) ['a']")
         throwsWrongType (ZipWith.func + Concat.func + "zipWith (\x y -> x @ y) [\"alo\"] [[1,2],[2,3]]")
-        throwsWrongType (ZipWith.func + "zipWith [true, false] false")
+        throwsWrongType (ZipWith.func + "zipWith [True, False] False")
         
     [<Test>]
     member that.emptyList() =
@@ -1719,10 +1719,10 @@ type ParseBool() =
 
     static member func = """
 let parseBool (s: String): Bool =
-    if s = "true" then
-        true
-    else if s = "false" then
-        false
+    if s = "True" then
+        True
+    else if s = "False" then
+        False
     else 
         raise
 ;
@@ -1744,16 +1744,16 @@ let parseBool (s: String): Bool =
         
     [<Test>]
     member that.parseTrue() =
-        equalsParsed (ParseBool.func + "parseBool \"true\"") "true"
+        equalsParsed (ParseBool.func + "parseBool \"True\"") "True"
         
     [<Test>]
     member that.parseFalse() =
-        equalsParsed (ParseBool.func + "parseBool \"false\"") "false"
+        equalsParsed (ParseBool.func + "parseBool \"False\"") "False"
         
     [<Test>]
     member that.parseInvalid() =
         equalsParsed (ParseBool.func + "parseBool \"tru\"") "raise"
-        equalsParsed (ParseBool.func + "parseBool \"trues\"") "raise"
+        equalsParsed (ParseBool.func + "parseBool \"Trues\"") "raise"
         equalsParsed (ParseBool.func + "parseBool \"fasle\"") "raise"
 
 
@@ -1763,9 +1763,9 @@ type PrintBool() =
     static member func = """
 let printBool (b: Bool): String =
     if b then
-        "true"
+        "True"
     else
-        "false"
+        "False"
 ;
 """
 
@@ -1781,9 +1781,9 @@ let printBool (b: Bool): String =
         
     [<Test>]
     member that.printTrue() =
-        equalsParsed (PrintBool.func + "printBool true") "\"true\""
+        equalsParsed (PrintBool.func + "printBool True") "\"True\""
         
     [<Test>]
     member that.printFalse() =
-        equalsParsed (PrintBool.func + "printBool false") "\"false\""
+        equalsParsed (PrintBool.func + "printBool False") "\"False\""
         

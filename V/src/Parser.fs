@@ -63,8 +63,8 @@ let private pBetween s1 s2 p =
 
 let keywords = 
     Collections.Set
-       ["let" ; "true"  ; "false" ; "if"   ; "then"   ; "else"  ;
-        "rec" ; "nil"   ; "raise" ; "when" ; "match"  ; "with"  ;
+       ["let" ; "True"  ; "False" ; "if"   ; "then"   ; "else"  ;
+        "rec" ; "Nil"   ; "raise" ; "when" ; "match"  ; "with"  ;
         "for" ; "in"    ; "import"; "infix"; "infixl" ; "infixr";
         "type"; "alias" ; "get"   ; "set"  ; "stack"  ; "distort";  "_"]
 
@@ -206,10 +206,10 @@ let private pIdentPattern = pIdentifier |>> fun id -> (ExXPat id, None)
 let private pIgnorePattern = stringReturn "_" <| (ExIgnorePat, None)
 
 let private pBoolPattern = 
-        (stringReturn "true" <| (ExConstructorPat (B true, []), None))
-            <|> (stringReturn "false" <| (ExConstructorPat (B false, []), None))
+        (stringReturn "True" <| (ExConstructorPat (B true, []), None))
+            <|> (stringReturn "False" <| (ExConstructorPat (B false, []), None))
 let private pNumPattern = pint32 |>> fun ui -> (ExConstructorPat (I ui, []), None)
-let private pNilPattern = stringReturn "nil" <| (ExConstructorPat (Nil, []), None)
+let private pNilPattern = stringReturn "Nil" <| (ExConstructorPat (Nil, []), None)
 
 let private pCharPattern = 
     pChar |>> 
@@ -284,12 +284,12 @@ do pPatternRef :=
 //#region Basic Value Parsing
 
 let private pBool = 
-    (stringReturn "true"  (ExConstructor (B true)))
-        <|> (stringReturn "false" (ExConstructor (B false)))
+    (stringReturn "True"  (ExConstructor (B true)))
+        <|> (stringReturn "False" (ExConstructor (B false)))
 
 let private pNum = puint32 |>> fun ui -> ExConstructor (I <| int(ui))
 
-let private pNil = stringReturn "nil" <| ExConstructor Nil
+let private pNil = stringReturn "Nil" <| ExConstructor Nil
 
 let private pRaise = stringReturn "raise" ExRaise
 

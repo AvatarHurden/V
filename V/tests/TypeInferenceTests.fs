@@ -30,7 +30,7 @@ type TestTypeInfer() =
     member that.letAndCond () =
         compare ("let x: Int = 3;
         let y: Int = 4;
-        let b: Bool = false;
+        let b: Bool = False;
         if b then
 	        (x + y)
         else
@@ -52,7 +52,7 @@ map (\x -> x + 1) [1,2,3,4]", ConstType (List, [ConstType (Int, [])]))
     [<Test>]
     member that.polymorphicIdentity() =
         compare ("let f x = if x = x then x else x;
-                if (f true) then
+                if (f True) then
                     f 1
                 else
                     f 4", (ConstType (Int, [])))
@@ -64,12 +64,12 @@ map (\x -> x + 1) [1,2,3,4]", ConstType (List, [ConstType (Int, [])]))
             | [] -> 0
             | x :: xs -> 1 + count xs
             ;
-                count [1,2,3] + count [true,false]", (ConstType (Int, [])))
+                count [1,2,3] + count [True,False]", (ConstType (Int, [])))
 
     [<Test>]
     member that.wrongPolymorphism() =
         (fun () -> compare ("let f x = head x;
-                if (f [true]) then
+                if (f [True]) then
                     f 1
                 else
                     f 4", (ConstType (Int, []))) |> ignore) |> should throw typeof<TypeException>
@@ -78,7 +78,7 @@ map (\x -> x + 1) [1,2,3,4]", ConstType (List, [ConstType (Int, [])]))
     member that.polymorphicHead() =
         compare ("let head (x :: xs) = x;
                 let f x = head x;
-                if (f [true]) then
+                if (f [True]) then
                     f [1]
                 else
                     f [4]", (ConstType (Int, [])))
@@ -91,19 +91,19 @@ let rec fold f acc ls =
     | [] -> acc
     | x :: xs -> fold f (f acc x) xs
 ;
-if (fold (\\acc x -> if x then acc else false) true [true,true,false]) then
+if (fold (\\acc x -> if x then acc else False) True [True,True,False]) then
 	fold (\\acc x -> acc + x) 0 [1,2,3]
 else
-	fold (\\acc x -> if x then acc+1 else acc) 0 [true,false,true]", (ConstType (Int, [])))
+	fold (\\acc x -> if x then acc+1 else acc) 0 [True,False,True]", (ConstType (Int, [])))
 
     [<Test>]
     member that.wrongReduces() =
         (fun () -> 
             compare (
-                "if (reduce (\\acc x -> x && acc) [true,true,false]) then
+                "if (reduce (\\acc x -> x && acc) [True,True,False]) then
 	        reduce (\\acc x -> acc + x) [1,2,3]
         else
-	        reduce (\\acc x -> x || acc) [true,false,true]", (ConstType (Int, []))) |> ignore) |> 
+	        reduce (\\acc x -> x || acc) [True,False,True]", (ConstType (Int, []))) |> ignore) |> 
         should throw typeof<TypeException>
 
     [<Test>]
@@ -118,9 +118,9 @@ else
 
     [<Test>]
     member that.extendedPatMatch() =
-        compare ("match {name: \"arthur\", age: 21, male: true} with
+        compare ("match {name: \"arthur\", age: 21, male: True} with
                     | {age: x, ...} when x > 50 -> 0
-                    | {male: true, age: x, ...} when x < 30 -> 1
+                    | {male: True, age: x, ...} when x < 30 -> 1
                     | _ -> 2", (ConstType (Int, [])))
 
     [<Test>]
@@ -128,7 +128,7 @@ else
         compare ("let f x =
                     match x with
                     | {age: x, ...} when x > 50 -> 0
-                    | {male: true, age: x, ...} when x < 30 -> 1
+                    | {male: True, age: x, ...} when x < 30 -> 1
                     | _ -> 2
                     ; f", 
             Function (VarType ("X13",[RecordLabel ("male",(ConstType (Bool, []))); RecordLabel ("age",(ConstType (Int, [])))]),(ConstType (Int, []))))
@@ -138,14 +138,14 @@ else
         compare ("let f x =
                     match x with
                     | {age: x, ...} when x > 50 -> 0
-                    | {male: true, age: x} when x < 30 -> 1
+                    | {male: True, age: x} when x < 30 -> 1
                     | _ -> 2
                     ; f", Function (Type.Record [("male", (ConstType (Bool, []))); ("age", ConstType (Int, []))],ConstType (Int, [])))
 
     [<Test>]
     member that.polymorphismInTuples() =
         compare ("let (x, y) = ((\x -> x), (\x -> x)); 
-            if x true then x 0 else x 1", ConstType (Int, []))
+            if x True then x 0 else x 1", ConstType (Int, []))
             
     [<Test>]
     member that.polymorphicEmptyList() =
@@ -256,9 +256,9 @@ type TestMatchInfer() =
     member that.differentTypesMatch() =
         shouldFail "let empty2 x =
 	match x with
-	| [] -> true
-	| x :: xs when x = 'c' -> true
-	| x :: xs when x < 3 -> false
+	| [] -> True
+	| x :: xs when x = 'c' -> True
+	| x :: xs when x < 3 -> False
 ;
 empty2 [1,2,3]
 "
@@ -267,7 +267,7 @@ empty2 [1,2,3]
     member that.emptyFunction() =
         compare ("let empty2 x =
 	match x with
-	| [] -> true
-	| x :: xs -> false
+	| [] -> True
+	| x :: xs -> False
 ;
 empty2 []", (ConstType (Bool, [])))

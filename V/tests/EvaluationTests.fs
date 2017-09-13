@@ -46,9 +46,9 @@ lcm 121 11*15", ResConstructor (I 1815, []))
 
     [<Test>]
     member that.shortCircuit() =
-        compare ("true || raise", ResConstructor (B true, []))
-        compare ("false && true", ResConstructor (B false, []))
-        compare ("false && raise", ResConstructor (B false, []))
+        compare ("True || raise", ResConstructor (B true, []))
+        compare ("False && True", ResConstructor (B false, []))
+        compare ("False && raise", ResConstructor (B false, []))
         compare ("let t = []; (empty? t) || (head t) = 0", ResConstructor (B true, []))
 
 [<TestFixture>]
@@ -72,7 +72,7 @@ type TestEquality() =
         compare ("[1,2,3] != [1,2]", ResConstructor (B true, []))
         compare ("[1,2,3] = [1]", ResConstructor (B false, []))
         compare ("[3,4,5] = [3,4,5]", ResConstructor (B true, []))
-        compare ("[true, false, true] = [true, false, true]", ResConstructor (B true, []))
+        compare ("[True, False, True] = [True, False, True]", ResConstructor (B true, []))
         
 [<TestFixture>]
 type TestMatchEval() =
@@ -83,13 +83,13 @@ type TestMatchEval() =
     
     [<Test>]
     member that.simpleBool() =
-        compare ("let x = true;
-            let true = true; x", ResConstructor (B true, []))
+        compare ("let x = True;
+            let True = True; x", ResConstructor (B true, []))
        
     [<Test>]
     member that.wrongBool() =
-        compare ("let x = true;
-            let false = true; x", ResRaise)
+        compare ("let x = True;
+            let False = True; x", ResRaise)
             
     [<Test>]
     member that.matchWrongNumber() =

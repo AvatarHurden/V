@@ -52,9 +52,9 @@ let abs x =
 
 let not t =
     if t then
-        false
+        False
     else
-        true
+        True
 ;
 
 let xor t1 t2 =
@@ -103,8 +103,8 @@ let tail (x :: xs) = xs;
 
 let empty? x =
     match x with
-    | [] -> true
-    | _ -> false
+    | [] -> True
+    | _ -> False
 ;
 
 let rec append x ls =
@@ -184,15 +184,15 @@ let reduce f (x :: xs) = fold f x xs;
 
 let rec all pred ls =
     match ls with
-    | [] -> true
-    | x :: _ when not $ pred x -> false
+    | [] -> True
+    | x :: _ when not $ pred x -> False
     | _ :: xs -> all pred xs
 ;
 
 let rec any pred ls =
     match ls with
-    | [] -> false
-    | x :: _ when pred x -> true
+    | [] -> False
+    | x :: _ when pred x -> True
     | _ :: xs -> any pred xs
 ;
 
@@ -249,8 +249,8 @@ let sublist start size ls =
 
 let rec exists t ls =
     match ls with
-    | [] -> false
-    | x :: _ when x = t -> true
+    | [] -> False
+    | x :: _ when x = t -> True
     | _ :: xs -> exists t xs
 ;
 
@@ -374,19 +374,19 @@ let rec printInt (i: Int): String =
 ;
 
 let parseBool (s: String): Bool =
-    if s = "true" then
-        true
-    else if s = "false" then
-        false
+    if s = "True" then
+        True
+    else if s = "False" then
+        False
     else 
         raise
 ;
 
 let printBool (b: Bool): String =
     if b then
-        "true"
+        "True"
     else
-        "false"
+        "False"
 ;
 """
 

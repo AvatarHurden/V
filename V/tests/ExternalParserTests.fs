@@ -164,7 +164,7 @@ type TestCond() =
         
     [<Test>]
     member that.nestedCond() =
-        compare " if true then if false then 1 else 13 else 4" <| ResConstructor (I 13, [])
+        compare " if True then if False then 1 else 13 else 4" <| ResConstructor (I 13, [])
 
 [<TestFixture>]
 type TestLists() =
@@ -231,15 +231,15 @@ type TestTupleRecords() =
 
     [<Test>]
     member that.twoTuple() =
-        compare "( 3 + 4, true  )" <| ResConstructor (Tuple 2, [ResConstructor (I 7, []); ResConstructor (B true, [])])
+        compare "( 3 + 4, True  )" <| ResConstructor (Tuple 2, [ResConstructor (I 7, []); ResConstructor (B true, [])])
         
     [<Test>]
     member that.mixedNaming() =
-        shouldFail "( a: 3 + 4, true  )"
+        shouldFail "( a: 3 + 4, True  )"
 
     [<Test>]
     member that.twoTupleNamed() =
-        compare "{ a: 3 + 4, b: true  }" <| 
+        compare "{ a: 3 + 4, b: True  }" <| 
             ResRecord ["a", ResConstructor (I 7, []); "b", ResConstructor (B true, [])]
 
 [<TestFixture>]
@@ -249,7 +249,7 @@ type TestInteractions() =
     member that.simpleLetAndCond() =
         compare    "let x: Int = 3;
                     let y: Int = 4;
-                    let b: Bool = false;
+                    let b: Bool = False;
                     if b then
 	                    (x + y)
                     else
@@ -288,4 +288,4 @@ type TestInteractions() =
         compare    "let rec sum (x: [Int]): Int =
                         if empty? x then 0 else (head x)+(sum(tail x))
                     ;
-                    sum(4::3::2::1::nil)" <| ResConstructor (I 10, [])
+                    sum(4::3::2::1::Nil)" <| ResConstructor (I 10, [])
