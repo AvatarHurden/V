@@ -2,14 +2,44 @@
 
 open Definition
 
+//#region Environment and Library
+
+type TranslationEnv = 
+    {idents: Set<Ident>
+     lastUsedSuffix: int
+     typeAliases: Map<string, Type>}
+
+    member this.generateNewIdentAndAdd (x: unit) =
+        let baseName = "generated"
+        let mutable suffix = this.lastUsedSuffix
+        while this.idents.Contains <| baseName + (string suffix) do
+            suffix <- suffix + 1
+        let newIdent = baseName + (string suffix)
+        let newEnv = {this with lastUsedSuffix = suffix; 
+                                idents = this.idents.Add newIdent}
+        newIdent, newEnv
+
+    member this.addTypeAlias name typ =
+        let aliases = this.typeAliases.Add (name, typ)
+        {this with typeAliases = aliases}
+
+let emptyTransEnv = {idents = Set.empty; lastUsedSuffix = 0; typeAliases = Map.empty}
+
+type Library =
+    {terms: LibComponent list;
+    translationEnv: TranslationEnv;
+    operators: OperatorSpec list}
+
+let emptyLib = {terms = []; operators = []; translationEnv = emptyTransEnv}
+
+//#endregion
+
 let rec private translateType typ (env: TranslationEnv) =
     match typ with
     | ExVarType (s, traits) -> VarType (s, traits)
     | ExConstType (c, types) -> ConstType (c, List.map (fun t -> translateType t env) types)
     | ExFunction (t1, t2) -> Function (translateType t1 env, translateType t2 env)
     | ExAccessor (t1, t2) -> Accessor (translateType t1 env, translateType t2 env)
-//    | ExTupleType ts -> 
-//        Type.Tuple <| List.map (fun t -> translateType t env) ts
     | ExRecordType ts -> 
         Type.Record <| List.map (fun (s, t) -> s, translateType t env) ts
     | ExTypeAlias s -> 
@@ -37,12 +67,6 @@ let private translatePatterns patterns env =
                 raise <| ParseException (sprintf "The identifier %s is bound twice" x)
             else
                 Pat (XPat x, translateSomeType typ env), ids.Add x
-//        | ExTuplePat patterns ->
-//            let f pat (acc, pats) =
-//                let (newPat, acc') = findRepeats acc pat
-//                (acc', newPat :: pats)
-//            let (ids', pats) = List.foldBack f patterns (ids, [])
-//            Pat (TuplePat pats, translateSomeType typ env), ids'
         | ExRecordPat (b, patterns) ->
             let f (s, pat) (acc, pats) =
                 let (newPat, acc') = findRepeats acc pat

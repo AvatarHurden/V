@@ -5,6 +5,7 @@ open System.Runtime.Serialization.Formatters.Binary
 open System.IO
 open Definition
 open TypeInference
+open Translation
 open System
 
 let mutable baseFolder = AppDomain.CurrentDomain.SetupInformation.ApplicationBase
@@ -54,7 +55,7 @@ let loadLib path =
             else
                 raise (LibNotFound <| sprintf "Could not find library file at %A" path)
     try
-        load<Definition.Library> pathName
+        load<Library> pathName
     with
     | :? SerializationException ->
         raise <| UncompiledLib (File.ReadAllText pathName)
@@ -63,7 +64,7 @@ let loadCompiledLib (arr: byte[]) =
     let binFormatter = new BinaryFormatter()
 
     use stream = new MemoryStream(arr)
-    binFormatter.Deserialize(stream) :?> Definition.Library
+    binFormatter.Deserialize(stream) :?> Library
 
 let loadArray (arr: byte[]) =
     let binFormatter = new BinaryFormatter()

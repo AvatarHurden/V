@@ -154,24 +154,8 @@ type Fixity =
 
 type OperatorSpec =
     | OpSpec of fix:Fixity * string:string
-
+    
 type LibComponent = VarPattern * term
-
-type TranslationEnv = 
-    {typeAliases: Map<string, Type>}
-
-    member this.addTypeAlias name typ =
-        let aliases = this.typeAliases.Add (name, typ)
-        {this with typeAliases = aliases}
-
-let emptyTransEnv = {typeAliases = Map.empty}
-
-type Library =
-    {terms: LibComponent list;
-    translationEnv: TranslationEnv;
-    operators: OperatorSpec list}
-
-let emptyLib = {terms = []; operators = []; translationEnv = emptyTransEnv}
 
 //#endregion
 
