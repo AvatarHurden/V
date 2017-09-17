@@ -83,10 +83,11 @@ let private translatePatterns patterns env =
     let f pat (acc, pats) =
         let (newPat, acc') = findRepeats acc pat
         (acc', newPat :: pats)
-    let (ids', pats) = List.foldBack f patterns (Set.empty, [])
-    pats
+    List.foldBack f patterns (Set.empty, [])
 
-let private translatePattern pat env = List.head <| translatePatterns [pat] env
+let private translatePattern pat env = 
+    let ids, pats = translatePatterns [pat] env
+    ids, List.head pats
 
 let private condenseFunction name parameters retTerm retTyp =
     let f p (func, funcType: Type option) = 
@@ -123,11 +124,11 @@ let rec private condenseNamedFunction isRec id parameters retTyp retTerm env =
 and private translateDecl decl env = 
     match decl with
     | DeclConst (p, t1) -> 
-        let p' = translatePattern p env
+        let ids, p' = translatePattern p env
         let t1' = translateTerm t1 env
         [(p', t1')], env
     | DeclFunc (isRec, id, parameters, retTyp, retTerm) ->
-        let parameters' = translatePatterns parameters env
+        let ids, parameters' = translatePatterns parameters env
         let typ' = translateSomeType retTyp env
         let pat, fn = condenseNamedFunction isRec id parameters' typ' retTerm env
         [(pat, fn)], env
@@ -139,12 +140,12 @@ and private translateDecl decl env =
 and private translateFn fn env =
     match fn with
     | ExLambda (pars, t) -> 
-        let pars' = translatePatterns pars env
+        let ids, pars' = translatePatterns pars env
         let t' = translateTerm t env
         let fn, typ = condenseFunction None pars' t' None
         fn
     | ExRecursive (id, pars, typ, t) -> 
-        let pars' = translatePatterns pars env
+        let ids, pars' = translatePatterns pars env
         let typ' = translateSomeType typ env
         let pat, fn = condenseNamedFunction true id pars' typ' t env
         fn
@@ -176,11 +177,11 @@ and private translateTerm term env =
         let f (p, cond, res) =
             match cond with
             | None -> 
-                let p' = translatePattern p env
+                let ids, p' = translatePattern p env
                 let res' = translateTerm res env
                 (p', None, res')
             | Some cond ->
-                let p' = translatePattern p env
+                let ids, p' = translatePattern p env
                 let cond' = translateTerm cond env
                 let res' = translateTerm res env
                 (p', Some cond', res')
@@ -219,7 +220,8 @@ and private translateTerm term env =
                 App (App (BuiltIn Subtract, second'), first')
         App (App (App (X "range", first'), last'), increment)
     | Comprehension (retTerm, p, source) ->
-        let f = Fn <| Lambda (translatePattern p env, translateTerm retTerm env)
+        let ids, p' = translatePattern p env
+        let f = Fn <| Lambda (p', translateTerm retTerm env)
         App (App (X "map", f), translateTerm source env)
        
 let translateLib declarations env =
