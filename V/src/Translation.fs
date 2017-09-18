@@ -88,21 +88,15 @@ let private translatePatterns patterns env =
 let private translatePattern pat env = 
     let ids, pats = translatePatterns [pat] env
     ids, List.head pats
+  
+let rec private condenseFunction (recName: Ident option) exParameters exRetTerm exRetTyp env =
+    let ids, parameters = translatePatterns exParameters env
+    let retTerm = translateTerm exRetTerm env
+    let retTyp = translateSomeType exRetTyp env
 
-let private condenseFunction parameters retTerm retTyp =
-    let f p (func, funcType: Type option) = 
-        match p with
-        | Pat(_, Some typ) when funcType.IsSome ->
-            Fn <| Lambda(p, func), Some <| Function(typ, funcType.Value) 
-        | Pat (_, _) ->
-            Fn <| Lambda(p, func), None
-    
-    let fn, typ = List.foldBack f parameters (retTerm, retTyp)
-    fn, typ
-   
-let private condenseRecFunction name parameters retTerm retTyp =
     match parameters with
-    | [] -> sprintf "Recursive function named %A doesn't have any arguments" name |> ParseException |> raise
+    | [] -> 
+        retTerm, retTyp
     | first :: parameters' ->
         let f p (func, funcType: Type option) = 
             match p with
@@ -116,19 +110,21 @@ let private condenseRecFunction name parameters retTerm retTyp =
         let finalTyp = 
             match first with
             | Pat(_, Some typ) when innerTyp.IsSome -> Some <| Function(typ, innerTyp.Value) 
-            | Pat (_, _) -> None
+            | Pat (_, None) -> None
            
-        let finalFn = Fn <| Recursive(name, innerTyp, first, innerFn)
+        let finalFn = 
+            match recName with
+            | Some name -> Fn <| Recursive(name, innerTyp, first, innerFn)
+            | None -> Fn <| Lambda(first, innerFn)
 
         finalFn, finalTyp
 
-let rec private condenseNamedFunction isRec id parameters retTerm retTyp env =
-    let t' = translateTerm retTerm env
+and private condenseNamedFunction isRec id parameters retTerm retTyp env =
     let fnTerm, fnTyp =
         if isRec then
-            condenseRecFunction id parameters t' retTyp
+            condenseFunction (Some id) parameters retTerm retTyp env
         else
-            condenseFunction parameters t' retTyp
+            condenseFunction None parameters retTerm retTyp env
     
     Pat(XPat id, fnTyp), fnTerm
 
@@ -141,7 +137,7 @@ and private translateDecl decl env =
     | DeclFunc (isRec, id, parameters, retTyp, retTerm) ->
         let ids, parameters' = translatePatterns parameters env
         let typ' = translateSomeType retTyp env
-        let pat, fn = condenseNamedFunction isRec id parameters' retTerm typ' env
+        let pat, fn = condenseNamedFunction isRec id parameters retTerm retTyp env
         [(pat, fn)], env
     | DeclImport (comps) -> comps, env
     | DeclAlias (s, typ) ->
@@ -153,13 +149,13 @@ and private translateFn fn env =
     | ExLambda (pars, t) -> 
         let ids, pars' = translatePatterns pars env
         let t' = translateTerm t env
-        let fn, typ = condenseFunction pars' t' None
+        let fn, typ = condenseFunction None pars t None env
         fn
     | ExRecursive (id, pars, typ, t) -> 
         let ids, pars' = translatePatterns pars env
         let typ' = translateSomeType typ env
         let t' = translateTerm t env
-        let fn, typ = condenseRecFunction id pars' t' typ'
+        let fn, typ = condenseFunction (Some id) pars t typ env
         fn
 
 and private translateTerm term env =
