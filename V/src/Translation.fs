@@ -18,6 +18,16 @@ type TranslationEnv =
         let newEnv = {this with lastUsedSuffix = suffix; 
                                 idents = this.idents.Add newIdent}
         newIdent, newEnv
+    
+    member this.generateNewIdents (amount: int) =
+        let f (ids, (accEnv: TranslationEnv)) x =
+            let newIdent, newEnv = accEnv.generateNewIdentAndAdd ()
+            newIdent :: ids, newEnv
+        List.fold f ([], this) [1..amount]
+
+    member this.addIdents idents =
+        let idents' = Set.union this.idents idents
+        {this with idents = idents'}
 
     member this.addTypeAlias name typ =
         let aliases = this.typeAliases.Add (name, typ)
@@ -89,10 +99,33 @@ let private translatePattern pat env =
     let ids, pats = translatePatterns [pat] env
     ids, List.head pats
   
+let private transformToIdents parameters =
+    let f par =
+        match par with
+        | Pat(XPat id, _) -> Some id
+        | _ -> None
+
+    mapOption f parameters
+
 let rec private condenseFunction (recName: Ident option) exParameters exRetTerm exRetTyp env =
     let ids, parameters = translatePatterns exParameters env
-    let retTerm = translateTerm exRetTerm env
-    let retTyp = translateSomeType exRetTyp env
+
+    let realParameters, retTerm, env' = 
+        match transformToIdents parameters with
+        | Some ids -> 
+            let env' = env.addIdents <| Set.ofList ids
+            ids, translateTerm exRetTerm env', env'
+        | None -> 
+            let ids, env' = env.generateNewIdents (parameters.Length)
+            let size = ids.Length
+            let matchPattern = (ExConstructorPat (Tuple size, exParameters), None)
+            let matchReturn = translateTerm exRetTerm env'
+            let matchCase = matchPattern, None, exRetTerm
+            let realExRetTerm = ExMatch (ExTuple (List.map ExX ids), [matchCase])
+
+            ids, translateTerm realExRetTerm env', env'
+
+    let retTyp = translateSomeType exRetTyp env'
 
     match parameters with
     | [] -> 
@@ -110,7 +143,7 @@ let rec private condenseFunction (recName: Ident option) exParameters exRetTerm 
         let finalTyp = 
             match first with
             | Pat(_, Some typ) when innerTyp.IsSome -> Some <| Function(typ, innerTyp.Value) 
-            | Pat (_, None) -> None
+            | Pat (_, _) -> None
            
         let finalFn = 
             match recName with
