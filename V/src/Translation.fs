@@ -98,7 +98,17 @@ let private translatePatterns patterns env =
 let private translatePattern pat env = 
     let ids, pats = translatePatterns [pat] env
     ids, List.head pats
-  
+
+let rec private getIdents pattern = 
+    let (Pat (pattern, _)) = pattern
+    match pattern with
+    | XPat x -> [x]
+    | IgnorePat -> []
+    | ConstructorPat (c, arguments) -> List.concat <| List.map getIdents arguments
+    | RecordPat (allowsExtras, patterns) -> 
+        let _, patterns = List.unzip patterns
+        List.concat <| List.map getIdents patterns
+      
 let private transformToIdents parameters =
     let f par =
         match par with
@@ -166,13 +176,16 @@ and private translateDecl decl env =
     | DeclConst (p, t1) -> 
         let ids, p' = translatePattern p env
         let t1' = translateTerm t1 env
-        [(p', t1')], env
+        [(p', t1')], env.addIdents ids
     | DeclFunc (isRec, id, parameters, retTyp, retTerm) ->
         let ids, parameters' = translatePatterns parameters env
-        let typ' = translateSomeType retTyp env
-        let pat, fn = condenseNamedFunction isRec id parameters retTerm retTyp env
-        [(pat, fn)], env
-    | DeclImport (comps) -> comps, env
+        let innerEnv = env.addIdents <| Set.ofList [id]
+        let typ' = translateSomeType retTyp innerEnv
+        let pat, fn = condenseNamedFunction isRec id parameters retTerm retTyp innerEnv
+        [(pat, fn)], innerEnv
+    | DeclImport (comps) -> 
+        let ids = comps |> List.unzip |> fst |> List.map getIdents |> List.concat
+        comps, env.addIdents <| Set.ofList ids
     | DeclAlias (s, typ) ->
         let env' = env.addTypeAlias s <| translateType typ env
         [], env'
@@ -216,15 +229,15 @@ and private translateTerm term env =
         
     | ExMatch (t1, patterns) -> 
         let f (p, cond, res) =
+            let ids, p' = translatePattern p env
+            let env' = env.addIdents ids
             match cond with
             | None -> 
-                let ids, p' = translatePattern p env
-                let res' = translateTerm res env
+                let res' = translateTerm res env'
                 (p', None, res')
             | Some cond ->
-                let ids, p' = translatePattern p env
-                let cond' = translateTerm cond env
-                let res' = translateTerm res env
+                let cond' = translateTerm cond env'
+                let res' = translateTerm res env'
                 (p', Some cond', res')
         let t1' = translateTerm t1 env
         Match(t1', List.map f patterns)
