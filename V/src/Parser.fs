@@ -337,7 +337,7 @@ let private pRecLambda: Parser<ExTerm, UserState> =
     tuple4
         (pstring "rec" >>. ws >>. pIdentifier .>> ws) 
         (many1 pParameter)
-        (opt (pstring ":" >>. pType))
+        (opt (pstring ":" >>. ws >>. pType))
         (pstring "->" >>. ws >>. pTerm) |>> fun x -> ExFn <| ExRecursive x
 
 //#endregion
