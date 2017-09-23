@@ -117,7 +117,7 @@ let private transformToIdents parameters =
 
     mapOption f parameters
 
-let rec private condenseFunction (recName: Ident option) exParameters exRetTerm exRetTyp env =
+let rec private condenseFunction (recName: Ident option) exParameters exRetTerm env =
     let ids, parameters = translatePatterns exParameters env
 
     let realParameters, retTerm, env' = 
@@ -135,42 +135,29 @@ let rec private condenseFunction (recName: Ident option) exParameters exRetTerm 
 
             ids, translateTerm realExRetTerm env', env'
 
-    let retTyp = translateSomeType exRetTyp env'
-
     match realParameters with
     | [] -> 
-        retTerm, retTyp
+        retTerm
     | first :: parameters' ->
-        let f p (func, funcType: Type option) = 
-            Fn <| Lambda(p, func), None
-//            match p with
-//            | Pat(_, Some typ) when funcType.IsSome ->
-//                Fn <| Lambda(p, func), Some <| Function(typ, funcType.Value) 
-//            | Pat (_, _) ->
-//                Fn <| Lambda(p, func), None
+        let f p func = Fn <| Lambda(p, func)
     
-        let innerFn, innerTyp = List.foldBack f parameters' (retTerm, retTyp)
+        let innerFn = List.foldBack f parameters' retTerm
 
-        let finalTyp = None
-//            match first with
-//            | Pat(_, Some typ) when innerTyp.IsSome -> Some <| Function(typ, innerTyp.Value) 
-//            | Pat (_, _) -> None
-           
         let finalFn = 
             match recName with
-            | Some name -> Fn <| Recursive(name, innerTyp, first, innerFn)
+            | Some name -> Fn <| Recursive(name, None, first, innerFn)
             | None -> Fn <| Lambda(first, innerFn)
 
-        finalFn, finalTyp
+        finalFn
 
-and private condenseNamedFunction isRec id parameters retTerm retTyp env =
-    let fnTerm, fnTyp =
+and private condenseNamedFunction isRec id parameters retTerm env =
+    let fnTerm =
         if isRec then
-            condenseFunction (Some id) parameters retTerm retTyp env
+            condenseFunction (Some id) parameters retTerm env
         else
-            condenseFunction None parameters retTerm retTyp env
+            condenseFunction None parameters retTerm env
     
-    Pat(XPat id, fnTyp), fnTerm
+    Pat(XPat id, None), fnTerm
 
 and private translateDecl decl env = 
     match decl with
@@ -182,7 +169,7 @@ and private translateDecl decl env =
         let ids, parameters' = translatePatterns parameters env
         let innerEnv = env.addIdents <| Set.ofList [id]
         let typ' = translateSomeType retTyp innerEnv
-        let pat, fn = condenseNamedFunction isRec id parameters retTerm retTyp innerEnv
+        let pat, fn = condenseNamedFunction isRec id parameters retTerm innerEnv
         [(pat, fn)], innerEnv
     | DeclImport (comps) -> 
         let ids = comps |> List.unzip |> fst |> List.map getIdents |> List.concat
@@ -196,13 +183,13 @@ and private translateFn fn env =
     | ExLambda (pars, t) -> 
         let ids, pars' = translatePatterns pars env
         let t' = translateTerm t env
-        let fn, typ = condenseFunction None pars t None env
+        let fn = condenseFunction None pars t env
         fn
     | ExRecursive (id, pars, typ, t) -> 
         let ids, pars' = translatePatterns pars env
         let typ' = translateSomeType typ env
         let t' = translateTerm t env
-        let fn, typ = condenseFunction (Some id) pars t typ env
+        let fn = condenseFunction (Some id) pars t env
         fn
 
 and private translateTerm term env =
@@ -275,7 +262,7 @@ and private translateTerm term env =
                 App (App (BuiltIn Subtract, second'), first')
         App (App (App (X "range", first'), last'), increment)
     | Comprehension (retTerm, p, source) ->
-        let fn, env' = condenseFunction None [p] retTerm None env
+        let fn = condenseFunction None [p] retTerm env
         App (App (X "map", fn), translateTerm source env)
        
 let translateLib declarations env =
