@@ -162,6 +162,21 @@ else
             Function (x1, Function (x2, 
                         ConstType (ConstructorType.Tuple 2, [x1; x2]))))
 
+    [<Test>]
+    member that.incompleteTypeSpec() =
+        compare ("let f x :Int = x; f", 
+            Function (ConstType (Int, []), ConstType (Int, [])))
+
+    [<Test>]
+    member that.incompleteTypeSpec2() =
+        compare ("let f (x:Int) = x; f", 
+            Function (ConstType (Int, []), ConstType (Int, [])))
+
+    [<Test>]
+    member that.completeTypeSpec() =
+        compare ("let f (x: Int) :Int = x; f", 
+            Function (ConstType (Int, []), ConstType (Int, [])))
+
 [<TestFixture>]
 type TestMatchInfer() =
 
