@@ -704,20 +704,21 @@ let rec collectConstraints term (env: Env) =
         Accessor (io, r), c
     | Fn fn ->
         match fn with
-        | Lambda (pattern, t1) ->
+        | Lambda (arg, t1) ->
             let paramTyp = VarType (getVarType (), [])
-            let env', cons = validatePattern pattern paramTyp env []
+            let env' = env.addAssoc arg (Simple paramTyp) //, cons = validatePattern pattern paramTyp env []
             let typ1, c1 = collectConstraints t1 env'
-            Function(paramTyp, typ1), c1 @@ cons
-        | Recursive (id, retType, pattern, t1) ->
+            Function(paramTyp, typ1), c1
+        | Recursive (id, retType, arg, t1) ->
             let paramTyp = VarType (getVarType (), [])
             let fType = 
                 match retType with
                 | Some retType -> Function(paramTyp, retType) 
                 | None -> VarType (getVarType (), [])
-            let env', cons = validatePattern pattern paramTyp (env.addAssoc id (Simple fType)) []
+            let env' = env.addAssoc id (Simple fType)
+            let env' = env'.addAssoc arg (Simple paramTyp) //, cons = validatePattern pattern paramTyp  []
             let typ1, c1 = collectConstraints t1 env'
-            Function (paramTyp, typ1), cons @@ c1 @@ [Equals (Function (paramTyp, typ1), fType)]
+            Function (paramTyp, typ1), c1 @@ [Equals (Function (paramTyp, typ1), fType)]
     | App(t1, t2) ->
         let typ1, c1 = collectConstraints t1 env
         let typ2, c2 = collectConstraints t2 env
@@ -768,6 +769,6 @@ let typeInfer t =
 
 let typeInferLib lib =
     let ret = List.foldBack (fun (p, t) acc -> Let(p, t, acc)) lib.terms (X "x")
-    let libTerm = Fn <| Lambda(Pat(XPat "x", None), ret) 
+    let libTerm = Fn <| Lambda("x", ret) 
     libTerm |> typeInfer
        

@@ -73,8 +73,8 @@ type BuiltIn =
     | Or
 
 type Function =
-    | Lambda of VarPattern * term
-    | Recursive of Ident * (Type option) * VarPattern * term
+    | Lambda of Ident * term
+    | Recursive of Ident * (Type option) * Ident * term
 
 and Path =
     | Component of string
