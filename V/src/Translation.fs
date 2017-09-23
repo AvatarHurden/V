@@ -126,12 +126,18 @@ let rec private condenseFunction (recName: Ident option) exParameters exRetTerm 
             let env' = env.addIdents <| Set.ofList ids
             ids, translateTerm exRetTerm env', env'
         | None -> 
-            let ids, env' = env.generateNewIdents (parameters.Length)
-            let size = ids.Length
-            let matchPattern = (ExConstructorPat (Tuple size, exParameters), None)
+            let size = parameters.Length
+            let ids, env' = env.generateNewIdents size
+            let matchPattern = 
+                match exParameters with
+                | [x] -> x
+                | xs -> (ExConstructorPat (Tuple size, exParameters), None)
             let matchReturn = translateTerm exRetTerm env'
             let matchCase = matchPattern, None, exRetTerm
-            let realExRetTerm = ExMatch (ExTuple (List.map ExX ids), [matchCase])
+            let realExRetTerm = 
+                match ids with
+                | [x] -> ExMatch (ExX x, [matchCase]) 
+                | xs -> ExMatch (ExTuple (List.map ExX xs), [matchCase])
 
             ids, translateTerm realExRetTerm env', env'
 
