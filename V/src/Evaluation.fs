@@ -456,21 +456,14 @@ and private applyResults fn res env =
             else
                 ResPartial (AppConstructor c, args @ [t2'])
     | ResFn (fn, env') ->
-        match fn with
-        | Lambda (pattern, e) ->
-            match res with
-            | ResRaise -> ResRaise
-            | t2' -> 
-                match validatePattern pattern t2' env' with
-                | None -> ResRaise
-                | Some env' -> eval e env'
-        | Recursive (id, _, pattern, e) ->
-            match res with
-            | ResRaise -> ResRaise
-            | t2' -> 
-                match validatePattern pattern t2' env' with
-                | None -> ResRaise
-                | Some env' -> eval e <| env'.addId id (ResFn(fn, env'))
+        let env', arg, e = 
+            match fn with
+            | Lambda (arg, e) -> env', arg, e
+            | Recursive (id, _, arg, e) -> 
+                env'.addId id (ResFn(fn, env')), arg, e
+        match res with
+        | ResRaise -> ResRaise
+        | t2' -> eval e <| env'.addId arg t2'
     | t1' -> sprintf "First operand %A is not a function" t1' |> EvalException |> raise
 
 and private apply fn t2 (env: Env) =
@@ -487,21 +480,14 @@ and private apply fn t2 (env: Env) =
             else
                 ResPartial (AppConstructor c, args @ [t2'])
     | ResFn (fn, env') ->
-        match fn with
-        | Lambda (pattern, e) ->
-            match eval t2 env with
-            | ResRaise -> ResRaise
-            | t2' -> 
-                match validatePattern pattern t2' env' with
-                | None -> ResRaise
-                | Some env' -> eval e env'
-        | Recursive (id, _, pattern, e) ->
-            match eval t2 env with
-            | ResRaise -> ResRaise
-            | t2' -> 
-                match validatePattern pattern t2' env' with
-                | None -> ResRaise
-                | Some env' -> eval e <| env'.addId id (ResFn(fn, env'))
+        let env', arg, e = 
+            match fn with
+            | Lambda (arg, e) -> env', arg, e
+            | Recursive (id, _, arg, e) -> 
+                env'.addId id (ResFn(fn, env')), arg, e
+        match eval t2 env with
+        | ResRaise -> ResRaise
+        | t2' -> eval e <| env'.addId arg t2'
     | t1' -> sprintf "First operand %A is not a function" t1' |> EvalException |> raise
 
 and private eval (t: term) (env: Env) =

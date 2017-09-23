@@ -112,7 +112,7 @@ let rec private getIdents pattern =
 let private transformToIdents parameters =
     let f par =
         match par with
-        | Pat(XPat id, _) -> Some id
+        | Pat(XPat id, None) -> Some id
         | _ -> None
 
     mapOption f parameters
@@ -137,23 +137,24 @@ let rec private condenseFunction (recName: Ident option) exParameters exRetTerm 
 
     let retTyp = translateSomeType exRetTyp env'
 
-    match parameters with
+    match realParameters with
     | [] -> 
         retTerm, retTyp
     | first :: parameters' ->
         let f p (func, funcType: Type option) = 
-            match p with
-            | Pat(_, Some typ) when funcType.IsSome ->
-                Fn <| Lambda(p, func), Some <| Function(typ, funcType.Value) 
-            | Pat (_, _) ->
-                Fn <| Lambda(p, func), None
+            Fn <| Lambda(p, func), None
+//            match p with
+//            | Pat(_, Some typ) when funcType.IsSome ->
+//                Fn <| Lambda(p, func), Some <| Function(typ, funcType.Value) 
+//            | Pat (_, _) ->
+//                Fn <| Lambda(p, func), None
     
         let innerFn, innerTyp = List.foldBack f parameters' (retTerm, retTyp)
 
-        let finalTyp = 
-            match first with
-            | Pat(_, Some typ) when innerTyp.IsSome -> Some <| Function(typ, innerTyp.Value) 
-            | Pat (_, _) -> None
+        let finalTyp = None
+//            match first with
+//            | Pat(_, Some typ) when innerTyp.IsSome -> Some <| Function(typ, innerTyp.Value) 
+//            | Pat (_, _) -> None
            
         let finalFn = 
             match recName with
@@ -274,9 +275,8 @@ and private translateTerm term env =
                 App (App (BuiltIn Subtract, second'), first')
         App (App (App (X "range", first'), last'), increment)
     | Comprehension (retTerm, p, source) ->
-        let ids, p' = translatePattern p env
-        let f = Fn <| Lambda (p', translateTerm retTerm env)
-        App (App (X "map", f), translateTerm source env)
+        let fn, env' = condenseFunction None [p] retTerm None env
+        App (App (X "map", fn), translateTerm source env)
        
 let translateLib declarations env =
     let f (comps, env) decl =
