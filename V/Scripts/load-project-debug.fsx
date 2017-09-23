@@ -5,6 +5,7 @@
       "../src/Definition.fs"
       "../src/StringConversion.fs"
       "../src/Evaluation.fs"
+      "../src/Translation.fs"
       "../src/Printer.fs"
       "../src/TypeInference.fs"
       "../src/Compiler.fs"
@@ -15,4 +16,5 @@
       "../tests/TypeInferenceTests.fs"
       "../tests/stdlibTests.fs"
       "../tests/ExternalParserTests.fs"
+      "../tests/RecordTests.fs"
       "../Program.fs"
