@@ -39,6 +39,7 @@ type Env =
      types: ConstructorType list
      constructors: Map<Constructor, (Type * Type list)>
      vars: Map<string, EnvAssociation>
+     varTypes: Map<string, Type>
      mutable lastVarIndex: int
     }
 
@@ -49,6 +50,9 @@ type Env =
 
     member this.addAssoc id assoc = 
         {this with vars = this.vars.Add(id, assoc)}
+
+    member this.addVarAssoc id typ =
+        {this with varTypes = this.varTypes.Add(id, typ)}
 
 type UniEnv =
     {
@@ -105,6 +109,7 @@ let defaultEnv =
             Cons, (LIST, [VarType ("a", []); LIST])
             ]
      vars = Map.empty
+     varTypes = Map.empty
      lastVarIndex = 0
     }
 
@@ -196,6 +201,38 @@ let substituteInConstraints sub env =
 //#endregion
 
 type Env with
+
+    member env.instantiate typ =
+        let freeVars = getFreeVars typ env
+
+        let f (subs, env') (x, traits) =
+            match Map.tryFind x env'.varTypes with
+            | Some typ -> 
+                TypeSub (x, typ) :: subs, env'
+            | None -> 
+                let (env': Env), traits' = env'.instantiateTraits traits
+                let sub = VarType (getVarType (), traits')
+                let env' = env'.addVarAssoc x sub
+                TypeSub (x, sub) :: subs, env'
+
+        let (subs, env') = List.fold f ([], env) freeVars
+        let typ' = List.fold (flip substituteInType) typ subs
+        env', typ'
+    
+    member private env.instantiateTraits trts =
+        let instantiate trt = 
+            match trt with
+            | Equatable -> env, Equatable
+            | Orderable -> env, Orderable
+            | RecordLabel (l, typ) ->
+                let env', typ' = env.instantiate typ
+                env', RecordLabel (l, typ')
+         
+        let f (trts', env') trt =
+            let env', trt' = instantiate trt
+            trt' :: trts', env'
+        let trts', env' = List.fold f ([], env) trts
+        env', trts'
 
     member env.typeOf constr =
         match constr with
