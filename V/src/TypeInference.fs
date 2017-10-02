@@ -39,7 +39,7 @@ type Env =
      types: ConstructorType list
      constructors: Map<Constructor, (Type * Type list)>
      vars: Map<string, EnvAssociation>
-     varTypes: Map<string, Type>
+     varTypes: Map<string, string>
      mutable lastVarIndex: int
     }
 
@@ -208,12 +208,12 @@ type Env with
         let f (subs, env') (x, traits) =
             match Map.tryFind x env'.varTypes with
             | Some typ -> 
-                TypeSub (x, typ) :: subs, env'
+                NameSub (x, typ) :: subs, env'
             | None -> 
                 let (env': Env), traits' = env'.instantiateTraits traits
-                let sub = VarType (getVarType (), traits')
-                let env' = env'.addVarAssoc x sub
-                TypeSub (x, sub) :: subs, env'
+                let varReplacement = getVarType ()
+                let env' = env'.addVarAssoc x varReplacement
+                NameSub (x, varReplacement) :: subs, env'
 
         let (subs, env') = List.fold f ([], env) freeVars
         let typ' = List.fold (flip substituteInType) typ subs

@@ -17,18 +17,18 @@ type TestEnvironment() =
         let env', typ = defaultEnv.instantiate (VarType ("a", []))
 
         typ |> should equal (VarType ("X0", []))
-        env' |> should equal (defaultEnv.addVarAssoc "a" typ)
+        env' |> should equal (defaultEnv.addVarAssoc "a" "X0")
 
     [<Test>]
     member that.keepTraits() =
         let env', typ = defaultEnv.instantiate (VarType ("a", [Equatable]))
 
         typ |> should equal (VarType ("X0", [Equatable]))
-        env' |> should equal (defaultEnv.addVarAssoc "a" typ)
+        env' |> should equal (defaultEnv.addVarAssoc "a" "X0")
 
     [<Test>]
     member that.addTraits() =
-        let env = defaultEnv.addVarAssoc "a" (VarType ("X0", []))
+        let env = defaultEnv.addVarAssoc "a" "X0"
         let env', typ = env.instantiate (VarType ("a", [Equatable]))
 
         typ |> should equal (VarType ("X0", [Equatable]))
@@ -46,6 +46,6 @@ type TestEnvironment() =
         let tupled' = ConstType (ConstructorType.Tuple 2, [first'; inner'])
         typ |> should equal tupled'
 
-        let env' = defaultEnv.addVarAssoc "a" first'
-        let env' = env'.addVarAssoc "b" inner'
+        let env' = defaultEnv.addVarAssoc "a" "X1"
+        let env' = env'.addVarAssoc "b" "X0"
         env |> should equal env'   

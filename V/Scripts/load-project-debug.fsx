@@ -13,6 +13,7 @@
       "../src/stdlib.fs"
       "../src/Parser.fs"
       "../tests/EvaluationTests.fs"
+      "../tests/InternalTypeInferenceTests.fs"
       "../tests/TypeInferenceTests.fs"
       "../tests/stdlibTests.fs"
       "../tests/ExternalParserTests.fs"
