@@ -112,7 +112,7 @@ The full syntax tree can be obtained by simply joining all the separate sections
 \paragraph{Functions}
 
 $V$, as a functional language, treats functions as first class constructions.
-This means that functions are regular expressions, and can be passed as arguments, saved as constants, etc.
+This means that functions are regular expressions, and can be passed as arguments, bound to identifiers, etc.
 Below are both of the function expressions available in $V$, along with function application.
 
 \medskip
@@ -157,11 +157,59 @@ The first of them is function application: the first of the expressions is a fun
 The last expression is simply to allow the use of the parameter defined in a function.
 An identifier $x$ is only considered valid if it has been bound before (either by a function or, as will be seen later, by let declarations of \texttt{match} expressions).
 
-\paragraph{Constructors and Variables}
+\paragraph{Builtin Functions}
 
-$V$ has support for a few basic constructors and variables.
+$V$ has a few builtin functions that provide basic behaviour.
 
-\medskip
+These are:
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+e &::= &\cdots\\
+  &| &Builtin\\
+\\
+Builtin &::= &+ &\text{(add, binary)}\\
+    &| &- &\text{(subtract, binary)}\\
+    &| &* &\text{(multiply, binary)}\\
+    &| &\div &\text{(divide, binary)}\\
+    &| &- &\text{(negate, unary)}\\
+    \\
+    &| &< &\text{(less than, binary)}\\
+    &| &\leq &\text{(less than or equal, binary)}\\
+    &| &> &\text{(more than, binary)}\\
+    &| &\geq &\text{(more than or equal, binary)}\\
+    &| &= &\text{(equal, binary)}\\
+    &| &\neq &\text{(not equal, binary)}\\
+    \\
+    &| &\text{get} &\text{(binary)}\\
+    &| &\text{set} &\text{(ternary)}\\
+    &| &\text{stack} &\text{(binary)}\\
+    &| &\text{distort} &\text{(ternary)}\\
+\end{tabular}}
+
+\bigskip
+
+Every function has its arity declared.
+The arity of a function defines how many parameters it needs before it can be fully evaluated.
+
+This behaviour does not change the fact that functions receive only one parameter.
+These particular cases can be tought of as nested functions, each taking a single parameter, until all the necessary parameters have been received.
+
+This means that partially applied builtin functions are also treated as functions, and, therefore, can be passed as arguments, bound to identifiers, etc.
+
+Most of these functions are basic and require no explanation.
+The last 4, however, will only be explained later, after records and accessors have been introduced.
+
+\paragraph{Constructors}
+
+$V$ has another type of special function: Data Constructors.
+Data Constructors are, as their name suggests, functions that construct values (data).
+
+When fully evaluated, constructors define a form of structured data, storing the values passed to them as arguments.
+To access these values, it is possible to pattern match (see \ref{Patterns}) on the constructor name when fully evaluated.
+
+Like builtin functions, constructors can be in a partially evaluated state.
+Partially evaluated constructors are treated as normal functions and, therefore, do not allow matching on their name.
 
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
@@ -170,8 +218,9 @@ e &::= &con\\
 con &::= &n & (\text{arity} \; 0)\\
     &| &b & (\text{arity} \; 0)\\
     &| &c & (\text{arity} \; 0)\\
-\\
-x &::= &\{ x_0, x_1, \ldots \}\\
+    &| &nil & (\text{arity} \; 0)\\
+    &| &:: & (\text{arity} \; 2)\\
+    &| &\text{Tuple} \; n & (\text{arity} \; n \; n \geq 2)\\
 \\
 b &::= &true \; | \; false\\
 n &::= &\mathbb{Z}\\
@@ -181,32 +230,18 @@ char&::= &\texttt{ASCII} \; \texttt{characters}\\
 
 \bigskip
 
-The basic constructors available for the language are:
+These functions are \emph{extra} special, however, because they can have arity zero.
+This means that they "construct" values as soon as they are declared.
+The basic zero-arity constructors defined in the language are integers, booleans and characters.
 
-    \begin{quote}
-        \begin{itemize}
-            \item Booleans
-            \item Integers
-            \item Characters
-        \end{itemize}
-    \end{quote}
+The following two constructors ($nil$ and $::$) are related to lists.
+The first (with arity 0) is the empty list.
+The second constructor has arity 2, and extends a list (its second argument) by adding a new value (its first argument) to its head.
 
-For variables, one can define any number of identifiers to be used throughout the program.
-These variables must be associated with other terms in some way (functions, \texttt{let} declarations, etc) as they cannot be evaluated on their own.
-
-\paragraph{Tuples}
-Tuples are ordered heterogeneous collections of values with random access.
-This means that any element of a tuple can be accessed regardless of its position.
-Unlike lists, it is not possible to add a value to an existing tuple.
-Tuples of any size greater than or equal to 2 are supported, and they are of fixed-length after construction.
-
-\medskip
-
-{\setlength\tabcolsep{8pt}
-\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
-e &::= &\cdots&\\
-    &| &(e_1, \; \dots \; e_n) & (n\geq2)\\
-\end{tabular}}
+The last constructor is actually a family of constructors describing tuples.
+A constructor $\text{Tuple} n$ defines a constructor that has $n$ parameters and evaluates to a tuple with $n$ elements.
+It is also important to note that $n \geq 2$.
+This means that only tuple constructors with 2 or more parameters are valid.
 
 \paragraph{Records}
 Records are unordered heterogeneous collection of named values with random access.
@@ -304,7 +339,7 @@ The following list describes the requirements and meaning of each category of bu
     These operators perform logical operations on boolean values.
 \end{itemize}
 
-\paragraph{Let and Patterns}
+\paragraph{Let and Patterns}\label{Patterns}
 
 The \texttt{let} expression is used to bind values to identifiers for sub-expressions.
 The identifier can then be used in sub-expressions to increase readability and reduce repetition when writing code.
