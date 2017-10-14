@@ -116,6 +116,7 @@
     <Compile Include="src\compiledStdlib.fs" />
     <Compile Include="src\stdlib.fs" />
     <Compile Include="src\Parser.fs" />
+    <Compile Include="tests\TestHelpers.fs" />
     <Compile Include="tests\EvaluationTests.fs" />
     <Compile Include="tests\InternalTypeInferenceTests.fs" />
     <Compile Include="tests\TypeInferenceTests.fs" />
