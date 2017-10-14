@@ -109,6 +109,54 @@ Each expression is a member of the abstract syntax tree defined below.
 The syntax tree will be constructed in parts, with an explanation of what each expression means and their uses.
 The full syntax tree can be obtained by simply joining all the separate sections.
 
+\paragraph{Functions}
+
+$V$, as a functional language, treats functions as first class constructions.
+This means that functions are regular expressions, and can be passed as arguments, saved as constants, etc.
+Below are both of the function expressions available in $V$, along with function application.
+
+\medskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
+e &::= &\cdots\\
+    &| &\texttt{fn} \; x \Rightarrow e\\
+    &| &\texttt{rec} \; f \; x \Rightarrow e\\
+    &| &\texttt{rec} \; f:T \; \; x \Rightarrow e\\
+    &| &e_1 \; e_2\\
+    &| &x\\
+\\
+x &::= &\{ x_0, x_1, \ldots \}\\
+\\
+\end{tabular}}
+
+\bigskip
+
+All functions in $V$ take exactly one parameter, and so function application evaluates the function by providing a single argument to it.
+
+The first expression ($\texttt{fn} \; x \Rightarrow e$) defines a simple unnamed function with a parameter $x$.
+$x$ is an identifier from a set of name identifiers.
+
+The body of the function is the expression $e$, which may or may not contain ocorrences of the value passed as the argument of the function.
+
+\medskip
+
+The following two expressions define both variants of recursive functions available in $V$.
+These functions have a name, $f$, which is also a member of the set of name identifiers, and this name is used to allow recursive calls from withing their body ($e$).
+Like unnamed functions, they take exactly one parameter, $x$, which may or may not be present in their bodies.
+
+The difference between these variants is in their type declaration: the first variant is implicitly typed, while the second is explicitly typed.
+In the second variant, the programmer specifies the return type of the function as $T$ (types will be shown later).
+
+\medskip
+
+Finally, the last two expressions help using functions.
+
+The first of them is function application: the first of the expressions is a function, and the second is the argument being passed to the function.
+
+The last expression is simply to allow the use of the parameter defined in a function.
+An identifier $x$ is only considered valid if it has been bound before (either by a function or, as will be seen later, by let declarations of \texttt{match} expressions).
+
 \paragraph{Constructors and Variables}
 
 $V$ has support for a few basic constructors and variables.
@@ -118,7 +166,6 @@ $V$ has support for a few basic constructors and variables.
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
 e &::= &con\\
-    &| &x\\
 \\
 con &::= &n & (\text{arity} \; 0)\\
     &| &b & (\text{arity} \; 0)\\
@@ -322,43 +369,6 @@ match &::= &p \rightarrow e\\
 A match expression can have any non-zero number of patterns, and they are tested from top to bottom. The first pattern that succesfully matches the input expression interrupts the matching process, and its corresponding result expression is returned.
 
 It is possible to add an extra condition that needs to be satisfied to a pattern by using the \texttt{when} keyword, followed by a test expression. This expression has access to any variables declared in its pattern, and is only evaluated if the matching succeeds.
-
-\paragraph{Functions}
-
-The expressions below all relate to function and function application in the $V$ language.
-
-\medskip
-
-{\setlength\tabcolsep{8pt}
-\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
-e &::= &\cdots\\
-    &| &\texttt{fn} \; p \Rightarrow e\\
-    &| &\texttt{rec} \; x:T \; \; p \Rightarrow e\\
-    &| &\texttt{rec} \; x \; p \Rightarrow e\\
-    &| &e_1 \; e_2\\
-\end{tabular}}
-
-\bigskip
-
-The first expression defines a simple unnamed function that takes exactly one parameter, $p$.
-When a value $v$ is applied to a function, all occurrences of $x$ in $e$ are replaced by $v$ and then the expression is evaluated.
-
-\medskip
-
-The following two expressions define recursive functions that also take one parameter.
-In these expressions, $x$ is the name of the function that can be recursively called inside $e$.
-$p$ is the single parameter for the function.
-Recursive functions have two variations: explicitly and implicitly typed.
-In the explicitly typed variation, the type $T$ is the return type of the function.
-
-\medskip
-
-In all function expressions, the parameter is declared as a pattern.
-This means that the function can have multiple identifiers to address the elements of its parameter in the case that it is a collection.
-
-\medskip
-
-The last expression is the application of $e_2$ to a function $e_1$.
 
 \paragraph{Exceptions}
 
@@ -1472,13 +1482,10 @@ These terms are presented in their entirety here, and, since they are directly e
 
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
-    e' &::= &n\\
-    &| &b\\
-    &| &c\\
+    e' &::= &cons'\\
     &| &x\\
-    &| &(e'_1, \; \dots \; e'_2)&(n\geq2)\\
     &| &\{l_1: e'_1, \; \dots \; l_n: e'_n\} & (n\geq1)\\
-    &| &\#l \; e'_1 \; e'_2&\\
+    &| &\#path&\\
     &| &nil\\
     &| &e'_1 :: e'_2\\
     &| &e'_1 \; op \; e'_2\\
@@ -1486,6 +1493,13 @@ These terms are presented in their entirety here, and, since they are directly e
     &| &raise\\
     &| &\texttt{match} \; e' \; \texttt{with} \; match'_1, ... \; match'_n& (n\geq1)\\
     \\
+cons' &::= &n\\
+    &| &b\\
+    &| &c\\
+    &| &nil\\
+    &| &cons\\
+    &| &tuple n &(n \geq 2)\\
+
 match' &::= &p' \rightarrow e'\\
     &| &p' \; \texttt{when} \; e'_1 \rightarrow e'_2\\
 \end{tabular}}
