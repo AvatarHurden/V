@@ -137,7 +137,7 @@ All functions in $V$ take exactly one parameter, and so function application eva
 The first expression ($\texttt{fn} \; x \Rightarrow e$) defines a simple unnamed function with a parameter $x$.
 $x$ is an identifier from a set of name identifiers.
 
-The body of the function is the expression $e$, which may or may not contain ocorrences of the value passed as the argument of the function.
+The body of the function is the expression $e$, which may or may not contain occurrences of the value passed as the argument of the function.
 
 \medskip
 
@@ -157,9 +157,9 @@ The first of them is function application: the first of the expressions is a fun
 The last expression is simply to allow the use of the parameter defined in a function.
 An identifier $x$ is only considered valid if it has been bound before (either by a function or, as will be seen later, by let declarations of \texttt{match} expressions).
 
-\paragraph{Builtin Functions}
+\paragraph{Built-in Functions}
 
-$V$ has a few builtin functions that provide basic behaviour.
+$V$ has a few built-in functions that provide basic behavior.
 
 These are:
 
@@ -197,10 +197,10 @@ Builtin &::= &+ &\text{(add, binary)}\\
 Every function has its arity declared.
 The arity of a function defines how many parameters it needs before it can be fully evaluated.
 
-This behaviour does not change the fact that functions receive only one parameter.
-These particular cases can be tought of as nested functions, each taking a single parameter, until all the necessary parameters have been received.
+This behavior does not change the fact that functions receive only one parameter.
+These particular cases can be thought of as nested functions, each taking a single parameter, until all the necessary parameters have been received.
 
-This means that partially applied builtin functions are also treated as functions, and, therefore, can be passed as arguments, bound to identifiers, etc.
+This means that partially applied built-in functions are also treated as functions, and, therefore, can be passed as arguments, bound to identifiers, etc.
 
 Most of these functions are basic and require no explanation.
 The last 4, however, will only be explained later, after records and accessors have been introduced.
@@ -209,7 +209,7 @@ The boolean functions $\vee$ and $\wedge$ are treated differently than others.
 Even though they are binary, they have a short-circuit mechanism.
 This means that, if the result of the application can be known by the first parameter (True in the case of $\vee$ or False in the case of $\wedge$), the second parameter is not evaluated.
 
-This is in constrast to all other functions in $V$, which evaluate their arguments before trying to evaluate themselves (This will be explained in more detail in \ref{Operational Semantics})
+This is in contrast to all other functions in $V$, which evaluate their arguments before trying to evaluate themselves (This will be explained in more detail in \ref{Operational Semantics})
 
 \paragraph{Constructors}
 
@@ -219,7 +219,7 @@ Data Constructors are, as their name suggests, functions that construct values (
 When fully evaluated, constructors define a form of structured data, storing the values passed to them as arguments.
 To access these values, it is possible to pattern match (see \ref{Patterns}) on the constructor name when fully evaluated.
 
-Like builtin functions, constructors can be in a partially evaluated state.
+Like built-in functions, constructors can be in a partially evaluated state.
 Partially evaluated constructors are treated as normal functions and, therefore, do not allow matching on their name.
 
 \medskip
