@@ -163,6 +163,8 @@ $V$ has a few builtin functions that provide basic behaviour.
 
 These are:
 
+\medskip
+
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
 e &::= &\cdots\\
@@ -180,6 +182,9 @@ Builtin &::= &+ &\text{(add, binary)}\\
     &| &\geq &\text{(more than or equal, binary)}\\
     &| &= &\text{(equal, binary)}\\
     &| &\neq &\text{(not equal, binary)}\\
+    \\
+    &| &\vee &\text{(Or, binary)}\\
+    &| &\wedge &\text{(And, binary)}\\
     \\
     &| &\text{get} &\text{(binary)}\\
     &| &\text{set} &\text{(ternary)}\\
@@ -200,6 +205,12 @@ This means that partially applied builtin functions are also treated as function
 Most of these functions are basic and require no explanation.
 The last 4, however, will only be explained later, after records and accessors have been introduced.
 
+The boolean functions $\vee$ and $\wedge$ are treated differently than others.
+Even though they are binary, they have a short-circuit mechanism.
+This means that, if the result of the application can be known by the first parameter (True in the case of $\vee$ or False in the case of $\wedge$), the second parameter is not evaluated.
+
+This is in constrast to all other functions in $V$, which evaluate their arguments before trying to evaluate themselves (This will be explained in more detail in \ref{Operational Semantics})
+
 \paragraph{Constructors}
 
 $V$ has another type of special function: Data Constructors.
@@ -210,6 +221,8 @@ To access these values, it is possible to pattern match (see \ref{Patterns}) on 
 
 Like builtin functions, constructors can be in a partially evaluated state.
 Partially evaluated constructors are treated as normal functions and, therefore, do not allow matching on their name.
+
+\medskip
 
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
@@ -554,7 +567,7 @@ To define the set of types that belong to a record label $\{l: T\}$, the followi
 
 \newpage
 
-\subsection{Operational Semantics}
+\subsection{Operational Semantics}\label{Operational Semantics}
 
 The $V$ language is evaluated using a big-step evaluation with environments.
 This evaluation reduces an expression into a value directly, not necessarily having a rule of evaluation for every possible expression.
