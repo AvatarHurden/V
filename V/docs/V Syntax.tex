@@ -294,48 +294,6 @@ Finally, paths can be distorted, specifying a pair of functions to be applied wh
 
 More details about how paths work will be provided in a later section.\todo{Insert section}
 
-\paragraph{Binary Operations}
-
-$V$ provides a series of binary operations built-in into the language.
-
-\medskip
-
-{\setlength\tabcolsep{8pt}
-\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
-e &::= &\cdots\\
-  &| &e_1 \; op \; e_2\\
-    \\
-    op &::= &opNum \; | \; opEq \; | \; opIneq\\
-    opNum &::= &+ \; | \; - \; | \; \ast \; | \; \div\\
-    opEq &::= &= \; | \; \neq\\
-    opIneq &::= &< \; | \; \leq \; | \; > \; | \; \geq\\
-\end{tabular}}
-
-\bigskip
-
-They are divided into separate categories, each one requiring terms of specific types.
-The following list describes the requirements and meaning of each category of built-in operators:
-
-\begin{itemize}
-    \item Numerical
-
-    These operators require numbers and also return numbers.
-
-    \item Equality
-
-    These operators ($=, \neq$) compare two different values for equality, returning a boolean.
-    The value's type must conform to the Equatable trait.
-
-    \item Inequality
-
-    These operators compare two different values for order, returning a boolean.
-    The value's type must conform to the Orderable trait.
-
-    \item Boolean Operators
-
-    These operators perform logical operations on boolean values.
-\end{itemize}
-
 \paragraph{Let and Patterns}\label{Patterns}
 
 The \texttt{let} expression is used to bind values to identifiers for sub-expressions.
