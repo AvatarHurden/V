@@ -234,7 +234,7 @@ con &::= &n & (\text{arity} \; 0)\\
     &| &c & (\text{arity} \; 0)\\
     &| &nil & (\text{arity} \; 0)\\
     &| &:: & (\text{arity} \; 2)\\
-    &| &\text{Tuple} \; n & (\text{arity} \; n \; n \geq 2)\\
+    &| &\text{Tuple} \; n & (\text{arity} \; n, \; n \geq 2)\\
 \\
 b &::= &true \; | \; false\\
 n &::= &\mathbb{Z}\\
@@ -382,25 +382,25 @@ The $raise$ expression serves this purpose.
 \subsubsection{Types}
 
 Since $V$ is strongly typed, every (valid) expression has exactly one type associated with it.
-Some expressions require the programmer to explicitly declare types of identifiers, such as \texttt{let} declarations and functions.
+Some expressions allow the programmer to explicitly declare types, such as patterns and recursive functions.
 Other expressions, such as $e_1 = e_2$, or even constants, such as $1$ or $true$, have types implicitly associated with them.
 These types are used by the type system (see \ref{Type System}) to check whether an expression is valid or not, avoiding run-time errors that can be detected at compile time.
 
 \paragraph{Types}
-Below are all the types availabe in $V$.
+Below are all the types available in $V$.
 The first type is a fully applied constructor type.
-The second type is a single-parameter function type.
-The second and third types are tuple and record, respectively.
+The second type is a function type.
+The third type is a record type and, finally, the last type is an accessor type.
 
 \medskip
 
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
     T &::= &\cdots\\
-    &| &conT \; T_1, \; \dots \; T_n & (n = \text{arity} \; conT))\\
+    &| &conT \; T_1, \; \dots \; T_n & (n = \text{arity} \; conT)\\
     &| &T_1 \rightarrow T_2\\
-    &| &(T_1, \; \dots \; T_n) & (n\geq2)\\
     &| &\{l_1: T_1, \; \dots \; l_n: T_n\} & (n\geq1)\\
+    &| &T_1\#T_2 & Accessor\\
 \end{tabular}}
 
 \paragraph{Constructor Types}
@@ -416,12 +416,13 @@ Instead of taking values as arguments, however, constructor types take types as 
     &| &\mbox{Bool} & (\text{arity} \; 0)\\
     &| &\mbox{Char} & (\text{arity} \; 0)\\
     &| &\mbox{List} & (\text{arity} \; 1)\\
+    &| &\text{TupleT} \; n & (\text{arity} \; n, \; n\geq2)\\
 \end{tabular}}
 
 \paragraph{Variable Types}
 These types represent an unknown constant type.
 Explicitly typed expressions cannot be given variable types, but they are used by the type system for implicitly typed expressions.
-In the course of the type inference, the type system can replace variable types for their corresponding parametric or constant type.
+In the course of the type inference, the type system can replace variable types for their type.
 
 It is important to realize that variable types already represent a unique type with an unknown identity.
 This means that a variable type may only be replaced by the specific type which it represents and not any other type.
@@ -441,11 +442,11 @@ This distinction becomes important when talking about polymorphism, which uses v
 
 \subsubsection{Traits}
 
-Types can possess traits, which define certain behaviors that are expected of said type.
-Constant types always have their trait information implicitly defined, since this information is included in the language.
-Variable types, on the other hand, can explicitly state which traits they possess, restricting the set of possible constant types they can represent.
+Types can conform to traits, which define certain behaviors that are expected of said type.
+Regular types always have their trait information implicitly defined, since this information is included in the language.
+Variable types, on the other hand, can explicitly state which traits they possess, restricting the set of possible types they can represent (this is represented by the superscript $Traits$ in a variable type $X$).
 
-\medskip
+\medskipavailable
 
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
@@ -461,6 +462,13 @@ Variable types, on the other hand, can explicitly state which traits they posses
     &| &Orderable\\
     &| &\{l: Type\} & (Record Label)\\
 \end{tabular}}
+
+\bigskip
+
+The information on which types conform to which traits is defined inside the type inference environment.
+When a type $T$ conforms to a trait $Trait$, the notation used is $T \in Trait$.
+
+By default, the following rules hold for conformance:
 
 \paragraph{Equatable}
 If a type $T$ is $Equatable$, expressions of type $T$ can use the equality operators ($=, \neq$).
@@ -480,7 +488,6 @@ To define the set of types that belong to $Equatable$, the following rules are u
 \paragraph{Orderable}
 If a type $T$ is $Orderable$, expressions of type $T$ can use the inequality operators ($<, \leq, >, \geq$).
 Any type that is $Orderable$ is also $Equatable$.
-In practice, the only difference between $Orderable$ and $Equatable$ is that the base type Bool is not in $Orderable$.
 
 To define the set of types that belong to $Orderable$, the following rules are used:
 
@@ -494,8 +501,10 @@ To define the set of types that belong to $Orderable$, the following rules are u
 \end{tabular}}
 
 \paragraph{Record Label}
-A record label trait specifies a type $T$ that a record must have associated to a label $l$.
-No bounds are placed on the size of the record, since records are unordered sets of label-type pairs.
+A type $T_1$ conforms to a Record Label Trait $\{l: T_2\}$ if it is a record that contains a field with the label $l$ and the type $T_2$.
+
+If the type conforms to the trait $\{l: T_2\}$, it can then use the accessor $\#l$.
+This ensures that accessor for a field can only be used on records that have that field.
 
 To define the set of types that belong to a record label $\{l: T\}$, the following rules are used:
 
