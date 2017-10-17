@@ -296,11 +296,11 @@ More details about how paths work will be provided in a later section.\todo{Inse
 
 \paragraph{Let and Patterns}\label{Patterns}
 
-The \texttt{let} expression is used to bind values to identifiers for sub-expressions.
-The identifier can then be used in sub-expressions to increase readability and reduce repetition when writing code.
+The \texttt{let} expression is used to bind values to identifiers, allowing them to be reused in a sub-expression.
+A \texttt{let} expression is divided into 2 parts: the binding and the sub-expression.
+The binding itself also has 2 parts: the left-hand side, which is a pattern; and the right-hand side, which will be the value to be bound.
 
-\texttt{let} expressions can also be used to `unpack' compound values, such as lists, tuples and records.
-This is done by using patterns, which can be either typed or untyped.
+Patterns are used to "unpack" values, and can be either explicitly or implicitly typed.
 
 \medskip
 
@@ -315,33 +315,39 @@ p &::= &patt\\
 patt &::= &x\\
     &| &\_\\
     &| &con \; p_1, \; \dots \; p_n & (\text{constructor pattern}, \; n = \text{arity} \; con)\\
-    &| &(p_1, \; \dots \; p_n) & (n\geq2)\\
     &| &\{l_1: p_1, \; \dots \; l_n: p_n\} & (n\geq1)\\
     &| &\{l_1: p_1, \; \dots \; l_n: p_n, \dots\} & (\text{partial record}, n\geq1)\\
 \end{tabular}}
 
 \bigskip
 
-This expression works by replacing all occurrences of $x$ by the value of $e_1$ in $e_2$ and then evaluating the resulting expression.
-(In reality, this replacement only occurs as needed to be more efficient (see \ref{environment}), but the result is the same).
+Much like functions, \texttt{let} expressions allow the use of identifiers in an expression by attaching values to the identifiers.
+Differently from functions, however, a single \texttt{let} expression can bind multiple identifiers to values by using patterns.
+Patterns are matched against the values in the right-hand side of the binding, and can, depending on their structure, create any number of identifier bindings.
 
-\smallskip
+The pattern $x$ is a simple identifier pattern.
+It matches any value in the right-hand side, and binds it to the identifier.
 
-The patterns $x$ and $\_$ match any value, with the difference that the second does not bind the value to any identifier.
-This can be used when a value is not wanted, such as an element of a collection.
+The $\_$ also matches any value, but it does not create any new bindings (this is called the ignore pattern).
 
-The constructor pattern matches a completely applied constructor.
-Different constructors require different amounts of arguments (e.g. a number constructor takes 0 arguments, while the list constructor ($::$) takes 2 arguments).
-The amount of sub-patterns in the constructor pattern must be equal to that of the applied constructor.
+The $con$ pattern matches a completely applied constructor.
+This pattern is a compound pattern, with the same number of components as the arity of the constructor.
+The $con$ pattern itself does not create any bindings, but its components might, since they are themselves patterns and, as such, will be matched against the components of the constructor.
 
-The pattern $(p_1, \; \dots \; p_n)$ matches a tuple with exactly $n$ elements, and $\{l_1: p_1, \; \dots \; l_n: p_n\}$ matches a record with only the fields $l_1, \; \dots \; l_n$.
+The next pattern is a record pattern.
+This matches a record with \emph{exactly} the same fields as the pattern.
+Since all labels in a record are ordered, the fields do not need to be reordered for the matching.
 
 For matching any record with \emph{at least} the fields $l_1, \; \dots \; l_n$, one can use the pattern $\{l_1: p_1, \; \dots \; l_n: p_n, \dots\}$.
-This pattern will match any record whose set of fields is a superset of $l_1, \; \dots \; l_n$.
+This pattern will match any record whose set of labels is a superset of $l_1, \; \dots \; l_n$.
 
 \paragraph{Match Expression}
 
-This expression attempts to match a value against multiple patterns, returning the correponding result expression if a match is found.
+A \texttt{match} expression attempts to match a value against a list of patterns.
+Every pattern is paired with a resulting expression to be evaluated if the pattern matches.
+Furthermore, it is possible to specify a boolean condition to be tested alongside the pattern matching.
+This condition will only be tested if the match succeeds, so it can use any identifier bound by the pattern.
+The matching stops at the first pattern that successfully matches (and any condition is satisfied), and its paired expression is then evaluated.
 
 \medskip
 
@@ -353,12 +359,6 @@ e &::= &\cdots\\
 match &::= &p \rightarrow e\\
     &| &p \; \texttt{when} \; e_1 \rightarrow e_2\\
 \end{tabular}}
-
-\bigskip
-
-A match expression can have any non-zero number of patterns, and they are tested from top to bottom. The first pattern that succesfully matches the input expression interrupts the matching process, and its corresponding result expression is returned.
-
-It is possible to add an extra condition that needs to be satisfied to a pattern by using the \texttt{when} keyword, followed by a test expression. This expression has access to any variables declared in its pattern, and is only evaluated if the matching succeeds.
 
 \paragraph{Exceptions}
 
@@ -377,7 +377,7 @@ e &::= &\cdots\\
 Runtime errors usually happen when an expression cannot be correctly evaluated, such as division by zero, accessing an empty list, etc.
 
 Sometimes, however, it can be necessary to directly cause an error.
-The \code{raise} expression serves this purpose.
+The $raise$ expression serves this purpose.
 
 \subsubsection{Types}
 
