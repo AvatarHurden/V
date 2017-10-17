@@ -403,6 +403,17 @@ The third type is a record type and, finally, the last type is an accessor type.
     &| &T_1\#T_2 & Accessor\\
 \end{tabular}}
 
+Most of the types are compound types, and the only scenario in which a type is not compound is for constructor types with arity 0.
+Function types specify the type of the single parameter ($T_1$) and the type of output ($T_2$).
+
+Record types are also compound types, but they associate every component to its corresponding label.
+Just like record expressions, the labels must be ordered.
+
+Finally, accessor types define the types of accessor expressions.
+They have two components: $T_1$, which is the type of the record being accessed; and $T_2$, the type of the value being accessed.
+It is read as $T_1$ \emph{accesses} $T_2$.
+
+
 \paragraph{Constructor Types}
 These are types associated with constructors.
 Much like constructors, they can take any amount of arguments to be fully applied, and the number of arguments they take is described by their arity.
