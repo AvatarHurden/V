@@ -1,5 +1,7 @@
 \documentclass{article}
 
+\PassOptionsToPackage{usenames,dvipsnames}{xcolor}
+
 \usepackage{listings}
 \usepackage{amssymb}
 \usepackage{amsmath}
@@ -11,7 +13,7 @@
 
 \usepackage[T1]{fontenc}
 \usepackage{upquote}
-\usepackage[dvipsnames]{xcolor}
+\usepackage{xcolor}
 \usepackage{hyperref}
 \usepackage{hyphenat}
 \usepackage{scrextend}
@@ -459,7 +461,7 @@ Types can conform to traits, which define certain behaviors that are expected of
 Regular types always have their trait information implicitly defined, since this information is included in the language.
 Variable types, on the other hand, can explicitly state which traits they possess, restricting the set of possible types they can represent (this is represented by the superscript $Traits$ in a variable type $X$).
 
-\medskipavailable
+\medskip
 
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
@@ -602,63 +604,39 @@ If there are no more patterns, the expression evaluates to $raise$.
 \medskip
 
 To aid in this matching, a auxiliary ``match'' function is defined.
-The function takes a pattern $p$ and a value $v$, returning a boolean and a mapping.
-The boolean indicates whether or not the matching was succesful.
-The failure that it indicates is the second kind, and the first kind of failure is indicated by a lack of return.
-
-The second value that it returns is the mapping of identifiers to values.
+The function takes a pattern $p$ and a value $v$, returning a mapping of identifiers to values (the $vars$ of an environment).
+If the matching fails, the function will return nothing.
 
 The following are the rules for the match function:
 
 \infax[]
-    {match(x, v) = true, \{x \rightarrow v\}}
+    {match(x, v) = \{x \rightarrow v\}}
 
 \infax[]
-    {match(\_, v) = true, \{\}}
+    {match(\_, v) = \{\}}
 
 \smallskip
 
 \infrule[]
-    {con_1 \neq con_2}
-    {match(con_1 \; v_1, \; \dots v_n, con_2 \; p_1, \; \dots p_k) = false, \{\}}
-
-\infrule[]
-    {con_1 = con_2 \andalso \exists \; i \in \left[1, n\right] \; \; match(p_i, v_i) = false, env_i}
-    {match(con_1 \; v_1, \; \dots v_n, con_2 \; p_1, \; \dots p_n) = false, \{\}}
-
-\infrule[]
-    {con_1 = con_2 \andalso \forall \; i \in \left[1, n\right] \; \; match(p_i, v_i) = true, env_i}
-    {match(con_1 \; v_1, \; \dots v_n, con_2 \; p_1, \; \dots p_n) = true, \displaystyle\bigcup_{i=1}^{n} env_i}
+    {con_1 = con_2 \andalso \forall \; i \in \left[1, n\right] \; \; match(p_i, v_i) = vars_i}
+    {match(con_1 \; v_1, \; \dots v_n, con_2 \; p_1, \; \dots p_n) = \displaystyle\bigcup_{i=1}^{n} vars_i}
 
 \smallskip
 
 \infrule[]
-    {\exists \; i \in \left[1, n\right] \; \; match(p_i, v_i) = false, env_i}
-    {match((p_1, ... p_n), (v_1, ... v_n)) = false, \{\}}
-
-\infrule[]
-    {\forall \; i \in \left[1, n\right] \; \; match(p_i, v_i) = true, env_i}
-    {match((p_1, ... p_n), (v_1, ... v_n)) = true, \displaystyle\bigcup_{i=1}^{n} env_i}
-
-\smallskip
-
-\infrule[]
-{k \geq n \andalso \exists \; i \in \left[1, n\right]  \; \; \exists \; j \in \left[1, k\right] \; \; l^1_i = l^2_j \wedge match(p_i, v_j) = false, env_i}
-    {match(\{l_1^1: p_1, \dots, l^1_n: p_n, \dots\}, \{l^2_1: v_1, ... l^2_k: v_k\}) = false, \{\}}
-
-\infrule[]
-{k \geq n \andalso \forall \; i \in \left[1, n\right]  \; \; \exists \; j \in \left[1, k\right] \; \; l^1_i = l^2_j \wedge match(p_i, v_j) = true, env_i}
-    {match(\{l_1^1: p_1, \dots, l^1_n: p_n, \dots\}, \{l^2_1: v_1, ... l^2_k: v_k\}) = true, \displaystyle \bigcup_{i=1}^{n} env_i}
-
-
-\infrule[]
-    {\exists \; i \in \left[1, n\right]\; \; l^1_i = l^2_i \wedge match(p_i, v_i) = false, env_i}
-    {match(\{l_1^1: p_1, \dots, l^1_n: p_n\}, \{l^2_1: v_1, ... l^2_n: v_n\}) = false, \{\}}
+{k \geq n \andalso \forall \; i \in \left[1, n\right]  \; \; \exists \; j \in \left[1, k\right] \; \; l^1_i = l^2_j \wedge match(p_i, v_j) = vars_i}
+    {match(\{l_1^1: p_1, \dots, l^1_n: p_n, \dots\}, \{l^2_1: v_1, ... l^2_k: v_k\}) = \displaystyle \bigcup_{i=1}^{n} vars_i}
 
 \infrule[]
     {\forall \; i \in \left[1, n\right] \; \;
-      l^1_i = l^2_i \wedge match(p_i, v_i) = true, env_i}
-    {match(\{l_1^1: p_1, \dots, l^1_n: p_n\}, \{l^2_1: v_1, ... l^2_n: v_n\}) = true,  \displaystyle \bigcup_{i=1}^{n} env_i}
+      l^1_i = l^2_i \wedge match(p_i, v_i) = vars_i}
+    {match(\{l_1^1: p_1, \dots, l^1_n: p_n\}, \{l^2_1: v_1, ... l^2_n: v_n\}) = \displaystyle \bigcup_{i=1}^{n} vars_i}
+
+Any other inputs provided to the match function will result in a failed matching.
+This is represented by:
+
+\infax[]
+  {\neg \; match(p, v)}
 
 \subsubsection{Big-Step Rules}
 

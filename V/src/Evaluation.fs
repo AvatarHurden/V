@@ -88,21 +88,7 @@ let rec matchPattern (Pat (pattern, _)) result (env: Env) =
         | ResConstructor _ ->
             raise <| EvalException "Wrong constructor passed for constructor pattern"
         | _ -> 
-            printf "hello world"
             raise <| EvalException "Non constructor passed for constructor pattern"
-//    | TuplePat patterns ->
-//        match result with
-//        | ResRaise -> None
-//        | ResTuple results when results.Length = patterns.Length ->
-//            let f acc p r =
-//                match acc with
-//                | None -> None
-//                | Some env -> matchPattern p r env
-//            List.fold2 f (Some env) patterns results
-//        | ResTuple results ->
-//            raise <| EvalException "Tuples do not match in pattern"
-//        | _ -> 
-//            raise <| EvalException "Invalid result for tuple pattern"
     | RecordPat (allowsExtras, patterns) ->
         match result with
         | ResRaise -> None
