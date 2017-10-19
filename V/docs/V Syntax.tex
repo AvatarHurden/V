@@ -121,11 +121,13 @@ Below are both of the function expressions available in $V$, along with function
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}}
 e &::= &\cdots\\
-    &| &\texttt{fn} \; x \Rightarrow e\\
-    &| &\texttt{rec} \; f \; x \Rightarrow e\\
-    &| &\texttt{rec} \; f:T \; \; x \Rightarrow e\\
+    &| &func\\
     &| &e_1 \; e_2\\
     &| &x\\
+\\
+func &::= &\texttt{fn} \; x \Rightarrow e\\
+    &| &\texttt{rec} \; f \; x \Rightarrow e\\
+    &| &\texttt{rec} \; f:T \; \; x \Rightarrow e\\
 \\
 x &::= &\{ x_0, x_1, \ldots \}\\
 \\
@@ -135,14 +137,14 @@ x &::= &\{ x_0, x_1, \ldots \}\\
 
 All functions in $V$ take exactly one parameter, and so function application evaluates the function by providing a single argument to it.
 
-The first expression ($\texttt{fn} \; x \Rightarrow e$) defines a simple unnamed function with a parameter $x$.
+The first type of function ($\texttt{fn} \; x \Rightarrow e$) defines a simple unnamed function with a parameter $x$.
 $x$ is an identifier from a set of name identifiers.
 
 The body of the function is the expression $e$, which may or may not contain occurrences of the value passed as the argument of the function.
 
 \medskip
 
-The following two expressions define both variants of recursive functions available in $V$.
+The other two types of functions are both variants of recursive functions available in $V$.
 These functions have a name, $f$, which is also a member of the set of name identifiers, and this name is used to allow recursive calls from withing their body ($e$).
 Like unnamed functions, they take exactly one parameter, $x$, which may or may not be present in their bodies.
 
@@ -151,7 +153,7 @@ In the second variant, the programmer specifies the return type of the function 
 
 \medskip
 
-Finally, the last two expressions help using functions.
+There are also expressions to use functions.
 
 The first of them is function application: the first of the expressions is a function, and the second is the argument being passed to the function.
 
@@ -569,36 +571,33 @@ vars &:: = &\{\} \; | \; \{x \rightarrow v\} \cup vars\\
 \\
     v &::= &con \; v_1, \; \dots \; v_n & (n = \text{arity} \; con)\\
     &| &raise\\
-    &| &(v_1, \; \dots \; v_n) & (n\geq2)\\
     &| &\{l_1: v_1, \; \dots \; l_n: v_n\} & (n\geq1)\\
-    &| &\left\langle p, e, env\right\rangle\\
-    &| &\left\langle x, p, e, env\right\rangle\\
+    &| &\#respath\\
+    &| &\left\langle func, env\right\rangle\\
+    &| &\llbracket Builtin \; . \; v_1, \; \dots v_n \rrbracket &(n < \text{arity} \; Builtin)\\
+    &| &\llbracket con \; . \; v_1, \; \dots v_n \rrbracket &(n < \text{arity} \; Builtin)\\
+    \\
+respath &::= &l\\
+    &| &respath \; . \; respath\\
+    &| &(respath_1, \; \dots \; respath_n) &(n \geq 2)\\
+    &| &respath \; [v_1, \; v_2] \\
 \end{tabular}}
 
 \bigskip
 
-The values $\left\langle p, e, env\right\rangle$ and $\left\langle x, p, e, env\right\rangle$ are closures and recursive closures, respectively.
-They represent the result of evaluating functions and recursive functions, both and store the environment at the moment of evaluation.
+The value $\left\langle func, env\right\rangle$ defines closures.
+They represent the result of evaluating functions (and recursive functions) and store the environment at the moment of evaluation.
 This means that $V$ has static scope, since closures capture the environment at the moment of evaluation and $V$ has eager evaluation.
-
-Closures also store the pattern for the parameter of the respective function (as $p$), along with the function body (as $e$).
-Recursive closures, besides storing the pattern for the parameter (as $p$) and the function body, also store the name of the function (as $x$).
-This allows the function to be called inside its own body, something that the simple closure does not allow.
 
 \paragraph{Pattern Matching}
 
-For \texttt{let} expressions and application, it is necessary to match a pattern $p$ to a value $v$.
+For \texttt{let} and \texttt{match} expressions, it is necessary to match a pattern $p$ to a value $v$.
 This process, if successful, creates a mapping of identifiers to their corresponding elements of $v$.
-If the process fails, it means that $v$ does not match the pattern $p$.
+If $v$ does not match the pattern $p$, the process fails.
 
-There are two ways in which the matching can fail.
-In the first way, the structure of the pattern is different from the value, such as matching a tuple pattern with a list value.
-In this case, the code is invalid and evaluation stops.
-
-In the second way, the structures match, but the actual values do not.
-This happens in lists, when a $nil$ pattern is matched against a non-empty list value (or vice-versa), or with constants ($n$, $b$ and $c$).
-
-In this case, the code is valid, but it will evaluate to $raise$.
+In the case of a \texttt{let} expression, failing to match means the whole expression evaluates to $raise$.
+For \texttt{match} expressions, a failed pattern causes the next pattern to be attempted.
+If there are no more patterns, the expression evaluates to $raise$.
 
 \medskip
 
