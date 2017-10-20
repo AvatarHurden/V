@@ -577,7 +577,7 @@ vars &:: = &\{\} \; | \; \{x \rightarrow v\} \cup vars\\
     &| &\#respath\\
     &| &\left\langle func, env\right\rangle\\
     &| &\llbracket Builtin \; . \; v_1, \; \dots v_n \rrbracket &(n < \text{arity} \; Builtin)\\
-    &| &\llbracket con \; . \; v_1, \; \dots v_n \rrbracket &(n < \text{arity} \; Builtin)\\
+    &| &\llbracket con \; . \; v_1, \; \dots v_n \rrbracket &(n < \text{arity} \; con)\\
     \\
 respath &::= &l\\
     &| &respath \; . \; respath\\
@@ -590,6 +590,10 @@ respath &::= &l\\
 The value $\left\langle func, env\right\rangle$ defines closures.
 They represent the result of evaluating functions (and recursive functions) and store the environment at the moment of evaluation.
 This means that $V$ has static scope, since closures capture the environment at the moment of evaluation and $V$ has eager evaluation.
+
+The values $\llbracket Builtin \; . \; v_1, \; \dots v_n \rrbracket$ and $\llbracket con \; . \; v_1, \; \dots v_n \rrbracket$ are partial applications of builtin functions and constructors, respectively.
+
+Once all the parameters have been defined, they evaluate either to the result of the function (in the case of $Builtin$) or to a fully applied constructor $con \; v_1, \; \dots \; v_n$.
 
 \paragraph{Pattern Matching}
 
@@ -640,6 +644,83 @@ This is represented by:
 
 \subsubsection{Big-Step Rules}
 
+\paragraph{Function Expressions}
+
+Every function evaluates to a closure.
+This basically stores the function definition and the current environment in a value, allowing the evaluation environment to be restored on function application.
+
+\infax[BS-Fn]
+    {\mbox{env} \vdash func \Downarrow \left\langle func, env\right\rangle}
+
+Builtin functions evaluate to a partially applied builtin without any arguments.
+
+\infax[BS-Builtin]
+    {\mbox{env} \vdash Builtin \Downarrow \llbracket Builtin \; . \; \rrbracket}
+
+Similarly, constructors, if they need at least one argument, evaluate to a partially applied constructor.
+If, however, they do not take any arguments, they immediately evaluate to a fully applied constructor.
+
+\infrule[BS-Con2]
+    {\mbox{env.arities}(con) > 0}
+    {\mbox{env} \vdash con \Downarrow \llbracket con \; . \; \rrbracket}
+
+\infrule[BS-Con]
+    {\mbox{env.arities}(con) = 0}
+    {\mbox{env} \vdash con \Downarrow con}
+
+\paragraph{Application}
+An application expression requires either a closure, a builtin function or a constructor for its left-hand operand.
+j\smallskip
+
+In the case of a simple closure, the body of the function ($e$) is evaluated using the stored closure, matching the parameter pattern ($p$) with the argument ($v_2$).
+
+\infrule[BS-AppFn]
+    {\mbox{env} \vdash e_1 \Downarrow \left\langle p, e, env\right\rangle \andalso \mbox{env} \vdash e_2 \Downarrow v_2\\
+    match(p, v_2) = true, env_1\\
+    env_1 \cup \mbox{env} \vdash e \Downarrow v}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow v}
+
+\infrule[BS-AppFn2]
+    {\mbox{env} \vdash e_1 \Downarrow \left\langle p, e, env\right\rangle \andalso \mbox{env} \vdash e_2 \Downarrow v_2\\
+    match(p, v_2) = false, env_1}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow raise}
+
+In the case of a recursive closure, there are two new associations added to the stored closure.
+The first is, as with a simple closure, the parameter pattern ($p$) and the argument ($v_2$).
+The second is the function identifier ($x$) and the closure itself.
+This ensures that the function body can call the recursive function again since its closure is included in the environment.
+
+\infrule[BS-AppRec]
+    {\mbox{env} \vdash e_1 \Downarrow \left\langle x, p, e, env\right\rangle \andalso \mbox{env} \vdash e_2 \Downarrow v_2\\
+    match(p, v_2) = true, env_1\\
+     \{x \rightarrow \left\langle x, p, e, env\right\rangle \} \cup env_1 \cup \mbox{env} \vdash e \Downarrow v}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow v}
+
+\infrule[BS-AppRec2]
+    {\mbox{env} \vdash e_1 \Downarrow \left\langle x, p, e, env\right\rangle \andalso \mbox{env} \vdash e_2 \Downarrow v_2\\
+    match(p, v_2) = false, env_1}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow raise}
+
+If the function does not require the value of its parameter (for example, always returning a constant value), it will evaluate correctly even if its argument is $raise$.
+This means that $V$ has elements of a non-strict language.
+
+Note, however, that the argument is fully evaluated before being replaced in the function.
+This means that $V$ also has elements of a strict (or, more accurately, eager) language.
+
+The result of these behaviours is that $V$ is neither fully strict nor fully non-strict.
+If an unused argument raises an exception, the function behaves as if it is non-strict.
+If the same function receives an argument whose evaluation does not terminate, it behaves as if it is strict (i.e it also does not terminate).
+
+\paragraph{Identifier}
+
+The evaluation of an identifier depends on the environment in which it is evaluated.
+If the environment has an association between the identifier and a value, the value is returned.
+If it does not, the program is malformed and cannot be evaluated (this will be caught in the type system).
+
+\infrule[BS-Ident]
+    {\mbox{env.vars}(x) = v}
+    {\mbox{env} \vdash x \Downarrow v}
+
 \infax[BS-Num]
     {\mbox{env} \vdash n \Downarrow n}
 
@@ -648,10 +729,6 @@ This is represented by:
 
 \infax[BS-Char]
     {\mbox{env} \vdash c \Downarrow c}
-
-\infrule[BS-Ident]
-    {\mbox{env}(x) = v}
-    {\mbox{env} \vdash x \Downarrow v}
 
 
 \paragraph{Tuples}
@@ -913,73 +990,6 @@ For characters, the ASCII values are compared numerically.
     {\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow v_3::v_4\\
      \mbox{env} \vdash v_1 = v_3 \Downarrow true \andalso \mbox{env} \vdash v_2 \; opIneq \; v_4 \Downarrow b}
     {\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow b}
-
-\paragraph{Function Expressions}
-
-There are two types of function expressions, one for simple functions and one for recursive functions.
-
-\smallskip
-
-The first is a simple unnamed function that takes exactly one parameter.
-This parameter can occur anywhere inside the function body ($e$) and will be replaced by the argument when the function is called.
-
-\infax[BS-Fn]
-    {\mbox{env} \vdash \texttt{fn} \; p \Rightarrow e \Downarrow \left\langle p, e, env\right\rangle}
-
-The second type of function is a recursive function that also takes exactly one parameter ($p$).
-Unlike the unnamed function, a recursive function also specifies its own name ($x$), such that it can be called within the function body.
-
-The typed variant must specify the type of the output ($T$).
-
-\infax[BS-Rec]
-    {\mbox{env} \vdash \texttt{rec} \; x_1:T \; \; p \Rightarrow e \Downarrow \left\langle x, p, e, env\right\rangle}
-
-\infax[BS-Rec2]
-    {\mbox{env} \vdash \texttt{rec} \; x \; p \Rightarrow e \Downarrow \left\langle x, p, e, env\right\rangle}
-
-\paragraph{Application}
-An application expression requires either a closure or a recursive closure for its left-hand operand.
-The right-hand operand (argument) is always evaluated using the current environment, resulting in a value $v_2$.
-\smallskip
-
-In the case of a simple closure, the body of the function ($e$) is evaluated using the stored closure, matching the parameter pattern ($p$) with the argument ($v_2$).
-
-\infrule[BS-AppFn]
-    {\mbox{env} \vdash e_1 \Downarrow \left\langle p, e, env\right\rangle \andalso \mbox{env} \vdash e_2 \Downarrow v_2\\
-    match(p, v_2) = true, env_1\\
-    env_1 \cup \mbox{env} \vdash e \Downarrow v}
-    {\mbox{env} \vdash e_1 \; e_2 \Downarrow v}
-
-\infrule[BS-AppFn2]
-    {\mbox{env} \vdash e_1 \Downarrow \left\langle p, e, env\right\rangle \andalso \mbox{env} \vdash e_2 \Downarrow v_2\\
-    match(p, v_2) = false, env_1}
-    {\mbox{env} \vdash e_1 \; e_2 \Downarrow raise}
-
-In the case of a recursive closure, there are two new associations added to the stored closure.
-The first is, as with a simple closure, the parameter pattern ($p$) and the argument ($v_2$).
-The second is the function identifier ($x$) and the closure itself.
-This ensures that the function body can call the recursive function again since its closure is included in the environment.
-
-\infrule[BS-AppRec]
-    {\mbox{env} \vdash e_1 \Downarrow \left\langle x, p, e, env\right\rangle \andalso \mbox{env} \vdash e_2 \Downarrow v_2\\
-    match(p, v_2) = true, env_1\\
-     \{x \rightarrow \left\langle x, p, e, env\right\rangle \} \cup env_1 \cup \mbox{env} \vdash e \Downarrow v}
-    {\mbox{env} \vdash e_1 \; e_2 \Downarrow v}
-
-\infrule[BS-AppRec2]
-    {\mbox{env} \vdash e_1 \Downarrow \left\langle x, p, e, env\right\rangle \andalso \mbox{env} \vdash e_2 \Downarrow v_2\\
-    match(p, v_2) = false, env_1}
-    {\mbox{env} \vdash e_1 \; e_2 \Downarrow raise}
-
-If the function does not require the value of its parameter (for example, always returning a constant value), it will evaluate correctly even if its argument is $raise$.
-This means that $V$ has elements of a non-strict language.
-
-Note, however, that the argument is fully evaluated before being replaced in the function.
-This means that $V$ also has elements of a strict (or, more accurately, eager) language.
-
-The result of these behaviours is that $V$ is neither fully strict nor fully non-strict.
-If an unused argument raises an exception, the function behaves as if it is non-strict.
-If the same function receives an argument whose evaluation does not terminate, it behaves as if it is strict (i.e it also does not terminate).
 
 \paragraph{Let Expressions}
 These expressions are used to associate an identifier with a specific value, allowing the value to be reused throughout the program.
