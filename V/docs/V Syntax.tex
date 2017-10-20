@@ -576,8 +576,8 @@ vars &:: = &\{\} \; | \; \{x \rightarrow v\} \cup vars\\
     &| &\{l_1: v_1, \; \dots \; l_n: v_n\} & (n\geq1)\\
     &| &\#respath\\
     &| &\left\langle func, env\right\rangle\\
-    &| &\llbracket Builtin \; . \; v_1, \; \dots v_n \rrbracket &(n < \text{arity} \; Builtin)\\
-    &| &\llbracket con \; . \; v_1, \; \dots v_n \rrbracket &(n < \text{arity} \; con)\\
+    &| &\ll Builtin \; . \; v_1, \; \dots v_n \gg &(n < \text{arity} \; Builtin)\\
+    &| &\ll con \; . \; v_1, \; \dots v_n \gg &(n < \text{arity} \; con)\\
     \\
 respath &::= &l\\
     &| &respath \; . \; respath\\
@@ -591,7 +591,7 @@ The value $\left\langle func, env\right\rangle$ defines closures.
 They represent the result of evaluating functions (and recursive functions) and store the environment at the moment of evaluation.
 This means that $V$ has static scope, since closures capture the environment at the moment of evaluation and $V$ has eager evaluation.
 
-The values $\llbracket Builtin \; . \; v_1, \; \dots v_n \rrbracket$ and $\llbracket con \; . \; v_1, \; \dots v_n \rrbracket$ are partial applications of builtin functions and constructors, respectively.
+The values $\ll Builtin \; . \; v_1, \; \dots v_n \gg$ and $\ll con \; . \; v_1, \; \dots v_n \gg$ are partial applications of built-in functions and constructors, respectively.
 
 Once all the parameters have been defined, they evaluate either to the result of the function (in the case of $Builtin$) or to a fully applied constructor $con \; v_1, \; \dots \; v_n$.
 
@@ -655,14 +655,14 @@ This basically stores the function definition and the current environment in a v
 Builtin functions evaluate to a partially applied builtin without any arguments.
 
 \infax[BS-Builtin]
-    {\mbox{env} \vdash Builtin \Downarrow \llbracket Builtin \; . \; \rrbracket}
+    {\mbox{env} \vdash Builtin \Downarrow \ll Builtin \; . \; \gg}
 
 Similarly, constructors, if they need at least one argument, evaluate to a partially applied constructor.
 If, however, they do not take any arguments, they immediately evaluate to a fully applied constructor.
 
 \infrule[BS-Con2]
     {\mbox{env.arities}(con) > 0}
-    {\mbox{env} \vdash con \Downarrow \llbracket con \; . \; \rrbracket}
+    {\mbox{env} \vdash con \Downarrow \ll con \; . \; \gg}
 
 \infrule[BS-Con]
     {\mbox{env.arities}(con) = 0}
