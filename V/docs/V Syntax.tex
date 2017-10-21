@@ -740,23 +740,6 @@ If it does not, the program is malformed and cannot be evaluated (this will be c
     {\mbox{env.vars}(x) = v}
     {\mbox{env} \vdash x \Downarrow v}
 
-\infax[BS-Num]
-    {\mbox{env} \vdash n \Downarrow n}
-
-\infax[BS-Bool]
-    {\mbox{env} \vdash b \Downarrow b}
-
-\infax[BS-Char]
-    {\mbox{env} \vdash c \Downarrow c}
-
-
-\paragraph{Tuples}
-A tuple construction expression $(e_1, \; \dots \; e_n)$ evaluates each of its sub-expressions individually, resulting in a tuple value.
-
-\infrule[BS-Tuple]
-    {\forall \; k \in \left[1, n\right] \; \; \mbox{env} \vdash e_k \Downarrow v_k}
-    {\mbox{env} \vdash (e_1, \; \dots \; e_n) \Downarrow (v_1, \; \dots \; e_n)}
-
 \paragraph{Records}
 A record construction expression $\{l_1: e_1, \; \dots \; l_n: e_n\}$ evaluates each of its sub-expressions individually, resulting in a record value.
 
@@ -772,23 +755,6 @@ The result of evaluating this expression is a tuple, where the first component i
     {\mbox{env} \vdash e_2 \Downarrow \{l_1: v_1, \; \dots \; l_n: v_n\} \andalso \mbox{env} \vdash e_1 \Downarrow v\\
     l = l_k \andalso 1 \leq \left\|k\right\| \leq \left\|n\right\| \andalso r = \{l_1: v_1, \; \dots \; l_k: v, \; \ldots \; l_n: v_n\}}
     {\mbox{env} \vdash \#l \; e_1 \; e_2 \Downarrow (v_k, r)}
-
-
-\paragraph{Lists}
-The expression $nil$ always evaluates to the value $nil$, which represents an empty list.
-The append operation ($::$) accepts any value as its first operand ($e_1$), but the second operand ($e_2$) must evaluate to either the empty list ($nil$) or a non-empty list (represented by the value $v_1 :: v_2$).
-
-\infax[BS-Nil]
-    {\mbox{env} \vdash nil \Downarrow nil}
-
-\infrule[BS-List]
-    {\mbox{env} \vdash e_1 \Downarrow v \andalso \mbox{env} \vdash e_2 \Downarrow nil}
-    {\mbox{env} \vdash e_1 :: e_2 \Downarrow v :: nil}
-
-\infrule[BS-List2]
-    {\mbox{env} \vdash e_1 \Downarrow v \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
-    {\mbox{env} \vdash e_1 :: e_2 \Downarrow v :: (v_1 :: v_2)}
-
 
 \paragraph{Numerical Operations}
 The $V$ language only supports integers, so all operations are done on integer numbers.
