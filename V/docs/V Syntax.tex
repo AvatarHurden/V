@@ -699,10 +699,36 @@ For operational semantics, there is no difference between the typed and untyped 
     \{x \rightarrow v_2, f \rightarrow \left\langle \texttt{rec} \; f: T \; x \Rightarrow e, \mbox{env}_1\right\rangle\} \cup \mbox{env}_1 \vdash e \Downarrow v}
     {\mbox{env} \vdash e_1 \; e_2 \Downarrow v}
 
-In the case of a recursive closure, there are two new associations added to the stored closure.
-The first is, as with a simple closure, the parameter pattern ($p$) and the argument ($v_2$).
-The second is the function identifier ($x$) and the closure itself.
-This ensures that the function body can call the recursive function again since its closure is included in the environment.
+
+\medskip
+
+Application on partially applied constructors can behave in two different ways, depending on how many arguments have been already applied.
+
+If the arity of the constructor is larger than the number of arguments already applied (plus the new one being applied), the result of the application is a partially applied constructor with the new value added to the end.
+
+\infrule[BS-AppCon]
+    {\mbox{env} \vdash e_1 \Downarrow \ll con \; . \; v_1, \; \dots v_n \gg\\
+    n + 1 < \mbox{env.arities}(con) \andalso \mbox{env} \vdash e_2 \Downarrow v}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow \ll con \; . \; v_1, \; \dots v_n, \; v \gg}
+
+If the arity of the constructor is equal to 1 more than the number of already applied arguments, the application results in a completely applied constructor.
+
+\infrule[BS-AppConTotal]
+    {\mbox{env} \vdash e_1 \Downarrow \ll con \; . \; v_1, \; \dots v_n \gg\\
+    n + 1 = \mbox{env.arities}(con) \andalso \mbox{env} \vdash e_2 \Downarrow v}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow con \; v_1, \; \dots v_n, \; v}
+
+\medskip
+
+Application on partially applied built-in functions works similarly, having different rules depending on the number of arguments.
+
+\infrule[BS-AppBuiltin]
+    {\mbox{env} \vdash e_1 \Downarrow \ll Builtin \; . \; v_1, \; \dots v_n \gg\\
+    n + 1 < \text{arity} Builtin \andalso \mbox{env} \vdash e_2 \Downarrow v}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow \ll Builtin \; . \; v_1, \; \dots v_n, \; v \gg}
+
+The result of applying the last argument of a builtin function varies depending on what the function does (and what kind of arguments it accepts).
+These rules will be provided later.
 
 \paragraph{Identifier}
 
