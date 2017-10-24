@@ -652,7 +652,7 @@ This basically stores the function definition and the current environment in a v
 \infax[BS-Fn]
     {\mbox{env} \vdash func \Downarrow \left\langle func, env\right\rangle}
 
-Builtin functions evaluate to a partially applied builtin without any arguments.
+Built-in functions evaluate to a partially applied built-in without any arguments.
 
 \infax[BS-Builtin]
     {\mbox{env} \vdash Builtin \Downarrow \ll Builtin \; . \; \gg}
@@ -670,11 +670,11 @@ If, however, they do not take any arguments, they immediately evaluate to a full
 
 \paragraph{Application}
 
-An application expression requires either a closure, a partially applied builtin function or a partially applied constructor for its left-hand operand.
+An application expression requires either a closure, a partially applied built-in function or a partially applied constructor for its left-hand operand.
 
 \smallskip
 
-In the case of a closure, there are two different behaviours, depending on whether the function is recursive or not.
+In the case of a closure, there are two different behaviors, depending on whether the function is recursive or not.
 
 When applying non recursive functions, a new association between the parameter identifier ($x$) and the argument ($v_2$) is added to the environment stored in the closure ($\mbox{env}_1$).
 The body of the function ($e$) is then evaluated using this new environment.
@@ -687,7 +687,7 @@ The body of the function ($e$) is then evaluated using this new environment.
 Recursive functions, besides associating the identifier to the argument, also create an association between the function name and its value (i.e the closure itself).
 This allows the body of the function to call itself, creating a recursive structure.
 
-For operational semantics, there is no difference between the typed and untyped versions of recursives functions, so both have the same evaluation rules.
+For operational semantics, there is no difference between the typed and untyped versions of recursive functions, so both have the same evaluation rules.
 
 \infrule[BS-AppFnRec]
     {\mbox{env} \vdash e_1 \Downarrow \left\langle \texttt{rec} \; f \; x \Rightarrow e, \mbox{env}_1\right\rangle \andalso \mbox{env} \vdash e_2 \Downarrow v_2\\
@@ -727,7 +727,7 @@ Application on partially applied built-in functions works similarly, having diff
     n + 1 < \text{arity} Builtin \andalso \mbox{env} \vdash e_2 \Downarrow v}
     {\mbox{env} \vdash e_1 \; e_2 \Downarrow \ll Builtin \; . \; v_1, \; \dots v_n, \; v \gg}
 
-The result of applying the last argument of a builtin function varies depending on what the function does (and what kind of arguments it accepts).
+The result of applying the last argument of a built-in function varies depending on what the function does (and what kind of arguments it accepts).
 These rules will be provided later.
 
 \paragraph{Identifier}
@@ -742,19 +742,17 @@ If it does not, the program is malformed and cannot be evaluated (this will be c
 
 \paragraph{Records}
 A record construction expression $\{l_1: e_1, \; \dots \; l_n: e_n\}$ evaluates each of its sub-expressions individually, resulting in a record value.
+The order of evaluation is defined by the order of the labels and is done from smallest to largest.
 
 \infrule[BS-Record]
     {\forall \; k \in \left[1, n\right] \; \; \mbox{env} \vdash e_k \Downarrow v_k}
     {\mbox{env} \vdash \{l_1: e_1, \; \dots \; l_n: e_n\} \Downarrow \{l_1: v_1, \; \dots \; l_n: v_n\}}
 
-The record access term exists to allow getting and setting the values of individual fields in a record.
-The record, obtained by evaluating $e_2$, is updated by associating the result of evaluating $e_1$ to the label $l$.
-The result of evaluating this expression is a tuple, where the first component is the old value associated with the label $l$, and the second component is the updated record.
+If any of the sub-expressoins evaluate to raise, the whole record also evaluates to raise.
 
-\infrule[BS-RecordAccess]
-    {\mbox{env} \vdash e_2 \Downarrow \{l_1: v_1, \; \dots \; l_n: v_n\} \andalso \mbox{env} \vdash e_1 \Downarrow v\\
-    l = l_k \andalso 1 \leq \left\|k\right\| \leq \left\|n\right\| \andalso r = \{l_1: v_1, \; \dots \; l_k: v, \; \ldots \; l_n: v_n\}}
-    {\mbox{env} \vdash \#l \; e_1 \; e_2 \Downarrow (v_k, r)}
+\infrule[BS-RecordRaise]
+    {\exists \; k \in \left[1, n\right] \; \; \mbox{env} \vdash e_k \Downarrow raise}
+    {\mbox{env} \vdash \{l_1: e_1, \; \dots \; l_n: e_n\} \Downarrow raise}
 
 \paragraph{Numerical Operations}
 The $V$ language only supports integers, so all operations are done on integer numbers.
