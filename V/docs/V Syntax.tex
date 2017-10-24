@@ -699,7 +699,6 @@ For operational semantics, there is no difference between the typed and untyped 
     \{x \rightarrow v_2, f \rightarrow \left\langle \texttt{rec} \; f: T \; x \Rightarrow e, \mbox{env}_1\right\rangle\} \cup \mbox{env}_1 \vdash e \Downarrow v}
     {\mbox{env} \vdash e_1 \; e_2 \Downarrow v}
 
-
 \medskip
 
 Application on partially applied constructors can behave in two different ways, depending on how many arguments have been already applied.
@@ -748,11 +747,41 @@ The order of evaluation is defined by the order of the labels and is done from s
     {\forall \; k \in \left[1, n\right] \; \; \mbox{env} \vdash e_k \Downarrow v_k}
     {\mbox{env} \vdash \{l_1: e_1, \; \dots \; l_n: e_n\} \Downarrow \{l_1: v_1, \; \dots \; l_n: v_n\}}
 
-If any of the sub-expressoins evaluate to raise, the whole record also evaluates to raise.
+If any of the sub-expressions evaluate to raise, the whole record also evaluates to raise.
 
 \infrule[BS-RecordRaise]
     {\exists \; k \in \left[1, n\right] \; \; \mbox{env} \vdash e_k \Downarrow raise}
     {\mbox{env} \vdash \{l_1: e_1, \; \dots \; l_n: e_n\} \Downarrow raise}
+
+\paragraph{Accessors}
+
+There is a different evaluation rule for each type of path available to accessors.
+
+The simplest rule is for a label accessor.
+This is considered a direct value, and no evaluation is necessary.
+
+\infax[BS-Label]
+    {\mbox{env} \vdash \#l \Downarrow \#l}
+
+For a stacked path, both components must evaluate to accessors.
+
+\infrule[BS-Stacked]
+    {\mbox{env} \vdash \#path_1 \Downarrow \#respath_1 \andalso \mbox{env} \vdash \#path_2 \Downarrow \#respath_2}
+    {\mbox{env} \vdash \#path_1 \; . \; path_2 \Downarrow \#respath_1 \; . \; respath_2}
+
+Joined paths, likewise, must have every component evaluating to an accessor.
+
+\infrule[BS-Joined]
+    {\forall \; k \in \left[1, n\right] \; \; \mbox{env} \vdash e_k \Downarrow \#respath_k}
+    {\mbox{env} \vdash \#(e_1, \; \dots \; e_n) \Downarrow \#(respath_1, \; \dots \; respath_n)}
+
+Distorted paths must have, besides a path, two values.
+These values must be functions, but this restriction is only made in the type system.
+
+\infrule[BS-Distorted]
+    {\mbox{env} \vdash \#path \Downarrow \#respath \andalso \mbox{env} \vdash e_1 \Downarrow v_1 \andalso \mbox{env} \vdash e_2 \Downarrow v_2}
+    {\mbox{env} \vdash \#path \; [e_1, \; e_2] \Downarrow \#respath \; [v_1, \; v_2]}
+
 
 \paragraph{Numerical Operations}
 The $V$ language only supports integers, so all operations are done on integer numbers.
