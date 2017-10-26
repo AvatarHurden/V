@@ -279,24 +279,22 @@ Accessors, then, define a path on this tree, extracting the node at the end of t
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
 e &::= &\cdots&\\
     &| &\{l_1: e_1, \; \dots \; l_n: e_n\} & (n\geq1)\\
-    &| &\#path\\
+    &| &\#l\\
+    &| &\#(e_1, \; \dots \; e_n) & (n\geq2)\\
 \\
 l &::= & \{l_1, l_2, ...\}\\
-\\
-path &::= &l\\
-  &| &path_1 \; . \; path_2\\
-  &| &(e_1, \; \dots \; e_n) & (n\geq2)\\
-  &| &path \; [e_1, \; e_2] \\
 \end{tabular}}
 
 \bigskip
 
-The most basic type of path is a simple label.
-Paths can be vertically composed ($path_1 \; . \; path_2$), resulting in a deeper path.
-Another type of composition is horizontal, wherein multiple paths are combined with the same starting node.
-Finally, paths can be distorted, specifying a pair of functions to be applied when extracting or inserting values in the field.
+The most basic type of path is a simple label $\#l$.
+An accessor can also be made by combining multiple accesors.
+The $\#(e_1, \; \dots \; e_n)$ expression creates an accessor for multiple fields of the same record.
+Another type of composition is vertical, and is obtained by using the built-in function "stack".
 
-More details about how paths work will be provided in a later section.\todo{Insert section}
+Furthermore, paths can be distorted with the "distort" built-in function, specifying a pair of functions to be applied when extracting or inserting values in the field.
+
+More details about how accessors (and paths) work will be provided in a later section.\todo{Insert section}
 
 \paragraph{Let and Patterns}\label{Patterns}
 
@@ -574,15 +572,15 @@ vars &:: = &\{\} \; | \; \{x \rightarrow v\} \cup vars\\
     v &::= &con \; v_1, \; \dots \; v_n & (n = \text{arity} \; con)\\
     &| &raise\\
     &| &\{l_1: v_1, \; \dots \; l_n: v_n\} & (n\geq1)\\
-    &| &\#respath\\
+    &| &\#path\\
     &| &\left\langle func, env\right\rangle\\
     &| &\ll Builtin \; . \; v_1, \; \dots v_n \gg &(n < \text{arity} \; Builtin)\\
     &| &\ll con \; . \; v_1, \; \dots v_n \gg &(n < \text{arity} \; con)\\
     \\
-respath &::= &l\\
-    &| &respath \; . \; respath\\
-    &| &(respath_1, \; \dots \; respath_n) &(n \geq 2)\\
-    &| &respath \; [v_1, \; v_2] \\
+path &::= &l\\
+    &| &path \; . \; path\\
+    &| &(path_1, \; \dots \; path_n) &(n \geq 2)\\
+    &| &path \; [v_1, \; v_2] \\
 \end{tabular}}
 
 \bigskip
@@ -594,6 +592,27 @@ This means that $V$ has static scope, since closures capture the environment at 
 The values $\ll Builtin \; . \; v_1, \; \dots v_n \gg$ and $\ll con \; . \; v_1, \; \dots v_n \gg$ are partial applications of built-in functions and constructors, respectively.
 
 Once all the parameters have been defined, they evaluate either to the result of the function (in the case of $Builtin$) or to a fully applied constructor $con \; v_1, \; \dots \; v_n$.
+
+\paragraph{Paths}
+
+Accessors possess structure when treated as values.
+This structure is built through use of the operations available on accessors, such as the compose expression or the built-in functions.
+Since accessors view records as trees, this structure is a \emph{path} along a tree.
+
+The most basic structure of a path is a single label.
+This path describes a field immediately below the root of the tree (the root is viewed as the record itself, and every child is a field of the record).
+This path is created by using the simple accessor expression $\#l$.
+
+Two paths can be composed vertically, allowing access to subfields of a record.
+In this scenario, the tree must have at least the same depth as the path (and along the correct field names).
+Vertical composition is achieved by using the "stack" built-in function, and always combines two paths.
+
+Paths can also be composed horizontally, described as a tuple of paths.
+When composed horizontally, all paths are used on the root of the record, and the end points of the paths are joined in a tuple for extraction or updating.
+
+Finally, paths can be distorted.
+This means that the path has two values (functions) associated with it.
+These functions are then used to transform the values stored in the field of the record (one for extraction, another for updating).
 
 \paragraph{Pattern Matching}
 
@@ -757,30 +776,32 @@ If any of the sub-expressions evaluate to raise, the whole record also evaluates
 
 There is a different evaluation rule for each type of path available to accessors.
 
-The simplest rule is for a label accessor.
-This is considered a direct value, and no evaluation is necessary.
+The simplest rule is for a label accessor, which is in itself a value.
 
 \infax[BS-Label]
     {\mbox{env} \vdash \#l \Downarrow \#l}
 
-For a stacked path, both components must evaluate to accessors.
-
-\infrule[BS-Stacked]
-    {\mbox{env} \vdash \#path_1 \Downarrow \#respath_1 \andalso \mbox{env} \vdash \#path_2 \Downarrow \#respath_2}
-    {\mbox{env} \vdash \#path_1 \; . \; path_2 \Downarrow \#respath_1 \; . \; respath_2}
-
-Joined paths, likewise, must have every component evaluating to an accessor.
+Joined accessors evaluate each of their sub-expressions, expecting an accessor value as a result.
 
 \infrule[BS-Joined]
-    {\forall \; k \in \left[1, n\right] \; \; \mbox{env} \vdash e_k \Downarrow \#respath_k}
-    {\mbox{env} \vdash \#(e_1, \; \dots \; e_n) \Downarrow \#(respath_1, \; \dots \; respath_n)}
+    {\forall \; k \in \left[1, n\right] \; \; \mbox{env} \vdash e_k \Downarrow \#path_k}
+    {\mbox{env} \vdash \#(e_1, \; \dots \; e_n) \Downarrow \#(path_1, \; \dots \; path_n)}
 
-Distorted paths must have, besides a path, two values.
-These values must be functions, but this restriction is only made in the type system.
+To create a stacked accessor, the built-in function "stack" must be used.
+This function has arity 2, and requires both arguments to be accessors.
+The paths of the accessors are then composed in a stacked accessor, which is the result of the evaluation.
+
+\infrule[BS-Stacked]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \text{stack} \; . \; \#path_1 \gg \andalso \mbox{env} \vdash e_2 \Downarrow \#path_2}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow \#path_1 \; . \; path_2}
+
+Similarly, creating distorted accessors requires the built-in function "distort".
+This function takes 3 arguments, the first being an accessor, and the remaining two being functions.
+When fully evaluated, the path of the accessor is combined with the function values, creating a distorted accessor.
 
 \infrule[BS-Distorted]
-    {\mbox{env} \vdash \#path \Downarrow \#respath \andalso \mbox{env} \vdash e_1 \Downarrow v_1 \andalso \mbox{env} \vdash e_2 \Downarrow v_2}
-    {\mbox{env} \vdash \#path \; [e_1, \; e_2] \Downarrow \#respath \; [v_1, \; v_2]}
+    {\mbox{env} \vdash e_1 \Downarrow \ll \text{distort} \; . \; \#path, \; v_1 \gg \andalso \mbox{env} \vdash e_2 \Downarrow v_2}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow \#path \; [v_1, \; v_2]}
 
 
 \paragraph{Numerical Operations}
