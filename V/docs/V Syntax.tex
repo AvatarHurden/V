@@ -593,7 +593,7 @@ The values $\ll Builtin \; . \; v_1, \; \dots v_n \gg$ and $\ll con \; . \; v_1,
 
 Once all the parameters have been defined, they evaluate either to the result of the function (in the case of $Builtin$) or to a fully applied constructor $con \; v_1, \; \dots \; v_n$.
 
-\paragraph{Paths}
+\subsubsection{Paths}
 
 Accessors possess structure when treated as values.
 This structure is built through use of the operations available on accessors, such as the compose expression or the built-in functions.
@@ -614,7 +614,66 @@ Finally, paths can be distorted.
 This means that the path has two values (functions) associated with it.
 These functions are then used to transform the values stored in the field of the record (one for extraction, another for updating).
 
-\paragraph{Pattern Matching}
+\paragraph{Path Traversal Rules}
+
+As previously stated, accessors describe paths along a record tree.
+To use these paths, an auxiliary $traverse$ function is used.
+This functions receives 3 arguments: a path, a record and an update value.
+The function returns 2 values: the old value associated with the field specified by the path; and an updated record.
+
+This updated record uses the value provided as input to the function to update the field specified by the path.
+This last argument of the $traverse$ function can be ommited and, in such a case, no update is done (that is, the updated record is the same as the input record).
+
+\medskip
+
+The first rule is for a simple label path.
+The label must be present in the provided record.
+A new record is created, associating the provided value with the label specified by the path.
+
+\infrule[]
+    {1 \leq \left\|k\right\| \leq \left\|n\right\|\\
+    r = \{l_1: v_1, \; \dots \; l_k: v, \; \ldots \; l_n: v_n\}}
+    {traverse(l_k, \{l_1: v_1, ... l_n: v_n\}, v) = v_k, r}
+
+For vertically composed paths, three calls to $traverse$ are needed.
+
+\infrule[]
+    {traverse(path_1, \{l_1: v_1, ... l_n: v_n\}) = rec, r\\
+    traverse(path_2, rec, v) = v', rec'\\
+    traverse(path_1, \{l_1: v_1, ... l_n: v_n\}, rec') = rec, r'\\}
+    {traverse(path_1 \; . \; path_2, \{l_1: v_1, ... l_n: v_n\}, v) = v', r'}
+
+The first call omits the update value, and is used to extract a record associated with the first component of the path.
+This record is then passed, along with the second component of the path and the update value, to the second call of $traverse$.
+Finally, the third call uses the return of the second call to update the internal record, returning a new updated record.
+
+\bigskip
+
+Joined paths also require multiple calls to $traverse$, but the exact number depends on the amount of paths joined.
+
+\infrule[]
+    {r_0 = \{l_1: v_1, ... l_n: v_n\}\\
+    \forall i \in [1, \; n] \; . \; traverse(path_i, r_{i-1}, v_i) = v'_i, r_i}
+    {traverse((path_1, \; \dots \; path_n), \{l_1: v_1, ... l_n: v_n\}, (v_1, \; \dots \; v_n)) = (v'_1, \; \dots \; v'_n), r_n}
+
+Pairing the paths with the components of the tuple provided as the update value, each pair is passed as input to a call to $traverse$.
+This happens from left to right, and each call returns a part of the old value and a partially updated record.
+Every call uses the partially updated record provided, and the last call to $traverse$ returns the fully updated record.
+
+\bigskip
+
+Distorted paths require the evaluation of two applications, one before and one after updating.
+
+\infrule[]
+    {\{\} \vdash v_2 \; v \Downarrow v' \andalso traverse(path, \{l_1: v_1, ... l_n: v_n\}, v') = v'', r\\
+    \{\} \vdash v_1 \; v'' \Downarrow v'''}
+    {traverse(path [v_1, \; v_2], \{l_1: v_1, ... l_n: v_n\}, v) = v''', r}
+
+Initally, the provided update value is applied to the second component ($v_2$) of the distorted accessor.
+This value is then provided as the new update value for a call to $traverse$, returning an old value and the updated record.
+This old value is then provided as argument to the first component ($v_1$) of the distorted accessor, and the result of this is the output of the whole $traverse$ (along with the updated record).
+
+\subsubsection{Pattern Matching}
 
 For \texttt{let} and \texttt{match} expressions, it is necessary to match a pattern $p$ to a value $v$.
 This process, if successful, creates a mapping of identifiers to their corresponding elements of $v$.
