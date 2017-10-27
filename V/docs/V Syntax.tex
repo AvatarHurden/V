@@ -913,101 +913,50 @@ This means that the division always results in a whole number, truncated towards
     {\mbox{env} \vdash e_1 \div e_2 \Downarrow n}
 
 \paragraph{Equality Operations}
-The equality operators ($=$ and $\neq$) allow comparison of certain expressions with other expressions of the same kind.
-In this way, it is a polymorphic operator, being usable in different contexts.
-Even so, it is important to realize that it only compares values of the same kind (numbers with numbers, characters with characters, etc).
+
+The equality operators ($=$ and $\neq$) test the equality of fully applied constructors and records.
 
 \medskip
 
-\infrule[BS-$=$NumTrue]
-    {\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n_1\right\|=\left\|n_2\right\|}
-    {\mbox{env} \vdash e_1 = e_2 \Downarrow true}
+\infrule[BS-$=$ConTrue]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; = \; . \; (con \; v^1_1, \; \dots v^1_n) \gg \andalso \mbox{env} \vdash e_2 \Downarrow (con \; v^2_1, \; \dots v^2_n)\\
+    \forall \; k \in \left[1, n\right] \; \; \mbox{env} \vdash (= \; v^1_k) \; v^2_k \Downarrow true}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow true}
 
-\infrule[BS-$=$NumFalse]
-    {\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n_1\right\|\neq\left\|n_2\right\|}
-    {\mbox{env} \vdash e_1 = e_2 \Downarrow false}
+\infrule[BS-$=$ConFalse]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; = \; . \; (con \; v^1_1, \; \dots v^1_n) \gg \andalso \mbox{env} \vdash e_2 \Downarrow (con \; v^2_1, \; \dots v^2_n)\\
+    \exists \; k \in \left[1, n\right] \; \; \mbox{env} \vdash (= \; v^1_k) \; v^2_k \Downarrow false}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow false}
 
-\medskip
-
-\infrule[BS-$=$CharTrue]
-    {\mbox{env} \vdash e_1 \Downarrow c_1 \andalso \mbox{env} \vdash e_2 \Downarrow c_2 \andalso \left\|c_1\right\|=\left\|c_2\right\|}
-    {\mbox{env} \vdash e_1 = e_2 \Downarrow true}
-
-\infrule[BS-$=$CharFalse]
-    {\mbox{env} \vdash e_1 \Downarrow c_1 \andalso \mbox{env} \vdash e_2 \Downarrow c_2 \andalso \left\|c_1\right\|\neq\left\|c_2\right\|}
-    {\mbox{env} \vdash e_1 = e_2 \Downarrow false}
+\infrule[BS-$=$ConFalse2]
+    {\mbox{env} \vdash e_1 \Downarrow \ll = \; . \; (con \; v^1_1, \; \dots v^1_n) \gg \andalso \mbox{env} \vdash e_2 \Downarrow (con' \; v^2_1, \; \dots v^2_k)\\
+    con' \neq con}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow false}
 
 \medskip
-
-\infrule[BS-$=$BoolTrue]
-    {\mbox{env} \vdash e_1 \Downarrow b_1 \andalso \mbox{env} \vdash e_2 \Downarrow b_2 \andalso \left\|b_1\right\|=\left\|b_2\right\|}
-    {\mbox{env} \vdash e_1 = e_2 \Downarrow true}
-
-\infrule[BS-$=$BoolFalse]
-    {\mbox{env} \vdash e_1 \Downarrow b_1 \andalso \mbox{env} \vdash e_2 \Downarrow b_2 \andalso \left\|b_1\right\|\neq\left\|b_2\right\|}
-    {\mbox{env} \vdash e_1 = e_2 \Downarrow false}
-
-\medskip
-
-\infrule[BS-$=$NilTrue]
-    {\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow nil}
-    {\mbox{env} \vdash e_1 = e_2 \Downarrow true}
-
-\infrule[BS-$=$NilFalse1]
-    {\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow nil}
-    {\mbox{env} \vdash e_1 = e_2 \Downarrow false}
-
-\infrule[BS-$=$NilFalse2]
-    {\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
-    {\mbox{env} \vdash e_1 = e_2 \Downarrow false}
-
-\medskip
-
-\infrule[BS-$=$ListFalse]
-    {\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow v_3::v_4\\
-     \mbox{env} \vdash v_1 = v_3 \Downarrow false}
-    {\mbox{env} \vdash e_1 = e_2 \Downarrow false}
-
-\infrule[BS-$=$ListTrue]
-    {\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow v_3::v_4\\
-     \mbox{env} \vdash v_1 = v_3 \Downarrow true \andalso \mbox{env} \vdash v_2 = v_4 \Downarrow b}
-    {\mbox{env} \vdash e_1 = e_2 \Downarrow b}
-
-\medskip
-
-\infrule[BS-$=$TupleFalse]
-    {\mbox{env} \vdash e_1 \Downarrow (v_{11}, \; \dots \; v_{1n}) \andalso \mbox{env} \vdash e_2 \Downarrow (v_{21}, \; \dots \; v_{2k})\\
-     \exists \; k \in \left[1, n\right] \; \; \mbox{env} \vdash v_{1k} = v_{2k} \Downarrow false\\
-     \forall \; j \in \left[1, k\right) \; \; \mbox{env} \vdash v_{1j} = v_{2j} \Downarrow true}
-    {\mbox{env} \vdash e_1 = e_2 \Downarrow false}
-
-\infrule[BS-$=$TupleTrue]
-    {\mbox{env} \vdash e_1 \Downarrow (v_{11}, \; \dots \; v_{1n}) \andalso \mbox{env} \vdash e_2 \Downarrow (v_{21}, \; \dots \; v_{2n})\\
-     \forall \; k \in \left[1, n\right] \; \; \mbox{env} \vdash v_{1k} = v_{2k} \Downarrow true}
-    {\mbox{env} \vdash e_1 = e_2 \Downarrow true}
-
-\medskip
-
-\infrule[BS-$=$RecordFalse]
-    {\mbox{env} \vdash e_1 \Downarrow \{l^1_1: v^1_1, \; \dots \; l^1_n: v^1_n\} \andalso \mbox{env} \vdash e_2 \Downarrow \{l^2_1: v^2_1, \; \dots \; l^2_n: v^2_n\}\\
-     \exists \; k \in \left[1, n\right] \; \; l^1_k = l^2_k \wedge \mbox{env} \vdash v^1_k = v^2_k \Downarrow false\\
-     \forall \; j \in \left[1, k\right) \; \; \mbox{env} \vdash v^1_j = v^2_j \Downarrow true}
-    {\mbox{env} \vdash e_1 = e_2 \Downarrow false}
 
 \infrule[BS-$=$RecordTrue]
-    {\mbox{env} \vdash e_1 \Downarrow \{l^1_1: v^1_1, \; \dots \; l^1_n: v^1_n\} \andalso \mbox{env} \vdash e_2 \Downarrow \{l^2_1: v^2_1, \; \dots \; l^2_n: v^2_n\}\\
-     \forall \; k \in \left[1, n\right] \; \; l^1_k = l^2_k \wedge \mbox{env} \vdash v^1_k = v^2_k \Downarrow true}
-    {\mbox{env} \vdash e_1 = e_2 \Downarrow true}
+    {\mbox{env} \vdash e_1 \Downarrow \ll \;= \; . \; \{l^1_1: v^1_1, \; \dots \; l^1_n: v^1_n\} \gg \andalso \mbox{env} \vdash e_2 \Downarrow \{l^2_1: v^2_1, \; \dots \; l^2_n: v^2_n\}\\
+     \forall \; k \in \left[1, n\right] \; \; l^1_k = l^2_k \wedge \mbox{env} \vdash (= \; v^1_k) \; v^2_k \Downarrow true}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow true}
+
+\infrule[BS-$=$RecordFalse]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \;= \; . \; \{l^1_1: v^1_1, \; \dots \; l^1_n: v^1_n\} \gg \andalso \mbox{env} \vdash e_2 \Downarrow \{l^2_1: v^2_1, \; \dots \; l^2_n: v^2_n\}\\
+     \exists \; k \in \left[1, n\right] \; \; l^1_k = l^2_k \wedge \mbox{env} \vdash (= \; v^1_k) \; v^2_k \Downarrow false\\
+     \forall \; j \in \left[1, k\right) \; \; \mbox{env} \vdash v^1_j = v^2_j \Downarrow true}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow false}
 
 \bigskip
 
 \infrule[BS-$\neq$True]
-    {\mbox{env}\vdash e_1 = e_2 \Downarrow false}
-    {\mbox{env} \vdash e_1 \neq e_2 \Downarrow true}
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; \neq \; . \; v_1 \gg \andalso \mbox{env} \vdash e_2 \Downarrow v_2\\
+    \mbox{env} \vdash (= \; v_1) \; v_2 \Downarrow false}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow true}
 
 \infrule[BS-$\neq$False]
-    {\mbox{env}\vdash e_1 = e_2 \Downarrow true}
-    {\mbox{env} \vdash e_1 \neq e_2 \Downarrow false}
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; \neq \; . \; v_1 \gg \andalso \mbox{env} \vdash e_2 \Downarrow v_2\\
+    \mbox{env} \vdash (= \; v_1) \; v_2 \Downarrow true}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow false}
 
 \bigskip
 
