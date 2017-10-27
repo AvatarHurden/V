@@ -622,7 +622,7 @@ This functions receives 3 arguments: a path, a record and an update value.
 The function returns 2 values: the old value associated with the field specified by the path; and an updated record.
 
 This updated record uses the value provided as input to the function to update the field specified by the path.
-This last argument of the $traverse$ function can be ommited and, in such a case, no update is done (that is, the updated record is the same as the input record).
+This last argument of the $traverse$ function can be omitted and, in such a case, no update is done (that is, the updated record is the same as the input record).
 
 \medskip
 
@@ -669,7 +669,7 @@ Distorted paths require the evaluation of two applications, one before and one a
     \{\} \vdash v_1 \; v'' \Downarrow v'''}
     {traverse(path [v_1, \; v_2], \{l_1: v_1, ... l_n: v_n\}, v) = v''', r}
 
-Initally, the provided update value is applied to the second component ($v_2$) of the distorted accessor.
+Initially, the provided update value is applied to the second component ($v_2$) of the distorted accessor.
 This value is then provided as the new update value for a call to $traverse$, returning an old value and the updated record.
 This old value is then provided as argument to the first component ($v_1$) of the distorted accessor, and the result of this is the output of the whole $traverse$ (along with the updated record).
 
@@ -861,6 +861,28 @@ When fully evaluated, the path of the accessor is combined with the function val
 \infrule[BS-Distorted]
     {\mbox{env} \vdash e_1 \Downarrow \ll \text{distort} \; . \; \#path, \; v_1 \gg \andalso \mbox{env} \vdash e_2 \Downarrow v_2}
     {\mbox{env} \vdash e_1 \; e_2 \Downarrow \#path \; [v_1, \; v_2]}
+
+\paragraph{Using Accessors}
+
+There are two built-in functions that take accessors as arguments.
+
+
+Get takes 2 arguments: an accessor and a record.
+The $traverse$ function is then called with the accessor's path and the record (the third argument is omitted), and the first return (i.e. the value associated with the path) is used as the result of the evaluation.
+
+\infrule[BS-Get]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \text{get} \; . \; \#path \gg \andalso \mbox{env} \vdash e_2 \Downarrow \{l_1: v_1, \; \dots \; l_n: v_n\}\\
+    traverse(path, \{l_1: v_1, \; \dots \; l_n: v_n\}) = v', r'}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow v'}
+
+Set takes 3 arguments: an accessor, a generic value and a record.
+The $traverse$ function is then called with the arguments, using the generic value as the update value of the call.
+The result of the evaluation is the second return of the $traverse$ function (i.e. the updated record).
+
+\infrule[BS-Set]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \text{set} \; . \; \#path, \; v \gg \andalso \mbox{env} \vdash e_2 \Downarrow \{l_1: v_1, \; \dots \; l_n: v_n\}\\
+    traverse(path, \{l_1: v_1, \; \dots \; l_n: v_n\}, v) = v', r'}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow r'}
 
 
 \paragraph{Numerical Operations}
