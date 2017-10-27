@@ -892,25 +892,29 @@ This means that the division always results in a whole number, truncated towards
 \medskip
 
 \infrule[BS-+]
-    {\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n\right\|=\left\|n_1\right\|+\left\|n_2\right\|}
-    {\mbox{env} \vdash e_1 + e_2 \Downarrow n}
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; + \; . \; n_1 \gg \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n\right\|=\left\|n_1\right\|+\left\|n_2\right\|}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow n}
 
 \infrule[BS--]
-    {\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n\right\|=\left\|n_1\right\|-\left\|n_2\right\|}
-    {\mbox{env} \vdash e_1 - e_2 \Downarrow n}
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; - \; . \; n_1 \gg \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n\right\|=\left\|n_1\right\|-\left\|n_2\right\|}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow n}
+
+\infrule[BS-- (unary)]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; - \; . \; \gg \andalso \mbox{env} \vdash e_2 \Downarrow n_1 \andalso \left\|n\right\|=-\left\|n_1\right\|}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow n}
 
 \infrule[BS-$\ast$]
-    {\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n\right\|=\left\|n_1\right\|\ast\left\|n_2\right\|}
-    {\mbox{env} \vdash e_1 * e_2 \Downarrow n}
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; * \; . \; n_1 \gg \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n\right\|=\left\|n_1\right\|*\left\|n_2\right\|}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow n}
 
 \infrule[BS-$\div$Zero]
-    {\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow 0}
-    {\mbox{env} \vdash e_1 \div e_2 \Downarrow raise}
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; \div \; . \; n_1 \gg \andalso \mbox{env} \vdash e_2 \Downarrow 0}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow raise}
 
 \infrule[BS-$\div$]
-    {\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2\\
-     \andalso \left\|n_2\right\|\neq 0 \andalso \left\|n\right\|=\left\|n_1\right\|\div\left\|n_2\right\|}
-    {\mbox{env} \vdash e_1 \div e_2 \Downarrow n}
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; \div . \; n_1 \gg \andalso \mbox{env} \vdash e_2 \Downarrow n_2\\
+    \left\|n_2\right\|\neq 0 \andalso \left\|n\right\|=\left\|n_1\right\|\div\left\|n_2\right\|}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow n}
 
 \paragraph{Equality Operations}
 
