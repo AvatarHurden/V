@@ -1089,34 +1089,34 @@ For this evaluation, the association of $p$ to $v$ is added to the environment.
 The result of this evaluation (that is, $v_2$) is the final result of the evaluation of the entire $let$ expression.
 
 \infrule[BS-Let]
-    {\mbox{env} \vdash e_1 \Downarrow v \andalso match(p, v) = true, env_1 \\
-     env_1 \cup \mbox{env} \vdash e_2 \Downarrow v_2}
+    {\mbox{env} \vdash e_1 \Downarrow v \andalso match(p, v) = \mbox{env}_1 \\
+     \mbox{env}_1 \cup \mbox{env} \vdash e_2 \Downarrow v_2}
     {\mbox{env} \vdash \texttt{let} \; p = e_1 \; \texttt{in} \; e_2 \Downarrow v_2}
 
 \infrule[BS-Let2]
-    {\mbox{env} \vdash e_1 \Downarrow v \andalso match(p, v) = false, env_1}
+    {\mbox{env} \vdash e_1 \Downarrow v \andalso \neg match(p, v)}
     {\mbox{env} \vdash \texttt{let} \; p = e_1 \; \texttt{in} \; e_2 \Downarrow raise}
 
 \bigskip
 
 \paragraph{Match Expression}
 
-The match expression receives a input value and a list of $match$, attempting to pattern match against each one.
-The first $match$ which returns a positive result is considered valid, and its corresponding expression is evaluted as the result of the whole expression.
+The match expression receives a input value and a list of $matches$, attempting to pattern match against each one.
+The first $match$ which correctly matches terminates the processing, and its corresponding expression is evaluated as the result of the whole expression.
 
-If no $match$ returns a positive result, the whole expression evaluates to $raise$.
+If no $match$ returns a valid result, the whole expression evaluates to $raise$.
 
 \medskip
 
 \infrule[BS-Match]
     {\mbox{env} \vdash e \Downarrow v\\
-    \exists j \in \left[1..n\right] multiMatch(v, \mbox{env}, match_j) = true, v_j\\
-    \forall k \in \left[1..j\right) multiMatch(v, \mbox{env}, match_k) = false, v_k}
+    \exists j \in \left[1..n\right] multiMatch(v, \mbox{env}, match_j) = v_j\\
+    \forall k \in \left[1..j\right) \neg \; multiMatch(v, \mbox{env}, match_k)}
     {\mbox{env} \vdash \texttt{match} \; e \; \texttt{with} \; match_1, ... \; match_n \Downarrow v_j}
 
 \infrule[BS-Match2]
     {\mbox{env} \vdash e \Downarrow v \\
-    \forall j \in \left[1..n\right] multiMatch(v, \mbox{env}, match_j) = false, v_j}
+    \forall j \in \left[1..n\right] \neg \; multiMatch(v, \mbox{env}, match_j)}
     {\mbox{env} \vdash \texttt{match} \; e \; \texttt{with} \; match_1, ... \; match_n \Downarrow raise}
 
 \medskip
@@ -1127,25 +1127,25 @@ This function receives an input value, an environment and a $match$.
 If the $match$ has a conditional expression, it must evaluate to $true$ for the match to be considered valid.
 
 \infrule[]
-  {match(p, v) = false, env_1}
-  {multiMatch(v, \mbox{env}, p \rightarrow e) = false, v}
+  {\neg \; match(p, v)}
+  {\neg \; multiMatch(v, \mbox{env}, p \rightarrow e)}
 
 \infrule[]
-  {match(p, v) = true, env_1 \andalso \mbox{env} \cup env_1 \vdash e \Downarrow v_2}
-  {multiMatch(v, \mbox{env}, p \rightarrow e) = true, v_2}
+  {\neg \; match(p, v)}
+  {\neg \; multiMatch(v, \mbox{env}, p \; \mbox{when} \; e_1 \rightarrow e_2)}
 
 \infrule[]
-  {match(p, v) = false, env_1}
-  {multiMatch(v, \mbox{env}, p \; \mbox{when} \; e_1 \rightarrow e_2) = false, v}
+  {match(p, v) = \mbox{env}_1 \andalso \mbox{env} \cup \mbox{env}_1 \vdash e_1 \Downarrow false}
+  {\neg \; multiMatch(v, \mbox{env}, p \; \mbox{when} \; e_1 \rightarrow e_2)}
 
 \infrule[]
-  {match(p, v) = true, env_1 \andalso \mbox{env} \cup env_1 \vdash e_1 \Downarrow false}
-  {multiMatch(v, \mbox{env}, p \; \mbox{when} \; e_1 \rightarrow e_2) = false, v}
+  {match(p, v) = \mbox{env}_1 \andalso \mbox{env} \cup \mbox{env}_1 \vdash e \Downarrow v_2}
+  {multiMatch(v, \mbox{env}, p \rightarrow e) = v_2}
 
 \infrule[]
-  {match(p, v) = true, env_1 \andalso \mbox{env} \cup env_1 \vdash e_1 \Downarrow true\\
+  {match(p, v) = \mbox{env}_1 \andalso \mbox{env} \cup \mbox{env}_1 \vdash e_1 \Downarrow true\\
   \mbox{env} \cup env_1 \vdash e_2 \Downarrow v_2}
-  {multiMatch(v, \mbox{env}, p \; \mbox{when} \; e_1 \rightarrow e_2) = true, v_2}
+  {multiMatch(v, \mbox{env}, p \; \mbox{when} \; e_1 \rightarrow e_2) = v_2}
 
 \paragraph{Exceptions}
 
