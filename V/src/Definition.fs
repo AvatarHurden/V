@@ -45,7 +45,6 @@ and Pattern =
     | XPat of Ident
     | IgnorePat
     | ConstructorPat of Constructor * VarPattern list
-//    | TuplePat of VarPattern list
     | RecordPat of bool * (string * VarPattern) list
 
 type BuiltIn =
@@ -92,7 +91,6 @@ and term =
     | Match of term * (VarPattern * term option * term) list
     | Let of VarPattern * term * term
     | Raise
-//    | Tuple of term list
     | Record of (string * term) list
 
 type ResFunction = Function * Env
@@ -113,7 +111,6 @@ and result =
     | ResPartial of ResPartialApp * result list
     | ResConstructor of Constructor * result list
     | ResRaise
-//    | ResTuple of result list
     | ResRecord of (string * result) list
 and
 
@@ -167,7 +164,6 @@ type ExType =
     | ExConstType of ConstructorType * ExType list
     | ExFunction of ExType * ExType
     | ExAccessor of ExType * ExType
-//    | ExTupleType of ExType list
     | ExRecordType of (string * ExType) list
 
     | ExTypeAlias of string
@@ -177,7 +173,6 @@ type ExVarPattern = ExPattern * ExType option
 and ExPattern =
     | ExXPat of Ident
     | ExIgnorePat
-//    | ExTuplePat of ExVarPattern list
     | ExRecordPat of bool * (string * ExVarPattern) list
     | ExConstructorPat of Constructor * ExVarPattern list
     | ExListPat of ExVarPattern list

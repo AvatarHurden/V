@@ -141,14 +141,6 @@ let rec compareEquality t1 t2 (env: Env) =
                 | ResConstructor (B true, []), ResConstructor (B b2, []) -> ResConstructor (B b2, [])
                 | _ -> raise <| EvalException "Equal returned a non-expected value"
             List.fold2 f (ResConstructor (B true, [])) arguments arguments'
-//    | ResTuple v1, ResTuple v2 when v1.Length = v2.Length ->
-//        let f acc r1 r2 =
-//            match acc, compareEquality r1 r2 env with
-//            | AnyRaise -> ResRaise
-//            | ResConstructor (B false, []), _ -> ResConstructor (B false, [])
-//            | ResConstructor (B true, []), ResConstructor (B b2, []) -> ResConstructor (B b2, [])
-//            | _ -> raise <| EvalException "Equal returned a non-expected value"
-//        List.fold2 f (ResConstructor (B true, [])) v1 v2
     | ResRecord v1, ResRecord v2 when v1.Length = v2.Length ->
         let v1' = List.sortWith (fun (s1, t1) (s2, t2) -> compare s1 s2) v1
         let v2' = List.sortWith (fun (s1, t1) (s2, t2) -> compare s1 s2) v2
@@ -254,185 +246,187 @@ let rec traversePath (path: ResPath) term (newValue: result option) env =
     | _ -> sprintf "Second argument is not a record" |> EvalException |> raise
 
 and private evalPartial b results t2_thunk env =
-    match b with
-    | Id -> 
-        match results with
-        | [] -> t2_thunk ()
-        | _ ->
-            sprintf "Wrong number of arguments to Id" |> EvalException |> raise
+    let t2 = 
+        match b with
+        | And | Or -> 
+            match results with
+            | [] -> t2_thunk ()
+            | _ -> ResConstructor (I 0, [])
+        | _ -> t2_thunk ()
+    match t2 with
+    | ResRaise -> ResRaise
+    | t2 -> 
+        match b with
+        | Id -> 
+            match results with
+            | [] -> t2
+            | _ ->
+                sprintf "Wrong number of arguments to Id" |> EvalException |> raise
         
-    | Add ->
-        match results with
-        | [] -> ResPartial (AppBuiltIn b, [t2_thunk ()])
-        | [t1] ->
-            let t2 = t2_thunk ()
-            match t1, t2 with
-            | AnyRaise -> ResRaise
-            | ResConstructor (I i1, []), ResConstructor (I i2, []) -> ResConstructor (I (i1 + i2), [])
-            | _, _ -> sprintf "Add requires numbers" |> EvalException |> raise
-        | _ ->
-            sprintf "Wrong number of arguments to add" |> EvalException |> raise
-    | Subtract ->
-        match results with
-        | [] -> ResPartial (AppBuiltIn b, [t2_thunk ()])
-        | [t1] ->
-            let t2 = t2_thunk ()
-            match t1, t2 with
-            | AnyRaise -> ResRaise
-            | ResConstructor (I i1, []), ResConstructor (I i2, []) -> ResConstructor (I (i1 - i2), [])
-            | _, _ -> sprintf "Subtract requires numbers" |> EvalException |> raise
-        | _ ->
-            sprintf "Wrong number of arguments to subtract" |> EvalException |> raise
-    | Multiply ->
-        match results with
-        | [] -> ResPartial (AppBuiltIn b, [t2_thunk ()])
-        | [t1] ->
-            let t2 = t2_thunk ()
-            match t1, t2 with
-            | AnyRaise -> ResRaise
-            | ResConstructor (I i1, []), ResConstructor (I i2, []) -> ResConstructor (I (i1 * i2), [])
-            | _, _ -> sprintf "Multiply requires numbers" |> EvalException |> raise
-        | _ ->
-            sprintf "Wrong number of arguments to multiply" |> EvalException |> raise
-    | Divide ->
-        match results with
-        | [] -> ResPartial (AppBuiltIn b, [t2_thunk ()])
-        | [t1] ->
-            let t2 = t2_thunk ()
-            match t1, t2 with
-            | AnyRaise -> ResRaise
-            | ResConstructor (I i, []), ResConstructor (I 0, []) -> ResRaise
-            | ResConstructor (I i1, []), ResConstructor (I i2, []) -> ResConstructor (I (i1 / i2), [])
-            | _, _ -> sprintf "Divide requires numbers" |> EvalException |> raise
-        | _ ->
-            sprintf "Wrong number of arguments to divide" |> EvalException |> raise
-    | Negate ->
-        match results with
-        | [] -> 
-            let t1 = t2_thunk ()
-            match t1 with
-            | ResRaise -> ResRaise
-            | ResConstructor (I i, []) -> ResConstructor (I (-i), [])
-            | _ -> sprintf "Negate requires a number" |> EvalException |> raise
-        | _ ->
-            sprintf "Wrong number of arguments to negate" |> EvalException |> raise
+        | Add ->
+            match results with
+            | [] -> ResPartial (AppBuiltIn b, [t2])
+            | [t1] ->
+                match t1, t2 with
+                | AnyRaise -> ResRaise
+                | ResConstructor (I i1, []), ResConstructor (I i2, []) -> ResConstructor (I (i1 + i2), [])
+                | _, _ -> sprintf "Add requires numbers" |> EvalException |> raise
+            | _ ->
+                sprintf "Wrong number of arguments to add" |> EvalException |> raise
+        | Subtract ->
+            match results with
+            | [] -> ResPartial (AppBuiltIn b, [t2])
+            | [t1] ->
+                match t1, t2 with
+                | AnyRaise -> ResRaise
+                | ResConstructor (I i1, []), ResConstructor (I i2, []) -> ResConstructor (I (i1 - i2), [])
+                | _, _ -> sprintf "Subtract requires numbers" |> EvalException |> raise
+            | _ ->
+                sprintf "Wrong number of arguments to subtract" |> EvalException |> raise
+        | Multiply ->
+            match results with
+            | [] -> ResPartial (AppBuiltIn b, [t2])
+            | [t1] ->
+                match t1, t2 with
+                | AnyRaise -> ResRaise
+                | ResConstructor (I i1, []), ResConstructor (I i2, []) -> ResConstructor (I (i1 * i2), [])
+                | _, _ -> sprintf "Multiply requires numbers" |> EvalException |> raise
+            | _ ->
+                sprintf "Wrong number of arguments to multiply" |> EvalException |> raise
+        | Divide ->
+            match results with
+            | [] -> ResPartial (AppBuiltIn b, [t2])
+            | [t1] ->
+                match t1, t2 with
+                | AnyRaise -> ResRaise
+                | ResConstructor (I i, []), ResConstructor (I 0, []) -> ResRaise
+                | ResConstructor (I i1, []), ResConstructor (I i2, []) -> ResConstructor (I (i1 / i2), [])
+                | _, _ -> sprintf "Divide requires numbers" |> EvalException |> raise
+            | _ ->
+                sprintf "Wrong number of arguments to divide" |> EvalException |> raise
+        | Negate ->
+            match results with
+            | [] -> 
+                match t2 with
+                | ResRaise -> ResRaise
+                | ResConstructor (I i, []) -> ResConstructor (I (-i), [])
+                | _ -> sprintf "Negate requires a number" |> EvalException |> raise
+            | _ ->
+                sprintf "Wrong number of arguments to negate" |> EvalException |> raise
     
-    | LessThan 
-    | LessOrEqual 
-    | GreaterThan 
-    | GreaterOrEqual ->
-        match results with
-        | [] -> ResPartial (AppBuiltIn b, [t2_thunk ()])
-        | [t1] ->
-            let t2 = t2_thunk ()
-            compareOrder t1 t2 b env
-        | _ -> 
-            sprintf "Wrong number of arguments to comparison" |> EvalException |> raise
+        | LessThan 
+        | LessOrEqual 
+        | GreaterThan 
+        | GreaterOrEqual ->
+            match results with
+            | [] -> ResPartial (AppBuiltIn b, [t2])
+            | [t1] ->
+                compareOrder t1 t2 b env
+            | _ -> 
+                sprintf "Wrong number of arguments to comparison" |> EvalException |> raise
 
-    | Equal ->
-        match results with
-        | [] -> ResPartial (AppBuiltIn b, [t2_thunk ()])
-        | [t1] ->
-            let t2 = t2_thunk ()
-            compareEquality t1 t2 env
-        | _ -> 
-            sprintf "Wrong number of arguments to equality" |> EvalException |> raise
-    | Different ->
-        match results with
-        | [] -> ResPartial (AppBuiltIn b, [t2_thunk ()])
-        | [t1] ->
-            let t2 = t2_thunk ()
-            match compareEquality t1 t2 env with
-            | ResRaise -> ResRaise
-            | ResConstructor (B b, []) -> ResConstructor (B (not b), [])
-            | _ -> raise <| EvalException "Equal returned a non-expected value"
-        | _ -> 
-            sprintf "Wrong number of arguments to inequality" |> EvalException |> raise
-    | And ->
-        match results with
-        | [] -> ResPartial (AppBuiltIn b, [t2_thunk ()])
-        | [t1] ->
-            match t1 with
-            | ResRaise -> ResRaise
-            | ResConstructor (B false, []) -> ResConstructor (B false, [])
-            | ResConstructor (B true, []) ->  t2_thunk ()
-            | _ -> sprintf "And requires a boolean" |> EvalException |> raise
-        | _ ->
-            sprintf "Wrong number of arguments to and" |> EvalException |> raise
-    | Or ->
-        match results with
-        | [] -> ResPartial (AppBuiltIn b, [t2_thunk ()])
-        | [t1] ->
-            match t1 with
-            | ResRaise -> ResRaise
-            | ResConstructor (B true, []) -> ResConstructor (B true, [])
-            | ResConstructor (B false, []) ->  t2_thunk ()
-            | _ -> sprintf "Or requires a boolean" |> EvalException |> raise
-        | _ ->
-            sprintf "Wrong number of arguments to Or" |> EvalException |> raise
+        | Equal ->
+            match results with
+            | [] -> ResPartial (AppBuiltIn b, [t2])
+            | [t1] ->
+                compareEquality t1 t2 env
+            | _ -> 
+                sprintf "Wrong number of arguments to equality" |> EvalException |> raise
+        | Different ->
+            match results with
+            | [] -> ResPartial (AppBuiltIn b, [t2])
+            | [t1] ->
+                match compareEquality t1 t2 env with
+                | ResRaise -> ResRaise
+                | ResConstructor (B b, []) -> ResConstructor (B (not b), [])
+                | _ -> raise <| EvalException "Equal returned a non-expected value"
+            | _ -> 
+                sprintf "Wrong number of arguments to inequality" |> EvalException |> raise
+        | And ->
+            match results with
+            | [] -> ResPartial (AppBuiltIn b, [t2])
+            | [t1] ->
+                match t1 with
+                | ResRaise -> ResRaise
+                | ResConstructor (B false, []) -> ResConstructor (B false, [])
+                | ResConstructor (B true, []) -> t2_thunk ()
+                | _ -> sprintf "And requires a boolean" |> EvalException |> raise
+            | _ ->
+                sprintf "Wrong number of arguments to and" |> EvalException |> raise
+        | Or ->
+            match results with
+            | [] -> ResPartial (AppBuiltIn b, [t2])
+            | [t1] ->
+                match t1 with
+                | ResRaise -> ResRaise
+                | ResConstructor (B true, []) -> ResConstructor (B true, [])
+                | ResConstructor (B false, []) -> t2_thunk ()
+                | _ -> sprintf "Or requires a boolean" |> EvalException |> raise
+            | _ ->
+                sprintf "Wrong number of arguments to Or" |> EvalException |> raise
 
-    | Stack ->
-        match results with
-        | [] -> ResPartial (AppBuiltIn b, [t2_thunk ()])
-        | [t1] ->
-            let t2 = t2_thunk ()
-            match t1, t2 with
-            | AnyRaise -> ResRaise
-            | ResRecordAcess path, ResRecordAcess path2 ->
-                ResRecordAcess <| ResStacked (path, path2)
-            | _ -> sprintf "Stack needs a pair of record accessors" |> EvalException |> raise
-        | _ -> 
-            sprintf "Wrong number of arguments to stack" |> EvalException |> raise
-    | Distort ->
-        match results with
-        | [] -> ResPartial (AppBuiltIn b, [t2_thunk ()])
-        | [t1] -> ResPartial (AppBuiltIn b, [t1; t2_thunk ()])
-        | [t1; t2] ->
-            let t3 = t2_thunk ()
-            match t1, t2, t3 with
-            | ResRaise, _, _ -> ResRaise
-            | _, ResRaise, _ -> ResRaise
-            | _, _, ResRaise -> ResRaise
-            | ResRecordAcess path, getter, setter ->
-                ResRecordAcess <| ResDistorted (path, getter, setter)
-            | _ -> sprintf "Compose needs a pair of record accessors" |> EvalException |> raise
-        | _ -> 
-            sprintf "Wrong number of arguments to compose" |> EvalException |> raise
-    | Get ->
-        match results with
-        | [] -> ResPartial (AppBuiltIn b, [t2_thunk ()])
-        | [t1] ->
-            let t2 = t2_thunk ()
-            match t1, t2 with
-            | AnyRaise -> ResRaise
-            | ResRecordAcess paths, t2 ->
-                fst <| traversePath paths t2 None env
-            | ResFn _, _ -> ResRaise
-            | _ -> sprintf "First argument of get is not a function" |> EvalException |> raise
-        | _ -> 
-            sprintf "Wrong number of arguments to get" |> EvalException |> raise
-    | Set ->
-        match results with
-        | [] -> ResPartial (AppBuiltIn b, [t2_thunk ()])
-        | [t1] -> ResPartial (AppBuiltIn b, [t1; t2_thunk ()])
-        | [t1; t2] ->
-            let t3 = t2_thunk ()
-            match t1, t2, t3 with
-            | ResRaise, _, _ -> ResRaise
-            | _, ResRaise, _ -> ResRaise
-            | _, _, ResRaise -> ResRaise
-            | ResRecordAcess paths, value, record ->
-                snd <| traversePath paths record (Some value) env
-            | ResFn _, _, _ -> ResRaise
-            | _ -> sprintf "First argument of set is not a function" |> EvalException |> raise
-        | _ -> 
-            sprintf "Wrong number of arguments to set" |> EvalException |> raise
+        | Stack ->
+            match results with
+            | [] -> ResPartial (AppBuiltIn b, [t2])
+            | [t1] ->
+                match t1, t2 with
+                | AnyRaise -> ResRaise
+                | ResRecordAcess path, ResRecordAcess path2 ->
+                    ResRecordAcess <| ResStacked (path, path2)
+                | _ -> sprintf "Stack needs a pair of record accessors" |> EvalException |> raise
+            | _ -> 
+                sprintf "Wrong number of arguments to stack" |> EvalException |> raise
+        | Distort ->
+            let t3 = t2
+            match results with
+            | [] -> ResPartial (AppBuiltIn b, [t2])
+            | [t1] -> ResPartial (AppBuiltIn b, [t1; t2])
+            | [t1; t2] ->
+                match t1, t2, t3 with
+                | ResRaise, _, _ -> ResRaise
+                | _, ResRaise, _ -> ResRaise
+                | _, _, ResRaise -> ResRaise
+                | ResRecordAcess path, getter, setter ->
+                    ResRecordAcess <| ResDistorted (path, getter, setter)
+                | _ -> sprintf "Compose needs a pair of record accessors" |> EvalException |> raise
+            | _ -> 
+                sprintf "Wrong number of arguments to compose" |> EvalException |> raise
+        | Get ->
+            match results with
+            | [] -> ResPartial (AppBuiltIn b, [t2])
+            | [t1] ->
+                match t1, t2 with
+                | AnyRaise -> ResRaise
+                | ResRecordAcess paths, t2 ->
+                    fst <| traversePath paths t2 None env
+                | ResFn _, _ -> ResRaise
+                | _ -> sprintf "First argument of get is not a function" |> EvalException |> raise
+            | _ -> 
+                sprintf "Wrong number of arguments to get" |> EvalException |> raise
+        | Set ->
+            let t3 = t2
+            match results with
+            | [] -> ResPartial (AppBuiltIn b, [t2])
+            | [t1] -> ResPartial (AppBuiltIn b, [t1; t2])
+            | [t1; t2] ->
+                match t1, t2, t3 with
+                | ResRaise, _, _ -> ResRaise
+                | _, ResRaise, _ -> ResRaise
+                | _, _, ResRaise -> ResRaise
+                | ResRecordAcess paths, value, record ->
+                    snd <| traversePath paths record (Some value) env
+                | ResFn _, _, _ -> ResRaise
+                | _ -> sprintf "First argument of set is not a function" |> EvalException |> raise
+            | _ -> 
+                sprintf "Wrong number of arguments to set" |> EvalException |> raise
 
 and private applyResults fn res env =
     match fn with
     | ResRaise -> ResRaise
     | ResPartial(AppBuiltIn b, args) ->
-        evalPartial b args (fun _ -> res) env
+        match res with
+        | ResRaise -> ResRaise
+        | _ -> evalPartial b args (fun _ -> res) env
     | ResPartial(AppConstructor c, args) ->
         match res with
         | ResRaise -> ResRaise
@@ -528,20 +522,6 @@ and private eval (t: term) (env: Env) =
             | None -> ResRaise
             | Some env' -> eval t2 env'
     | Raise -> ResRaise
-//    | Tuple(terms) ->
-//        if List.length terms < 2 then
-//            sprintf "Tuple must have more than 2 components at %A" t |> EvalException |> raise
-//    
-//        let f t =
-//            match eval t env with
-//            | ResRaise -> None
-//            | t' -> Some t'
-//
-//        match mapOption f terms with
-//        | None -> ResRaise
-//        | Some results -> ResTuple results
-
-        //ResTuple <| List.map (fun t -> eval t env) terms
     | Record(pairs) ->
         if Collections.Set(List.unzip pairs |> fst).Count < List.length pairs then
             sprintf "Record has duplicate fields at %A" t |> EvalException |> raise

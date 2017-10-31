@@ -109,6 +109,8 @@ let private pOperator =
         | ">=" -> BuiltInOp GreaterOrEqual
         | ">" -> BuiltInOp GreaterThan
         | "::" -> ConstructorOp Cons
+        | "&&" -> BuiltInOp And
+        | "||" -> BuiltInOp Or
         | c -> CustomOp c)
 
 let private pCustomOperator: Parser<string, UserState> = 

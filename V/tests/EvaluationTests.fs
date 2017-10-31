@@ -165,3 +165,18 @@ type Strictness() =
         [<Test>]
         member that.indexing() =
             compare ("[raise, raise, raise, 3] !! 3", ResRaise)
+
+        [<Test>]
+        member that.partialApplication() =
+            compare ("(+) raise", ResRaise)
+            compare ("(+) raise 4", ResRaise)
+            compare ("(+) 4 raise", ResRaise)
+        
+        [<Test>]
+        member that.partialApplicationShortCircuit() =
+            compare ("(&&) False raise", ResConstructor (B false, []))
+            compare ("(&&) raise", ResRaise)
+            compare ("(&&) raise False ", ResRaise)
+            compare ("(||) True raise", ResConstructor (B true, []))
+            compare ("(||) raise", ResRaise)
+            compare ("(||) raise True", ResRaise)
