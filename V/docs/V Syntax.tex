@@ -912,7 +912,7 @@ This means that the division always results in a whole number, truncated towards
     {\mbox{env} \vdash e_1 \; e_2 \Downarrow raise}
 
 \infrule[BS-$\div$]
-    {\mbox{env} \vdash e_1 \Downarrow \ll \; \div . \; n_1 \gg \andalso \mbox{env} \vdash e_2 \Downarrow n_2\\
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; \div \; . \; n_1 \gg \andalso \mbox{env} \vdash e_2 \Downarrow n_2\\
     \left\|n_2\right\|\neq 0 \andalso \left\|n\right\|=\left\|n_1\right\|\div\left\|n_2\right\|}
     {\mbox{env} \vdash e_1 \; e_2 \Downarrow n}
 
@@ -1057,6 +1057,28 @@ For characters, the ASCII values are compared numerically.
     {\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow v_3::v_4\\
      \mbox{env} \vdash v_1 = v_3 \Downarrow true \andalso \mbox{env} \vdash v_2 \; opIneq \; v_4 \Downarrow b}
     {\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow b}
+
+\paragraph{Boolean Operations}
+
+The built-in functions $\vee$ (OR) and $\wedge$ (AND) are treated differently from all other functions in $V$.
+They are binary functions, but they only evaluate their second argument if strictly necessary.
+This is done to provide them a short-circuit behavior, keeping in line with expectations from other programming languages.
+
+\infrule[BS-$\wedge$False]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; \wedge \; . \; false \gg}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow false}
+
+\infrule[BS-$\wedge$True]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; \wedge \; . \; true \gg \andalso \mbox{env} \vdash e_2 \Downarrow b}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow b}
+
+\infrule[BS-$\vee$True]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; \vee \; . \; true \gg}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow true}
+
+\infrule[BS-$\vee$False]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; \vee \; . \; false \gg \andalso \mbox{env} \vdash e_2 \Downarrow b}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow b}
 
 \paragraph{Let Expressions}
 These expressions are used to associate an identifier with a specific value, allowing the value to be reused throughout the program.
