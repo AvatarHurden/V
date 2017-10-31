@@ -807,6 +807,21 @@ Application on partially applied built-in functions works similarly, having diff
 The result of applying the last argument of a built-in function varies depending on what the function does (and what kind of arguments it accepts).
 These rules will be provided later.
 
+\medskip
+
+Application propagates exceptions ($raise$).
+If the first sub-expression of an application evaluates to $raise$, the whole expression evaluates to $raise$.
+This is true for the second expression in most scenarios, but there are a couple of exceptions (see \ref{BoolOPEval}) that do not necessarily evaluate this sub-expression for complete evaluation.
+
+\infrule[BS-AppRaise]
+    {\mbox{env} \vdash e_1 \Downarrow raise}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow raise}
+
+\infrule[BS-AppRaise2]
+    {\mbox{env} \vdash e_1 \Downarrow v \andalso \mbox{env} \vdash e_2 \Downarrow raise}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow raise}
+
+
 \paragraph{Identifier}
 
 The evaluation of an identifier depends on the environment in which it is evaluated.
@@ -1058,7 +1073,7 @@ For characters, the ASCII values are compared numerically.
      \mbox{env} \vdash v_1 = v_3 \Downarrow true \andalso \mbox{env} \vdash v_2 \; opIneq \; v_4 \Downarrow b}
     {\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow b}
 
-\paragraph{Boolean Operations}
+\paragraph{Boolean Operations}\label{BoolOPEval}
 
 The built-in functions $\vee$ (OR) and $\wedge$ (AND) are treated differently from all other functions in $V$.
 They are binary functions, but they only evaluate their second argument if strictly necessary.
@@ -1095,6 +1110,12 @@ The result of this evaluation (that is, $v_2$) is the final result of the evalua
 
 \infrule[BS-Let2]
     {\mbox{env} \vdash e_1 \Downarrow v \andalso \neg match(p, v)}
+    {\mbox{env} \vdash \texttt{let} \; p = e_1 \; \texttt{in} \; e_2 \Downarrow raise}
+
+If the sub-expression $e_1$ evaluates to $raise$, the whole expression also evaluates to $raise$.
+
+\infrule[BS-LetRaise]
+    {\mbox{env} \vdash e_1 \Downarrow raise}
     {\mbox{env} \vdash \texttt{let} \; p = e_1 \; \texttt{in} \; e_2 \Downarrow raise}
 
 \bigskip
@@ -1139,6 +1160,10 @@ If the $match$ has a conditional expression, it must evaluate to $true$ for the 
   {\neg \; multiMatch(v, \mbox{env}, p \; \mbox{when} \; e_1 \rightarrow e_2)}
 
 \infrule[]
+  {match(p, v) = \mbox{env}_1 \andalso \mbox{env} \cup \mbox{env}_1 \vdash e_1 \Downarrow raise}
+  {\neg \; multiMatch(v, \mbox{env}, p \; \mbox{when} \; e_1 \rightarrow e_2)}
+
+\infrule[]
   {match(p, v) = \mbox{env}_1 \andalso \mbox{env} \cup \mbox{env}_1 \vdash e \Downarrow v_2}
   {multiMatch(v, \mbox{env}, p \rightarrow e) = v_2}
 
@@ -1157,77 +1182,8 @@ Besides violation of semantic rules, the only other expression that evaluates to
 \infax[BS-Raise]
     {\mbox{env} \vdash raise \Downarrow raise}
 
-This value is usually ignored, but it propagates upwards if a ``regular'' value is expected.
+This value propagates upwards through the evaluation tree if a ``regular'' value is expected.
 This means that expressions that need well-defined sub-expressions, such as numerical and equality operations, evaluate to $raise$ if any of these sub-expressions evaluate to $raise$.
-
-The rules for $raise$ propagation are given below.
-
-\infrule[BS-AppRaise]
-    {\mbox{env} \vdash e_1 \Downarrow raise}
-    {\mbox{env} \vdash e_1 e_2 \Downarrow raise}
-
-\infrule[BS-ListRaise]
-    {\mbox{env} \vdash e_1 \Downarrow v_1 \andalso \mbox{env} \vdash e_2 \Downarrow raise}
-    {\mbox{env} \vdash e_1 :: e_2 \Downarrow raise}
-
-\infrule[BS-RecordAccessRaise]
-    {\mbox{env} \vdash e_2 \Downarrow raise}
-    {\mbox{env} \vdash \#l \; e_1 \; e_2 \Downarrow raise}
-
-\infrule[BS-$=$Raise]
-    {\mbox{env} \vdash e_1 \Downarrow raise}
-    {\mbox{env} \vdash e_1 = e_2 \Downarrow raise}
-
-\infrule[BS-$=$Raise2]
-    {\mbox{env} \vdash e_1 \Downarrow v_1 \andalso \mbox{env} \vdash e_2 \Downarrow raise}
-    {\mbox{env} \vdash e_1 = e_2 \Downarrow raise}
-
-\infrule[BS-$=$ListRaise]
-    {\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow v_3::v_4\\
-     \mbox{env} \vdash v_1 = v_3 \Downarrow raise}
-    {\mbox{env} \vdash e_1 = e_2 \Downarrow raise}
-
-\infrule[BS-$=$ListRaise2]
-    {\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow v_3::v_4\\
-     \mbox{env} \vdash v_1 = v_3 \Downarrow true \andalso \mbox{env} \vdash v_2 = v_4 \Downarrow raise}
-    {\mbox{env} \vdash e_1 = e_2 \Downarrow raise}
-
-\infrule[BS-$=$TupleRaise]
-    {\mbox{env} \vdash e_1 \Downarrow (v_{11}, \; \dots \; v_{1n}) \andalso \mbox{env} \vdash e_2 \Downarrow (v_{21}, \; \dots \; v_{2n})\\
-     \exists \; k \in \left[1, n\right] \; \; \mbox{env} \vdash v_{1k} = v_{2k} \Downarrow raise\\
-     \forall \; j \in \left[1, k\right) \; \; \mbox{env} \vdash v_{1j} = v_{2j} \Downarrow true}
-    {\mbox{env} \vdash e_1 = e_2 \Downarrow raise}
-
-\infrule[BS-$=$RecordRaise]
-    {\mbox{env} \vdash e_1 \Downarrow \{l^1_1: v^1_1, \; \dots \; l^1_n: v^1_n\} \andalso \mbox{env} \vdash e_2 \Downarrow \{l^2_1: v^2_1, \; \dots \; l^2_n: v^2_n\}\\
-     \exists \; k \in \left[1, n\right] \; \; l^1_k = l^2_k \wedge \mbox{env} \vdash v^1_k = v^2_k \Downarrow raise\\
-     \forall \; j \in \left[1, k\right) \; \; \mbox{env} \vdash v^1_k = v^2_k \Downarrow true}
-    {\mbox{env} \vdash e_1 = e_2 \Downarrow raise}
-
-\infrule[BS-$\neq$Raise]
-    {\mbox{env}\vdash e_1 = e_2 \Downarrow raise}
-    {\mbox{env} \vdash e_1 \neq e_2 \Downarrow raise}
-
-\infrule[BS-IneqRaise]
-    {\mbox{env} \vdash e_1 \Downarrow raise}
-    {\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow raise}
-
-\infrule[BS-IneqRaise2]
-    {\mbox{env} \vdash e_1 \Downarrow v_1 \andalso \mbox{env} \vdash e_2 \Downarrow raise}
-    {\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow raise}
-
-\infrule[BS-IneqListRaise]
-    {\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow v_3::v_4\\
-     \mbox{env} \vdash v_1 = v_3 \Downarrow raise}
-    {\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow raise}
-
-\infrule[BS-NumRaise]
-    {\mbox{env} \vdash e_1 \Downarrow raise}
-    {\mbox{env} \vdash e_1 opNum e_2 \Downarrow raise}
-
-\infrule[BS-NumRaise2]
-    {\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow raise}
-    {\mbox{env} \vdash e_1 opNum e_2 \Downarrow raise}
 
 \subsection{Type System}\label{Type System}
 
