@@ -1518,37 +1518,34 @@ The following two sections will describe the abstract syntax tree for the extend
 \subsection{Abstract Syntax}
 
 The extended language has terms which are similar to (if not exactly the same as) ones existing in the core language.
-These terms are presented in their entirety here, and, since they are directly extrated from the core language, no explanation will be given for them.
+These terms are presented in their entirety here, and, since they are directly extracted from the core language, no explanation will be given for them.
 
 \bigskip
 
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
-    e' &::= &cons'\\
+e' &::= &func'\\
+    &| &e_1' \; e_2'\\
     &| &x\\
+    &| &Builtin\\
+    &| &con\\
     &| &\{l_1: e'_1, \; \dots \; l_n: e'_n\} & (n\geq1)\\
-    &| &\#path&\\
-    &| &nil\\
-    &| &e'_1 :: e'_2\\
-    &| &e'_1 \; op \; e'_2\\
-    &| &e'_1 \; e'_2\\
+    &| &\#l\\
+    &| &\#(e'_1, \; \dots \; e'_n) & (n\geq2)\\
     &| &raise\\
     &| &\texttt{match} \; e' \; \texttt{with} \; match'_1, ... \; match'_n& (n\geq1)\\
     \\
-cons' &::= &n\\
-    &| &b\\
-    &| &c\\
-    &| &nil\\
-    &| &cons\\
-    &| &tuple n &(n \geq 2)\\
-
+func' &::= &\texttt{fn} \; x \Rightarrow e'\\
+  &| &\texttt{rec} \; f \; x \Rightarrow e'\\
+  &| &\texttt{rec} \; f:T \; \; x \Rightarrow e'\\
+\\
 match' &::= &p' \rightarrow e'\\
     &| &p' \; \texttt{when} \; e'_1 \rightarrow e'_2\\
 \end{tabular}}
 
 \bigskip
 
-All patterns are extracted from the core language without any structural differences, and are defined below.
+Most patterns are extracted from the core language without any differences, and are defined below.
 
 \bigskip
 
@@ -1559,12 +1556,7 @@ p' &::= &patt'\\
 \\
 patt' &::= &x\\
     &| &\_\\
-    &| &n\\
-    &| &b\\
-    &| &c\\
-    &| &nil\\
-    &| &p'_1 :: p'_2\\
-    &| &(p'_1, \; \dots \; p'_n) & (n\geq2)\\
+    &| &con \; p'_1, \; \dots \; p'_n & (\text{constructor pattern}, n = \text{arity} \; con)\\
     &| &\{l_1: p'_1, \; \dots \; l_n: p'_n\} & (n\geq1)\\
     &| &\{l_1: p'_1, \; \dots \; l_n: p'_n, \dots\} & (\text{partial record}, n\geq1)\\
 \end{tabular}}
@@ -1577,16 +1569,16 @@ Most types are, like patterns, extracted from the language.
 
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
-    T' &::= &\mbox{Int}\\
-    &| &\mbox{Bool}\\
-    &| &\mbox{Char}\\
-    &| &T'_1 \rightarrow T'_2\\
-    &| &T' \; list\\
-    &| &(T'_1, \; \dots \; T'_n) & (n\geq2)\\
-    &| &\{l_1: T'_1, \; \dots \; l_n: T'_n\} & (n\geq1)\\
+  T' &::= &X^{Traits}\\
+  &| &conT \; T_1', \; \dots \; T_n' & (n = \text{arity} \; conT)\\
+  &| &T_1' \rightarrow T_2'\\
+  &| &\{l_1: T_1', \; \dots \; l_n: T_n'\} & (n\geq1)\\
+  &| &T_1'\#T_2' & Accessor\\
 \end{tabular}}
 
-\bigskip
+\subsubsection{Additions}
+
+\paragraph{Type Aliases}
 
 The first addition to the extended language is the concept of \emph{type aliases}.
 These types are simple renames of existing types, and can be used in programs as a way to simplify type declarations.
@@ -1601,7 +1593,7 @@ These types are simple renames of existing types, and can be used in programs as
     \tau &::= &\{ \tau_0, \tau_1, \ldots \}\\
 \end{tabular}}
 
-\bigskip
+\paragraph{Conditional Expression}
 
 A conditional expression, which translates to a \texttt{match} expression on the patterns $true$ and $false$, has been added.
 
@@ -1611,22 +1603,24 @@ e' &::= &\cdots\\
     &| &\texttt{if} \; e'_1\; \texttt{then} \; e'_2 \; \texttt{else} \; e'_3\\
 \end{tabular}}
 
-\bigskip
+\paragraph{Multi-Parameter and Pattern Matching Functions}
 
 Functions have been extended to allow multiple parameters, removing the necessity of declaring nested functions.
 These functions still require at least one parameter.
+
+Furthermore, patterns are allowed as the definition of parameters.
 
 \bigskip
 
 {\setlength\tabcolsep{8pt}
 \begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
-e' &::= &\cdots\\
-    &| &\texttt{fn} \; p'_1, \; \dots \; p'_n \Rightarrow e'&(n\geq1)\\
-    &| &\texttt{rec} \; x:T \; \; p'_1, \; \dots \; p'_n \Rightarrow e'&(n\geq1)\\
-    &| &\texttt{rec} \; x \; p'_1, \; \dots \; p'_n \Rightarrow e'&(n\geq1)\\
+func' &::= &\cdots\\
+    &| &\texttt{fn} \; p_1', \; \dots \; p_n' \Rightarrow e'&(n\geq1)\\
+    &| &\texttt{rec} \; f:T \; \; p_1', \; \dots \; p_n' \Rightarrow e'&(n\geq1)\\
+    &| &\texttt{rec} \; f \; p_1', \; \dots \; p_n' \Rightarrow e'&(n\geq1)\\
 \end{tabular}}
 
-\bigskip
+\paragraph{Declarations}
 
 The \texttt{let} expression is also extended, and a new construction ($decl'$) is needed.
 Besides the basic value binding, 4 new function bindings are allowed.
@@ -1643,11 +1637,84 @@ e' &::= &\cdots\\
     &| &\texttt{let} \; decl' \; \texttt{in} \; e\\
 \\
 decl' &::= &p' = e'\\
-    &| &x \; p'_1, \; \dots \; p'_n = e'&(n\geq1)\\
+    &| &f \; p'_1, \; \dots \; p'_n = e'&(n\geq1)\\
     &| &\texttt{rec} \; x \; p'_1, \; \dots \; p'_n = e'&(n\geq1)\\
     &| &x: T' \; p'_1, \; \dots \; p'_n = e'&(n\geq1)\\
     &| &\texttt{rec} \; x: T' \; p'_1, \; \dots \; p'_n = e'&(n\geq1)\\
     &| &\texttt{type alias} \; \tau = T'\\
+\end{tabular}}
+
+\paragraph{Lists}
+
+Although lists are supported by the base language with the $::$ (cons) and $nil$ data constructors, they are not easy to use with only these terms.
+
+The extended language provides a term to implicitly define a list, specifying all of its components between square brackets.
+
+\bigskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+e' &::= &\cdots\\
+    &| &[e_1', \; \dots \; e_n'] & (n \geq 0)\\
+\end{tabular}}
+
+\bigskip
+
+In a similar fashion, a specific pattern for lists is added.
+
+\bigskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+patt' &::= &\cdots\\
+    &| &[p_1', \; \dots \; p_n'] & (n \geq 0)\\
+\end{tabular}}
+
+\paragraph{Range}
+
+Using a similar construction to basic lists, \emph{ranges} allow the programmer to specify a list of numbers without having to declare all of them explicitly.
+
+There are two variations on ranges.
+The first is a simple range, providing the start and end values.
+This range creates a list with all integers starting from the first value, incrementing by one until the last value.
+
+The second variation provides, along with the start and end values, the second value of the list.
+This allows the language to know what the increment of the range is.
+Besides allowing increments greater than 1, this also allows ranges that decrement from the start value until the end value.
+
+\bigskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+e' &::= &\cdots\\
+    &| &[e_1' \; .. \; e_2']\\
+    &| &[e_1',\;  e_2' \; .. \; e_3']\\
+\end{tabular}}
+
+\paragraph{Comprehension}
+
+$V$ provides a very basic list comprehension syntax.
+This allows evaluating an expression for every value in an existing list, returning a list with the results of every evaluation.
+
+\bigskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+e' &::= &\cdots\\
+    &| &[e_1' \; \text{for} \; p' \; \text{in} \; e_2']\\
+\end{tabular}}
+
+\paragraph{Tuple}
+
+Like lists, tuples are supported by the language through the $\text{Tuple} \; n$ constructor.
+To allow easier creation of tuples, a new term is added to the extended language.
+
+\bigskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+e' &::= &\cdots\\
+    &| &(e_1', \; \dots \; e_n') & (n \geq 2)\\
 \end{tabular}}
 
 
