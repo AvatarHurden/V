@@ -1720,6 +1720,76 @@ e' &::= &\cdots\\
 
 \subsection{Translation}
 
+To actually evaluate or type check a program in the extended language, it must first be translated into the core language.
+This is done by a translation algorithm which, besides converting extended terms into core terms, also performs some additional safety checks.
+
+A translation rule is of the form:
+
+\smallskip
+
+\infax[]
+  {\gamma \vdash e' \Rightarrow e}
+
+\smallskip
+
+where $\gamma$ is the translation environment.
+
+Besides translating expressions, the translation algorithm also translates types ($T'$), functions ($func'$), patterns ($p', patt'$), etc.
+All these translations will be described using the same format, and also use the same environment.
+
+\paragraph{Enviroment}
+
+Like evaluation and type inference, the translation algorithm requires an environment to properly function.
+This environment contains the following information:
+
+\begin{enumerate}
+  \item Type aliases
+
+  A mapping of type aliases to core types
+
+  \item Mapping of generated identifiers
+
+  A mapping of identifiers to other identifiers.
+  This is used because the translation algorithm can create new identifiers, and so it maps identifiers from the input expression to new identifiers in the output expression.
+\end{enumerate}
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+\gamma &::= &(aliases, ids)\\
+\\
+aliases &:: = &\{\} \; | \; \{\tau \rightarrow T\} \cup aliases &(n \in \mathbb{N})\\
+ids &:: = &\{\} \; | \; \{x_1 \rightarrow x_2\} \cup ids\\
+
+\end{tabular}}
+
+\bigskip
+
+Below will be sections describing the translation algorithms for the different types of expressions in the extended language.
+As to avoid clutter, only the rules that perform some sort of computation or modification on the expression will be displayed.
+This means that rules such as:
+
+\infax[Tr-T-Int]
+  {\gamma \vdash \text{Int} \Rightarrow \text{Int}}
+
+will not be provided.
+
+Similarly, composite expressions that simply call the translation algorithm recursively on their sub-expressions, without any modification to structure, will be omitted.
+This includes rules such as:
+
+\infrule[Tr-T-Func]
+  {\gamma \vdash T_1' \Rightarrow T_1 \andalso \gamma \vdash T_2' \Rightarrow T_2}
+  {\gamma \vdash (T_1' \rightarrow T_2') \Rightarrow (T_1 \rightarrow T_2)}
+
+\subsubsection{Type Translation}
+
+Given the fact that trivial translations are not provided, there is only one translation rules that govern type translations.
+
+\infrule[Tr-T-Alias]
+  {\gamma.aliases(\tau) = T}
+  {\gamma \vdash \tau \Rightarrow T}
+
+
+
 
 \newpage
 
