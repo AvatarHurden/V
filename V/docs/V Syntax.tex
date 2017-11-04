@@ -1804,6 +1804,13 @@ Each verification uses the set of identifiers from the previous verification, an
   \forall i \in [1, \; n] \; . \; \text{collectPatterns}(p_i', \text{id}_{i-1}, \gamma) = p_i, \text{id}_i}
   {\gamma \vdash [p_1', \; \dots \; p_n'] \Rightarrow [p_1, \; \dots \; p_n]}
 
+To translate a single pattern, a list with only that pattern is created and then translated.
+This ensures that, even within a single pattern, no identifiers are allowed to repeat.
+
+\infrule[Tr-P2]
+  {\gamma \vdash [p'] \Rightarrow [p]}
+  {\gamma \vdash p' \Rightarrow p}
+
 An auxiliary function, called "collectPatterns", is used in pattern translation.
 This function takes an extended pattern, a set of already used identifiers and a translation environment; and returns a core pattern and a new set of used identifiers.
 
@@ -1864,6 +1871,23 @@ This function takes an extended pattern, a set of already used identifiers and a
   \forall i \in [1, \; n] \; . \; \text{collectPatterns}(p_i', \text{id}_{i-1}, \gamma) = p_i, \text{id}_i\\
   p = \; :: \; p_1 \; (:: \; p_2 \; \dots (:: \; p_n \; nil) \dots )}
   {\text{collectPatterns}([p_1', \; \dots \; p_n'] : T', \text{id}, \gamma) = p : T, \text{id}_n}
+
+\subsubsection{Expression Translation}
+
+\infrule[Tr-E-List]
+  {\forall i \in [1, \; n] \; . \; \gamma \vdash e_i' \Rightarrow e_i\\
+  e = \; :: \; e_1 \; (:: \; e_2 \; \dots (:: \; e_n \; nil) \dots )}
+  {\gamma \vdash [e_1', \; \dots \; e_n'] \Rightarrow e}
+
+\infrule[Tr-E-Tuple]
+  {\forall i \in [1, \; n] \; . \; \gamma \vdash e_i' \Rightarrow e_i\\
+  e = ( \;\dots \;(\text{Tuple} \; n \; e_1) \; e_2) \; \dots e_n)}
+  {\gamma \vdash (e_1', \; \dots \; e_n') \Rightarrow e}
+
+\infrule[Tr-E-Cond]
+  {\gamma \vdash e_1' \Rightarrow e_1 \andalso \gamma \vdash e_2' \Rightarrow e_2 \andalso \gamma \vdash e_3' \Rightarrow e_3\\
+  e = \texttt{match} \; e_1 \; \texttt{with} \; true \rightarrow e_2, \; false \rightarrow e_3}
+  {\gamma \vdash \texttt{if} \; e'_1\; \texttt{then} \; e'_2 \; \texttt{else} \; e'_3 \Rightarrow e}
 
 \newpage
 
