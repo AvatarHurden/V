@@ -1534,10 +1534,6 @@ e' &::= &func'\\
     &| &\#(e'_1, \; \dots \; e'_n) & (n\geq2)\\
     &| &raise\\
     &| &\texttt{match} \; e' \; \texttt{with} \; match'_1, ... \; match'_n& (n\geq1)\\
-    \\
-func' &::= &\texttt{fn} \; x \Rightarrow e'\\
-  &| &\texttt{rec} \; f \; x \Rightarrow e'\\
-  &| &\texttt{rec} \; f:T \; \; x \Rightarrow e'\\
 \\
 match' &::= &p' \rightarrow e'\\
     &| &p' \; \texttt{when} \; e'_1 \rightarrow e'_2\\
@@ -1734,7 +1730,7 @@ A translation rule is of the form:
 
 where $\gamma$ is the translation environment.
 
-Besides translating expressions, the translation algorithm also translates types ($T'$), functions ($func'$), patterns ($p', patt'$), etc.
+Besides translating expressions, the translation algorithm also translates types ($T'$), functions ($func'$), etc.
 All these translations will be described using the same format, and also use the same environment.
 
 \paragraph{Enviroment}
@@ -1799,95 +1795,120 @@ Furthermore, composite patterns, such as a list or tuple pattern, also cannot re
 This verification is done from left to right, composing a set of identifiers already used in the pattern.
 Each verification uses the set of identifiers from the previous verification, and so the complete set of used identifiers is created.
 
+The translation also returns a modified translation environment.
+This environment has new identifier mappings, one for each $x$ pattern found.
+
 \infrule[Tr-P]
-  {\text{id}_0 = \emptyset\\
-  \forall i \in [1, \; n] \; . \; \text{collectPatterns}(p_i', \text{id}_{i-1}, \gamma) = p_i, \text{id}_i}
-  {\gamma \vdash [p_1', \; \dots \; p_n'] \Rightarrow [p_1, \; \dots \; p_n]}
+  {\text{id}_0 = \emptyset \andalso \gamma_0 = \gamma\\
+  \forall i \in [1, \; n] \; . \; \text{collectPatterns}(p_i', \text{id}_{i-1}, \gamma_{i-1}) = p_i, \text{id}_i, \gamma_i}
+  {\gamma \vdash [p_1', \; \dots \; p_n'] \Rightarrow [p_1, \; \dots \; p_n], \gamma_n}
 
 To translate a single pattern, a list with only that pattern is created and then translated.
 This ensures that, even within a single pattern, no identifiers are allowed to repeat.
 
 \infrule[Tr-P2]
-  {\gamma \vdash [p'] \Rightarrow [p]}
-  {\gamma \vdash p' \Rightarrow p}
+  {\gamma \vdash [p'] \Rightarrow [p], \gamma'}
+  {\gamma \vdash p' \Rightarrow p, \gamma'}
 
 An auxiliary function, called "collectPatterns", is used in pattern translation.
 This function takes an extended pattern, a set of already used identifiers and a translation environment; and returns a core pattern and a new set of used identifiers.
 
+\bigskip
+
+This is the core of the pattern translation algorithm.
+If an identifier has already been used in a pattern (or list of patterns), the translation algorithm fails.
+If the identifier has not been used, a fresh identifier (guaranteed not to be in the environment) is generated.
+The original identifier is then associated to this new identifier and added to the environment.
+
+\infrule[Tr-P-X]
+  {x \notin \text{id} \andalso x' \; is \; new}
+  {\text{collectPatterns}(x, \text{id}, \gamma) = x', \text{id} \cup \{x\}, \gamma \cup \{x \rightarrow x'\}}
+
+\infrule[Tr-P-X2]
+  {x \notin \text{id} \andalso \gamma \vdash T' \Rightarrow T  \andalso x' \; is \; new}
+  {\text{collectPatterns}(x : T', \text{id}, \gamma) = x' : T, \text{id} \cup \{x\}, \gamma \cup \{x \rightarrow x'\}}
+
+\bigskip
+
+Every other translation rule is a variation on iterating on sub-patterns to construct the list of used identifiers are final environment.
 
 \infax[Tr-P-Ignore]
-  {\text{collectPatterns}(\_, \text{id}, \gamma) = \_, \text{id}}
+  {\text{collectPatterns}(\_, \text{id}, \gamma) = \_, \text{id}, \gamma}
 
 \infrule[Tr-P-Ignore2]
   {\gamma \vdash T' \Rightarrow T}
-  {\text{collectPatterns}(\_ : T', \text{id}, \gamma) = \_ : T, \text{id}}
+  {\text{collectPatterns}(\_ : T', \text{id}, \gamma) = \_ : T, \text{id}, \gamma}
 
 \infrule[Tr-P-Con]
   {\text{id}_0 = \text{id}\\
-  \forall i \in [1, \; n] \; . \; \text{collectPatterns}(p_i', \text{id}_{i-1}, \gamma) = p_i, \text{id}_i}
-  {\text{collectPatterns}(con \; p_1', \; \dots \; p_n', \text{id}, \gamma) = con \; p_1, \; \dots \; p_n, \text{id}_n}
+  \forall i \in [1, \; n] \; . \; \text{collectPatterns}(p_i', \text{id}_{i-1}, \gamma_{i-1}) = p_i, \text{id}_i, \gamma_i}
+  {\text{collectPatterns}(con \; p_1', \; \dots \; p_n', \text{id}, \gamma) = con \; p_1, \; \dots \; p_n, \text{id}_n, \gamma_n}
 
 \infrule[Tr-P-Con2]
-{\text{id}_0 = \text{id} \andalso \gamma \vdash T' \Rightarrow T\\
-\forall i \in [1, \; n] \; . \; \text{collectPatterns}(p_i', \text{id}_{i-1}, \gamma) = p_i, \text{id}_i\\}
-{\text{collectPatterns}(con \; p_1', \; \dots \; p_n' : T', \text{id}, \gamma) = con \; p_1, \; \dots \; p_n : T, \text{id}_n}
-
-\infrule[Tr-P-X]
-  {x \notin \text{id}}
-  {\text{collectPatterns}(x, \text{id}, \gamma) = x, \text{id} \cup \{x\}}
-
-\infrule[Tr-P-X2]
-  {x \notin \text{id} \andalso \gamma \vdash T' \Rightarrow T}
-  {\text{collectPatterns}(x : T', \text{id}, \gamma) = x : T, \text{id} \cup \{x\}}
+  {\text{id}_0 = \text{id} \andalso \gamma \vdash T' \Rightarrow T\\
+  \forall i \in [1, \; n] \; . \; \text{collectPatterns}(p_i', \text{id}_{i-1}, \gamma_{i-1}) = p_i, \text{id}_i, \gamma_i}
+  {\text{collectPatterns}(con \; p_1', \; \dots \; p_n' : T', \text{id}, \gamma) = con \; p_1, \; \dots \; p_n : T, \text{id}_n, \gamma_n}
 
 \infrule[Tr-P-Record]
   {\text{id}_0 = \text{id}\\
-  \forall i \in [1, \; n] \; . \; \text{collectPatterns}(p_i', \text{id}_{i-1}, \gamma) = p_i, \text{id}_i}
-  {\text{collectPatterns}(\{l_1: p'_1, \; \dots \; l_n: p'_n\}, \text{id}, \gamma) = \{l_1: p_1, \; \dots \; l_n: p_n\}, \text{id}_n}
+  \forall i \in [1, \; n] \; . \; \text{collectPatterns}(p_i', \text{id}_{i-1}, \gamma_{i-1}) = p_i, \text{id}_i, \gamma_i}
+  {\text{collectPatterns}(\{l_1: p'_1, \; \dots \; l_n: p'_n\}, \text{id}, \gamma) = \{l_1: p_1, \; \dots \; l_n: p_n\}, \text{id}_n, \gamma_n}
 
 \infrule[Tr-P-Record2]
   {\text{id}_0 = \text{id} \andalso \gamma \vdash T' \Rightarrow T\\
-  \forall i \in [1, \; n] \; . \; \text{collectPatterns}(p_i', \text{id}_{i-1}, \gamma) = p_i, \text{id}_i\\}
-  {\text{collectPatterns}(\{l_1: p'_1, \; \dots \; l_n: p'_n\} : T', \text{id}, \gamma) = \{l_1: p_1, \; \dots \; l_n: p_n\} : T, \text{id}_n}
+  \forall i \in [1, \; n] \; . \; \text{collectPatterns}(p_i', \text{id}_{i-1}, \gamma_{i-1}) = p_i, \text{id}_i, \gamma_i}
+  {\text{collectPatterns}(\{l_1: p'_1, \; \dots \; l_n: p'_n\} : T', \text{id}, \gamma) = \{l_1: p_1, \; \dots \; l_n: p_n\} : T, \text{id}_n, \gamma_n}
 
 \infrule[Tr-P-PartRec]
   {\text{id}_0 = \text{id}\\
-  \forall i \in [1, \; n] \; . \; \text{collectPatterns}(p_i', \text{id}_{i-1}, \gamma) = p_i, \text{id}_i}
-  {\text{collectPatterns}(\{l_1: p'_1, \; \dots \; l_n: p'_n, \dots\}, \text{id}, \gamma) = \{l_1: p_1, \; \dots \; l_n: p_n, \dots\}, \text{id}_n}
+  \forall i \in [1, \; n] \; . \; \text{collectPatterns}(p_i', \text{id}_{i-1}, \gamma_{i-1}) = p_i, \text{id}_i, \gamma_i}
+  {\text{collectPatterns}(\{l_1: p'_1, \; \dots \; l_n: p'_n, \dots\}, \text{id}, \gamma) = \{l_1: p_1, \; \dots \; l_n: p_n, \dots\}, \text{id}_n \gamma_n}
 
 \infrule[Tr-P-PartRec2]
   {\text{id}_0 = \text{id} \andalso \gamma \vdash T' \Rightarrow T\\
-  \forall i \in [1, \; n] \; . \; \text{collectPatterns}(p_i', \text{id}_{i-1}, \gamma) = p_i, \text{id}_i\\}
-  {\text{collectPatterns}(\{l_1: p'_1, \; \dots \; l_n: p'_n, \dots\} : T', \text{id}, \gamma) = \{l_1: p_1, \; \dots \; l_n: p_n, \dots\} : T, \text{id}_n}
+  \forall i \in [1, \; n] \; . \; \text{collectPatterns}(p_i', \text{id}_{i-1}, \gamma_{i-1}) = p_i, \text{id}_i, \gamma_i}
+  {\text{collectPatterns}(\{l_1: p'_1, \; \dots \; l_n: p'_n, \dots\} : T', \text{id}, \gamma) = \{l_1: p_1, \; \dots \; l_n: p_n, \dots\} : T, \text{id}_n, \gamma_n}
 
 \infrule[Tr-P-List]
   {\text{id}_0 = \text{id}\\
-  \forall i \in [1, \; n] \; . \; \text{collectPatterns}(p_i', \text{id}_{i-1}, \gamma) = p_i, \text{id}_i\\
+  \forall i \in [1, \; n] \; . \; \text{collectPatterns}(p_i', \text{id}_{i-1}, \gamma_{i-1}) = p_i, \text{id}_i, \gamma_i\\
   p = \; :: \; p_1 \; (:: \; p_2 \; \dots (:: \; p_n \; nil) \dots )}
-  {\text{collectPatterns}([p_1', \; \dots \; p_n'], \text{id}, \gamma) = p, \text{id}_n}
+  {\text{collectPatterns}([p_1', \; \dots \; p_n'], \text{id}, \gamma) = p, \text{id}_n, \gamma_n}
 
 \infrule[Tr-P-List2]
   {\text{id}_0 = \text{id} \andalso \gamma \vdash T' \Rightarrow T\\
-  \forall i \in [1, \; n] \; . \; \text{collectPatterns}(p_i', \text{id}_{i-1}, \gamma) = p_i, \text{id}_i\\
+  \forall i \in [1, \; n] \; . \; \text{collectPatterns}(p_i', \text{id}_{i-1}, \gamma_{i-1}) = p_i, \text{id}_i, \gamma_i\\
   p = \; :: \; p_1 \; (:: \; p_2 \; \dots (:: \; p_n \; nil) \dots )}
-  {\text{collectPatterns}([p_1', \; \dots \; p_n'] : T', \text{id}, \gamma) = p : T, \text{id}_n}
+  {\text{collectPatterns}([p_1', \; \dots \; p_n'] : T', \text{id}, \gamma) = p : T, \text{id}_n, \gamma_n}
 
 \subsubsection{Expression Translation}
+
+The conditional expression translates into a $\texttt{match}$ expression, testing whether the first sub-expression ($e_1$) is $true$ or $false$ and evaluation $e_2$ or $e_3$, respectively.
+
+\infrule[Tr-E-Cond]
+  {\gamma \vdash e_1' \Rightarrow e_1 \andalso \gamma \vdash e_2' \Rightarrow e_2 \andalso \gamma \vdash e_3' \Rightarrow e_3\\
+  e = \texttt{match} \; e_1 \; \texttt{with} \; true \rightarrow e_2, \; false \rightarrow e_3}
+  {\gamma \vdash \texttt{if} \; e'_1\; \texttt{then} \; e'_2 \; \texttt{else} \; e'_3 \Rightarrow e}
+
+\bigskip
+
+The list expression translates into nested applications of the $::$ constructor, ending with the $nil$ (empty list) constructor.
 
 \infrule[Tr-E-List]
   {\forall i \in [1, \; n] \; . \; \gamma \vdash e_i' \Rightarrow e_i\\
   e = \; :: \; e_1 \; (:: \; e_2 \; \dots (:: \; e_n \; nil) \dots )}
   {\gamma \vdash [e_1', \; \dots \; e_n'] \Rightarrow e}
 
+\bigskip
+
+Similarly, the tuple expression translates into a complete application of a tuple (Tuple $n$) constructor, where $n$ is the number of elements in the expression.
+
 \infrule[Tr-E-Tuple]
   {\forall i \in [1, \; n] \; . \; \gamma \vdash e_i' \Rightarrow e_i\\
   e = ( \;\dots \;(\text{Tuple} \; n \; e_1) \; e_2) \; \dots e_n)}
   {\gamma \vdash (e_1', \; \dots \; e_n') \Rightarrow e}
 
-\infrule[Tr-E-Cond]
-  {\gamma \vdash e_1' \Rightarrow e_1 \andalso \gamma \vdash e_2' \Rightarrow e_2 \andalso \gamma \vdash e_3' \Rightarrow e_3\\
-  e = \texttt{match} \; e_1 \; \texttt{with} \; true \rightarrow e_2, \; false \rightarrow e_3}
-  {\gamma \vdash \texttt{if} \; e'_1\; \texttt{then} \; e'_2 \; \texttt{else} \; e'_3 \Rightarrow e}
+\bigksip
 
 \newpage
 
