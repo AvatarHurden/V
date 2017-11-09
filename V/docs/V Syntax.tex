@@ -1979,6 +1979,34 @@ Nested \texttt{let} expressions are then created with these associations.
   {\gamma \vdash decl \Rightarrow \{p_1 \rightarrow e_1, \; \dots \; p_n \rightarrow e_n\}, \gamma' \andalso \gamma' \vdash e' \Rightarrow e\\
   ret = (\texttt{let} \; p_1 = e_1 \; \texttt{in} \cdots \texttt{let} \; p_n = e_n \; \texttt{in} \; e)}
   {\gamma \vdash \texttt{let} \; decl\; \texttt{in} \; e' \Rightarrow ret}
+
+\bigskip
+
+There are two variations of ranges: one with an implicit step and one with an explicit step.
+Both of these rely on the existing of the function "range", which, when given a starting number, ending number and step, returns a list with the numbers.
+
+The first variation uses a fixed step value of 1, while the second variation calculates its step by sutracting the second element of the range ($e_2$) from the first element ($e_1$).
+
+\infrule[Tr-E-Range]
+  {\gamma \vdash e_1' \Rightarrow e_1 \andalso \gamma \vdash e_2' \Rightarrow e_2}
+  {\gamma \vdash [e_1' \; .. \; e_2'] \Rightarrow \text{range} \; e_1 \; e_2 \; 1}
+
+\infrule[Tr-E-Range2]
+  {\gamma \vdash e_1' \Rightarrow e_1 \andalso \gamma \vdash e_2' \Rightarrow e_2\\
+  \gamma \vdash e_3' \Rightarrow e_3 \andalso i = \; - \; e_2 \; e_1}
+  {\gamma \vdash [e_1', \; e_2' \; .. \; e_3'] \Rightarrow \text{range} \; e_1 \; e_2 \; i}
+
+\bigskip
+
+Comprehensions, similarly to ranges, rely on the function "map".
+A function is created with the pattern $p'$ and the body $e_1'$.
+This function is then translated and passed as the first argument of the "map" function.
+The second argument of the function is the translation of the expression $e_2'$, which will eventually evaluate into a list.
+
+\infrule[Tr-E-Comprehension]
+  {\gamma \vdash (\texttt{fn} \; p' \Rightarrow e_1') \Rightarrow f \andalso \gamma \vdash e_2' \Rightarrow e_2}
+  {\gamma \vdash [e_1' \; \text{for} \; p' \; \text{in} \; e_2'] \Rightarrow \text{map} \; f \; e_2}
+
 \newpage
 
 \section{Concrete Syntax}
