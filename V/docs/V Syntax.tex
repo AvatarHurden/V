@@ -1909,9 +1909,39 @@ Since functions have undergone massive changes from the core language, they need
   fn = \texttt{rec} \; f : T \; x_1 \Rightarrow \cdots \texttt{fn} \; x_n \Rightarrow m}
   {\gamma \vdash (\texttt{rec} \; f : T' \; \; p_1', \; \dots \; p_n' \Rightarrow e') \Rightarrow fn}
 
-  % &(n\geq1)\\
-  % &| &\texttt{rec} \; f:T \; \; p_1', \; \dots \; p_n' \Rightarrow e'&(n\geq1)\\
-  % &| &\texttt{rec} \; f \; p_1', \; \dots \; p_n' \Rightarrow e'&(n\geq1)\\
+\subsubsection{Declaration Translation}
+
+The translation of declarations works differently from other translations.
+The result of translating a declaration is a set of associations between patterns and expressions; along with an updated translation environment.
+
+\infrule[Tr-Decl]
+  {\gamma \vdash p' \Rightarrow p, \gamma'\\
+  \gamma \vdash e' \Rightarrow e}
+  {\gamma \vdash (p' = e') \Rightarrow \{p \rightarrow e\}, \gamma'}
+
+\infrule[Tr-Decl-Alias]
+  {\gamma \vdash T' \Rightarrow T}
+  {\gamma \vdash \texttt{type alias} \; \tau = T' \Rightarrow \{\}, \gamma \cup \{\tau \rightarrow T\}}
+
+\infrule[Tr-Decl-Func]
+  {\gamma \vdash (\texttt{fn} \; p'_1, \; \dots \; p'_n \Rightarrow e') \Rightarrow e\\
+  f' \; is \; new}
+  {\gamma \vdash f \; p'_1, \; \dots \; p'_n = e' \Rightarrow \{f' \rightarrow e\}, \gamma \cup \{f \rightarrow f'\}}
+
+\infrule[Tr-Decl-Func2]
+  {\gamma \vdash (\texttt{fn} \; p'_1, \; \dots \; p'_n \Rightarrow e') \Rightarrow e\\
+  f' \; is \; new}
+  {\gamma \vdash f: T' \; p'_1, \; \dots \; p'_n = e' \Rightarrow \{f' \rightarrow e\}, \gamma \cup \{f \rightarrow f'\}}
+
+\infrule[Tr-Decl-Rec]
+  {\gamma \vdash (\texttt{rec} \; f \; p'_1, \; \dots \; p'_n \Rightarrow e') \Rightarrow e\\
+  f' \; is \; new}
+  {\gamma \vdash \texttt{rec} \; f \; p'_1, \; \dots \; p'_n = e' \Rightarrow \{f' \rightarrow e\}, \gamma \cup \{f \rightarrow f'\}}
+
+\infrule[Tr-Decl-Rec2]
+  {\gamma \vdash (\texttt{rec} \; f : T' \; p'_1, \; \dots \; p'_n \Rightarrow e') \Rightarrow e\\
+  f' \; is \; new}
+  {\gamma \vdash \texttt{rec} \; f : T' \; p'_1, \; \dots \; p'_n = e' \Rightarrow \{f' \rightarrow e\}, \gamma \cup \{f \rightarrow f'\}}
 
 \subsubsection{Expression Translation}
 
@@ -1942,6 +1972,13 @@ Similarly, the tuple expression translates into a complete application of a tupl
 
 \bigskip
 
+When translating \texttt{let} expressions, the declaration is translated into an ordered set of associations between patterns and expressions.
+Nested \texttt{let} expressions are then created with these associations.
+
+\infrule[Tr-E-Let]
+  {\gamma \vdash decl \Rightarrow \{p_1 \rightarrow e_1, \; \dots \; p_n \rightarrow e_n\}, \gamma' \andalso \gamma' \vdash e' \Rightarrow e\\
+  ret = (\texttt{let} \; p_1 = e_1 \; \texttt{in} \cdots \texttt{let} \; p_n = e_n \; \texttt{in} \; e)}
+  {\gamma \vdash \texttt{let} \; decl\; \texttt{in} \; e' \Rightarrow ret}
 \newpage
 
 \section{Concrete Syntax}
