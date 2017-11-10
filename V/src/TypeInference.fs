@@ -664,29 +664,29 @@ let rec collectConstraints term (env: Env) =
                 let x = VarType (getVarType (), [])
                 let recordTyp = VarType (getVarType (), [RecordLabel (s, x)])
                 x, recordTyp, x, UniEnv.empty
-            | Distorted (p, getter, setter) ->
-                let t1, c1 = collectConstraints getter env
-                let t2, c2 = collectConstraints setter env
+            //| Distorted (p, getter, setter) ->
+            //    let t1, c1 = collectConstraints getter env
+            //    let t2, c2 = collectConstraints setter env
 
-                let io = VarType (getVarType (), [])
-                let storage = VarType (getVarType (), [])
+            //    let io = VarType (getVarType (), [])
+            //    let storage = VarType (getVarType (), [])
 
-                let pIo, pRec, pStorage, pC = f p
+            //    let pIo, pRec, pStorage, pC = f p
 
-                let c' = 
-                    [Equals (t1, Function(storage, io));
-                    Equals (t2, Function(io, storage));
-                    Equals (storage, pIo)]
+            //    let c' = 
+            //        [Equals (t1, Function(storage, io));
+            //        Equals (t2, Function(io, storage));
+            //        Equals (storage, pIo)]
 
-                io, pRec, pStorage, c' @@ c1 @@ c2 @@ pC
-            | Stacked (p1, p2) ->
-                let io1, rec1, storage1, c1 = f p1
-                let io2, rec2, storage2, c2 = f p2
+            //    io, pRec, pStorage, c' @@ c1 @@ c2 @@ pC
+            //| Stacked (p1, p2) ->
+            //    let io1, rec1, storage1, c1 = f p1
+            //    let io2, rec2, storage2, c2 = f p2
 
-                let c' =
-                    [Equals (storage1, io2)]
+            //    let c' =
+            //        [Equals (storage1, io2)]
 
-                io2, rec1, storage1, c' @@ c1 @@ c2
+            //    io2, rec1, storage1, c' @@ c1 @@ c2
             | Joined paths ->
 
                 let ios = List.map (fun _ -> VarType (getVarType (), [])) paths

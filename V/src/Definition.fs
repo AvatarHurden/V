@@ -25,7 +25,6 @@ and Type =
     | ConstType of ConstructorType * Type list
     | Function of Type * Type
     | Accessor of io:Type * record:Type
-//    | Tuple of Type list
     | Record of (string * Type) list
 
 type Ident = string
@@ -77,9 +76,9 @@ type Function =
 
 and Path =
     | Component of string
-    | Stacked of Path * Path
+    //| Stacked of Path * Path
     | Joined of term list
-    | Distorted of Path * getter:term * setter:term
+    //| Distorted of Path * getter:term * setter:term
 
 and term =
     | Constructor of Constructor
@@ -175,6 +174,7 @@ and ExPattern =
     | ExIgnorePat
     | ExRecordPat of bool * (string * ExVarPattern) list
     | ExConstructorPat of Constructor * ExVarPattern list
+
     | ExListPat of ExVarPattern list
     
 type ExConstructor =
@@ -191,9 +191,9 @@ type ExFunction =
 
 and ExPath = 
     | ExComponent of string
-    | ExStacked of ExPath * ExPath
+    //| ExStacked of ExPath * ExPath
     | ExJoined of ExTerm list
-    | ExDistorted of ExPath * getter:ExTerm * setter:ExTerm
+    //| ExDistorted of ExPath * getter:ExTerm * setter:ExTerm
 
 and ExTerm = 
     | ExX of Ident

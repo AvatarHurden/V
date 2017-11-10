@@ -481,8 +481,8 @@ and private eval (t: term) (env: Env) =
         let rec f = 
             function
             | Component s -> ResComponent s
-            | Distorted (p, getter, setter) -> ResDistorted (f p, eval getter env, eval setter env)
-            | Stacked (p1, p2) -> ResStacked (f p1, f p2)
+            //| Distorted (p, getter, setter) -> ResDistorted (f p, eval getter env, eval setter env)
+            //| Stacked (p1, p2) -> ResStacked (f p1, f p2)
             | Joined paths -> 
                 let reduce p =
                     match eval p env with

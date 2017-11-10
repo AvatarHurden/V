@@ -207,10 +207,10 @@ and private translateTerm term env =
         let rec f = 
             function
             | ExComponent s -> Component s
-            | ExDistorted (p, getter, setter) ->
-                Distorted (f p, translateTerm getter env, translateTerm setter env)
-            | ExStacked (p1, p2) ->
-                Stacked (f p1, f p2)
+            //| ExDistorted (p, getter, setter) ->
+            //    Distorted (f p, translateTerm getter env, translateTerm setter env)
+            //| ExStacked (p1, p2) ->
+            //    Stacked (f p1, f p2)
             | ExJoined [x] as p ->
                 sprintf "Joined accessor %A must have at least 2 terms at %A" p term 
                     |> ParseException |> raise
