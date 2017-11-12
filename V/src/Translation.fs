@@ -88,8 +88,9 @@ let private translatePatterns patterns env =
                 let (newPat, acc') = findRepeats acc pat
                 (acc', newPat :: pats)
             let (ids', pats) = List.foldBack f patterns (ids, [])
-            List.foldBack (fun p acc -> Pat (ConstructorPat (Cons, [p; acc]), None)) pats (Pat (ConstructorPat (Nil, []), None)), ids'
-     
+            let foldF p acc = Pat (ConstructorPat (Cons, [p; acc]), translateSomeType typ env)
+            List.foldBack foldF pats (Pat (ConstructorPat (Nil, []), translateSomeType typ env)), ids'
+
     let f pat (acc, pats) =
         let (newPat, acc') = findRepeats acc pat
         (acc', newPat :: pats)
