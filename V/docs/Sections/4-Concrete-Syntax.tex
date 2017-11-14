@@ -1,0 +1,280 @@
+\documentclass[class=article, crop=false]{standalone}
+
+\usepackage{style}
+\usepackage{standalone}
+
+\begin{document}
+
+\section{Concrete Syntax}
+
+\subsection{Notation Conventions}
+
+The following conventions are used for presenting the syntax of programs in $V$:
+
+\smallskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{cl}
+    [ \synt{pat} ] &optional pattern\\
+    \{  \synt{pat} \} &zero or more occurrences of pattern\\
+    (  \synt{pat} ) &grouping of patterns\\
+     \synt{$pat_1$} | \synt{$pat_2$} &choice\\
+    \syntax{<pat>$_{<pat'>}$} &all patterns accepted by $pat$,
+    \\&except those also accepted by $pat'$\\
+    \lit*{text} &concrete characters (written in terminal font)
+\end{tabular}}
+
+\medskip
+
+The syntax is described using a BNF grammar, with each production having the form:
+
+\grammarindent9em
+\grammarparsep4pt
+\begin{grammar}
+    <sentence> ::= \synt{$pat_1$} | \synt{$pat_2$} | $\ldots$ | \synt{$pat_n$}
+\end{grammar}
+
+Whitespace is always explicitly expressed in productions with the \textvisiblespace{} character.
+It is used as a shorthand for the \synt{whitespace} production.
+Literal characters will always be written in terminal font, so \lit*{|} and \lit*{[]} mean the literal characters, while $|$ and [] are the choice and option pattern, respectively.
+
+\subsection{Basic Structure}
+
+\begin{grammar}
+  <program> ::= <whitespace> <expression> <eof>
+
+  <library> ::= <whitespace> \{ <declaration> \} <eof>
+\end{grammar}
+
+\begin{grammar}
+  <whitespace> ::= \{ <whitechars> | <comment> \}
+
+  <whitechars> ::= <whitechar> \{ <whitechar> \}
+
+  <whitechar> ::= <space> | <tab> | <newline>
+
+  <newline> ::= <return><linefeed> | <return> | <linefeed>
+
+  <space> ::= space (\textquotesingle \ \ \textquotesingle)
+
+  <tab> ::= horizontal tab (\textquotesingle \textbackslash t\textquotesingle)
+
+  <return> ::= carriage return (\textquotesingle \textbackslash r\textquotesingle)
+
+  <linefeed> ::= line feed (\textquotesingle \textbackslash n\textquotesingle)
+\end{grammar}
+
+\begin{grammar}
+  <comment> ::= "//" \{ <any>$_{<newline>}$ \} <newline>
+
+  <any> ::= any ASCII character
+\end{grammar}
+
+\subsection{Identifiers and Operators}
+
+\begin{grammar}
+  <identifier> ::= ( <idstart> \{ <idcontinue> \} )$_{<reservedid>}$
+
+  <idstart> ::= <small> | "_"
+
+  <idcontinue> ::= <small> | <large> | <digit> | "\textquotesingle" \ | "_" | "?"
+\end{grammar}
+
+\begin{grammar}
+  <reservedid> ::= "let" | "true" | "false" | "if" | "then" | "else"
+  \alt "rec" | "nil" | "raise" | "when" | "match" | "with"
+  \alt "try" | "except" | "for" | "in" | "import" | "infix"
+  \alt "infixl" | "infixr" | "type" | "alias"
+\end{grammar}
+
+\begin{grammar}
+  <typeident> ::= ( <typeidentstart> \{ <idcontinue> \} )$_{<reservedtype>}$
+
+  <typeidentstart> ::= <large> | "_"
+
+  <reservedtype> ::= "Int" | "Bool" | "Char"
+\end{grammar}
+
+\begin{grammar}
+  <small> ::= "a" | "b" | $\ldots$ | "z"
+
+  <large> ::= "A" | "B" | $\ldots$ | "Z"
+
+  <digit> ::= "0" | "1" | $\ldots$ | "9"
+\end{grammar}
+
+\begin{grammar}
+  <operator> ::= <symbol> \{ <symbol> \}
+
+  <customop> ::= <operator>$_{<reservedop>}$
+
+  <reservedop> ::= "+" | "-" | "*" | "/" | "<=" | "<" | "="
+  \alt "!=" | ">=" | ">" | "::"
+
+  <symbol> ::= ":" | "?" | "!" | "%" | "$" | "&" | "*" | "+" | "-"
+  \alt "." | "/" | "<" | "=" | ">" | "@" | "^" | "|" | "~"
+\end{grammar}
+
+\newpage
+
+\subsection{Terms}
+
+\begin{grammar}
+  <term> ::= <identifier>
+  \alt "true" | "false" \hfill (booleans)
+  \alt <number>
+  \alt "nil"\hfill (empty list)
+  \alt "raise" \hfill (exception)
+  \alt <char>
+  \alt <string>
+  \alt <parentheses>
+  \alt <record>
+  \alt "#" <identifier> \hfill (record access)
+  \alt <squarebrackets>
+  \alt "if" \textvisiblespace <expression> "then" \textvisiblespace <expression> "else" \textvisiblespace <expression>
+  \alt <match>
+  \alt <lambda>
+  \alt <reclambda>
+  \alt <let>
+\end{grammar}
+
+\begin{grammar}
+  <number> ::= <decimal> | <binary> | <octal> | <hexadecimal>
+
+  <decimal> ::= <digit> \{ <digit> \}
+
+  <binary> ::= "0" ( "b" | "B" ) <bindigit> \{ <bindigit> \}
+
+  <octal> ::= "0" ( "o" | "O" ) <octdigit> \{ <octdigit> \}
+
+  <hexadecimal> ::= "0" ( "x" | "X" ) <hexdigit> \{ <hexdigit> \}
+
+  <bindigit> ::= "0" | "1"
+
+  <octdigit> ::= "0" | "1" | $\ldots$ | "7"
+
+  <hexdigit> ::= <digit> | "a" | $\ldots$ | "f" | "A" | $\ldots$ | "F"
+\end{grammar}
+
+\begin{grammar}
+  <char> ::= "\textquotesingle" ( <escape> | <any>$_{<\textquotesingle  | \textbackslash>}$ ) "\textquotesingle"
+
+  <string> ::= "\textquotedbl" \{ <escape> | <any>$_{<\textquotedbl | \textbackslash>}$ \} "\textquotedbl"
+
+  <escape> ::= "\textbackslash" ( "b" | "n" | "r" | "t" "\textbackslash" | "\textquotedbl" | "\textquotesingle" )
+\end{grammar}
+
+\begin{grammar}
+  <parentheses> ::="(" \textvisiblespace <expression> ")"\textvisiblespace \hfill (parenthesised expression)
+  \alt "(" \textvisiblespace <expression>$_1$ "," \textvisiblespace $\ldots$ "," \textvisiblespace <expression>$_n$ ")" \textvisiblespace \hfill (tuple, $n \geq 2$)
+  \alt "(" \textvisiblespace <operator> \textvisiblespace ")"\textvisiblespace \hfill (prefix operator)
+\end{grammar}
+
+\begin{grammar}
+  <record> ::= \{ \textvisiblespace <recordcomp>$_1$ "," \textvisiblespace $\ldots$ "," \textvisiblespace <recordcomp>$_n$ \} \textvisiblespace \hfill ($n \geq 1$)
+
+  <recordcomp> ::= <identifier> \textvisiblespace ":" \textvisiblespace <expression>
+\end{grammar}
+
+\begin{grammar}
+  <squarebrackets> ::="[" \textvisiblespace <expression>$_1$ "," \textvisiblespace $\ldots$ "," \textvisiblespace <expression>$_n$ "]" \textvisiblespace \hfill (list, $n \geq 0$)
+  \alt "[" \textvisiblespace <expression> "for" \textvisiblespace <pattern> "in" <expression> "]" \textvisiblespace
+  \\ \hfill (comprehension)
+  \alt "[" \textvisiblespace <expression> [ "," \textvisiblespace <expression> ] ".." \textvisiblespace <expression> "]" \textvisiblespace \hfill (range)
+\end{grammar}
+
+\begin{grammar}
+  <match> ::= "match" \textvisiblespace <expression> "with" \textvisiblespace  \{ <matchcomp>  \}
+
+  <matchcomp> ::= "|" \textvisiblespace <pattern> [ "when" \textvisiblespace <expression> ] "->" \textvisiblespace <expression>
+\end{grammar}
+
+\begin{grammar}
+  <expression> ::= <operand> \{ <operator> \textvisiblespace <operand> \}
+
+  <operand> ::= <application>
+  \alt "-" \textvisiblespace <application> \hfill (unary negation)
+
+  <application> ::= <term> \textvisiblespace \{ <term> \textvisiblespace \}
+\end{grammar}
+
+\subsection{Functions and Declarations}
+
+\begin{grammar}
+  <lambda> ::= "\\" \textvisiblespace \{ <parameter> \} "->" \textvisiblespace <expression>
+\end{grammar}
+
+\begin{grammar}
+  <reclambda> ::= "rec" \textvisiblespace <identifier> \textvisiblespace \{ <parameter> \} [ ":"\textvisiblespace <type> ] "->" \textvisiblespace <expression>
+\end{grammar}
+
+\begin{grammar}
+  <let> ::= <declaration> ";" \textvisiblespace <expression>
+\end{grammar}
+
+\begin{grammar}
+  <declaration> ::= "let" \textvisiblespace <pattern> "=" \textvisiblespace <expression>
+  \alt "let" \textvisiblespace [ "rec" \textvisiblespace ] <funcname> \{ <parameter> \} [ ":" \textvisiblespace <type> ] "=" \textvisiblespace <expression>
+  \alt "import" \textvisiblespace <string> \textvisiblespace
+  \alt "type" \textvisiblespace "alias" \textvisiblespace <typeident> \textvisiblespace "=" \textvisiblespace <type>
+
+  <funcname> ::= <identifier> \textvisiblespace
+  \alt [ <fixity> \textvisiblespace <digit> \textvisiblespace ]  "(" \textvisiblespace <customop> \textvisiblespace ")"\textvisiblespace \hfill (operator declaration)
+
+  <fixity> ::= "infixl" | "infixr" | "infix"
+\end{grammar}
+
+\begin{grammar}
+  <parameter> ::= <pattuple> \textvisiblespace | "(" \textvisiblespace <pattern> ")" \textvisiblespace | <patvalue> \textvisiblespace
+\end{grammar}
+
+\begin{grammar}
+  <patvalue> ::= <identifier>
+  \alt "_" \hfill (wildcard pattern)
+  \alt "true" | "false" \hfill (booleans)
+  \alt <number>
+  \alt "nil"\hfill (empty list)
+  \alt <char>
+  \alt <string>
+  \alt <pattuple>
+  \alt <patrecord>
+  \alt "[" \textvisiblespace <pattern>$_1$ "," \textvisiblespace $\ldots$ "," \textvisiblespace <pattern>$_n$ "]" \textvisiblespace \hfill (list, $n \geq 0$)
+\end{grammar}
+
+\begin{grammar}
+  <pattuple> ::= "(" \textvisiblespace <pattern>$_1$ "," \textvisiblespace $\ldots$ "," \textvisiblespace <pattern>$_n$ ")" \textvisiblespace \hfill ($n \geq 2$)
+\end{grammar}
+
+\begin{grammar}
+  <patrecord> ::= \{ \textvisiblespace <patrecordcomp>$_1$ "," \textvisiblespace $\ldots$ "," \textvisiblespace <patrecordcomp>$_n$ \} \textvisiblespace \hfill ($n \geq 1$)
+  \alt \{ \textvisiblespace <patrecordcomp>$_1$ "," \textvisiblespace $\ldots$ "," \textvisiblespace <patrecordcomp>$_n$ ", ..." \textvisiblespace \} \textvisiblespace \hfill (partial record)
+
+  <patrecordcomp> ::= <identifier> \textvisiblespace ":" \textvisiblespace <pattern>
+\end{grammar}
+
+\begin{grammar}
+  <pattern> ::= <patvalue> \textvisiblespace ":" \textvisiblespace <type>
+  \alt <patvalue> \textvisiblespace \{ "::" \textvisiblespace <patvalue> \textvisiblespace \}
+\end{grammar}
+
+\begin{grammar}
+  <typevalue> ::= "Int"
+  \alt "Bool"
+  \alt "Char"
+  \alt <typeident>
+  \alt "(" \textvisiblespace <type>$_1$ "," \textvisiblespace $\ldots$ "," \textvisiblespace <type>$_n$ ")" \textvisiblespace \hfill (tuple, $n \geq 2$)
+  \alt "[" \textvisiblespace <type> \textvisiblespace "]" \textvisiblespace \hfill (list)
+  \alt <typerecord>
+\end{grammar}
+
+\begin{grammar}
+  <typerecord> ::= \{ \textvisiblespace <typerecordcomp>$_1$ "," \textvisiblespace $\ldots$ "," \textvisiblespace <typerecordcomp>$_n$ \} \textvisiblespace \hfill ($n \geq 1$)
+
+  <typerecordcomp> ::= <identifier> \textvisiblespace ":" \textvisiblespace <type>
+\end{grammar}
+
+\begin{grammar}
+  <type> ::= <typevalue> \textvisiblespace \{  "->" <typeValue> \textvisiblespace \}
+\end{grammar}
+
+\end{document}

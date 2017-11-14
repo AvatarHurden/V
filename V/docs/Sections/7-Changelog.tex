@@ -1,0 +1,108 @@
+\documentclass[class=article, crop=false]{standalone}
+
+\usepackage{style}
+\usepackage{standalone}
+
+\begin{document}
+
+\section{Changelog}
+\selectlanguage{USenglish}
+
+\titlespacing\subsection{0pt}{0pt}{0pt}
+
+\subsection*{v0.2}
+{\small\DTMdisplaydate{2017}{5}{1}{-1}}
+
+\paragraph{\large Additions}
+
+\begin{itemize}
+  \item \textbf{Match Expressions} \; \; {\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System} \colorbox{lightgray}{Concrete Syntax}}
+
+      This is a structure to control the flow of a program by attempting to match a value against a list of patterns.
+
+  \item \textbf{Prefix Notation for Operators} \; \; {\small\colorbox{lightgray}{Concrete Syntax}}
+
+      Wrapping any infix operator in parenthesis turns it into a function that takes two parameters.
+
+  \item \textbf{Infix Notation for Functions} \; \; {\small\colorbox{lightgray}{Concrete Syntax}}
+
+      Wrapping any function name in backticks (\lq) turns it into a binary operator.
+
+  \item \textbf{Creating new Operators} \; \; {\small\colorbox{lightgray}{Concrete Syntax}}
+
+      When declaring a function, wrapping a name in parenthesis makes it a operator.
+      Only a small number of characters are allowed for operator names, and it is possible to define the associativity and priority of the newly created operator (if this information is ommited, the default values are left associative and priority 9).
+
+  \item \textbf{Partial Record Pattern} \; \; {\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System}
+  \colorbox{ProcessBlue}{Concrete Syntax}}
+
+      This pattern does not create an equality constraint on records.
+      Instead, it creates trait constraints, allowing for ad-hoc subtyping.
+
+  \item \textbf{Extended Language} \; \; {\small\colorbox{yellow}{Abstract Syntax}}
+
+      Created an extended language (syntax tree). This languaged is used for parsing, and then is translated into the core language.
+
+  \item \textbf{Type Aliases} \; \; {\small\colorbox{ProcessBlue}{Concrete Syntax}}
+
+      Allows the programmer to specify type aliases, simplifying type declarations
+
+\end{itemize}
+
+\paragraph{Changes}
+
+\begin{itemize}
+  \item \textbf{List Operations} \; \; {\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System}}
+
+      The list operations \code{hd}, \code{tl} and \code{isempty} have been removed from the language defition.
+      They have been added to the stdlib, and use pattern matching to recreate their funcionality.
+\end{itemize}
+
+\begin{itemize}
+  \item \textbf{Non-Strict Semantics} \; \;
+  { \colorbox{YellowGreen}{Operational Semantics}}
+
+      Functions can now be non-strict, and compound values (lists, tuples, records) can contain undefined (\code{raise}) components.
+\end{itemize}
+
+\begin{itemize}
+  \item \textbf{Boolean Operations} \; \;
+  {\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System}}
+
+      The boolean operators $\wedge$ (AND) and $\vee$ (OR) have been removed from the definition and added to the stdlib.
+
+  \item \textbf{Record Projection (Accessor)} \; \; {\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System}}
+
+      Replaced record projection with record accessor, allowing for editing of individual fields in a record.
+
+  \item \textbf{Conditionals} \; \; {\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System}}
+
+      Removed conditionals from core language, adding them to the extended language.
+\end{itemize}
+
+\paragraph{Removals}
+
+\begin{itemize}
+  \item \textbf{Input and Output} \; \; {\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System} \colorbox{lightgray}{Concrete Syntax}}
+
+      Removed the input and output expressions.
+      This was done because they are not compatible with the functional nature of V.
+      IO will (probably) be added again in the future, but for now it must be removed.
+
+  \item \textbf{Sequence Operator, Skip and Unit} \; \; {\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System} \colorbox{lightgray}{Concrete Syntax}}
+
+      Since these are not used by any expressions, they have been removed.
+
+  \item \textbf{Try} \; \; {\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System} \colorbox{lightgray}{Concrete Syntax}}
+
+      Exceptions can no longer be handled.
+      This was done because of the change to non-strict semantics.
+
+  \item \textbf{Project Index (TuplePosition Trait)} \; \; {\small\colorbox{yellow}{Abstract Syntax} \colorbox{YellowGreen}{Operational Semantics} \colorbox{ProcessBlue}{Type System} \colorbox{lightgray}{Concrete Syntax}}
+
+      Removed the ability to project a specific component of a tuple, making patterns the only way to decompose tuples.
+
+      As a result of this, the TuplePosition Trait has been removed.
+\end{itemize}
+
+\end{document}
