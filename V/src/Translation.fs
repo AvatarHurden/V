@@ -184,24 +184,48 @@ and translateDecl decl env =
         [], env'
 
 and translateFn fn env =
+    
+    let composeResult (arguments: Ident list) patterns ret env =
+        let matchRes = translateTerm ret env
+        match patterns with
+        | [pat] ->
+            Match (X arguments.Head, [pat, None, matchRes])
+        | pars' ->
+            let matchPattern = Pat (ConstructorPat (Tuple arguments.Length, pars'), None)
+            let matchArg = List.fold (fun acc x -> App (acc, X x)) (Constructor (Tuple arguments.Length)) arguments
+            Match (matchArg, [matchPattern, None, matchRes])
+    
     match fn with
-    | ExLambda (pars, t) -> 
-        let ids, pars' = translatePatterns pars env
-        let t' = translateTerm t env
-        let fn = condenseFunction None pars t env
-        fn
-    | ExRecursive (id, pars, typ, t) -> 
-        let ids, pars' = translatePatterns pars env
-        let typ' = translateSomeType typ env
-        let t' = translateTerm t env
-        let fn = condenseFunction (Some id) pars t env
-        fn
+    | ExLambda (patterns, t) -> 
+        let patterns', env' = translatePatterns patterns env
+        let arguments, env' = env'.generateNewIdents patterns'.Length
+        
+        let result = composeResult arguments patterns' t env'
+           
+        List.foldBack (fun x partial -> Fn <| Lambda(x, partial)) arguments result
+    | ExRecursive (id, patterns, typ, t) -> 
+        let patterns', env' = translatePatterns patterns env
+        let arguments, env' = env'.generateNewIdents patterns'.Length
+        let id', env' = env'.generateSubstitutionFor id
+        
+        let result = composeResult arguments patterns' t env'
+        
+        match arguments with
+        | head :: tail ->
+            let body = List.foldBack (fun x partial -> Fn <| Lambda(x, partial)) tail result
+            Fn <| Recursive (id', translateSomeType typ env', head, body)
+        | _ ->
+            raise <| ParseException (sprintf "Function %A must have at least one argument" fn)
 
 and translateTerm term env =
     match term with
     | ExBuiltIn b -> BuiltIn b
     | ExConstructor c -> Constructor c
-    | ExX x -> X x
+    | ExX x -> 
+        match env.idents.TryFind x with
+        | Some x' -> X x'
+        | None -> 
+            raise <| ParseException (sprintf "Identifier %A was not declared" x)
     | ExRecordAccess path ->
         let rec f = 
             function
