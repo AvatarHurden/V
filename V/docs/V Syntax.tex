@@ -1901,13 +1901,38 @@ Since functions have undergone massive changes from the core language, they need
   fn = \texttt{rec} \; f' \; x_1 \Rightarrow \cdots \texttt{fn} \; x_n \Rightarrow m}
   {\gamma \vdash (\texttt{rec} \; f \; \; p_1', \; \dots \; p_n' \Rightarrow e') \Rightarrow fn}
 
-\infrule[Tr-F-Rec2]
+\infrule[Tr-F-RecT]
   {\gamma \vdash [p_1', \; \dots \; p_n'] \Rightarrow [p_1, \; \dots \; p_n], \gamma'\\
   f' \; is \; new \andalso \forall i \in [1, \; n] \; . \; x_i \; is \; new\\
   \gamma' \cup \{f \rightarrow f'\} \vdash e' \Rightarrow e \andalso \gamma' \vdash T' \Rightarrow T\\
   m = \texttt{match} \; (x_1, \; \dots \; x_n) \; \texttt{with} \; (p_1, \; \dots p_n) \rightarrow e\\
   fn = \texttt{rec} \; f : T \; x_1 \Rightarrow \cdots \texttt{fn} \; x_n \Rightarrow m}
   {\gamma \vdash (\texttt{rec} \; f : T' \; \; p_1', \; \dots \; p_n' \Rightarrow e') \Rightarrow fn}
+
+When functions only have one parameter, the \texttt{match} expression does not use a tuple, since tuples must have at least 2 components.
+
+\bigskip
+
+\infrule[Tr-F-Fn1]
+  {\gamma \vdash p' \Rightarrow p, \gamma' \andalso x \; is \; new\\
+  \gamma' \vdash e' \Rightarrow e\\
+  m = \texttt{match} \; x \; \texttt{with} \; p \rightarrow e\\
+  f = \texttt{fn} \; x \Rightarrow m}
+  {\gamma \vdash (\texttt{fn} \; p' \Rightarrow e') \Rightarrow f}
+
+\infrule[Tr-F-Rec1]
+  {\gamma \vdash p' \Rightarrow p, \gamma' \andalso x \; is \; new\\
+  \gamma' \vdash e' \Rightarrow e\\
+  m = \texttt{match} \; x \; \texttt{with} \; p \rightarrow e\\
+  f = \texttt{rec} \; x \Rightarrow m}
+  {\gamma \vdash (\texttt{rec} \; p' \Rightarrow e') \Rightarrow f}
+
+\infrule[Tr-F-RecT1]
+  {\gamma \vdash p' \Rightarrow p, \gamma' \andalso x \; is \; new\\
+  \gamma' \vdash e' \Rightarrow e \andalso \gamma' \vdash T' \Rightarrow T\\
+  m = \texttt{match} \; x \; \texttt{with} \; p \rightarrow e\\
+  f = \texttt{rec} \; x : T \Rightarrow m}
+  {\gamma \vdash (\texttt{rec} \; p' : T' \Rightarrow e') \Rightarrow f}
 
 \subsubsection{Declaration Translation}
 
