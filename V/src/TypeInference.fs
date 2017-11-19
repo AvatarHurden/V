@@ -551,11 +551,11 @@ let rec matchUniversalPattern pattern typ (env: Env) cons =
         let v2' = List.sortWith (fun (s1, t1) (s2, t2) -> compare s1 s2) patterns
         
         if v1'.Length <> v2'.Length then
-            sprintf "Pattern %A and record %A have different fields" pattern (printType typ) |> TypeException |> raise
+            sprintf "Pattern %A and record %A have different fields" (printPattern pattern) (printType typ) |> TypeException |> raise
 
         let f (env, cons) (name1, p) (name2, t) =
             if name1 <> name2 then
-                raise <| TypeException (sprintf "Record %A and pattern %A have different fields" (printType typ) pattern)
+                raise <| TypeException (sprintf "Record %A and pattern %A have different fields" (printType typ) (printPattern pattern))
             else
                 matchUniversalPattern p t env cons
         let typeCons =
