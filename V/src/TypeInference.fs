@@ -208,7 +208,7 @@ type Env with
             List.foldBack (curry Function) args ret
         | _ -> 
             match Map.tryFind constr env.constructors with
-            | None -> sprintf "Undeclared constructor %A" constr |> TypeException |> raise
+            | None -> sprintf "Undeclared constructor %A" (printConstructor constr) |> TypeException |> raise
             | Some (ret, args) ->
                 let typ = List.foldBack (curry Function) args ret
                 let freeVars = getFreeVars typ env
@@ -230,7 +230,7 @@ type Env with
         | VarType (x, traits), t ->
             [TypeSub (x, t)]
         | _ ->
-            sprintf "Types %A and %A have different structures" typ basedOn |> TypeException |> raise
+            sprintf "Types %A and %A have different structures" (printType typ) (printType basedOn) |> TypeException |> raise
             
 
     member env.parametersOf constr basedOn =
@@ -253,7 +253,7 @@ type Env with
             ret', args'
         | _ ->
             match Map.tryFind constr env.constructors with
-            | None -> sprintf "Undeclared constructor %A" constr |> TypeException |> raise
+            | None -> sprintf "Undeclared constructor %A" (printConstructor constr) |> TypeException |> raise
             | Some (ret, args) ->
                 let subs =
                     match basedOn with
@@ -331,7 +331,7 @@ and validateTraitsConstructor trt c (args: Type list) env =
         | Some (t, reqs) ->
             let f (index, trts) =
                 if args.Length <= index then
-                        sprintf "Constructor type %A doesn't have an argument at index %A" c index |> TypeException |> raise
+                        sprintf "Constructor type %A doesn't have an argument at index %A" (printConstrType c) index |> TypeException |> raise
                 let typ = List.nth args index
                 validateTraits trts typ env
             match mapOption f (Map.toList reqs) with
@@ -400,7 +400,7 @@ let rec unify typeSubs traitSubs constraints =
                     let valid = validateTraits traits t rest
                     match valid with
                     | None ->
-                        sprintf "Can not satisfy traits %A for %A" traits t 
+                        sprintf "Can not satisfy traits %A for %A" (printTraits traits) (printType t)
                             |> TypeException |> raise
                     | Some (t', cons') ->
                         let replacedX = substituteInConstraints (TypeSub (x, t')) (cons' @@ rest)
@@ -423,15 +423,15 @@ let rec unify typeSubs traitSubs constraints =
         
                 let matchNames (name1, typ1) (name2, typ2) =
                     if name1 <> name2 then
-                        raise <| TypeException (sprintf "Records %A and %A have different fields" typ1 typ2)
+                        raise <| TypeException (sprintf "Records %A and %A have different fields" (printType typ1) (printType typ2))
                     Equals (typ1, typ2)
              
                 unify typeSubs traitSubs <| rest @@ List.map2 matchNames v1' v2'
             | Function _, s 
             | s, Function _ ->
-                raise <| TypeException (sprintf "Type %A is not a function and cannot be applied" s)
+                raise <| TypeException (sprintf "Type %A is not a function and cannot be applied" (printType s))
             | s, t -> 
-                raise <| TypeException (sprintf "Expected type %A, but found type %A" s t)
+                raise <| TypeException (sprintf "Expected type %A, but found type %A" (printType s) (printType t))
 
 //#endregion
 
@@ -511,29 +511,29 @@ let rec matchPattern pattern typ (env: Env) cons =
             | Some typ' -> [Equals (typ', typ)]
         List.fold2 f (env, recordCons :: cons @ typeCons) patterns recordTypes
 
-let rec matchUniversalPattern pattern typ (env: Env) =
+let rec matchUniversalPattern pattern typ (env: Env) cons =
     match pattern with
     | Pat (XPat x, None)-> 
         match getFreeVars typ env with
-        | [] -> env.addAssoc x (Simple typ), []
-        | frees -> env.addAssoc x (Universal (frees, typ)), []
+        | [] -> env.addAssoc x (Simple typ), cons
+        | frees -> env.addAssoc x (Universal (frees, typ)), cons
     | Pat (XPat x, Some typ')-> 
         match getFreeVars typ' env with
-        | [] -> env.addAssoc x (Simple typ'), [Equals (typ', typ)]
-        | frees -> env.addAssoc x (Universal (frees, typ')), [Equals (typ', typ)]
+        | [] -> env.addAssoc x (Simple typ'), Equals (typ', typ) :: cons
+        | frees -> env.addAssoc x (Universal (frees, typ')), Equals (typ', typ) :: cons
 
-    | Pat (IgnorePat, None) -> env, []
-    | Pat (IgnorePat, Some typ') -> env, [Equals (typ', typ)]
+    | Pat (IgnorePat, None) -> env, cons
+    | Pat (IgnorePat, Some typ') -> env, Equals (typ', typ) :: cons
 
     | Pat (ConstructorPat (c, patterns), typ') ->
         let retTyp, parameters = env.parametersOf c <| Some typ
-        let f = fun (env, cons) p t -> matchUniversalPattern p t env
+        let f = fun (env, cons) p t -> matchUniversalPattern p t env cons
         let acc = 
             match typ' with
             | Some typ' ->
-                env, [Equals (typ', typ); Equals (retTyp, typ)]
+                env, [Equals (typ', typ); Equals (retTyp, typ)] @ cons
             | None ->
-                env, [Equals (retTyp, typ)]
+                env, [Equals (retTyp, typ)] @ cons
         List.fold2 f acc patterns parameters
 
     | Pat (RecordPat (allowsExtra, patterns), typ') ->
@@ -545,23 +545,23 @@ let rec matchUniversalPattern pattern typ (env: Env) =
                     List.filter f typs
                 else
                     typs
-            | _ -> sprintf "Invalid type %A for universal match" typ |> TypeException |> raise
+            | _ -> sprintf "Invalid type %A for universal match" (printType typ) |> TypeException |> raise
         
         let v1' = List.sortWith (fun (s1, t1) (s2, t2) -> compare s1 s2) recordTypes
         let v2' = List.sortWith (fun (s1, t1) (s2, t2) -> compare s1 s2) patterns
         
         if v1'.Length <> v2'.Length then
-            sprintf "Pattern %A and record %A have different fields" pattern typ |> TypeException |> raise
+            sprintf "Pattern %A and record %A have different fields" pattern (printType typ) |> TypeException |> raise
 
         let f (env, cons) (name1, p) (name2, t) =
             if name1 <> name2 then
-                raise <| TypeException (sprintf "Record %A and pattern %A have different fields" typ pattern)
+                raise <| TypeException (sprintf "Record %A and pattern %A have different fields" (printType typ) pattern)
             else
-                matchUniversalPattern p t env
+                matchUniversalPattern p t env cons
         let typeCons =
             match typ' with
-            | None -> []
-            | Some typ' -> [Equals (typ', typ)]
+            | None -> cons
+            | Some typ' -> Equals (typ', typ) :: cons
         List.fold2 f (env, typeCons) patterns recordTypes
 
 let validatePattern = matchPattern
@@ -745,7 +745,7 @@ let rec collectConstraints term (env: Env) =
         let uni = unify Map.empty Map.empty <| c1 @@ defaultUniEnv 
         let typ1' = applyUniToType typ1 uni
 
-        let env', cons = matchUniversalPattern pattern typ1' (applyUniToEnv env uni)
+        let env', cons = matchUniversalPattern pattern typ1' (applyUniToEnv env uni) []
         
         let typ2, c2 = collectConstraints t2 env'
         typ2, cons @@ c1 @@ c2
