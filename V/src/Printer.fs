@@ -2,7 +2,95 @@ module Printer
 
 open Definition
 
-let rec printTrait trt =
+//#region Helpers
+
+
+let rec printTuple printer terms =
+    match terms with
+    | [] -> ""
+    | term :: [] -> printer term
+    | term :: rest -> printer term + ", " + printTuple printer rest
+
+and printRecord printer pairs =
+    match pairs with
+    | [] -> ""
+    | (x, term) :: [] -> 
+        sprintf "%s: %s" x <| printer term
+    | (x, term) :: rest -> 
+        sprintf "%s: %s, %s" x (printer term) (printRecord printer rest)
+    
+
+//#endregion
+
+let printConstrType constrType =
+    match constrType with
+    | Int -> "Int"
+    | Char -> "Char"
+    | Bool -> "Bool"
+    | List -> "List"
+    | ConstructorType.Tuple n -> "Tuple " + string n
+
+let printConstructor constr =
+    match constr with
+    | I i -> string i
+    | C c -> string c
+    | B b -> string b
+    | Cons -> "Cons"
+    | Nil -> "Nil"
+    | Tuple n -> "Tuple " + string n
+
+let rec printPatternList (Pat (p, t)) =
+    match p with
+    | ConstructorPat (Cons, [head; Pat (ConstructorPat (Nil, []), _)]) -> printPattern head
+    | ConstructorPat (Cons, [head; tail]) -> printPattern head + ", " + printPatternList tail
+    | p -> sprintf "Pattern %A is not list to be printed" p
+
+and printPattern (Pat(pat, typ)) =
+
+    let addSomeType typ s =
+        match typ with
+        | None -> s
+        | Some typ -> sprintf "(%O : %O)" s (printType typ)
+
+    match pat with
+    | IgnorePat -> 
+        addSomeType typ "_" 
+    | XPat x -> 
+        addSomeType typ x
+    | ConstructorPat (c, pats) -> 
+        match c with
+        | I _ | C _ | B _ ->  
+            addSomeType typ <| printConstructor c
+        | Cons -> 
+            let isComplete =
+                let rec f (Pat (p, _)) =
+                    match p with
+                    | ConstructorPat (Cons, [_; Pat (ConstructorPat (Nil, []), _)]) -> true
+                    | ConstructorPat (Cons, [_; p]) -> f p
+                    | _ -> false
+                f (Pat (pat, None))
+            
+            if isComplete then
+                addSomeType typ <| "[" + printPatternList (Pat (pat, typ)) + "]"
+            else
+                match pats with
+                | [p1; p2] ->
+                    addSomeType typ <| (printPattern p1) + " :: " + (printPattern p2)
+                | _ ->
+                    sprintf "Printing pattern %A failed" pat |> ParseException |> raise
+        | Nil -> 
+            addSomeType typ "[]"
+        | Tuple n -> 
+            addSomeType typ <| "(" + printTuple printPattern pats + ")"
+    | RecordPat (partial, fields) -> 
+        let t = printRecord printPattern fields
+        match partial with
+        | true -> "{" + t + ", ... }"
+        | false -> "{" + t + "}"
+
+and printSemiPattern p = printPattern (Pat (p, None))    
+
+and printTrait trt =
     match trt with
     | Orderable -> "Orderable"
     | Equatable -> "Equatable"
@@ -14,21 +102,7 @@ and printTraits traits =
     | [] -> ""
     | trt :: [] -> printTrait trt
     | trt :: rest -> printTrait trt + ", " + printTraits rest
-
-and printTuple types =
-    match types with
-    | [] -> ""
-    | typ :: [] -> printType typ
-    | typ :: rest -> printType typ + ", " + printTuple rest
     
-and printRecord pairs =
-    match pairs with
-    | [] -> ""
-    | (x, typ) :: [] -> 
-        sprintf "%s: %s" x <| printType typ
-    | (x, typ) :: rest -> 
-        sprintf "%s: %s, %s" x (printType typ) (printRecord rest)
-
 and printType typ =
     match typ with
     | VarType(s, traits) -> 
@@ -41,7 +115,7 @@ and printType typ =
     | ConstType (List, [ConstType (Char, [])]) -> "String"
     | ConstType (List, [t]) -> sprintf "[%s]" (printType t)
     | ConstType (ConstructorType.Tuple _, types) ->
-        sprintf "(%s)" (printTuple types)
+        sprintf "(%s)" (printTuple printType types)
     | ConstType _ -> sprintf "The type %A is invalid" typ |> TypeException |> raise
     | Accessor (t1, t2) ->
         sprintf "#(%O -> %O)" (printType t1) (printType t2)
@@ -52,7 +126,7 @@ and printType typ =
         | _ ->
             sprintf "%s -> %s" (printType t1) (printType t2)
     | Type.Record (pairs) ->
-        sprintf "{%s}" (printRecord pairs)
+        sprintf "{%s}" (printRecord printType pairs)
 
 let rec printResultList result =
     match result with
@@ -76,11 +150,7 @@ and printResult result =
     | ResConstructor (Nil, []) -> "[]"
     | ResConstructor (Cons, [ResConstructor (C head, []); tail]) -> "\"" + printResultString result + "\""
     | ResConstructor (Cons, [head; tail]) -> "[" + printResultList result + "]"
-    | ResConstructor (Tuple _, v) -> 
-        "(" + 
-        (List.fold (fun acc v -> acc + ", " + printResult v) 
-        (printResult v.Head) v.Tail) 
-        + ")"
+    | ResConstructor (Tuple _, v) -> "(" + printTuple printResult v + ")"
     | ResConstructor _ -> sprintf "The value %A is invalid" result |> EvalException |> raise
     | ResRecordAcess path ->
         let rec f path =
@@ -98,11 +168,7 @@ and printResult result =
         //List.fold f "#" paths
         sprintf "#%O" <| f path
     | ResRecord v -> 
-        let headName, headV = v.Head
-        "{" + 
-        (List.fold (fun acc (name, v) -> acc + ", " + name + ":" + printResult v) 
-        (headName + ":" + printResult headV) v.Tail) 
-        + "}"
+        "{" + printRecord printResult v + "}"
     | ResFn (Lambda (id, t), env) ->
         sprintf "Function with parameter %A" id
     | ResFn (Recursive(id, t1, id2, t), env) -> 
