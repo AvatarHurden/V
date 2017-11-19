@@ -2,7 +2,24 @@ module Printer
 
 open Definition
 
-let rec printTrait trt =
+let printConstrType constrType =
+    match constrType with
+    | Int -> "Int"
+    | Char -> "Char"
+    | Bool -> "Bool"
+    | List -> "List"
+    | ConstructorType.Tuple n -> "Tuple " + string n
+
+let rec printConstructor constr =
+    match constr with
+    | I i -> string i
+    | C c -> string c
+    | B b -> string b
+    | Cons -> "Cons"
+    | Nil -> "Nil"
+    | Tuple n -> "Tuple " + string n
+
+and printTrait trt =
     match trt with
     | Orderable -> "Orderable"
     | Equatable -> "Equatable"
