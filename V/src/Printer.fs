@@ -88,6 +88,8 @@ and printPattern (Pat(pat, typ)) =
         | true -> "{" + t + ", ... }"
         | false -> "{" + t + "}"
 
+and printSemiPattern p = printPattern (Pat (p, None))    
+
 and printTrait trt =
     match trt with
     | Orderable -> "Orderable"

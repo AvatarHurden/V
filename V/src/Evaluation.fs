@@ -1,7 +1,7 @@
 ﻿module Evaluation
 
 open Definition
-open System
+open Printer
 
 let private (|AnyRaise|_|) (t1, t2) =
     match t1, t2 with
@@ -26,7 +26,7 @@ type Env with
         | c1, c2 ->
             let f x = fun (s: Constructor list) -> List.exists ((=) x) s
             match List.tryFind (f c1) this.groups with
-            | None -> sprintf "Constructor %A is not in any group" c1 |> EvalException |> raise
+            | None -> sprintf "Constructor %A is not in any group" (printConstructor c1) |> EvalException |> raise
             | Some s -> List.exists ((=) c2) s
     
     member this.compare c1 c2 op =
@@ -38,7 +38,7 @@ type Env with
             | GreaterThan -> a > b
             | Equal -> a = b
             | Different -> a <> b
-            | _ -> sprintf "Cannot order %A and %A with %A" c1 c2 op |> EvalException |> raise  
+            | _ -> sprintf "Cannot order %A and %A with %A" (printConstructor c1) (printConstructor c2) op |> EvalException |> raise  
         match c1, c2 with 
         | I i1, I i2 -> func i1 i2
         | C c1, C c2 -> func c1 c2
@@ -46,11 +46,11 @@ type Env with
         | Tuple len1, Tuple len2 when len1 = len2 -> func len1 len2        
         | c1, c2 ->
             if not <| this.areCompatible c1 c2 then
-                sprintf "Cannot compare %A and %A" c1 c2 |> EvalException |> raise
+                sprintf "Cannot compare %A and %A" (printConstructor c1) (printConstructor c2) |> EvalException |> raise
             
             let f x = fun (s: Constructor list) -> List.exists ((=) x) s
             match List.tryFind (f c1) this.groups with
-            | None -> sprintf "Constructor %A is not in any group" c1 |> EvalException |> raise
+            | None -> sprintf "Constructor %A is not in any group" (printConstructor c1) |> EvalException |> raise
             | Some s -> 
                 let i1 = List.findIndex ((=) c1) s
                 let i2 = List.findIndex ((=) c2) s
@@ -62,7 +62,7 @@ type Env with
         | Tuple len -> len
         | c -> 
             match this.numArgs.TryFind c with
-            | None -> sprintf "Constructor %A does not have a number of arguments" c |> EvalException |> raise
+            | None -> sprintf "Constructor %A does not have a number of arguments" (printConstructor c) |> EvalException |> raise
             | Some i -> i
 
     member this.addId id result =
@@ -103,11 +103,11 @@ let rec matchPattern (Pat (pattern, _)) result (env: Env) =
                     let dict = List.fold (fun (acc: Map<string, VarPattern>) (name, pat) -> acc.Add(name, pat)) Map.empty patterns
                     List.map (fun (name, value) -> name, match dict.TryFind name with None -> Pat(IgnorePat, None) | Some p -> p) results'
                 else
-                    raise (EvalException <| sprintf "Record %A has less fields than pattern %A" result pattern)
+                    raise (EvalException <| sprintf "Record %A has less fields than pattern %A" (printResult result) (printSemiPattern pattern))
 
             let f acc (pName, pValue) (rName, rValue) =
                 if pName <> rName then
-                    raise (EvalException <| sprintf "Record %A has different fields from pattern %A" result pattern)
+                    raise (EvalException <| sprintf "Record %A has different fields from pattern %A" (printResult result) (printSemiPattern pattern))
                 match acc with
                 | None -> None
                 | Some env -> matchPattern pValue rValue env
@@ -129,7 +129,7 @@ let rec compareEquality t1 t2 (env: Env) =
     | AnyRaise -> ResRaise
     | ResConstructor (c, arguments), ResConstructor (c', arguments') ->
         if not <| env.areCompatible c c' then
-            sprintf "Cannot compare %A and %A" c c' |> EvalException |> raise
+            sprintf "Cannot compare %A and %A" (printConstructor c) (printConstructor c') |> EvalException |> raise
         
         match env.compare c c' Equal with
         | false -> ResConstructor (B false, [])
@@ -147,21 +147,21 @@ let rec compareEquality t1 t2 (env: Env) =
         
         let f acc (n1, r1) (n2, r2) =
             if n1 <> n2 then
-                raise <| EvalException (sprintf "Records %A and %A have different fields" t1 t2)
+                raise <| EvalException (sprintf "Records %A and %A have different fields" (printResult t1) (printResult t2))
             match acc, compareEquality r1 r2 env with
             | AnyRaise -> ResRaise
             | ResConstructor (B false, []), _ -> ResConstructor (B false, [])
             | ResConstructor (B true, []), ResConstructor (B b2, []) -> ResConstructor (B b2, [])
             | _ -> raise <| EvalException "Equal returned a non-expected value"
         List.fold2 f (ResConstructor (B true, [])) v1' v2'
-    | _ , _ -> sprintf "Values %A and %A are not comparable" t1 t2 |> EvalException |> raise  
+    | _ , _ -> sprintf "Values %A and %A are not comparable" (printResult t1) (printResult t2) |> EvalException |> raise  
 
 let rec compareOrder t1 t2 orderType (env: Env) =
     match t1, t2 with
     | AnyRaise -> ResRaise
     | ResConstructor (c, arguments), ResConstructor (c', arguments') ->
         if not <| env.areCompatible c c' then
-            sprintf "Cannot compare %A and %A" c c' |> EvalException |> raise  
+            sprintf "Cannot compare %A and %A" (printConstructor c) (printConstructor c') |> EvalException |> raise  
         match env.compare c c' Equal with
         | false -> (ResConstructor (B (env.compare c c' orderType), []))
         | true ->
@@ -178,8 +178,8 @@ let rec compareOrder t1 t2 orderType (env: Env) =
                 match orderType with
                 | GreaterOrEqual | LessOrEqual -> ResConstructor (B true, [])
                 | GreaterThan | LessThan -> ResConstructor (B false, [])
-                | _ -> sprintf "Cannot order %A and %A with %A" t1 t2 orderType |> EvalException |> raise  
-    | _ , _ -> sprintf "Values %A and %A are not comparable" t1 t2 |> EvalException |> raise  
+                | _ -> sprintf "Cannot order %A and %A with %A" (printResult t1) (printResult t2) orderType |> EvalException |> raise  
+    | _ , _ -> sprintf "Values %A and %A are not comparable" (printResult t1) (printResult t2) |> EvalException |> raise  
     
 //#endregion
 
@@ -194,7 +194,7 @@ let rec traversePath (path: ResPath) term (newValue: result option) env =
         | ResComponent s ->
             let names, values = List.unzip pairs
             match Seq.tryFindIndex ((=) s) names with
-            | None -> sprintf "Record %A doesn't contain label %A" term s |> EvalException |> raise
+            | None -> sprintf "Record %A doesn't contain label %A" (printResult term) s |> EvalException |> raise
             | Some i ->
                 let array = List.toArray values
 
@@ -444,7 +444,7 @@ and private applyResults fn res env =
         match res with
         | ResRaise -> ResRaise
         | t2' -> eval e <| env'.addId arg t2'
-    | t1' -> sprintf "First operand %A is not a function" t1' |> EvalException |> raise
+    | t1' -> sprintf "First operand %A is not a function" (printResult t1') |> EvalException |> raise
 
 and private apply fn t2 (env: Env) =
     match fn with
@@ -468,7 +468,7 @@ and private apply fn t2 (env: Env) =
         match eval t2 env with
         | ResRaise -> ResRaise
         | t2' -> eval e <| env'.addId arg t2'
-    | t1' -> sprintf "First operand %A is not a function" t1' |> EvalException |> raise
+    | t1' -> sprintf "First operand %A is not a function" (printResult t1') |> EvalException |> raise
 
 and private eval (t: term) (env: Env) =
     match t with
@@ -487,7 +487,7 @@ and private eval (t: term) (env: Env) =
                 let reduce p =
                     match eval p env with
                     | ResRecordAcess p -> p
-                    | _ -> sprintf "%A is not a record access at joined record access %A" p t |> EvalException |> raise
+                    | t' -> sprintf "%A is not a record access at joined record access %A" (printResult t') t |> EvalException |> raise
                 ResJoined <| List.map reduce paths
         ResRecordAcess <| f path
     | Fn fn -> ResFn (fn, env)
