@@ -108,62 +108,14 @@ let rec getIdents pattern =
         let _, patterns = List.unzip patterns
         List.concat <| List.map getIdents patterns
       
-let transformToIdents parameters =
+let rec transformToIdents parameters =
     let f par =
         match par with
         | Pat(XPat id, None) -> Some id
         | _ -> None
 
     mapOption f parameters
-
-let rec condenseFunction (recName: Ident option) exParameters exRetTerm env =
-    let parameters, env' = translatePatterns exParameters env
-
-    let realParameters, retTerm, env' = 
-        match transformToIdents parameters with
-        | Some ids -> 
-            //let env' = env.addIdents <| Set.ofList ids
-            ids, translateTerm exRetTerm env', env'
-        | None -> 
-            let size = parameters.Length
-            let ids, env' = env.generateNewIdents size
-            let matchPattern = 
-                match exParameters with
-                | [x] -> x
-                | xs -> (ExConstructorPat (Tuple size, exParameters), None)
-            let matchReturn = translateTerm exRetTerm env'
-            let matchCase = matchPattern, None, exRetTerm
-            let realExRetTerm = 
-                match ids with
-                | [x] -> ExMatch (ExX x, [matchCase]) 
-                | xs -> ExMatch (ExTuple (List.map ExX xs), [matchCase])
-
-            ids, translateTerm realExRetTerm env', env'
-
-    match realParameters with
-    | [] -> 
-        retTerm
-    | first :: parameters' ->
-        let f p func = Fn <| Lambda(p, func)
     
-        let innerFn = List.foldBack f parameters' retTerm
-
-        let finalFn = 
-            match recName with
-            | Some name -> Fn <| Recursive(name, None, first, innerFn)
-            | None -> Fn <| Lambda(first, innerFn)
-
-        finalFn
-
-and condenseNamedFunction isRec id parameters retTerm env =
-    let fnTerm =
-        if isRec then
-            condenseFunction (Some id) parameters retTerm env
-        else
-            condenseFunction None parameters retTerm env
-    
-    Pat(XPat id, None), fnTerm
-
 and translateDecl decl env = 
     match decl with
     | DeclConst (p, t1) -> 
@@ -171,11 +123,13 @@ and translateDecl decl env =
         let t1' = translateTerm t1 env
         [(p', t1')], env'
     | DeclFunc (isRec, id, parameters, retTyp, retTerm) ->
-        let parameters', env' = translatePatterns parameters env
-        let innerEnv = env'
-        let typ' = translateSomeType retTyp innerEnv
-        let pat, fn = condenseNamedFunction isRec id parameters retTerm innerEnv
-        [(pat, fn)], innerEnv
+        let fn =
+            match isRec with
+            | true -> ExRecursive (id, parameters, retTyp, retTerm)
+            | false -> ExLambda (parameters, retTerm)
+        let id', env' = env.generateSubstitutionFor id
+        let fn' = translateFn fn env'
+        [Pat (XPat id', None), fn'], env'
     | DeclImport (comps) -> 
         let ids = comps |> List.unzip |> fst |> List.map getIdents |> List.concat
         comps, env
@@ -290,7 +244,7 @@ and translateTerm term env =
                 App (App (BuiltIn Subtract, second'), first')
         App (App (App (X "range", first'), last'), increment)
     | Comprehension (retTerm, p, source) ->
-        let fn = condenseFunction None [p] retTerm env
+        let fn = translateFn (ExLambda ([p], retTerm)) env
         App (App (X "map", fn), translateTerm source env)
        
 let translateLib declarations env =
