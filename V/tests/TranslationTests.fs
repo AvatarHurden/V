@@ -10,6 +10,21 @@ let shouldFail text =
     (fun () -> text |> parsePure |> flip translate emptyTransEnv |> ignore) |> should throw typeof<ParseException> 
    
 [<TestFixture>]
+ type TypeTranslationTests() =
+
+    [<Test>]
+    member this.usesEnvironment() =
+        let t = ExTypeAlias ("a")
+        let env = emptyTransEnv.addTypeAlias "a" (ConstType (Int, []))
+        translateType t env |> should equal (ConstType (Int, []))
+
+    [<Test>]
+    member this.failsWithUnkown() =
+        let t = ExTypeAlias ("a")
+        (fun () -> translateType t emptyTransEnv |> ignore) 
+            |> should throw typeof<ParseException>
+            
+[<TestFixture>]
 type PatternTranslationTests() =
 
     [<Test>]
@@ -85,3 +100,36 @@ type FunctionTranslationTests() =
         let fn = ExLambda ([ExXPat "x", None], ExX "generated1")   
         (fun () -> translateFn fn emptyTransEnv |> ignore)
             |> should throw typeof<ParseException>
+
+       
+[<TestFixture>]
+type DeclarationTranslationTests() =
+
+    [<Test>]
+    member this.generatesSubstitutions() =
+        let term = DeclConst ((ExXPat "x", None), ExConstructor (I 3))
+        let assocs, env' = translateDecl term emptyTransEnv
+
+        assocs |> should equal [Pat (XPat "generated0", None), Constructor (I 3)]
+        env'.idents |> should equal (Map.empty.Add ("x", "generated0"))
+    
+    [<Test>]
+    member this.recursiveFunctions() =
+        let term = DeclFunc (true, "f", [ExXPat "x", None], None, ExX "f")
+        let assocs, env' = translateDecl term emptyTransEnv
+
+        let generatedFn = Fn (Recursive <|
+            ("generated3", None, "generated2", Match (X "generated2", [Pat (XPat "generated1", None), None, X "generated3"])))
+        assocs.Head |> should equal (Pat (XPat "generated0", None), generatedFn)
+        env'.idents |> should equal (Map.empty.Add ("f", "generated0"))
+   
+    [<Test>]
+    member this.addsAliases() =
+       let term = DeclAlias ("a", ExConstType (Int, []))
+       let assocs, env' = translateDecl term emptyTransEnv
+       assocs |> should equal []
+       env'.typeAliases |> should equal (Map.empty.Add("a", ConstType (Int, [])))
+
+
+      
+    
