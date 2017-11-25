@@ -1,0 +1,44 @@
+\documentclass[class=article, crop=false]{standalone}
+
+\usepackage{style}
+\usepackage{standalone}
+
+\begin{document}
+
+\section*{Introduction}
+The $V$ programming language is a functional language with eager left-to-right evaluation.
+It has a simple I/O system supporting only direct string operations.
+It is a trait based strongly and statically typed language supporting both explicit and implicit typing.
+
+
+This document both specifies the $V$ language and shows its implementation in F\#.
+It is divided into 6 categories:
+\begin{enumerate}
+    \item Abstract Syntax and Semantics
+
+        This defines the abstract syntax and semantics of the language.
+        It only contains the bare minimum for the language to function, without any syntactic sugar.
+
+    \item Extended Language
+
+        Defines the extended abstract syntax tree and its translation into the core language.
+
+    \item Concrete Syntax
+
+        Defines the concrete syntax for the language, describing what are valid expressions and programs.
+
+    \item Language Guide
+
+        A guide for programming in $V$.
+        This defines all operators, syntactic sugar and other aspects of the language, along with short user-friendly explanations of each language feature (and limitation).
+
+    \item Standard Library
+
+        Describes all functions provided in the $V$ standard library.
+
+    \item Changelog
+
+         Lists the changes done to the language in each version.
+\end{enumerate}
+
+\end{document}

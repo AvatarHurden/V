@@ -1,0 +1,662 @@
+\documentclass[class=article, crop=false]{standalone}
+
+\usepackage{style}
+\usepackage{standalone}
+
+\begin{document}
+
+\subsection{Operational Semantics}\label{Operational Semantics}
+
+The $V$ language is evaluated using a big-step evaluation with environments.
+This evaluation reduces an expression into a value directly, not necessarily having a rule of evaluation for every possible expression.
+To stop programmers from creating programs that cannot be evaluated, a type inference system will be specified later.
+
+\paragraph{Value}
+A value is the result of the evaluation of an expression in big-step.
+This set of values is different from the set of expressions of $V$, even though they share many similarities.
+
+\paragraph{Environment}\label{environment}
+An evaluation environment is a 2-tuple which contains the following information:
+
+\begin{enumerate}
+    \item Arity of constructors
+
+        If a constructor has arity $n$, it requires $n$ arguments to become fully evaluated.
+
+    \item Associations between identifiers and values
+
+        A new association is created every time a value is bound.
+        This happens in \texttt{let} declarations, function application and \texttt{match} expressions.
+
+\end{enumerate}
+
+\bigskip
+
+Below are the definitions of both values and environments:
+
+\bigskip
+
+{\setlength\tabcolsep{8pt}
+\begin{tabular}{>{$}l<{$}>{$}r<{$}>{$}l<{$}>{$}r<{$}}
+env &::= &(arities, vars)\\
+\\
+arities &:: = &\{\} \; | \; \{con \rightarrow n\} \cup arities &(n \in \mathbb{N})\\
+vars &:: = &\{\} \; | \; \{x \rightarrow v\} \cup vars\\
+\\
+    v &::= &con \; v_1, \; \dots \; v_n & (n = \text{arity} \; con)\\
+    &| &raise\\
+    &| &\{l_1: v_1, \; \dots \; l_n: v_n\} & (n\geq1)\\
+    &| &\#path\\
+    &| &\left\langle func, env\right\rangle\\
+    &| &\ll Builtin \; . \; v_1, \; \dots v_n \gg &(n < \text{arity} \; Builtin)\\
+    &| &\ll con \; . \; v_1, \; \dots v_n \gg &(n < \text{arity} \; con)\\
+    \\
+path &::= &l\\
+    &| &path \; . \; path\\
+    &| &(path_1, \; \dots \; path_n) &(n \geq 2)\\
+    &| &path \; [v_1, \; v_2] \\
+\end{tabular}}
+
+\bigskip
+
+The value $\left\langle func, env\right\rangle$ defines closures.
+They represent the result of evaluating functions (and recursive functions) and store the environment at the moment of evaluation.
+This means that $V$ has static scope, since closures capture the environment at the moment of evaluation and $V$ has eager evaluation.
+
+The values $\ll Builtin \; . \; v_1, \; \dots v_n \gg$ and $\ll con \; . \; v_1, \; \dots v_n \gg$ are partial applications of built-in functions and constructors, respectively.
+
+Once all the parameters have been defined, they evaluate either to the result of the function (in the case of $Builtin$) or to a fully applied constructor $con \; v_1, \; \dots \; v_n$.
+
+\subsubsection{Paths}
+
+Accessors possess structure when treated as values.
+This structure is built through use of the operations available on accessors, such as the compose expression or the built-in functions.
+Since accessors view records as trees, this structure is a \emph{path} along a tree.
+
+The most basic structure of a path is a single label.
+This path describes a field immediately below the root of the tree (the root is viewed as the record itself, and every child is a field of the record).
+This path is created by using the simple accessor expression $\#l$.
+
+Two paths can be composed vertically, allowing access to subfields of a record.
+In this scenario, the tree must have at least the same depth as the path (and along the correct field names).
+Vertical composition is achieved by using the "stack" built-in function, and always combines two paths.
+
+Paths can also be composed horizontally, described as a tuple of paths.
+When composed horizontally, all paths are used on the root of the record, and the end points of the paths are joined in a tuple for extraction or updating.
+
+Finally, paths can be distorted.
+This means that the path has two values (functions) associated with it.
+These functions are then used to transform the values stored in the field of the record (one for extraction, another for updating).
+
+\paragraph{Path Traversal Rules}
+
+As previously stated, accessors describe paths along a record tree.
+To use these paths, an auxiliary $traverse$ function is used.
+This functions receives 3 arguments: a path, a record and an update value.
+The function returns 2 values: the old value associated with the field specified by the path; and an updated record.
+
+This updated record uses the value provided as input to the function to update the field specified by the path.
+This last argument of the $traverse$ function can be omitted and, in such a case, no update is done (that is, the updated record is the same as the input record).
+
+\medskip
+
+The first rule is for a simple label path.
+The label must be present in the provided record.
+A new record is created, associating the provided value with the label specified by the path.
+
+\infrule[]
+    {1 \leq \left\|k\right\| \leq \left\|n\right\|\\
+    r = \{l_1: v_1, \; \dots \; l_k: v, \; \ldots \; l_n: v_n\}}
+    {traverse(l_k, \{l_1: v_1, ... l_n: v_n\}, v) = v_k, r}
+
+For vertically composed paths, three calls to $traverse$ are needed.
+
+\infrule[]
+    {traverse(path_1, \{l_1: v_1, ... l_n: v_n\}) = rec, r\\
+    traverse(path_2, rec, v) = v', rec'\\
+    traverse(path_1, \{l_1: v_1, ... l_n: v_n\}, rec') = rec, r'\\}
+    {traverse(path_1 \; . \; path_2, \{l_1: v_1, ... l_n: v_n\}, v) = v', r'}
+
+The first call omits the update value, and is used to extract a record associated with the first component of the path.
+This record is then passed, along with the second component of the path and the update value, to the second call of $traverse$.
+Finally, the third call uses the return of the second call to update the internal record, returning a new updated record.
+
+\bigskip
+
+Joined paths also require multiple calls to $traverse$, but the exact number depends on the amount of paths joined.
+
+\infrule[]
+    {r_0 = \{l_1: v_1, ... l_n: v_n\}\\
+    \forall i \in [1, \; n] \; . \; traverse(path_i, r_{i-1}, v_i) = v'_i, r_i}
+    {traverse((path_1, \; \dots \; path_n), \{l_1: v_1, ... l_n: v_n\}, (v_1, \; \dots \; v_n)) = (v'_1, \; \dots \; v'_n), r_n}
+
+Pairing the paths with the components of the tuple provided as the update value, each pair is passed as input to a call to $traverse$.
+This happens from left to right, and each call returns a part of the old value and a partially updated record.
+Every call uses the partially updated record provided, and the last call to $traverse$ returns the fully updated record.
+
+\bigskip
+
+Distorted paths require the evaluation of two applications, one before and one after updating.
+
+\infrule[]
+    {\{\} \vdash v_2 \; v \Downarrow v' \andalso traverse(path, \{l_1: v_1, ... l_n: v_n\}, v') = v'', r\\
+    \{\} \vdash v_1 \; v'' \Downarrow v'''}
+    {traverse(path [v_1, \; v_2], \{l_1: v_1, ... l_n: v_n\}, v) = v''', r}
+
+Initially, the provided update value is applied to the second component ($v_2$) of the distorted accessor.
+This value is then provided as the new update value for a call to $traverse$, returning an old value and the updated record.
+This old value is then provided as argument to the first component ($v_1$) of the distorted accessor, and the result of this is the output of the whole $traverse$ (along with the updated record).
+
+\subsubsection{Pattern Matching}
+
+For \texttt{let} and \texttt{match} expressions, it is necessary to match a pattern $p$ to a value $v$.
+This process, if successful, creates a mapping of identifiers to their corresponding elements of $v$.
+If $v$ does not match the pattern $p$, the process fails.
+
+In the case of a \texttt{let} expression, failing to match means the whole expression evaluates to $raise$.
+For \texttt{match} expressions, a failed pattern causes the next pattern to be attempted.
+If there are no more patterns, the expression evaluates to $raise$.
+
+\medskip
+
+To aid in this matching, a auxiliary ``match'' function is defined.
+The function takes a pattern $p$ and a value $v$, returning a mapping of identifiers to values (the $vars$ of an environment).
+If the matching fails, the function will return nothing.
+
+The following are the rules for the match function:
+
+\infax[]
+    {match(x, v) = \{x \rightarrow v\}}
+
+\infax[]
+    {match(\_, v) = \{\}}
+
+\smallskip
+
+\infrule[]
+    {con_1 = con_2 \andalso \forall \; i \in \left[1, n\right] \; \; match(p_i, v_i) = vars_i}
+    {match(con_1 \; v_1, \; \dots v_n, con_2 \; p_1, \; \dots p_n) = \displaystyle\bigcup_{i=1}^{n} vars_i}
+
+\smallskip
+
+\infrule[]
+{k \geq n \andalso \forall \; i \in \left[1, n\right]  \; \; \exists \; j \in \left[1, k\right] \; \; l^1_i = l^2_j \wedge match(p_i, v_j) = vars_i}
+    {match(\{l_1^1: p_1, \dots, l^1_n: p_n, \dots\}, \{l^2_1: v_1, ... l^2_k: v_k\}) = \displaystyle \bigcup_{i=1}^{n} vars_i}
+
+\infrule[]
+    {\forall \; i \in \left[1, n\right] \; \;
+      l^1_i = l^2_i \wedge match(p_i, v_i) = vars_i}
+    {match(\{l_1^1: p_1, \dots, l^1_n: p_n\}, \{l^2_1: v_1, ... l^2_n: v_n\}) = \displaystyle \bigcup_{i=1}^{n} vars_i}
+
+Any other inputs provided to the match function will result in a failed matching.
+This is represented by:
+
+\infax[]
+  {\neg \; match(p, v)}
+
+\subsubsection{Big-Step Rules}
+
+\paragraph{Function Expressions}
+
+Every function evaluates to a closure.
+This basically stores the function definition and the current environment in a value, allowing the evaluation environment to be restored on function application.
+
+\infax[BS-Fn]
+    {\mbox{env} \vdash func \Downarrow \left\langle func, env\right\rangle}
+
+Built-in functions evaluate to a partially applied built-in without any arguments.
+
+\infax[BS-Builtin]
+    {\mbox{env} \vdash Builtin \Downarrow \ll Builtin \; . \; \gg}
+
+Similarly, constructors, if they need at least one argument, evaluate to a partially applied constructor.
+If, however, they do not take any arguments, they immediately evaluate to a fully applied constructor.
+
+\infrule[BS-Con]
+    {\mbox{env.arities}(con) > 0}
+    {\mbox{env} \vdash con \Downarrow \ll con \; . \; \gg}
+
+\infrule[BS-Con0]
+    {\mbox{env.arities}(con) = 0}
+    {\mbox{env} \vdash con \Downarrow con}
+
+\paragraph{Application}
+
+An application expression requires either a closure, a partially applied built-in function or a partially applied constructor for its left-hand operand.
+
+\smallskip
+
+In the case of a closure, there are two different behaviors, depending on whether the function is recursive or not.
+
+When applying non recursive functions, a new association between the parameter identifier ($x$) and the argument ($v_2$) is added to the environment stored in the closure ($\mbox{env}_1$).
+The body of the function ($e$) is then evaluated using this new environment.
+
+\infrule[BS-AppFn]
+    {\mbox{env} \vdash e_1 \Downarrow \left\langle \texttt{fn} \; x \Rightarrow e, \mbox{env}_1\right\rangle \andalso \mbox{env} \vdash e_2 \Downarrow v_2\\
+    \{x \rightarrow v_2\} \cup \mbox{env}_1 \vdash e \Downarrow v}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow v}
+
+Recursive functions, besides associating the identifier to the argument, also create an association between the function name and its value (i.e the closure itself).
+This allows the body of the function to call itself, creating a recursive structure.
+
+For operational semantics, there is no difference between the typed and untyped versions of recursive functions, so both have the same evaluation rules.
+
+\infrule[BS-AppFnRec]
+    {\mbox{env} \vdash e_1 \Downarrow \left\langle \texttt{rec} \; f \; x \Rightarrow e, \mbox{env}_1\right\rangle \andalso \mbox{env} \vdash e_2 \Downarrow v_2\\
+    \{x \rightarrow v_2, f \rightarrow \left\langle \texttt{rec} \; f \; x \Rightarrow e, \mbox{env}_1\right\rangle\} \cup \mbox{env}_1 \vdash e \Downarrow v}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow v}
+
+\infrule[BS-AppFnRec2]
+    {\mbox{env} \vdash e_1 \Downarrow \left\langle \texttt{rec} \; f: T \; x \Rightarrow e, \mbox{env}_1\right\rangle \andalso \mbox{env} \vdash e_2 \Downarrow v_2\\
+    \{x \rightarrow v_2, f \rightarrow \left\langle \texttt{rec} \; f: T \; x \Rightarrow e, \mbox{env}_1\right\rangle\} \cup \mbox{env}_1 \vdash e \Downarrow v}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow v}
+
+\medskip
+
+Application on partially applied constructors can behave in two different ways, depending on how many arguments have been already applied.
+
+If the arity of the constructor is larger than the number of arguments already applied (plus the new one being applied), the result of the application is a partially applied constructor with the new value added to the end.
+
+\infrule[BS-AppCon]
+    {\mbox{env} \vdash e_1 \Downarrow \ll con \; . \; v_1, \; \dots v_n \gg\\
+    n + 1 < \mbox{env.arities}(con) \andalso \mbox{env} \vdash e_2 \Downarrow v}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow \ll con \; . \; v_1, \; \dots v_n, \; v \gg}
+
+If the arity of the constructor is equal to 1 more than the number of already applied arguments, the application results in a completely applied constructor.
+
+\infrule[BS-AppConTotal]
+    {\mbox{env} \vdash e_1 \Downarrow \ll con \; . \; v_1, \; \dots v_n \gg\\
+    n + 1 = \mbox{env.arities}(con) \andalso \mbox{env} \vdash e_2 \Downarrow v}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow con \; v_1, \; \dots v_n, \; v}
+
+\medskip
+
+Application on partially applied built-in functions works similarly, having different rules depending on the number of arguments.
+
+\infrule[BS-AppBuiltin]
+    {\mbox{env} \vdash e_1 \Downarrow \ll Builtin \; . \; v_1, \; \dots v_n \gg\\
+    n + 1 < \text{arity} Builtin \andalso \mbox{env} \vdash e_2 \Downarrow v}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow \ll Builtin \; . \; v_1, \; \dots v_n, \; v \gg}
+
+The result of applying the last argument of a built-in function varies depending on what the function does (and what kind of arguments it accepts).
+These rules will be provided later.
+
+\medskip
+
+Application propagates exceptions ($raise$).
+If the first sub-expression of an application evaluates to $raise$, the whole expression evaluates to $raise$.
+This is true for the second expression in most scenarios, but there are a couple of exceptions (see \ref{BoolOPEval}) that do not necessarily evaluate this sub-expression for complete evaluation.
+
+\infrule[BS-AppRaise]
+    {\mbox{env} \vdash e_1 \Downarrow raise}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow raise}
+
+\infrule[BS-AppRaise2]
+    {\mbox{env} \vdash e_1 \Downarrow v \andalso \mbox{env} \vdash e_2 \Downarrow raise}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow raise}
+
+
+\paragraph{Identifier}
+
+The evaluation of an identifier depends on the environment in which it is evaluated.
+If the environment has an association between the identifier and a value, the value is returned.
+If it does not, the program is malformed and cannot be evaluated (this will be caught in the type system).
+
+\infrule[BS-Ident]
+    {\mbox{env.vars}(x) = v}
+    {\mbox{env} \vdash x \Downarrow v}
+
+\paragraph{Records}
+A record construction expression $\{l_1: e_1, \; \dots \; l_n: e_n\}$ evaluates each of its sub-expressions individually, resulting in a record value.
+The order of evaluation is defined by the order of the labels and is done from smallest to largest.
+
+\infrule[BS-Record]
+    {\forall \; k \in \left[1, n\right] \; \; \mbox{env} \vdash e_k \Downarrow v_k}
+    {\mbox{env} \vdash \{l_1: e_1, \; \dots \; l_n: e_n\} \Downarrow \{l_1: v_1, \; \dots \; l_n: v_n\}}
+
+If any of the sub-expressions evaluate to raise, the whole record also evaluates to raise.
+
+\infrule[BS-RecordRaise]
+    {\exists \; k \in \left[1, n\right] \; \; \mbox{env} \vdash e_k \Downarrow raise}
+    {\mbox{env} \vdash \{l_1: e_1, \; \dots \; l_n: e_n\} \Downarrow raise}
+
+\paragraph{Accessors}
+
+There is a different evaluation rule for each type of path available to accessors.
+
+The simplest rule is for a label accessor, which is in itself a value.
+
+\infax[BS-Label]
+    {\mbox{env} \vdash \#l \Downarrow \#l}
+
+Joined accessors evaluate each of their sub-expressions, expecting an accessor value as a result.
+
+\infrule[BS-Joined]
+    {\forall \; k \in \left[1, n\right] \; \; \mbox{env} \vdash e_k \Downarrow \#path_k}
+    {\mbox{env} \vdash \#(e_1, \; \dots \; e_n) \Downarrow \#(path_1, \; \dots \; path_n)}
+
+To create a stacked accessor, the built-in function "stack" must be used.
+This function has arity 2, and requires both arguments to be accessors.
+The paths of the accessors are then composed in a stacked accessor, which is the result of the evaluation.
+
+\infrule[BS-Stacked]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \text{stack} \; . \; \#path_1 \gg \andalso \mbox{env} \vdash e_2 \Downarrow \#path_2}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow \#path_1 \; . \; path_2}
+
+Similarly, creating distorted accessors requires the built-in function "distort".
+This function takes 3 arguments, the first being an accessor, and the remaining two being functions.
+When fully evaluated, the path of the accessor is combined with the function values, creating a distorted accessor.
+
+\infrule[BS-Distorted]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \text{distort} \; . \; \#path, \; v_1 \gg \andalso \mbox{env} \vdash e_2 \Downarrow v_2}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow \#path \; [v_1, \; v_2]}
+
+\paragraph{Using Accessors}
+
+There are two built-in functions that take accessors as arguments.
+
+
+Get takes 2 arguments: an accessor and a record.
+The $traverse$ function is then called with the accessor's path and the record (the third argument is omitted), and the first return (i.e. the value associated with the path) is used as the result of the evaluation.
+
+\infrule[BS-Get]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \text{get} \; . \; \#path \gg \andalso \mbox{env} \vdash e_2 \Downarrow \{l_1: v_1, \; \dots \; l_n: v_n\}\\
+    traverse(path, \{l_1: v_1, \; \dots \; l_n: v_n\}) = v', r'}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow v'}
+
+Set takes 3 arguments: an accessor, a generic value and a record.
+The $traverse$ function is then called with the arguments, using the generic value as the update value of the call.
+The result of the evaluation is the second return of the $traverse$ function (i.e. the updated record).
+
+\infrule[BS-Set]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \text{set} \; . \; \#path, \; v \gg \andalso \mbox{env} \vdash e_2 \Downarrow \{l_1: v_1, \; \dots \; l_n: v_n\}\\
+    traverse(path, \{l_1: v_1, \; \dots \; l_n: v_n\}, v) = v', r'}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow r'}
+
+
+\paragraph{Numerical Operations}
+The $V$ language only supports integers, so all operations are done on integer numbers.
+This means that the division always results in a whole number, truncated towards zero.
+
+\medskip
+
+\infrule[BS-+]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; + \; . \; n_1 \gg \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n\right\|=\left\|n_1\right\|+\left\|n_2\right\|}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow n}
+
+\infrule[BS--]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; - \; . \; n_1 \gg \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n\right\|=\left\|n_1\right\|-\left\|n_2\right\|}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow n}
+
+\infrule[BS-- (unary)]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; - \; . \; \gg \andalso \mbox{env} \vdash e_2 \Downarrow n_1 \andalso \left\|n\right\|=-\left\|n_1\right\|}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow n}
+
+\infrule[BS-$\ast$]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; * \; . \; n_1 \gg \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n\right\|=\left\|n_1\right\|*\left\|n_2\right\|}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow n}
+
+\infrule[BS-$\div$Zero]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; \div \; . \; n_1 \gg \andalso \mbox{env} \vdash e_2 \Downarrow 0}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow raise}
+
+\infrule[BS-$\div$]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; \div \; . \; n_1 \gg \andalso \mbox{env} \vdash e_2 \Downarrow n_2\\
+    \left\|n_2\right\|\neq 0 \andalso \left\|n\right\|=\left\|n_1\right\|\div\left\|n_2\right\|}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow n}
+
+\paragraph{Equality Operations}
+
+The equality operators ($=$ and $\neq$) test the equality of fully applied constructors and records.
+
+\medskip
+
+\infrule[BS-$=$ConTrue]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; = \; . \; (con \; v^1_1, \; \dots v^1_n) \gg \andalso \mbox{env} \vdash e_2 \Downarrow (con \; v^2_1, \; \dots v^2_n)\\
+    \forall \; k \in \left[1, n\right] \; \; \mbox{env} \vdash (= \; v^1_k) \; v^2_k \Downarrow true}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow true}
+
+\infrule[BS-$=$ConFalse]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; = \; . \; (con \; v^1_1, \; \dots v^1_n) \gg \andalso \mbox{env} \vdash e_2 \Downarrow (con \; v^2_1, \; \dots v^2_n)\\
+    \exists \; k \in \left[1, n\right] \; \; \mbox{env} \vdash (= \; v^1_k) \; v^2_k \Downarrow false}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow false}
+
+\infrule[BS-$=$ConFalse2]
+    {\mbox{env} \vdash e_1 \Downarrow \ll = \; . \; (con \; v^1_1, \; \dots v^1_n) \gg \andalso \mbox{env} \vdash e_2 \Downarrow (con' \; v^2_1, \; \dots v^2_k)\\
+    con' \neq con}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow false}
+
+\medskip
+
+\infrule[BS-$=$RecordTrue]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \;= \; . \; \{l^1_1: v^1_1, \; \dots \; l^1_n: v^1_n\} \gg \andalso \mbox{env} \vdash e_2 \Downarrow \{l^2_1: v^2_1, \; \dots \; l^2_n: v^2_n\}\\
+     \forall \; k \in \left[1, n\right] \; \; l^1_k = l^2_k \wedge \mbox{env} \vdash (= \; v^1_k) \; v^2_k \Downarrow true}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow true}
+
+\infrule[BS-$=$RecordFalse]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \;= \; . \; \{l^1_1: v^1_1, \; \dots \; l^1_n: v^1_n\} \gg \andalso \mbox{env} \vdash e_2 \Downarrow \{l^2_1: v^2_1, \; \dots \; l^2_n: v^2_n\}\\
+     \exists \; k \in \left[1, n\right] \; \; l^1_k = l^2_k \wedge \mbox{env} \vdash (= \; v^1_k) \; v^2_k \Downarrow false\\
+     \forall \; j \in \left[1, k\right) \; \; \mbox{env} \vdash v^1_j = v^2_j \Downarrow true}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow false}
+
+\bigskip
+
+\infrule[BS-$\neq$True]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; \neq \; . \; v_1 \gg \andalso \mbox{env} \vdash e_2 \Downarrow v_2\\
+    \mbox{env} \vdash (= \; v_1) \; v_2 \Downarrow false}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow true}
+
+\infrule[BS-$\neq$False]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; \neq \; . \; v_1 \gg \andalso \mbox{env} \vdash e_2 \Downarrow v_2\\
+    \mbox{env} \vdash (= \; v_1) \; v_2 \Downarrow true}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow false}
+
+\bigskip
+
+\paragraph{Inequality Operations}
+The inequality operators function much in the same way as the equality operators.
+The only difference is that they do not allow comparison of certain kinds of expressions (such as booleans) when such expressions do not have a clear ordering to them.
+
+To reduce the number of rules, some rules are condensed for all inequality operators ($<, \leq, >, \geq$).
+The comparison done on numbers is the ordinary numerical comparison.
+For characters, the ASCII values are compared numerically.
+
+\infrule[BS-IneqNumTrue]
+    {\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \left\|n_1\right\|opIneq\left\|n_2\right\|}
+    {\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow true}
+
+\infrule[BS-IneqNumFalse]
+    {\mbox{env} \vdash e_1 \Downarrow n_1 \andalso \mbox{env} \vdash e_2 \Downarrow n_2 \andalso \neg \left\|n_1\right\|opIneq\left\|n_2\right\|}
+    {\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow true}
+
+\medskip
+
+\infrule[BS-IneqCharTrue]
+    {\mbox{env} \vdash e_1 \Downarrow c_1 \andalso \mbox{env} \vdash e_2 \Downarrow c_2 \andalso \left\|c_1\right\|opIneq\left\|c_2\right\|}
+    {\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow true}
+
+\infrule[BS-IneqCharFalse]
+    {\mbox{env} \vdash e_1 \Downarrow c_1 \andalso \mbox{env} \vdash e_2 \Downarrow c_2 \andalso \neg \left\|c_1\right\|opIneq\left\|c_2\right\|}
+    {\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow true}
+
+\medskip
+
+\infrule[BS-<Nil]
+    {\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow nil}
+    {\mbox{env} \vdash e_1 < e_2 \Downarrow false}
+
+\infrule[BS-$\leq$Nil]
+    {\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow nil}
+    {\mbox{env} \vdash e_1 \leq e_2 \Downarrow true}
+
+\infrule[BS->Nil]
+    {\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow nil}
+    {\mbox{env} \vdash e_1 > e_2 \Downarrow false}
+
+\infrule[BS-$\geq$Nil]
+    {\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow nil}
+    {\mbox{env} \vdash e_1 \geq e_2 \Downarrow true}
+
+\medskip
+
+\infrule[BS-<ListNil]
+    {\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow nil}
+    {\mbox{env} \vdash e_1 < e_2 \Downarrow false}
+
+\infrule[BS-$\leq$ListNil]
+    {\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow nil}
+    {\mbox{env} \vdash e_1 \leq e_2 \Downarrow false}
+
+\infrule[BS->ListNil]
+    {\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow nil}
+    {\mbox{env} \vdash e_1 > e_2 \Downarrow true}
+
+\infrule[BS-$\geq$ListNil]
+    {\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow nil}
+    {\mbox{env} \vdash e_1 \geq e_2 \Downarrow true}
+
+\medskip
+
+\infrule[BS-<NilList]
+    {\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
+    {\mbox{env} \vdash e_1 < e_2 \Downarrow true}
+
+\infrule[BS-$\leq$NilList]
+    {\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
+    {\mbox{env} \vdash e_1 \leq e_2 \Downarrow true}
+
+\infrule[BS->NilList]
+    {\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
+    {\mbox{env} \vdash e_1 > e_2 \Downarrow false}
+
+\infrule[BS-$\geq$NilList]
+    {\mbox{env} \vdash e_1 \Downarrow nil \andalso \mbox{env} \vdash e_2 \Downarrow v_1::v_2}
+    {\mbox{env} \vdash e_1 \geq e_2 \Downarrow false}
+
+\medskip
+
+\medskip
+
+\infrule[BS-IneqListHead]
+    {\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow v_3::v_4\\
+     \mbox{env} \vdash v_1 = v_3 \Downarrow false \andalso \mbox{env} \vdash v_1 \; opIneq \; v_3 \Downarrow b}
+    {\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow b}
+
+\infrule[BS-IneqListTail]
+    {\mbox{env} \vdash e_1 \Downarrow v_1::v_2 \andalso \mbox{env} \vdash e_2 \Downarrow v_3::v_4\\
+     \mbox{env} \vdash v_1 = v_3 \Downarrow true \andalso \mbox{env} \vdash v_2 \; opIneq \; v_4 \Downarrow b}
+    {\mbox{env} \vdash e_1 \; opIneq \; e_2 \Downarrow b}
+
+\paragraph{Boolean Operations}\label{BoolOPEval}
+
+The built-in functions $\vee$ (OR) and $\wedge$ (AND) are treated differently from all other functions in $V$.
+They are binary functions, but they only evaluate their second argument if strictly necessary.
+This is done to provide them a short-circuit behavior, keeping in line with expectations from other programming languages.
+
+\infrule[BS-$\wedge$False]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; \wedge \; . \; false \gg}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow false}
+
+\infrule[BS-$\wedge$True]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; \wedge \; . \; true \gg \andalso \mbox{env} \vdash e_2 \Downarrow b}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow b}
+
+\infrule[BS-$\vee$True]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; \vee \; . \; true \gg}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow true}
+
+\infrule[BS-$\vee$False]
+    {\mbox{env} \vdash e_1 \Downarrow \ll \; \vee \; . \; false \gg \andalso \mbox{env} \vdash e_2 \Downarrow b}
+    {\mbox{env} \vdash e_1 \; e_2 \Downarrow b}
+
+\paragraph{Let Expressions}
+These expressions are used to associate an identifier with a specific value, allowing the value to be reused throughout the program.
+Since $V$ is a functional language, these are not variables, and the values assigned to an identifier will be constant (unless the same identifier is used in a new $let$ expression).
+
+After evaluating the expression that is to be associated to the identifier (that is, $e_1$), resulting in $v$, the $let$ expression evaluates $e_2$.
+For this evaluation, the association of $p$ to $v$ is added to the environment.
+The result of this evaluation (that is, $v_2$) is the final result of the evaluation of the entire $let$ expression.
+
+\infrule[BS-Let]
+    {\mbox{env} \vdash e_1 \Downarrow v \andalso match(p, v) = \mbox{env}_1 \\
+     \mbox{env}_1 \cup \mbox{env} \vdash e_2 \Downarrow v_2}
+    {\mbox{env} \vdash \texttt{let} \; p = e_1 \; \texttt{in} \; e_2 \Downarrow v_2}
+
+\infrule[BS-Let2]
+    {\mbox{env} \vdash e_1 \Downarrow v \andalso \neg match(p, v)}
+    {\mbox{env} \vdash \texttt{let} \; p = e_1 \; \texttt{in} \; e_2 \Downarrow raise}
+
+If the sub-expression $e_1$ evaluates to $raise$, the whole expression also evaluates to $raise$.
+
+\infrule[BS-LetRaise]
+    {\mbox{env} \vdash e_1 \Downarrow raise}
+    {\mbox{env} \vdash \texttt{let} \; p = e_1 \; \texttt{in} \; e_2 \Downarrow raise}
+
+\bigskip
+
+\paragraph{Match Expression}
+
+The match expression receives a input value and a list of $matches$, attempting to pattern match against each one.
+The first $match$ which correctly matches terminates the processing, and its corresponding expression is evaluated as the result of the whole expression.
+
+If no $match$ returns a valid result, the whole expression evaluates to $raise$.
+
+\medskip
+
+\infrule[BS-Match]
+    {\mbox{env} \vdash e \Downarrow v\\
+    \exists j \in \left[1..n\right] multiMatch(v, \mbox{env}, match_j) = v_j\\
+    \forall k \in \left[1..j\right) \neg \; multiMatch(v, \mbox{env}, match_k)}
+    {\mbox{env} \vdash \texttt{match} \; e \; \texttt{with} \; match_1, ... \; match_n \Downarrow v_j}
+
+\infrule[BS-Match2]
+    {\mbox{env} \vdash e \Downarrow v \\
+    \forall j \in \left[1..n\right] \neg \; multiMatch(v, \mbox{env}, match_j)}
+    {\mbox{env} \vdash \texttt{match} \; e \; \texttt{with} \; match_1, ... \; match_n \Downarrow raise}
+
+\medskip
+
+In order to properly evaluate a match expression, it is necessary to define an auxiliary function, here called $multiMatch$.
+This function receives an input value, an environment and a $match$.
+
+If the $match$ has a conditional expression, it must evaluate to $true$ for the match to be considered valid.
+
+\infrule[]
+  {\neg \; match(p, v)}
+  {\neg \; multiMatch(v, \mbox{env}, p \rightarrow e)}
+
+\infrule[]
+  {\neg \; match(p, v)}
+  {\neg \; multiMatch(v, \mbox{env}, p \; \mbox{when} \; e_1 \rightarrow e_2)}
+
+\infrule[]
+  {match(p, v) = \mbox{env}_1 \andalso \mbox{env} \cup \mbox{env}_1 \vdash e_1 \Downarrow false}
+  {\neg \; multiMatch(v, \mbox{env}, p \; \mbox{when} \; e_1 \rightarrow e_2)}
+
+\infrule[]
+  {match(p, v) = \mbox{env}_1 \andalso \mbox{env} \cup \mbox{env}_1 \vdash e_1 \Downarrow raise}
+  {\neg \; multiMatch(v, \mbox{env}, p \; \mbox{when} \; e_1 \rightarrow e_2)}
+
+\infrule[]
+  {match(p, v) = \mbox{env}_1 \andalso \mbox{env} \cup \mbox{env}_1 \vdash e \Downarrow v_2}
+  {multiMatch(v, \mbox{env}, p \rightarrow e) = v_2}
+
+\infrule[]
+  {match(p, v) = \mbox{env}_1 \andalso \mbox{env} \cup \mbox{env}_1 \vdash e_1 \Downarrow true\\
+  \mbox{env} \cup env_1 \vdash e_2 \Downarrow v_2}
+  {multiMatch(v, \mbox{env}, p \; \mbox{when} \; e_1 \rightarrow e_2) = v_2}
+
+\paragraph{Exceptions}
+
+Some programs can be syntactically correct but still violate the semantics of the $V$ language, such as a dividing by zero or trying to access the head of an empty list.
+In these scenarios, the expression is evaluated as the $raise$ value.
+
+Besides violation of semantic rules, the only other expression that evaluates to the $raise$ value is the $raise$ expression, using the following rule:
+
+\infax[BS-Raise]
+    {\mbox{env} \vdash raise \Downarrow raise}
+
+This value propagates upwards through the evaluation tree if a ``regular'' value is expected.
+This means that expressions that need well-defined sub-expressions, such as numerical and equality operations, evaluate to $raise$ if any of these sub-expressions evaluate to $raise$.
+
+\end{document}

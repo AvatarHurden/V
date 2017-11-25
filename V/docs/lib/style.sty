@@ -1,0 +1,51 @@
+\ProvidesPackage{style}
+
+\PassOptionsToPackage{usenames,dvipsnames}{xcolor}
+
+\usepackage{listings}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{array}
+\usepackage{txfonts}
+\usepackage{syntax}
+\usepackage{titlesec}
+\usepackage{todonotes}
+
+\usepackage[T1]{fontenc}
+\usepackage{upquote}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{hyphenat}
+\usepackage{scrextend}
+
+\usepackage{bcprules}
+\usepackage{vsyntaxrules}
+
+\usepackage[USenglish]{babel}
+\usepackage[useregional]{datetime2}
+
+\newcommand\nonter[1]{\ensuremath{#1\negthinspace s}}
+\def\code#1{\begin{footnotesize}\texttt{#1}\end{footnotesize}}
+
+\lstdefinelanguage{V}{
+  morekeywords = {let, body, match, with, if, then, else},
+}
+\lstset{language=V}
+
+  \lstdefinestyle{V}{
+    basicstyle=\footnotesize\ttfamily,
+    numbers=left,
+    numberstyle=\tiny\color{gray}\ttfamily,
+    numbersep=5pt,
+    backgroundcolor=\color{white},
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    frame=single,
+    rulecolor=\color{black},
+    captionpos=b,
+    keywordstyle=\color{blue}\bf,
+    commentstyle=\color{gray},
+    stringstyle=\color{green},
+    keywordstyle={[2]\color{red}\bf},
+  }

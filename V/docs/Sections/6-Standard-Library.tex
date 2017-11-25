@@ -1,0 +1,484 @@
+\documentclass[class=article, crop=false]{standalone}
+
+\usepackage{style}
+\usepackage{standalone}
+
+\begin{document}
+
+\section{Standard Library}\label{Standard Library}
+
+The Standard Library, called \code{stdlib}, is always imported in every $V$ program.
+It provides basic functions for a number of use cases, ranging from numerical operations to function manipulation.
+
+Some basic language features, such as list comprehensions and ranges, depend on the existence of the \code{stdlib}.
+This means that, while it is possible to create programs without importing the \code{stdlib}, doing so will most likely break any existing program.
+
+\subsection{Operations on Basic Values}
+
+\subsubsection{Operations on All Values}
+
+The operations below are helper functions, designed to allow cleaner code.
+
+\medskip
+
+\libfunction
+  {id}
+  {a -> a}
+  {Identity function.}
+
+\libfunction
+  {const}
+  {a -> b -> a}
+  {Always returns the first parameter it is passed.}
+
+\subsubsection{Operations on Numbers}
+
+The 4 basic operations (addition, subtraction, multiplication and division) are built into the language.
+Other operations must be defined in terms of these.
+
+One important thing to note is that the unary negation operator (\code{-}) is tightly coupled with the \code{negate} function defined in the \code{stdlib}.
+While the operator is defined inside the language, it depends on the presence of the \code{stdlib} to function.
+
+\medskip
+
+\libfunction
+  {remainder}
+  {Int -> Int -> Int}
+  {Integer remainder, satisfying:
+
+  \code{(x / y) * y + (remainder x y) = x}}
+
+\liboperator
+  {\%}
+  {\leftassociative}
+  {8}
+  {Int -> Int -> Int}
+  {Infix version of \code{remainder}}
+
+\libfunction
+  {negate}
+  {Int -> Int}
+  {Unary negation, satisfying:
+
+  \code{x + (negate x) = 0}}
+
+\libfunction
+  {abs}
+  {Int -> Int}
+  {Absolute value}
+
+\subsubsection{Operations on Booleans}
+
+Below are all the operations on booleans defined in the Standard Library.
+
+\medskip
+
+\libfunction
+  {and}
+  {Bool -> Bool -> Bool}
+  {Boolean ``AND''}
+
+\liboperator
+  {\&\&}
+  {\rightassociative}
+  {3}
+  {Bool -> Bool -> Bool}
+  {Infix version of \code{and}}
+
+\libfunction
+  {or}
+  {Bool -> Bool -> Bool}
+  {Boolean ``OR''}
+
+\liboperator
+  {\code{||}}
+  {\rightassociative}
+  {2}
+  {Bool -> Bool -> Bool}
+  {Infix version of \code{or}}
+
+\libfunction
+  {not}
+  {Bool -> Bool}
+  {Boolean ``not''
+
+  \code{not True = False}
+
+  \code{not False = True}}
+
+\libfunction
+  {xor}
+  {Bool -> Bool -> Bool}
+  {Boolean ``xor''
+
+  \code{xor True  True  = False}
+
+  \code{xor True  False = True}
+
+  \code{xor True  False = True}
+
+  \code{xor False False = False}}
+
+\subsubsection{Operations on Functions}
+
+Basic manipulation of functions and application.
+Most of the usefulness of these functions come from their infix versions.
+They allow more compact and easier to read code to be written, mainly reducing the need for parentheses.
+
+\medskip
+
+\libfunction
+  {flip}
+  {(a -> b -> c) -> b -> a -> c}
+  {\code{flip f} takes its first two arguments in reverse order of \code{f}.
+
+  \code{flip f x y = f y x}}
+
+\libfunction
+  {apply}
+  {(a -> b) -> a -> b}
+  {This function simply applies its second argument to its first.
+  While this seems redundant (after all, \code{apply f x} is the same as \code{f x}), it can be used higher order situations.}
+
+\liboperator
+  {\$}
+  {\rightassociative}
+  {1}
+  {(a -> b) -> a -> b}
+  {Infix version of \code{apply}.
+  While it has the same funcionality as normal function application, it is right-associative with the lowest possible priority.
+  \\
+  \\
+  In some situations, this allows parentheses to be omitted.
+
+  \code{f \$ g \$ h x  =  f (g (h x))}}
+
+\libfunction
+  {compose}
+  {(b -> c) -> (a -> b) -> a -> c}
+  {Function composition.
+  Applies the third argument to the second one, applying the resulting value to the first argument.
+  \\
+
+  \code{compose f g x = f (g x)}}
+
+\liboperator
+  {.}
+  {\rightassociative}
+  {9}
+  {(b -> c) -> (a -> b) -> a -> c}
+  {Infix version of \code{compose}.
+  \\
+  Can be used with \code{\$} to reduce the number of parentheses needed.
+
+  \code{f . g . h \$ x = f (g (h x))}}
+
+\subsubsection{Operations on Tuples}
+
+The stdlib also provides basic functions for manipulating tuples with 2 components.
+For larger tuples, it is necessary to create custom functions.
+
+\medskip
+
+\libfunction
+  {fst}
+  {(a, b) -> a}
+  {Returns the first component of a pair.}
+
+\libfunction
+  {snd}
+  {(a, b) -> b}
+  {Returns the second component of a pair.}
+
+\libfunction
+  {swap}
+  {(a, b) -> (b, a)}
+  {Swap the components of a pair.}
+
+\subsubsection{Operations on Records}
+
+The functions below are used with record accessors (\code{\#label}) to get, set and change individual fields in a record.
+While the functions themselves have a more generic type and can, therefore, be used in more circumstances, they were created with records in mind.
+
+\medskip
+
+\libfunction
+  {get}
+  {(a -> b -> (c, d)) -> b -> c}
+  {Returns the value of a field in a record.
+
+  \code{get \#label record}}
+
+\libfunction
+  {set}
+  {(a -> b -> (c, d)) -> a -> b -> d}
+  {Returns the inputed record, modifying a single field value.
+
+  \code{set \#label value record}}
+
+\libfunction
+  {modify}
+  {(a -> b -> (c, d)) -> (c -> a) -> b -> d}
+  {Returns the inputed record, modifying a single field value by applying the old value to the specified function.
+
+  \code{modify \#label function record}}
+
+\subsection{Operations on Lists}
+
+\subsubsection{Basic Operations}
+
+Basic functions to aid in using lists.
+
+\medskip
+
+\libfunction
+  {head}
+  {[a] -> a}
+  {Returns the first element of a list, which must have at least one element.}
+
+\libfunction
+  {last}
+  {[a] -> a}
+  {Returns the last element of a list, which must have at least one element.}
+
+\libfunction
+  {tail}
+  {[a] -> [a]}
+  {Removes the first element of a list, which must have at least one element.}
+
+\libfunction
+  {init}
+  {[a] -> [a]}
+  {Removes the last element of a list, which must have at least one element.}
+
+\libfunction
+  {tail}
+  {[a] -> [a]}
+  {Removes the first element of a list, which must have at least one element.}
+
+\libfunction
+  {empty?}
+  {[a] -> Bool}
+  {Returns \code{True} if the list is empty, and \code{False} otherwise.}
+
+\libfunction
+  {length}
+  {[a] -> Int}
+  {Returns the number of elements in the list.}
+
+\libfunction
+  {append}
+  {a -> [a] -> [a]}
+  {Adds an element to the end of a list.}
+
+\libfunction
+  {concat}
+  {[a] -> [a] -> [a]}
+  {Appends two lists, maintaning order.}
+
+\liboperator
+  {@}
+  {\rightassociative}
+  {5}
+  {[a] -> [a] -> [a]}
+  {Infix version of \code{concat}.}
+
+\subsubsection{Generation Operations}
+
+These operations create lists based on input values.
+
+\medskip
+
+\libfunction
+  {range}
+  {Int -> Int -> Int -> [Int]}
+  {\code{range start finish increment} generates a list of the form
+
+  [\code{start}, \code{start} + \code{increment}, \code{start} + 2 * \code{increment}, ..., \code{n}], where
+
+  \code{increment} $>$ 0 $\implies$ \code{n} $\leq$ \code{finish}
+
+  \code{increment} $<$ 0 $\implies$ \code{n} $\geq$ \code{finish}}
+
+\subsubsection{Transformation Operations}
+
+These operations transform a list, altering its elements, their order, or both.
+
+\medskip
+
+\libfunction
+  {reverse}
+  {[a] -> [a]}
+  {Returns the elements of the input in reverse order.}
+
+\libfunction
+  {map}
+  {(a -> b) -> [a] -> [b]}
+  {\code{map f ls} returns a list by applying the function \code{f} to each element of the list \code{ls}.}
+
+\subsubsection{Reduction Operations}
+
+These operations take a list and reduce it to a simple value.
+
+\medskip
+
+\libfunction
+  {fold}
+  {(b -> a -> b) ->  b -> [a] -> b}
+  {\code{fold f acc ls} reduces the list using the function \code{f}, applying it to an accumulator (\code{acc}) and each element of the list, from left to right.}
+
+\libfunction
+  {reduce}
+  {(a -> a -> a) -> [a] -> a}
+  {The same as \code{fold}, but using the first element of the list as the \code{acc}}
+
+\libfunction
+  {all}
+  {(a -> Bool) -> [a] -> Bool}
+  {Checks whether all elements of a list satisfy a predicate. An empty list returns true.}
+
+\libfunction
+  {any}
+  {(a -> Bool) -> [a] -> Bool}
+  {Checks whether any elements of a list satisfy a predicate. An empty list returns false.}
+
+\libfunction
+  {maximum}
+  {Orderable \; a => [a] -> a}
+  {Returns the largest element of the list.}
+
+\libfunction
+  {minimum}
+  {Orderable \; a  => [a] -> a}
+  {Returns the smallest element of the list.}
+
+
+\subsubsection{Sublist Operations}
+
+These operations return smaller segments of an existing list.
+
+\medskip
+
+\libfunction
+  {take}
+  {Int -> [a] -> [a]}
+  {\code{take n ls} returns the first \code{n} elements of \code{ls}.}
+
+\libfunction
+  {drop}
+  {Int -> [a] -> [a]}
+  {\code{drop n ls} returns the list resulting from removing the first \code{n} elements of \code{ls}.}
+
+\libfunction
+  {takeWhile}
+  {(a -> Bool) -> [a] -> [a]}
+  {\code{takeWhile p ls} returns the longest prefix of \code{ls} such that every element satisfies \code{p}.}
+
+\libfunction
+  {dropWhile}
+  {(a -> Bool) -> [a] -> [a]}
+  {\code{dropWhile p ls} returns the suffix that remains after \code{takeWhile p ls}.}
+
+\libfunction
+  {sublist}
+  {Int -> Int -> [a] -> [a]}
+  {\code{sublist start length ls} drops the first \code{start} elements of \code{ls}, and then takes the first \code{length} elements of the resulting list.}
+
+\subsubsection{Search Operations}
+
+These operations search for specific elements in a list.
+
+\medskip
+
+\libfunction
+  {exists}
+  {Equatable \; a => a -> [a] -> Bool}
+  {Tests whether the given element exists in the list.}
+
+\libfunction
+  {filter}
+  {(a -> Bool) -> [a] -> [a]}
+  {\code{filter p ls} returns a sublist of \code{ls} such that every element satisfies \code{p}.}
+
+\subsubsection{Indexing Operations}
+
+Manipulate a list through the index of its elements
+
+\medskip
+
+\libfunction
+  {indexOf}
+  {Equatable \; a => a -> [a] -> Int}
+  {\code{indexOf t ls} returns the index of the first occurrence of \code{t} in \code{ls}. If the element does not occur, returns \code{-1}.}
+
+\libfunction
+  {nth}
+  {Int -> [a] -> a}
+  {\code{nth n ls} returns the element of \code{ls} at position \code{n}. If \code{n} is negative or larger than \code{length ls}, an exception is raised.}
+
+\liboperator
+  {!!}
+  {\leftassociative}
+  {9}
+  {[a] -> Int -> a}
+  {The infix version of \code{nth}. It receives its operands in reverse order, allowing for expressions in the form \code{ls !! n}.}
+
+\subsubsection{Sorting Operations}
+
+Sort lists.
+
+\medskip
+
+\libfunction
+  {sort}
+  {Orderable \; a => [a] -> [a]}
+  {Sorts a list in ascending order.}
+
+\subsubsection{Zipping Operations}
+
+Operations that deal with tuples and lists.
+
+\medskip
+
+\libfunction
+  {zip}
+  {[a] -> [b] -> [(a, b)]}
+  {Takes two lists and returns a list composed of corresponding pairs. It the lists have different lengths, elements of the larger one are discarded.}
+
+\libfunction
+  {zipWith}
+  {(a -> b -> c) -> [a] -> [b] -> [c]}
+  {Takes two lists and a function, returning a list composed of the result of applying the function to corresponding elements in each list. It the lists have different lengths, elements of the larger one are discarded.}
+
+\libfunction
+  {unzip}
+  {[(a, b)] -> ([a], [b])}
+  {Takes a list of pairs, returning a pair of lists, each containing the corresponding components of the original list.}
+
+\subsection{String Conversion Operations}
+
+Converts values from and to strings.
+
+\medskip
+
+\libfunction
+  {parseInt}
+  {String -> Int}
+  {Converts a string into an integer. The only representation accepted is decimal (without a leading +), and the function raises an exception if parsing fails.}
+
+\libfunction
+  {printInt}
+  {Int -> String}
+  {Converts an integer value into a string.}
+
+\libfunction
+  {parseBool}
+  {String -> Bool}
+  {Converts a string into a boolean. Valid strings are \code{"true"} and \code{"false"}.}
+
+\libfunction
+  {printBool}
+  {Bool -> String}
+  {Converts a boolean value into a string.}
+
+\end{document}
