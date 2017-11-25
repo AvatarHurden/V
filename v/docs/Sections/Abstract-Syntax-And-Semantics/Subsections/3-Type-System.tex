@@ -1,0 +1,320 @@
+\documentclass[class=article, crop=false]{standalone}
+
+\usepackage{style}
+\usepackage{standalone}
+
+\begin{document}
+
+\subsection{Type System}\label{Type System}
+
+$V$ has a strong and static type inference system that checks a program to decide whether or not it is "`well-typed"'.
+If a program is considered to be well-typed, the type system guarantees that the program will be able to be properly evaluated according to the operational semantics of $V$.
+As a side-effect of checking the validity of a program, the type system can also provide the actual type of any implicitly typed expression down to its basic types, be those concrete types or variable types.
+
+\subsubsection{Polymorphism}\label{Polymorphism}
+
+$V$ has support for parametric Damas\hyp Milner polymorphism.
+This means that functions can have their types be defined with universal quantifiers, allowing their use with any type.
+
+For instance, take the function $count$, which counts the number of elements in a list.
+This function can be defined as follows:
+
+\smallskip
+
+\code{let count = rec count x $\Rightarrow$ if isempty x then 0 else 1 + count (tl x) in}
+
+\code{count (3::4::nil)}
+
+\smallskip
+
+In this situation, $count$ can be used with a list of any type, not only Int.
+To allow this, its identifier ($count$) must have a universal association in the environment, defined as so:
+
+\smallskip
+$\forall x. \; x \; list \rightarrow \mbox{Int}$
+\smallskip
+
+The universal quantifier $\forall x$ allows the type variable $x$ to be substituted for any concrete type when the function is called.
+When creating a polymorphic type, the type system must identify which type variables are free in the function type and which are bound in the environment.
+This process guarantees that a polymorphic type only universally quantifies those type variables that are not already bound, while still allowing all free variables to be instantiated when the function is called.
+
+\subsubsection{Traits}
+
+Traits are characteristics that a type can have, defining behaviors expected of that type.
+Some expressions are polymorphic in a sense that they accept certain types for their operators, but not any type.
+
+\subsubsection{Type Inference System}
+
+The type inference system is composed of two basic parts:
+\begin{itemize}
+  \item Constraint Collection
+  \item Constraint Unification
+\end{itemize}
+
+Constraints are equations between type expressions, which can have both constant types and variable types.
+To infer the type of a program, the type system recursively collects a set of constraints for every subexpression in that program.
+This is done in a static way across the expression tree from the nodes to the root, without having to evaluate any of the expressions.
+To create a valid set of constraints, the system must contain an environment, built from the root to the nodes, to ensure identifiers are properly typed.
+
+\paragraph{Environment}
+Just like the operational semantics, the type system also uses an environment to store information about identifiers.
+In this case, the environment maps identifiers to type associations.
+These can be either simple associations or universal associations, which are used for polymorphic functions.
+
+\paragraph{Simple Associations}
+These associate an identifier with a unique type, which can be either constant or a variable type.
+When the association is called, the type is returned as-is, even if it is a variable type.
+
+\paragraph{Universal Associations}
+This association, also called a type scheme, stores a type which contains at least one variable type bound by a ``for all'' quantifier ($\forall$).
+When called, this association creates a new variable type for each bound variable and returns a new instance of the type scheme.
+Universal associations are used exclusively for polymorphic functions.
+
+To create this type of association, the type system must generate a list of ``free variables'' present in the type that is to be universalized.
+These are the variable types that are not present in the environment when the identifier is declared.
+When these free variables are found, they are universally bound.
+This ensures that only those variable types that are unbound in the environment become universally bound in the resulting association.
+
+\paragraph{Constraint Unification}
+
+After collecting every type constraint for the program, the type inference system attempts to unify these constraints and find a solution for them.
+This solution comes in the form of type substitutions, which associate variable types to other types, and type traits, which associate variable types to sets of traits.
+
+If the constraints cannot be unified - that is, if a conflict is found -, the program is deemed not well-typed.
+Because of how the collection and unification process works, little information is given about where the problem ocurred.
+
+\paragraph{Unification Application}
+
+After obtaining a valid solution to the set of constraints, the type inference system applies the substitution to the type of the program.
+This is done recursively until no more substitutions are found, resulting in what is called the principal type.
+If there are any variable types in the principal type, the traits are applied to them, restricting the set of types that the variable types can represent.
+
+\paragraph{Pattern Matching}
+
+When a pattern is encountered (such as a \texttt{let} expression or function declaration), it is necessary to match the type of the pattern with the value.
+
+To do this, a ``match'' function is defined.
+It takes a pattern $p$ and a type $T$, returning a list of constraints and a mapping of identifiers to associations.
+
+The following are the rules for the ``match'' function:
+
+\infax[]
+    {match(x, T) = \{\}, \{x \rightarrow T\}}
+
+\infax[]
+    {match(x: T_1, T_2) = \{T_1 = T_2\}, \{x \rightarrow T_1\}}
+
+\infax[]
+    {match(n, T) = \{T = Int\}, \{\}}
+
+\infax[]
+    {match(n: T_1, T_2) = \{T_1 = Int, T_2 = Int\}, \{\}}
+
+\infax[]
+    {match(b, T) = \{T = Bool\}, \{\}}
+
+\infax[]
+    {match(b: T_1, T_2) = \{T_1 = Bool, T_2 = Bool\}, \{\}}
+
+\infax[]
+    {match(c, T) = \{T = Char\}, \{\}}
+
+\infax[]
+    {match(c: T_1, T_2) = \{T_1 = Char, T_2 = Char\}, \{\}}
+
+\infax[]
+    {match(_, T) = \{\}, \{\}}
+
+\infax[]
+    {match(_: T_1, T_2) = \{T_1 = T_2\}, \{\}}
+
+\smallskip
+
+\infrule[]
+    {X_1 \; is \; new}
+    {match(nil, T) = \{X_1 list = T\}, \{\}}
+
+\infrule[]
+    {X_1 \; is \; new}
+    {match(nil: T_1, T_2) = \{X_1 list = T_1, T_1 = T_2\}, \{\}}
+
+\smallskip
+
+\infrule[]
+    {X_1 \; is \; new \andalso match(p_1, X_1) = c_1, env_1 \andalso match(p_2, X_1 list) = c_2, env_2}
+    {match(p_1 :: p_2, T) = \{X_1 list = T\} \cup c_1 \cup c_2, env_1 \cup env_2}
+
+\infrule[]
+    {X_1 \; is \; new \andalso match(p_1, X_1) = c_1, env_1 \andalso match(p_2, X_1 list) = c_2, env_2}
+    {match(p_1 :: p_2: T_1, T_2) = \{X_1 list = T_1, T_1 = T_2\} \cup c_1 \cup c_2, env_1 \cup env_2}
+
+\smallskip
+
+\infrule[]
+    {\forall i \in \left[1, n\right] \; \; X_i \; is \; new \wedge match(p_i, X_i) = c_i, env_i}
+    {match((p_1, ... p_n), T) = \{(X_i, ... X_n) = T\} \cup \displaystyle \bigcup_{i=1}^{n} c_i, \displaystyle \bigcup_{i=1}^{n} env_i}
+
+\infrule[]
+    {\forall i \in \left[1, n\right] \; \; X_i \; is \; new \wedge match(p_i, X_i) = c_i, env_i}
+    {match((p_1, ... p_n): T_1, T_2) = \{(X_i, ... X_n) = T_1, T_1 = T_2\} \cup \displaystyle \bigcup_{i=1}^{n} c_i, \displaystyle \bigcup_{i=1}^{n} env_i}
+
+\smallskip
+
+\infrule[]
+    {\forall i \in \left[1, n\right] \; \; X_i \; is \; new \wedge match(p_i, X_i) = c_i, env_i \andalso X_0^{\{\{l_i: X_i\}\} \forall i \in \left[1, n\right]}}
+    {match(\{l_1: p_1, \dots, l_n: p_n, \dots\}, T) = \{X_0 = T\} \cup \displaystyle \bigcup_{i=1}^{n} c_i, \displaystyle \bigcup_{i=1}^{n} env_i}
+
+\infrule[]
+    {\forall i \in \left[1, n\right] \; \; X_i \; is \; new \wedge match(p_i, X_i) = c_i, env_i \andalso X_0^{\{\{l_i: X_i\}\} \forall i \in \left[1, n\right]}}
+    {match(\{l_1: p_1, \dots, l_n: p_n, \dots\}: T_1, T_2) = \{X_0 = T_1, T_1 = T_2\} \cup \displaystyle \bigcup_{i=1}^{n} c_i, \displaystyle \bigcup_{i=1}^{n} env_i}
+
+\infrule[]
+    {\forall i \in \left[1, n\right] \; \; X_i \; is \; new \wedge match(p_i, X_i) = c_i, env_i}
+    {match(\{l_1: p_1, \dots, l_n: p_n\}, T) = \{\{l_1: X_1, \dots, l_n: X_n\} = T\} \cup \displaystyle \bigcup_{i=1}^{n} c_i, \displaystyle \bigcup_{i=1}^{n} env_i}
+
+\infrule[]
+    {\forall i \in \left[1, n\right] \; \; X_i \; is \; new \wedge match(p_i, X_i) = c_i, env_i}
+    {match(\{l_1: p_1, \dots, l_n: p_n\}: T_1, T_2) = \{\{l_1: X_1, \dots, l_n: X_n\} = T_1, T_1 = T_2\} \cup \displaystyle \bigcup_{i=1}^{n} c_i, \displaystyle \bigcup_{i=1}^{n} env_i}
+
+\paragraph{Constraint Collection Rules}
+Every expression in $V$ has a rule for constraint collection, similar to how every expression has a rule for its semantic evaluation.
+
+\infax[T-Num]
+    {\Gamma \vdash n : \mbox{Int} \; | \; \{\}}
+
+\infax[T-Bool]
+    {\Gamma \vdash b : \mbox{Bool} \; | \; \{\}}
+
+\infax[T-Char]
+    {\Gamma \vdash c : \mbox{Char} \; | \; \{\}}
+
+\infrule[T-Ident]
+    {\Gamma \left(x\right) = T}
+    {\Gamma \vdash x : T \; | \; \{\}}
+
+\bigskip
+
+\infrule[T-Tuple]
+    {\forall \; k \in \left[1, n\right] \; \; \Gamma \vdash e_k : T_k \; | \; C_k}
+    {\Gamma \vdash (e_1, \; \dots \; e_n) : (T_1, \; \dots \; T_n) \; | \; C_1 \cup \cdots C_n }
+
+\bigskip
+
+\infrule[T-Record]
+    {\forall \; k \in \left[1, n\right] \; \; \Gamma \vdash e_k : T_k \; | \; C_k}
+    {\Gamma \vdash \{l_1: e_1, \; \dots \; l_n: e_n\} : \{l_1: T_1, \; \dots \; l_n: T_n\} \; | \; C_1 \cup \cdots C_n }
+
+\infrule[T-RecordAccess]
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso X_1^{\{\{l: T_1\}\}} \; is \; new}
+    {\Gamma \vdash \#l \; e_1 \; e_2 : (T_1, T_2) \; | \; C_1 \cup C_2 \cup \{X_1 = T_2\}}
+
+\bigskip
+
+\infrule[T-Nil]
+    {X_1 \; is\; new}
+    {\Gamma \vdash nil : X_1 \; list \; | \; \{\}}
+
+\infrule[T-List]
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2\; | \; C_2}
+    {\Gamma \vdash e_1 :: e_2 : T_1 \; list \; | \; C_1 \cup C_2 \cup \{T_1 \; list = T_2\}}
+
+\bigskip
+
+\infrule[T-+]
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2}
+    {\Gamma \vdash e_1 + e_2 : \mbox{Int} \; | \; C_1 \cup C_2 \cup \{T_1 = \mbox{Int}; T_2 = \mbox{Int}\}}
+
+\infrule[T--]
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2}
+    {\Gamma \vdash e_1 - e_2 : \mbox{Int} \; | \; C_1 \cup C_2 \cup \{T_1 = \mbox{Int}; T_2 = \mbox{Int}\}}
+
+\infrule[T-$\ast$]
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2}
+    {\Gamma \vdash e_1 * e_2 : \mbox{Int} \; | \; C_1 \cup C_2 \cup \{T_1 = \mbox{Int}; T_2 = \mbox{Int}\}}
+
+\infrule[T-$\div$]
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2}
+    {\Gamma \vdash e_1 \div e_2 : \mbox{Int} \; | \; C_1 \cup C_2 \cup \{T_1 = \mbox{Int}; T_2 = \mbox{Int}\}}
+
+\bigskip
+
+\infrule[T-$=$]
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso X_1^{\{Equatable\}} \; is \; new}
+    {\Gamma \vdash e_1 = e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; X_1^{\{Equatable\}} = T_2\}}
+
+\infrule[T-$\neq$]
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso X_1^{\{Equatable\}} \; is \; new}
+    {\Gamma \vdash e_1 \neq e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; X_1^{\{Equatable\}} = T_2\}}
+
+\bigskip
+
+\infrule[T-$<$]
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso X_1^{\{Orderable\}} \; is \; new}
+    {\Gamma \vdash e_1 < e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; X_1^{\{Orderable\}} = T_2\}}
+
+\infrule[T-$\leq$]
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso X_1^{\{Orderable\}} \; is \; new}
+    {\Gamma \vdash e_1 \leq e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; X_1^{\{Orderable\}} = T_2\}}
+
+\infrule[T-$>$]
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso X_1^{\{Orderable\}} \; is \; new}
+    {\Gamma \vdash e_1 > e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; X_1^{\{Orderable\}} = T_2\}}
+
+\infrule[T-$\geq$]
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2 \andalso X_1^{\{Orderable\}} \; is \; new}
+    {\Gamma \vdash e_1 \geq e_2 : \mbox{Bool} \; | \; C_1 \cup C_2 \cup \{T_1 = T_2; X_1^{\{Orderable\}} = T_2\}}
+
+\bigskip
+
+\infrule[T-App]
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso \Gamma \vdash e_2 : T_2 \; | \; C_2  \andalso X_1 \; is \; new}
+    {\Gamma \vdash e_1 \; e_2 : X \; | \; C_1 \cup C_2 \cup \{T1 = T_2 \rightarrow X_1}
+
+\bigskip
+
+\infrule[T-Fn]
+    {X \; is \; new \andalso match(p, X) = C, env \andalso env \cup \Gamma \vdash e : T_1 \; | \; C_1}
+    {\Gamma \vdash \texttt{fn} \; p \Rightarrow e : X \rightarrow T_1 \; | \; C \cup C_1}
+
+\infrule[T-Rec]
+    {X \; is \; new \andalso match(p, X) = C, env\\
+    \{x \rightarrow (X \rightarrow T)\} \cup env \cup \Gamma \vdash e : T_1 \; | \; C_1}
+    {\Gamma \vdash \texttt{rec} \; x:T \; \; p \Rightarrow e : X \rightarrow T_1 \; | \; C \cup C_1 \cup \{T_1 = T\}}
+
+\infrule[T-Rec2]
+    {X_1 \; is \; new \andalso X_2 \; is \; new \andalso match(p, X_1) = C, env\\
+     \{x \rightarrow X_2\} \cup env \cup \Gamma \vdash e : T_1 | C_1}
+    {\Gamma \vdash \texttt{rec} \; x \; p \Rightarrow e : X_1 \rightarrow T_1 \; | \; C \cup C_1 \cup \{X_2 = X_1 \rightarrow T_1\}}
+
+\bigskip
+
+\infrule[T-Let]
+    {\Gamma \vdash e_1 : T_1 \; | \; C_1 \andalso match(p, T_1) = C, env\\
+    env \cup \Gamma \vdash e_2 : T_2 \; | \; C_2}
+    {\Gamma \vdash \texttt{let} \; p = e_1 \; \texttt{in} \; e_2 : T_2 \; | \; C \cup C_1 \cup C_2}
+
+\bigskip
+
+\infrule[T-Match]
+    {\Gamma \vdash e : T \; | \; C \andalso X_1 \; is \; new\\
+    \forall j \in \left[1..n\right] multiMatch(T, X_1, \Gamma, match_j) = C_j}
+    {\Gamma \vdash \texttt{match} \; e \; \texttt{with} \; match_1, ... \; match_n : X_1 \; | \; C \cup \displaystyle \bigcup_{i=1}^{n} C_i}
+
+\medskip
+
+\infrule[]
+  {match(p, T_1) = C, \Gamma_1 \andalso \Gamma_1 \cup \Gamma \vdash e : T_3 \; | \; C_3}
+  {multiMatch(T_1, T_2, \Gamma, p \rightarrow e) = C \cup C_3 \cup \{T_3 = T_2\}}
+
+\infrule[]
+  {match(p, T_1) = C, \Gamma_1 \andalso \Gamma_1 \cup \Gamma \vdash e_1 : T_3 \; | \; C_3 \andalso \Gamma_1 \cup \Gamma \vdash e_2 : T_4 \; | \; C_4}
+  {multiMatch(T_1, T_2, \Gamma, p \; \mbox{when} \; e_1 \rightarrow e_2) = C \cup C_3 \cup C_4 \cup \{T_3 = Bool, T_4 = T_2}
+
+
+\bigskip
+
+\infrule[T-Raise]
+    {X_1 \; is\; new}
+    {\Gamma \vdash raise : X_1 \; | \; \{\}}
+
+\end{document}
