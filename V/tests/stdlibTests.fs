@@ -743,6 +743,42 @@ let rec range start finish inc =
     member that.negativeEnd() =
         equalsParsed (Range.func + "range 0 (0-5) (0-2)") "[0, (0-2), (0-4)]"
        
+       
+[<TestFixture>]
+type Repeat() =
+
+    static member func = """
+let rec repeat n x =
+  match n with
+  | 0 -> []
+  | n -> x :: (repeat (n-1) x)
+;
+"""
+
+    [<Test>]
+    member that.testType() =
+        let i = ConstType (Int, [])
+        let x = VarType ("x", [])
+        matchesType (Repeat.func + "repeat") <| 
+            Function (i, Function (x, ConstType (List, [x])))
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (Repeat.func + "repeat 'c'")
+        throwsWrongType (Repeat.func + "repeat True 4")
+
+    [<Test>]
+    member that.empty() =
+        equalsParsed (Repeat.func + "repeat 0 3") "[]"
+        
+    [<Test>]
+    member that.singleElement() =
+        equalsParsed (Repeat.func + "repeat 1 1") "[1]"
+
+    [<Test>]
+    member that.multiElement() =
+        equalsParsed (Repeat.func + "repeat 3 'c'") "\"ccc\""
+       
 
 [<TestFixture>]
 type Reverse() =
@@ -1261,6 +1297,57 @@ let sublist start size ls =
     [<Test>]
     member that.sublistTwo() =
         equalsParsed (Sublist.func + "sublist 1 2 [2,3,4]") "[3,4]"
+
+        
+[<TestFixture>]
+type DeleteN() =
+
+    static member func = """
+let rec deleteN n ls =
+    match ls with
+    | [] -> []
+    | x :: xs ->
+        match n with
+        | 0 -> xs
+        | n -> x :: deleteN (n-1) xs
+;
+"""
+
+    [<Test>]
+    member that.testType() =
+        let x1 = VarType ("x", [])
+        let l = ConstType (List, [x1])
+        matchesType (DeleteN.func + "deleteN") <| 
+            Function (ConstType (Int, []), Function (l, l))
+     
+    [<Test>]
+    member that.wrongParameter() =
+        throwsWrongType (DeleteN.func + "deleteN 'c'")
+        throwsWrongType (DeleteN.func + "deleteN 4 'c'")
+
+    [<Test>]
+    member that.emptyList() =
+        equalsParsed (DeleteN.func + "deleteN 0 []") "[]"
+        
+    [<Test>]
+    member that.emptyList2() =
+        equalsParsed (DeleteN.func + "deleteN 3 []") "[]"
+
+    [<Test>]
+    member that.indexGreater() =
+        equalsParsed (DeleteN.func + "deleteN 3 [2,3,4]") "[2,3,4]"
+        
+    [<Test>]
+    member that.first() =
+        equalsParsed (DeleteN.func + "deleteN 0 [2,3,4]") "[3,4]"
+
+    [<Test>]
+    member that.last() =
+        equalsParsed (DeleteN.func + "deleteN 3 [4,3,2,4]") "[4,3,2]"
+
+    [<Test>]
+    member that.middle() =
+        equalsParsed (DeleteN.func + "deleteN 1 [2,3,4]") "[2,4]"
 
 
 [<TestFixture>]

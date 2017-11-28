@@ -150,6 +150,12 @@ let rec range start finish inc =
         []
 ;
 
+let rec repeat n x =
+  match n with
+  | 0 -> []
+  | n -> x :: (repeat (n-1) x)
+;
+
 // =============================
 // List transformation functions
 // =============================
@@ -241,6 +247,15 @@ let sublist start size ls =
         raise
     else
         take size $ drop start ls 
+;
+
+let rec deleteN n ls =
+    match ls with
+    | [] -> []
+    | x :: xs ->
+        match n with
+        | 0 -> xs
+        | n -> x :: deleteN (n-1) xs
 ;
 
 // =====================
