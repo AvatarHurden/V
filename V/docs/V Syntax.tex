@@ -1934,6 +1934,31 @@ When functions only have one parameter, the \texttt{match} expression does not u
   f = \texttt{rec} \; x : T \Rightarrow m}
   {\gamma \vdash (\texttt{rec} \; p' : T' \Rightarrow e') \Rightarrow f}
 
+
+As a further efficiency improvement, that \texttt{match} expression is only created when the parameters of the function are patterns.
+If every parameter of the function is a regular identifier (without type information), then no \texttt{match} expression is necessary.
+
+\bigskip
+
+\infrule[Tr-F-Fn2]
+  {\gamma \vdash [x_1', \; \dots \; x_n'] \Rightarrow [x_1, \; \dots \; x_n], \gamma'\\
+  \gamma' \vdash e' \Rightarrow e\\
+  f = \texttt{fn} \; x_1 \Rightarrow \cdots \texttt{fn} \; x_n \Rightarrow e}
+  {\gamma \vdash (\texttt{fn} \; x_1', \; \dots \; x_n' \Rightarrow e') \Rightarrow f}
+
+\infrule[Tr-F-Rec]
+  {\gamma \vdash [x_1', \; \dots \; x_n'] \Rightarrow [x_1, \; \dots \; x_n], \gamma'\\
+  f' \; is \; new \andalso \gamma' \cup \{f \rightarrow f'\} \vdash e' \Rightarrow e\\
+  fn = \texttt{rec} \; f' \; x_1 \Rightarrow \cdots \texttt{fn} \; x_n \Rightarrow e}
+  {\gamma \vdash (\texttt{rec} \; f \; \; x_1', \; \dots \; x_n' \Rightarrow e') \Rightarrow fn}
+
+\infrule[Tr-F-RecT]
+  {\gamma \vdash [x_1', \; \dots \; x_n'] \Rightarrow [x_1, \; \dots \; x_n], \gamma'\\
+  f' \; is \; new \andalso \gamma' \cup \{f \rightarrow f'\} \vdash e' \Rightarrow e \andalso \gamma' \vdash T' \Rightarrow T\\
+  fn = \texttt{rec} \; f : T \; x_1 \Rightarrow \cdots \texttt{fn} \; x_n \Rightarrow e}
+  {\gamma \vdash (\texttt{rec} \; f : T' \; \; x_1', \; \dots \; x_n' \Rightarrow e') \Rightarrow fn}
+
+
 \subsubsection{Declaration Translation}
 
 The translation of declarations works differently from other translations.
