@@ -224,7 +224,7 @@ let rec parseItem lib previous first =
             if line.StartsWith "<type>" then
                 line.Substring 6, Some ShowType
             elif line = "<clear>" then
-                "nil", Some Clear
+                "Nil", Some Clear
             else
                 line, None
         let parsed = parseWith lib actualText
