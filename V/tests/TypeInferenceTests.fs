@@ -68,7 +68,7 @@ map (\x -> x + 1) [1,2,3,4]", ConstType (List, [ConstType (Int, [])]))
 
     [<Test>]
     member that.wrongPolymorphism() =
-        (fun () -> compare ("let f x = head x;
+        (fun () -> compare ("let f (x :: xs) = x;
                 if (f [True]) then
                     f 1
                 else
@@ -100,7 +100,14 @@ else
     member that.wrongReduces() =
         (fun () -> 
             compare (
-                "if (reduce (\\acc x -> x && acc) [True,True,False]) then
+                "let rec fold f acc ls =
+                    match ls with
+                    | [] -> acc
+                    | x :: xs -> fold f (f acc x) xs
+                ;
+
+                let reduce f (x :: xs) = fold f x xs;
+        if (reduce (\\acc x -> x && acc) [True,True,False]) then
 	        reduce (\\acc x -> acc + x) [1,2,3]
         else
 	        reduce (\\acc x -> x || acc) [True,False,True]", (ConstType (Int, []))) |> ignore) |> 

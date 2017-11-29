@@ -77,20 +77,39 @@ type FunctionTranslationTests() =
     member this.simpleMatchForSingleArgument() =
         let fn = ExLambda ([ExXPat "x", None], ExX "x")   
         let fn' = translateFn fn emptyTransEnv
-        fn' |> should equal (Fn <| Lambda ("generated1", Match (X "generated1", [Pat (XPat "generated0", None), None, X "generated0"])))
+        fn' |> should equal (Fn <| Lambda ("generated0", X "generated0"))
 
     [<Test>]
-    member this.tupledMatchForMultipleArguments() =
+    member this.typedMatchForSingleArgument() =
+        let fn = ExLambda ([ExXPat "x", Some (ExConstType (Int, []))], ExX "x")   
+        let fn' = translateFn fn emptyTransEnv
+        fn' |> should equal 
+            (Fn <| Lambda ("generated1", 
+                Match (X "generated1", 
+                    [Pat (XPat "generated0", Some (ConstType (Int, []))), None, X "generated0"])))
+
+    [<Test>]
+    member this.simpleMatchForMultipleArguments() =
         let fn = ExLambda ([ExXPat "x", None; ExXPat "y", None], ExX "x")   
         let fn' = translateFn fn emptyTransEnv
 
         let expected = 
-            Fn <| Lambda ("generated3",
-                Fn <| Lambda ("generated2",
-                    Match (App (App (Constructor (Tuple 2), X "generated3"), X "generated2"),
-                        [Pat (ConstructorPat (Tuple 2, [Pat (XPat "generated1", None); Pat (XPat "generated0", None)]), None),
+            Fn <| Lambda ("generated1", Fn <| Lambda ("generated0", X "generated1"))
+
+        fn' |> should equal expected
+
+    [<Test>]
+    member this.tupledMatchForMultipleArguments() =
+        let fn = ExLambda ([ExXPat "x", None; ExIgnorePat, None], ExX "x")   
+        let fn' = translateFn fn emptyTransEnv
+
+        let expected = 
+            Fn <| Lambda ("generated2",
+                Fn <| Lambda ("generated1",
+                    Match (App (App (Constructor (Tuple 2), X "generated2"), X "generated1"),
+                        [Pat (ConstructorPat (Tuple 2, [Pat (XPat "generated0", None); Pat (IgnorePat, None)]), None),
                          None,
-                         X "generated1"])))
+                         X "generated0"])))
 
         fn' |> should equal expected
 
@@ -115,11 +134,11 @@ type DeclarationTranslationTests() =
     
     [<Test>]
     member this.recursiveFunctions() =
-        let term = DeclFunc (true, "f", [ExXPat "x", None], None, ExX "f")
+        let term = DeclFunc (true, "f", [ExXPat "x", Some (ExConstType (Int, []))], None, ExX "f")
         let assocs, env' = translateDecl term emptyTransEnv
 
         let generatedFn = Fn (Recursive <|
-            ("generated3", None, "generated2", Match (X "generated2", [Pat (XPat "generated1", None), None, X "generated3"])))
+            ("generated2", None, "generated3", Match (X "generated3", [Pat (XPat "generated1", Some (ConstType (Int, []))), None, X "generated2"])))
         assocs.Head |> should equal (Pat (XPat "generated0", None), generatedFn)
         env'.idents |> should equal (Map.empty.Add ("f", "generated0"))
    

@@ -125,7 +125,7 @@ and translateDecl decl env =
     | DeclFunc (isRec, id, parameters, retTyp, retTerm) ->
         let fn =
             match isRec with
-            | true -> ExRecursive (id, parameters, retTyp, retTerm)
+            | true -> ExRecursive (id, parameters, None, retTerm)
             | false -> ExLambda (parameters, retTerm)
         let id', env' = env.generateSubstitutionFor id
         let fn' = translateFn fn env'
@@ -138,31 +138,38 @@ and translateDecl decl env =
         [], env'
 
 and translateFn fn env =
-    
-    let composeResult (arguments: Ident list) patterns ret env =
-        let matchRes = translateTerm ret env
+
+    let (|Identifiers|_|) patterns =
+        let f (p: VarPattern) = match p with | Pat (XPat x, None) -> Some x | _ -> None
+        mapOption f patterns
+
+    let composeResult patterns ret env =
         match patterns with
-        | [pat] ->
-            Match (X arguments.Head, [pat, None, matchRes])
-        | pars' ->
-            let matchPattern = Pat (ConstructorPat (Tuple arguments.Length, pars'), None)
-            let matchArg = List.fold (fun acc x -> App (acc, X x)) (Constructor (Tuple arguments.Length)) arguments
-            Match (matchArg, [matchPattern, None, matchRes])
+        | Identifiers ids -> 
+            let matchRes = translateTerm ret env
+            ids, matchRes
+        | _ -> 
+            let arguments, env' = env.generateNewIdents patterns.Length
+            let matchRes = translateTerm ret env'
+            match patterns with 
+            | [pat] -> arguments, Match (X arguments.Head, [pat, None, matchRes])
+            | pars' ->
+                let matchPattern = Pat (ConstructorPat (Tuple arguments.Length, pars'), None)
+                let matchArg = List.fold (fun acc x -> App (acc, X x)) (Constructor (Tuple arguments.Length)) arguments
+                arguments, Match (matchArg, [matchPattern, None, matchRes])
     
     match fn with
-    | ExLambda (patterns, t) -> 
+    | ExLambda (patterns, t) ->
         let patterns', env' = translatePatterns patterns env
-        let arguments, env' = env'.generateNewIdents patterns'.Length
         
-        let result = composeResult arguments patterns' t env'
+        let arguments, result = composeResult patterns' t env'
            
         List.foldBack (fun x partial -> Fn <| Lambda(x, partial)) arguments result
     | ExRecursive (id, patterns, typ, t) -> 
         let patterns', env' = translatePatterns patterns env
-        let arguments, env' = env'.generateNewIdents patterns'.Length
         let id', env' = env'.generateSubstitutionFor id
         
-        let result = composeResult arguments patterns' t env'
+        let arguments, result = composeResult patterns' t env'
         
         match arguments with
         | head :: tail ->
