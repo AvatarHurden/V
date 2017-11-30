@@ -5,18 +5,18 @@ open Definition
 //#region Environment and Library
 
 type TranslationEnv = 
-    {idents: Set<Ident>
-     lastUsedSuffix: int
+    {idents: Map<Ident, Ident>
+     nextSuffix: int
      typeAliases: Map<string, Type>}
 
+    member this.generateSubstitutionFor (x: string) =
+        let newX, newEnv = this.generateNewIdentAndAdd ()
+        let newEnv = {newEnv with idents = newEnv.idents.Add (x, newX) }
+        newX, newEnv
+
     member this.generateNewIdentAndAdd (x: unit) =
-        let baseName = "generated"
-        let mutable suffix = this.lastUsedSuffix
-        while this.idents.Contains <| baseName + (string suffix) do
-            suffix <- suffix + 1
-        let newIdent = baseName + (string suffix)
-        let newEnv = {this with lastUsedSuffix = suffix; 
-                                idents = this.idents.Add newIdent}
+        let newIdent = "generated" + (string this.nextSuffix)
+        let newEnv = {this with nextSuffix = this.nextSuffix + 1 }
         newIdent, newEnv
     
     member this.generateNewIdents (amount: int) =
@@ -25,15 +25,11 @@ type TranslationEnv =
             newIdent :: ids, newEnv
         List.fold f ([], this) [1..amount]
 
-    member this.addIdents idents =
-        let idents' = Set.union this.idents idents
-        {this with idents = idents'}
-
     member this.addTypeAlias name typ =
         let aliases = this.typeAliases.Add (name, typ)
         {this with typeAliases = aliases}
 
-let emptyTransEnv = {idents = Set.empty; lastUsedSuffix = 0; typeAliases = Map.empty}
+let emptyTransEnv = {idents = Map.empty; nextSuffix = 0; typeAliases = Map.empty}
 
 type Library =
     {terms: LibComponent list;
@@ -44,7 +40,7 @@ let emptyLib = {terms = []; operators = []; translationEnv = emptyTransEnv}
 
 //#endregion
 
-let rec private translateType typ (env: TranslationEnv) =
+let rec translateType typ (env: TranslationEnv) =
     match typ with
     | ExVarType (s, traits) -> VarType (s, traits)
     | ExConstType (c, types) -> ConstType (c, List.map (fun t -> translateType t env) types)
@@ -57,49 +53,52 @@ let rec private translateType typ (env: TranslationEnv) =
         | Some typ -> typ
         | None -> raise <| ParseException (sprintf "The type %s is undeclared" s)
 
-let private translateSomeType typ env = 
+let translateSomeType typ env = 
     match typ with
     | None -> None
     | Some typ -> Some <| translateType typ env
 
-let private translatePatterns patterns env =
-    let rec findRepeats (ids: Set<Ident>) ((pattern, typ)) =
+let translatePatterns patterns env =
+    let rec findRepeats ((pattern, typ)) (ids: Set<Ident>) env =
         match pattern with
-        | ExIgnorePat -> Pat (IgnorePat, translateSomeType typ env), ids
+        | ExIgnorePat -> Pat (IgnorePat, translateSomeType typ env), ids, env
         | ExConstructorPat (c, patterns) -> 
-            let f pat (acc, pats) =
-                let (newPat, acc') = findRepeats acc pat
-                (acc', newPat :: pats)
-            let (ids', pats) = List.foldBack f patterns (ids, [])
-            Pat (ConstructorPat (c, pats), translateSomeType typ env), ids'
+            let f pat (pats, ids, env) =
+                let (newPat, ids', env') = findRepeats pat ids env
+                (newPat :: pats, ids', env')
+            let (pats, ids', env') = List.foldBack f patterns ([], ids, env)
+            Pat (ConstructorPat (c, pats), translateSomeType typ env), ids', env'
         | ExXPat x -> 
             if ids.Contains x then
                 raise <| ParseException (sprintf "The identifier %s is bound twice" x)
             else
-                Pat (XPat x, translateSomeType typ env), ids.Add x
+                let newX, env' = env.generateSubstitutionFor x
+                Pat (XPat newX, translateSomeType typ env), ids.Add x, env'
         | ExRecordPat (b, patterns) ->
-            let f (s, pat) (acc, pats) =
-                let (newPat, acc') = findRepeats acc pat
-                (acc', (s, newPat) :: pats)
-            let (ids', pats) = List.foldBack f patterns (ids, [])
-            Pat (RecordPat (b, pats), translateSomeType typ env), ids'
+            let f (s, pat) (pats, ids, env) =
+                let (newPat, ids', env') = findRepeats pat ids env
+                ((s, newPat) :: pats, ids', env')
+            let (pats, ids', env') = List.foldBack f patterns ([], ids, env)
+            Pat (RecordPat (b, pats), translateSomeType typ env), ids', env'
         | ExListPat patterns ->
-            let f pat (acc, pats) =
-                let (newPat, acc') = findRepeats acc pat
-                (acc', newPat :: pats)
-            let (ids', pats) = List.foldBack f patterns (ids, [])
-            List.foldBack (fun p acc -> Pat (ConstructorPat (Cons, [p; acc]), None)) pats (Pat (ConstructorPat (Nil, []), None)), ids'
-     
-    let f pat (acc, pats) =
-        let (newPat, acc') = findRepeats acc pat
-        (acc', newPat :: pats)
-    List.foldBack f patterns (Set.empty, [])
+            let f pat (pats, ids, env) =
+                let (newPat, ids', env') = findRepeats pat ids env
+                (newPat :: pats, ids', env')
+            let (pats, ids', env') = List.foldBack f patterns ([], ids, env)
+            let foldF p acc = Pat (ConstructorPat (Cons, [p; acc]), translateSomeType typ env)
+            List.foldBack foldF pats (Pat (ConstructorPat (Nil, []), translateSomeType typ env)), ids', env'
 
-let private translatePattern pat env = 
-    let ids, pats = translatePatterns [pat] env
-    ids, List.head pats
+    let f pat (pats, ids, env) =
+        let (newPat, ids', env') = findRepeats pat ids env
+        (newPat :: pats, ids', env')
+    let (patterns', _, env') = List.foldBack f patterns ([], Set.empty, env)
+    patterns', env'
 
-let rec private getIdents pattern = 
+let translatePattern pat env = 
+    let pats, env' = translatePatterns [pat] env
+    List.head pats, env'
+
+let rec getIdents pattern = 
     let (Pat (pattern, _)) = pattern
     match pattern with
     | XPat x -> [x]
@@ -109,100 +108,85 @@ let rec private getIdents pattern =
         let _, patterns = List.unzip patterns
         List.concat <| List.map getIdents patterns
       
-let private transformToIdents parameters =
+let rec transformToIdents parameters =
     let f par =
         match par with
         | Pat(XPat id, None) -> Some id
         | _ -> None
 
     mapOption f parameters
-
-let rec private condenseFunction (recName: Ident option) exParameters exRetTerm env =
-    let ids, parameters = translatePatterns exParameters env
-
-    let realParameters, retTerm, env' = 
-        match transformToIdents parameters with
-        | Some ids -> 
-            let env' = env.addIdents <| Set.ofList ids
-            ids, translateTerm exRetTerm env', env'
-        | None -> 
-            let size = parameters.Length
-            let ids, env' = env.generateNewIdents size
-            let matchPattern = 
-                match exParameters with
-                | [x] -> x
-                | xs -> (ExConstructorPat (Tuple size, exParameters), None)
-            let matchReturn = translateTerm exRetTerm env'
-            let matchCase = matchPattern, None, exRetTerm
-            let realExRetTerm = 
-                match ids with
-                | [x] -> ExMatch (ExX x, [matchCase]) 
-                | xs -> ExMatch (ExTuple (List.map ExX xs), [matchCase])
-
-            ids, translateTerm realExRetTerm env', env'
-
-    match realParameters with
-    | [] -> 
-        retTerm
-    | first :: parameters' ->
-        let f p func = Fn <| Lambda(p, func)
     
-        let innerFn = List.foldBack f parameters' retTerm
-
-        let finalFn = 
-            match recName with
-            | Some name -> Fn <| Recursive(name, None, first, innerFn)
-            | None -> Fn <| Lambda(first, innerFn)
-
-        finalFn
-
-and private condenseNamedFunction isRec id parameters retTerm env =
-    let fnTerm =
-        if isRec then
-            condenseFunction (Some id) parameters retTerm env
-        else
-            condenseFunction None parameters retTerm env
-    
-    Pat(XPat id, None), fnTerm
-
-and private translateDecl decl env = 
+and translateDecl decl env = 
     match decl with
     | DeclConst (p, t1) -> 
-        let ids, p' = translatePattern p env
+        let p', env' = translatePattern p env
         let t1' = translateTerm t1 env
-        [(p', t1')], env.addIdents ids
+        [(p', t1')], env'
     | DeclFunc (isRec, id, parameters, retTyp, retTerm) ->
-        let ids, parameters' = translatePatterns parameters env
-        let innerEnv = env.addIdents <| Set.ofList [id]
-        let typ' = translateSomeType retTyp innerEnv
-        let pat, fn = condenseNamedFunction isRec id parameters retTerm innerEnv
-        [(pat, fn)], innerEnv
+        let fn =
+            match isRec with
+            | true -> ExRecursive (id, parameters, None, retTerm)
+            | false -> ExLambda (parameters, retTerm)
+        let id', env' = env.generateSubstitutionFor id
+        let fn' = translateFn fn env'
+        [Pat (XPat id', None), fn'], env'
     | DeclImport (comps) -> 
         let ids = comps |> List.unzip |> fst |> List.map getIdents |> List.concat
-        comps, env.addIdents <| Set.ofList ids
+        comps, env
     | DeclAlias (s, typ) ->
         let env' = env.addTypeAlias s <| translateType typ env
         [], env'
 
-and private translateFn fn env =
-    match fn with
-    | ExLambda (pars, t) -> 
-        let ids, pars' = translatePatterns pars env
-        let t' = translateTerm t env
-        let fn = condenseFunction None pars t env
-        fn
-    | ExRecursive (id, pars, typ, t) -> 
-        let ids, pars' = translatePatterns pars env
-        let typ' = translateSomeType typ env
-        let t' = translateTerm t env
-        let fn = condenseFunction (Some id) pars t env
-        fn
+and translateFn fn env =
 
-and private translateTerm term env =
+    let (|Identifiers|_|) patterns =
+        let f (p: VarPattern) = match p with | Pat (XPat x, None) -> Some x | _ -> None
+        mapOption f patterns
+
+    let composeResult patterns ret env =
+        match patterns with
+        | Identifiers ids -> 
+            let matchRes = translateTerm ret env
+            ids, matchRes
+        | _ -> 
+            let arguments, env' = env.generateNewIdents patterns.Length
+            let matchRes = translateTerm ret env'
+            match patterns with 
+            | [pat] -> arguments, Match (X arguments.Head, [pat, None, matchRes])
+            | pars' ->
+                let matchPattern = Pat (ConstructorPat (Tuple arguments.Length, pars'), None)
+                let matchArg = List.fold (fun acc x -> App (acc, X x)) (Constructor (Tuple arguments.Length)) arguments
+                arguments, Match (matchArg, [matchPattern, None, matchRes])
+    
+    match fn with
+    | ExLambda (patterns, t) ->
+        let patterns', env' = translatePatterns patterns env
+        
+        let arguments, result = composeResult patterns' t env'
+           
+        List.foldBack (fun x partial -> Fn <| Lambda(x, partial)) arguments result
+    | ExRecursive (id, patterns, typ, t) -> 
+        let patterns', env' = translatePatterns patterns env
+        let id', env' = env'.generateSubstitutionFor id
+        
+        let arguments, result = composeResult patterns' t env'
+        
+        match arguments with
+        | head :: tail ->
+            let body = List.foldBack (fun x partial -> Fn <| Lambda(x, partial)) tail result
+            Fn <| Recursive (id', translateSomeType typ env', head, body)
+        | _ ->
+            raise <| ParseException (sprintf "Function %A must have at least one argument" fn)
+
+and translateTerm term env =
     match term with
     | ExBuiltIn b -> BuiltIn b
     | ExConstructor c -> Constructor c
-    | ExX x -> X x
+    | ExX x -> 
+        match env.idents.TryFind x with
+        | Some x' -> X x'
+        | None -> 
+            raise <| ParseException (sprintf "Identifier %A was not declared" x)
     | ExRecordAccess path ->
         let rec f = 
             function
@@ -223,8 +207,7 @@ and private translateTerm term env =
         
     | ExMatch (t1, patterns) -> 
         let f (p, cond, res) =
-            let ids, p' = translatePattern p env
-            let env' = env.addIdents ids
+            let p', env' = translatePattern p env
             match cond with
             | None -> 
                 let res' = translateTerm res env'
@@ -268,7 +251,7 @@ and private translateTerm term env =
                 App (App (BuiltIn Subtract, second'), first')
         App (App (App (X "range", first'), last'), increment)
     | Comprehension (retTerm, p, source) ->
-        let fn = condenseFunction None [p] retTerm env
+        let fn = translateFn (ExLambda ([p], retTerm)) env
         App (App (X "map", fn), translateTerm source env)
        
 let translateLib declarations env =

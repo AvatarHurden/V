@@ -407,13 +407,63 @@ Since functions have undergone massive changes from the core language, they need
   fn = \texttt{rec} \; f' \; x_1 \Rightarrow \cdots \texttt{fn} \; x_n \Rightarrow m}
   {\gamma \vdash (\texttt{rec} \; f \; \; p_1', \; \dots \; p_n' \Rightarrow e') \Rightarrow fn}
 
-\infrule[Tr-F-Rec2]
+\infrule[Tr-F-RecT]
   {\gamma \vdash [p_1', \; \dots \; p_n'] \Rightarrow [p_1, \; \dots \; p_n], \gamma'\\
   f' \; is \; new \andalso \forall i \in [1, \; n] \; . \; x_i \; is \; new\\
   \gamma' \cup \{f \rightarrow f'\} \vdash e' \Rightarrow e \andalso \gamma' \vdash T' \Rightarrow T\\
   m = \texttt{match} \; (x_1, \; \dots \; x_n) \; \texttt{with} \; (p_1, \; \dots p_n) \rightarrow e\\
   fn = \texttt{rec} \; f : T \; x_1 \Rightarrow \cdots \texttt{fn} \; x_n \Rightarrow m}
   {\gamma \vdash (\texttt{rec} \; f : T' \; \; p_1', \; \dots \; p_n' \Rightarrow e') \Rightarrow fn}
+
+When functions only have one parameter, the \texttt{match} expression does not use a tuple, since tuples must have at least 2 components.
+
+\bigskip
+
+\infrule[Tr-F-Fn1]
+  {\gamma \vdash p' \Rightarrow p, \gamma' \andalso x \; is \; new\\
+  \gamma' \vdash e' \Rightarrow e\\
+  m = \texttt{match} \; x \; \texttt{with} \; p \rightarrow e\\
+  f = \texttt{fn} \; x \Rightarrow m}
+  {\gamma \vdash (\texttt{fn} \; p' \Rightarrow e') \Rightarrow f}
+
+\infrule[Tr-F-Rec1]
+  {\gamma \vdash p' \Rightarrow p, \gamma' \andalso x \; is \; new\\
+  \gamma' \vdash e' \Rightarrow e\\
+  m = \texttt{match} \; x \; \texttt{with} \; p \rightarrow e\\
+  f = \texttt{rec} \; x \Rightarrow m}
+  {\gamma \vdash (\texttt{rec} \; p' \Rightarrow e') \Rightarrow f}
+
+\infrule[Tr-F-RecT1]
+  {\gamma \vdash p' \Rightarrow p, \gamma' \andalso x \; is \; new\\
+  \gamma' \vdash e' \Rightarrow e \andalso \gamma' \vdash T' \Rightarrow T\\
+  m = \texttt{match} \; x \; \texttt{with} \; p \rightarrow e\\
+  f = \texttt{rec} \; x : T \Rightarrow m}
+  {\gamma \vdash (\texttt{rec} \; p' : T' \Rightarrow e') \Rightarrow f}
+
+
+As a further efficiency improvement, that \texttt{match} expression is only created when the parameters of the function are patterns.
+If every parameter of the function is a regular identifier (without type information), then no \texttt{match} expression is necessary.
+
+\bigskip
+
+\infrule[Tr-F-Fn2]
+  {\gamma \vdash [x_1', \; \dots \; x_n'] \Rightarrow [x_1, \; \dots \; x_n], \gamma'\\
+  \gamma' \vdash e' \Rightarrow e\\
+  f = \texttt{fn} \; x_1 \Rightarrow \cdots \texttt{fn} \; x_n \Rightarrow e}
+  {\gamma \vdash (\texttt{fn} \; x_1', \; \dots \; x_n' \Rightarrow e') \Rightarrow f}
+
+\infrule[Tr-F-Rec2]
+  {\gamma \vdash [x_1', \; \dots \; x_n'] \Rightarrow [x_1, \; \dots \; x_n], \gamma'\\
+  f' \; is \; new \andalso \gamma' \cup \{f \rightarrow f'\} \vdash e' \Rightarrow e\\
+  fn = \texttt{rec} \; f' \; x_1 \Rightarrow \cdots \texttt{fn} \; x_n \Rightarrow e}
+  {\gamma \vdash (\texttt{rec} \; f \; \; x_1', \; \dots \; x_n' \Rightarrow e') \Rightarrow fn}
+
+\infrule[Tr-F-RecT2]
+  {\gamma \vdash [x_1', \; \dots \; x_n'] \Rightarrow [x_1, \; \dots \; x_n], \gamma'\\
+  f' \; is \; new \andalso \gamma' \cup \{f \rightarrow f'\} \vdash e' \Rightarrow e \andalso \gamma' \vdash T' \Rightarrow T\\
+  fn = \texttt{rec} \; f : T \; x_1 \Rightarrow \cdots \texttt{fn} \; x_n \Rightarrow e}
+  {\gamma \vdash (\texttt{rec} \; f : T' \; \; x_1', \; \dots \; x_n' \Rightarrow e') \Rightarrow fn}
+
 
 \subsubsection{Declaration Translation}
 
@@ -512,7 +562,5 @@ The second argument of the function is the translation of the expression $e_2'$,
 \infrule[Tr-E-Comprehension]
   {\gamma \vdash (\texttt{fn} \; p' \Rightarrow e_1') \Rightarrow f \andalso \gamma \vdash e_2' \Rightarrow e_2}
   {\gamma \vdash [e_1' \; \text{for} \; p' \; \text{in} \; e_2'] \Rightarrow \text{map} \; f \; e_2}
-
-\newpage
 
 \end{document}
