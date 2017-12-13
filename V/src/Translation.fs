@@ -204,8 +204,21 @@ and translateFn fn env =
         let arguments, result = composeResult patterns' t env'
            
         List.foldBack (fun x partial -> Fn <| Lambda(x, partial)) arguments result
-    | ExRecursive (id, patterns, typ, t) -> 
-        let patterns', env' = translatePatterns patterns env
+    | ExRecursive (id, patterns, typ, t) ->
+        
+        let returnTyp, patterns', env' = 
+            match typ with
+            | None -> None, patterns, env
+            | Some typ ->
+                let patterns', env' = env.typePatterns patterns
+                let f (pat: ExVarPattern) retTyp =
+                    match pat with
+                    | (p, Some typ) -> ExFunction (typ, retTyp)
+                    | _ -> sprintf "%A was misstyped" pat |> ParseException |> raise
+                let retTyp' = List.foldBack f patterns'.Tail typ
+                Some retTyp', patterns', env'
+
+        let patterns', env' = translatePatterns patterns' env'
         let id', env' = env'.generateSubstitutionFor id
         
         let arguments, result = composeResult patterns' t env'
@@ -213,7 +226,7 @@ and translateFn fn env =
         match arguments with
         | head :: tail ->
             let body = List.foldBack (fun x partial -> Fn <| Lambda(x, partial)) tail result
-            Fn <| Recursive (id', translateSomeType typ env', head, body)
+            Fn <| Recursive (id', translateSomeType returnTyp env', head, body)
         | _ ->
             raise <| ParseException (sprintf "Function %A must have at least one argument" fn)
 
