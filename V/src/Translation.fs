@@ -146,13 +146,29 @@ and translateDecl decl env =
         let t1' = translateTerm t1 env
         [(p', t1')], env'
     | DeclFunc (isRec, id, parameters, retTyp, retTerm) ->
-        let fn =
-            match isRec with
-            | true -> ExRecursive (id, parameters, None, retTerm)
-            | false -> ExLambda (parameters, retTerm)
-        let id', env' = env.generateSubstitutionFor id
-        let fn' = translateFn fn env'
-        [Pat (XPat id', None), fn'], env'
+        match retTyp with
+        | None -> 
+            let fn =
+                match isRec with
+                | true -> ExRecursive (id, parameters, None, retTerm)
+                | false -> ExLambda (parameters, retTerm)
+            let id', env' = env.generateSubstitutionFor id
+            let fn' = translateFn fn env'
+            [Pat (XPat id', None), fn'], env'
+        | Some typ ->
+            let parameters', env' = env.typePatterns parameters
+            let f (pat: ExVarPattern) retTyp =
+                match pat with
+                | (p, Some typ) -> ExFunction (typ, retTyp)
+                | _ -> sprintf "%A was misstyped" pat |> ParseException |> raise
+            let retTyp' = List.foldBack f parameters' typ
+            let fn =
+                match isRec with
+                | true -> ExRecursive (id, parameters', retTyp, retTerm)
+                | false -> ExLambda (parameters', retTerm)
+            let id', env' = env'.generateSubstitutionFor id
+            let fn' = translateFn fn env'
+            [Pat (XPat id', Some <| translateType retTyp' env'), fn'], env'
     | DeclImport (comps) -> 
         let ids = comps |> List.unzip |> fst |> List.map getIdents |> List.concat
         comps, env
