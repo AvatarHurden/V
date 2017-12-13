@@ -7,29 +7,52 @@ open Definition
 type TranslationEnv = 
     {idents: Map<Ident, Ident>
      nextSuffix: int
+     nextTypeSuffix: int
      typeAliases: Map<string, Type>}
 
     member this.generateSubstitutionFor (x: string) =
-        let newX, newEnv = this.generateNewIdentAndAdd ()
+        let newX, newEnv = this.generateNewIdent ()
         let newEnv = {newEnv with idents = newEnv.idents.Add (x, newX) }
         newX, newEnv
 
-    member this.generateNewIdentAndAdd (x: unit) =
+    member this.generateNewIdent (x: unit) =
         let newIdent = "generated" + (string this.nextSuffix)
         let newEnv = {this with nextSuffix = this.nextSuffix + 1 }
         newIdent, newEnv
     
     member this.generateNewIdents (amount: int) =
         let f (ids, (accEnv: TranslationEnv)) x =
-            let newIdent, newEnv = accEnv.generateNewIdentAndAdd ()
+            let newIdent, newEnv = accEnv.generateNewIdent ()
             newIdent :: ids, newEnv
         List.fold f ([], this) [1..amount]
-
+        
+    member this.generateNewVarType (x: unit) =
+        let replacement = "type" + (string this.nextTypeSuffix)
+        let newEnv = {this with nextTypeSuffix = this.nextTypeSuffix + 1}
+        ExVarType(replacement, []), newEnv
+    
+    member this.typePattern (pat: ExVarPattern) : ExVarPattern * TranslationEnv =
+        match pat with
+        | (p, None) ->
+            let typ, env' = this.generateNewVarType ()
+            (p, Some typ), env'
+        | pat -> pat, this
+        
+    member this.typePatterns pats =
+        let f pat (pats, (env: TranslationEnv))=
+            let pat', env' = env.typePattern pat
+            pat' :: pats, env'
+        List.foldBack f pats ([], this) 
+        
     member this.addTypeAlias name typ =
         let aliases = this.typeAliases.Add (name, typ)
         {this with typeAliases = aliases}
-
-let emptyTransEnv = {idents = Map.empty; nextSuffix = 0; typeAliases = Map.empty}
+        
+let emptyTransEnv = 
+    {idents = Map.empty; 
+     nextSuffix = 0; 
+     nextTypeSuffix = 0; 
+     typeAliases = Map.empty}
 
 type Library =
     {terms: LibComponent list;
