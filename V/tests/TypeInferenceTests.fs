@@ -3,8 +3,8 @@
 open NUnit.Framework
 open FsUnit
 open Definition
+open TestHelpers
 open Translation
-open Evaluation
 open Parser
 open TypeInference
 
@@ -293,3 +293,32 @@ empty2 [1,2,3]
 	| x :: xs -> False
 ;
 empty2 []", (ConstType (Bool, [])))
+
+[<TestFixture>]
+type TestTypeInstantiation() =
+    
+    [<Test>]
+    member this.returnTypedId() =
+        compare ("let f x : Int = x; f", Function (Int', Int'))
+        
+    [<Test>]
+    member this.typedId() =
+        compare ("let f (x: Int) = x; f", Function (Int', Int'))
+    
+    [<Test>]
+    member this.typedIdConstantReturn() =
+        compare ("let f (x: Int) = 3; f", Function (Int', Int'))
+
+    [<Test>]
+    member this.returnTypedIdConstantReturn() =
+        let varTyp = VarType ("X4", [])
+        compare ("let f x: Int = 3; f", Function (varTyp, Int'))
+
+    [<Test>]
+    member this.matchFunctionPartialTyped() =
+        compare ("let f x: Int = x 3; f", Function (Function (Int', Int'), Int'))
+        
+    [<Test>]
+    member this.matchFunctionUntyped() =
+        let varTyp = VarType ("X2", [])
+        compare ("let f x = x 3; f", Function (Function (Int', varTyp), varTyp))
