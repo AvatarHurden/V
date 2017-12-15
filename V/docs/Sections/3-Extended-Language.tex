@@ -505,9 +505,11 @@ The result of translating a declaration is a set of associations between pattern
   {\gamma \vdash \texttt{rec} \; f \; p'_1, \; \dots \; p'_n = e' \Rightarrow \{f' \rightarrow e\}, \gamma \cup \{f \rightarrow f'\}}
 
 \infrule[Tr-Decl-Rec2]
-  {\gamma \vdash (\texttt{rec} \; f : T' \; p'_1, \; \dots \; p'_n \Rightarrow e') \Rightarrow e\\
+  {\forall i \in [1, n] \; . \; \text{typeP}(p_i', \gamma) = patt_i' : T_i'\\
+  T'' = T_1' \rightarrow T_2' \rightarrow \dots \rightarrow T_n'\\
+  \gamma \vdash (\texttt{rec} \; f : T' \; patt'_1 : T_1', \; \dots \; patt'_n : T_n' \Rightarrow e') \Rightarrow e\\
   f' \; is \; new}
-  {\gamma \vdash \texttt{rec} \; f : T' \; p'_1, \; \dots \; p'_n = e' \Rightarrow \{f' \rightarrow e\}, \gamma \cup \{f \rightarrow f'\}}
+  {\gamma \vdash \texttt{rec} \; f : T' \; p'_1, \; \dots \; p'_n = e' \Rightarrow \{f' : T'' \rightarrow e\}, \gamma \cup \{f \rightarrow f'\}}
 
 \subsubsection{Expression Translation}
 
