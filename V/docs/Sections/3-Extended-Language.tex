@@ -140,9 +140,9 @@ e' &::= &\cdots\\
 \\
 decl' &::= &p' = e'\\
     &| &f \; p'_1, \; \dots \; p'_n = e'&(n\geq1)\\
-    &| &\texttt{rec} \; x \; p'_1, \; \dots \; p'_n = e'&(n\geq1)\\
-    &| &x: T' \; p'_1, \; \dots \; p'_n = e'&(n\geq1)\\
-    &| &\texttt{rec} \; x: T' \; p'_1, \; \dots \; p'_n = e'&(n\geq1)\\
+    &| &\texttt{rec} \; f \; p'_1, \; \dots \; p'_n = e'&(n\geq1)\\
+    &| &f: T' \; p'_1, \; \dots \; p'_n = e'&(n\geq1)\\
+    &| &\texttt{rec} \; f: T' \; p'_1, \; \dots \; p'_n = e'&(n\geq1)\\
     &| &\texttt{type alias} \; \tau = T'\\
 \end{tabular}}
 
@@ -284,7 +284,7 @@ This includes rules such as:
 
 \subsubsection{Type Translation}
 
-Given the fact that trivial translations are not provided, there is only one translation rules that govern type translations.
+Given the fact that trivial translations are not provided, there is only one translation rule that governs type translations.
 
 \infrule[Tr-T-Alias]
   {\gamma.aliases(\tau) = T}
@@ -336,7 +336,7 @@ The original identifier is then associated to this new identifier and added to t
 
 \bigskip
 
-Every other translation rule is a variation on iterating on sub-patterns to construct the list of used identifiers are final environment.
+Every other translation rule is a variation on iterating on sub-patterns to construct the list of used identifiers and final environment.
 
 \infax[Tr-P-Ignore]
   {\text{collectPatterns}(\_, \text{id}, \gamma) = \_, \text{id}, \gamma}
@@ -387,6 +387,18 @@ Every other translation rule is a variation on iterating on sub-patterns to cons
   p = \; :: \; p_1 \; (:: \; p_2 \; \dots (:: \; p_n \; nil) \dots )}
   {\text{collectPatterns}([p_1', \; \dots \; p_n'] : T', \text{id}, \gamma) = p : T, \text{id}_n, \gamma_n}
 
+\paragraph{Typing Patterns}
+
+Some expressions require that untyped patterns be transformed into typed patterns.
+For this, fresh variable types are generated.
+
+\infax[Typ-Patt]
+  {\text{typeP}(patt' : T', \gamma) = patt' : T'}
+
+\infrule[Typ-Patt2]
+  {X \; is \; new}
+  {\text{typeP}(patt', \gamma) = patt' : X}
+
 \subsubsection{Function Translation}
 
 Since functions have undergone massive changes from the core language, they need complex translation rules.
@@ -408,9 +420,11 @@ Since functions have undergone massive changes from the core language, they need
   {\gamma \vdash (\texttt{rec} \; f \; \; p_1', \; \dots \; p_n' \Rightarrow e') \Rightarrow fn}
 
 \infrule[Tr-F-RecT]
-  {\gamma \vdash [p_1', \; \dots \; p_n'] \Rightarrow [p_1, \; \dots \; p_n], \gamma'\\
+  {\forall i \in [1, n] \; . \; \text{typeP}(p_i', \gamma) = patt_i' : T_i'\\
+  T'' = T_2' \rightarrow T_3' \rightarrow \dots \rightarrow T_n'\\
+  \gamma \vdash [patt_1' : T_1', \; \dots \; p_n' : T_n'] \Rightarrow [p_1, \; \dots \; p_n], \gamma'\\
   f' \; is \; new \andalso \forall i \in [1, \; n] \; . \; x_i \; is \; new\\
-  \gamma' \cup \{f \rightarrow f'\} \vdash e' \Rightarrow e \andalso \gamma' \vdash T' \Rightarrow T\\
+  \gamma' \cup \{f \rightarrow f'\} \vdash e' \Rightarrow e \andalso \gamma' \vdash T'' \Rightarrow T\\
   m = \texttt{match} \; (x_1, \; \dots \; x_n) \; \texttt{with} \; (p_1, \; \dots p_n) \rightarrow e\\
   fn = \texttt{rec} \; f : T \; x_1 \Rightarrow \cdots \texttt{fn} \; x_n \Rightarrow m}
   {\gamma \vdash (\texttt{rec} \; f : T' \; \; p_1', \; \dots \; p_n' \Rightarrow e') \Rightarrow fn}
@@ -434,7 +448,8 @@ When functions only have one parameter, the \texttt{match} expression does not u
   {\gamma \vdash (\texttt{rec} \; p' \Rightarrow e') \Rightarrow f}
 
 \infrule[Tr-F-RecT1]
-  {\gamma \vdash p' \Rightarrow p, \gamma' \andalso x \; is \; new\\
+  {\text{typeP}(p', \gamma) = p''\\
+  \gamma \vdash p'' \Rightarrow p, \gamma' \andalso x \; is \; new\\
   \gamma' \vdash e' \Rightarrow e \andalso \gamma' \vdash T' \Rightarrow T\\
   m = \texttt{match} \; x \; \texttt{with} \; p \rightarrow e\\
   f = \texttt{rec} \; x : T \Rightarrow m}
@@ -443,6 +458,7 @@ When functions only have one parameter, the \texttt{match} expression does not u
 
 As a further efficiency improvement, that \texttt{match} expression is only created when the parameters of the function are patterns.
 If every parameter of the function is a regular identifier (without type information), then no \texttt{match} expression is necessary.
+This is only done if the function does not specify a return type.
 
 \bigskip
 
@@ -457,12 +473,6 @@ If every parameter of the function is a regular identifier (without type informa
   f' \; is \; new \andalso \gamma' \cup \{f \rightarrow f'\} \vdash e' \Rightarrow e\\
   fn = \texttt{rec} \; f' \; x_1 \Rightarrow \cdots \texttt{fn} \; x_n \Rightarrow e}
   {\gamma \vdash (\texttt{rec} \; f \; \; x_1', \; \dots \; x_n' \Rightarrow e') \Rightarrow fn}
-
-\infrule[Tr-F-RecT2]
-  {\gamma \vdash [x_1', \; \dots \; x_n'] \Rightarrow [x_1, \; \dots \; x_n], \gamma'\\
-  f' \; is \; new \andalso \gamma' \cup \{f \rightarrow f'\} \vdash e' \Rightarrow e \andalso \gamma' \vdash T' \Rightarrow T\\
-  fn = \texttt{rec} \; f : T \; x_1 \Rightarrow \cdots \texttt{fn} \; x_n \Rightarrow e}
-  {\gamma \vdash (\texttt{rec} \; f : T' \; \; x_1', \; \dots \; x_n' \Rightarrow e') \Rightarrow fn}
 
 
 \subsubsection{Declaration Translation}
