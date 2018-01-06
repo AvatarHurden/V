@@ -2,6 +2,7 @@
 
 open NUnit.Framework
 open FsUnit
+open TestHelpers
 open Parser
 open Definition
 open Translation
@@ -120,6 +121,36 @@ type FunctionTranslationTests() =
         (fun () -> translateFn fn emptyTransEnv |> ignore)
             |> should throw typeof<ParseException>
 
+    [<Test>]
+    member this.returnTypeForMultipleRecursive() =
+        let fn = ExRecursive ("f", [ExXPat "x", Some ExInt; ExIgnorePat, Some ExInt], Some ExInt, ExX "x")   
+        let translated = translateFn fn emptyTransEnv
+        
+        let expected = 
+            Fn <| Recursive ("generated1", Some <| Function (Int', Int'), "generated3",
+                Fn <| Lambda ("generated2",
+                    Match (tupled [X "generated3"; X "generated2"],
+                        [Pat (ConstructorPat (Tuple 2, [Pat (XPat "generated0", Some Int'); Pat (IgnorePat, Some Int')]), None),
+                         None,
+                         X "generated0"])))
+        
+        translated |> should equal expected
+    
+    [<Test>]
+    member this.completesParameterTypes() =
+        let fn = ExRecursive ("f", [ExXPat "x", None; ExIgnorePat, Some ExInt], Some ExInt, ExX "x")   
+        let translated = translateFn fn emptyTransEnv
+        
+        let varTyp = VarType ("type0", [])
+        let expected = 
+            Fn <| Recursive ("generated1", Some <| Function (Int', Int'), "generated3",
+                Fn <| Lambda ("generated2",
+                    Match (tupled [X "generated3"; X "generated2"],
+                        [Pat (ConstructorPat (Tuple 2, [Pat (XPat "generated0", Some varTyp); Pat (IgnorePat, Some Int')]), None),
+                         None,
+                         X "generated0"])))
+        
+        translated |> should equal expected
        
 [<TestFixture>]
 type DeclarationTranslationTests() =
@@ -142,6 +173,78 @@ type DeclarationTranslationTests() =
         assocs.Head |> should equal (Pat (XPat "generated0", None), generatedFn)
         env'.idents |> should equal (Map.empty.Add ("f", "generated0"))
    
+    [<Test>]
+    member this.partialTypedFunctions() =
+        let term = DeclFunc (false, "f", [ExXPat "x", None], Some ExInt, ExX "x")
+        let assocs, env' = translateDecl term emptyTransEnv
+
+        let varType = VarType ("type0", [])
+
+        let generatedFn = 
+            Fn <| Lambda ("generated2", 
+                    Match (X "generated2",
+                        [Pat (XPat "generated1", Some (VarType ("type0", []))),
+                         None,
+                         X "generated1"]))
+        assocs.Head |> should equal (Pat (XPat "generated0", Some (Function (varType, Int'))), generatedFn)
+        env'.idents |> should equal (Map.empty.Add ("f", "generated0"))
+        
+    [<Test>]
+    member this.partialTypedMultiParameterFunctions() =
+        let term = DeclFunc (false, "f", [ExXPat "x", None; ExIgnorePat, Some ExInt], Some ExInt, ExX "x")
+        let assocs, env' = translateDecl term emptyTransEnv
+
+        let varType = VarType ("type0", [])
+
+        let generatedFn = 
+            Fn <| Lambda ("generated3", 
+                Fn <| Lambda ("generated2", 
+                        Match (tupled [X "generated3"; X "generated2"],
+                            [Pat (ConstructorPat (Tuple 2, [Pat (XPat "generated1", Some (VarType ("type0", []))); Pat (IgnorePat, Some Int')]), None),
+                             None,
+                             X "generated1"])))
+        assocs.Head |> should equal (Pat (XPat "generated0", Some (Function (varType, Function (Int', Int')))), generatedFn)
+        env'.idents |> should equal (Map.empty.Add ("f", "generated0"))
+        
+    [<Test>]
+    member this.partialTypedMultiParameterRecursiveFunctions() =
+        let term = DeclFunc (true, "f", [ExXPat "x", None; ExIgnorePat, Some ExInt], Some ExInt, ExX "x")
+        let assocs, env' = translateDecl term emptyTransEnv
+
+        let varType = VarType ("type0", [])
+
+        let generatedFn = 
+            Fn <| Recursive ("generated2", Some <| Function (Int', Int'), "generated4", 
+                Fn <| Lambda ("generated3", 
+                        Match (tupled [X "generated4"; X "generated3"],
+                            [Pat (ConstructorPat (Tuple 2, [Pat (XPat "generated1", Some (VarType ("type0", []))); Pat (IgnorePat, Some Int')]), None),
+                             None,
+                             X "generated1"])))
+        assocs.Head |> should equal (Pat (XPat "generated0", Some (Function (varType, Function (Int', Int')))), generatedFn)
+        env'.idents |> should equal (Map.empty.Add ("f", "generated0"))
+
+    [<Test>]
+    member this.recursiveTypedFunctions() =
+        let term = DeclFunc (true, "f", [ExXPat "x", Some ExInt], Some ExInt, ExX "x")
+        let assocs, env' = translateDecl term emptyTransEnv
+
+        let generatedFn = 
+            Fn <| Recursive ("generated2", Some Int', "generated3", 
+                Match (X "generated3", [Pat (XPat "generated1", Some Int'), None, X "generated1"]))
+        assocs.Head |> should equal (Pat (XPat "generated0", Some (Function (Int', Int'))), generatedFn)
+        env'.idents |> should equal (Map.empty.Add ("f", "generated0"))
+
+    [<Test>]
+    member this.typedFunctions() =
+        let term = DeclFunc (false, "f", [ExXPat "x", Some ExInt], Some ExInt, ExX "x")
+        let assocs, env' = translateDecl term emptyTransEnv
+
+        let generatedFn = 
+            Fn <| Lambda ("generated2", 
+                Match (X "generated2", [Pat (XPat "generated1", Some Int'), None, X "generated1"]))
+        assocs.Head |> should equal (Pat (XPat "generated0", Some (Function (Int', Int'))), generatedFn)
+        env'.idents |> should equal (Map.empty.Add ("f", "generated0"))
+
     [<Test>]
     member this.addsAliases() =
        let term = DeclAlias ("a", ExConstType (Int, []))

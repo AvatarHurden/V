@@ -39,6 +39,7 @@ type Env =
      types: ConstructorType list
      constructors: Map<Constructor, (Type * Type list)>
      vars: Map<string, EnvAssociation>
+     varTypes: Map<string, string>
      mutable lastVarIndex: int
     }
 
@@ -49,6 +50,9 @@ type Env =
 
     member this.addAssoc id assoc = 
         {this with vars = this.vars.Add(id, assoc)}
+
+    member this.addVarAssoc id typ =
+        {this with varTypes = this.varTypes.Add(id, typ)}
 
 type UniEnv =
     {
@@ -105,6 +109,7 @@ let defaultEnv =
             Cons, (LIST, [VarType ("a", []); LIST])
             ]
      vars = Map.empty
+     varTypes = Map.empty
      lastVarIndex = 0
     }
 
@@ -196,6 +201,38 @@ let substituteInConstraints sub env =
 //#endregion
 
 type Env with
+
+    member env.instantiate typ =
+        let freeVars = getFreeVars typ env
+
+        let f (subs, env') (x, traits) =
+            match Map.tryFind x env'.varTypes with
+            | Some typ -> 
+                NameSub (x, typ) :: subs, env'
+            | None -> 
+                let (env': Env), traits' = env'.instantiateTraits traits
+                let varReplacement = getVarType ()
+                let env' = env'.addVarAssoc x varReplacement
+                NameSub (x, varReplacement) :: subs, env'
+
+        let (subs, env') = List.fold f ([], env) freeVars
+        let typ' = List.fold (flip substituteInType) typ subs
+        env', typ'
+    
+    member private env.instantiateTraits trts =
+        let instantiate trt = 
+            match trt with
+            | Equatable -> env, Equatable
+            | Orderable -> env, Orderable
+            | RecordLabel (l, typ) ->
+                let env', typ' = env.instantiate typ
+                env', RecordLabel (l, typ')
+         
+        let f (trts', env') trt =
+            let env', trt' = instantiate trt
+            trt' :: trts', env'
+        let trts', env' = List.fold f ([], env) trts
+        env', trts'
 
     member env.typeOf constr =
         match constr with
@@ -478,14 +515,22 @@ let rec applyUniToEnv (env: Env) uni: Env =
 //#region Pattern Matching
 
 let rec matchPattern pattern typ (env: Env) cons =
-    match pattern with
-    | Pat (XPat x, None) -> env.addAssoc x (Simple typ), cons
-    | Pat (XPat x, Some typ')-> env.addAssoc x (Simple typ'), Equals (typ', typ) :: cons
+    let env, typ' = 
+        match pattern with
+        | Pat (_, None) -> env, None
+        | Pat (_, Some typ) -> 
+            let env', typ' = env.instantiate typ
+            env', Some typ'
+    let (Pat (pat, _)) = pattern
 
-    | Pat (IgnorePat, None) -> env, cons
-    | Pat (IgnorePat, Some typ') -> env, Equals (typ', typ) :: cons
+    match (pat, typ') with
+    | (XPat x, None) -> env.addAssoc x (Simple typ), cons
+    | (XPat x, Some typ')-> env.addAssoc x (Simple typ'), Equals (typ', typ) :: cons
 
-    | Pat (ConstructorPat (c, patterns), typ') ->
+    | (IgnorePat, None) -> env, cons
+    | (IgnorePat, Some typ') -> env, Equals (typ', typ) :: cons
+
+    | (ConstructorPat (c, patterns), typ') ->
         let retTyp, parameters = env.parametersOf c None
         let f = fun (env, cons) p t -> matchPattern p t env cons
         let acc = 
@@ -496,7 +541,7 @@ let rec matchPattern pattern typ (env: Env) cons =
                 env, Equals (retTyp, typ) :: cons
         List.fold2 f acc patterns parameters
 
-    | Pat (RecordPat (allowsExtra, patterns), typ') ->
+    | (RecordPat (allowsExtra, patterns), typ') ->
         let recordTypes = List.map (fun (name, _) -> name, VarType (getVarType (), [])) patterns
         let f = fun (env, cons) (_, p) (_, t) -> matchPattern p t env cons
         let recordCons =
@@ -512,20 +557,28 @@ let rec matchPattern pattern typ (env: Env) cons =
         List.fold2 f (env, recordCons :: cons @ typeCons) patterns recordTypes
 
 let rec matchUniversalPattern pattern typ (env: Env) cons =
-    match pattern with
-    | Pat (XPat x, None)-> 
+    let env, typ' = 
+        match pattern with
+        | Pat (_, None) -> env, None
+        | Pat (_, Some typ) -> 
+            let env', typ' = env.instantiate typ
+            env', Some typ'
+    let (Pat (pat, _)) = pattern
+
+    match pat, typ' with
+    | (XPat x, None) -> 
         match getFreeVars typ env with
         | [] -> env.addAssoc x (Simple typ), cons
         | frees -> env.addAssoc x (Universal (frees, typ)), cons
-    | Pat (XPat x, Some typ')-> 
+    | (XPat x, Some typ')-> 
         match getFreeVars typ' env with
         | [] -> env.addAssoc x (Simple typ'), Equals (typ', typ) :: cons
         | frees -> env.addAssoc x (Universal (frees, typ')), Equals (typ', typ) :: cons
 
-    | Pat (IgnorePat, None) -> env, cons
-    | Pat (IgnorePat, Some typ') -> env, Equals (typ', typ) :: cons
+    | (IgnorePat, None) -> env, cons
+    | (IgnorePat, Some typ') -> env, Equals (typ', typ) :: cons
 
-    | Pat (ConstructorPat (c, patterns), typ') ->
+    | (ConstructorPat (c, patterns), typ') ->
         let retTyp, parameters = env.parametersOf c <| Some typ
         let f = fun (env, cons) p t -> matchUniversalPattern p t env cons
         let acc = 
@@ -536,7 +589,7 @@ let rec matchUniversalPattern pattern typ (env: Env) cons =
                 env, [Equals (retTyp, typ)] @ cons
         List.fold2 f acc patterns parameters
 
-    | Pat (RecordPat (allowsExtra, patterns), typ') ->
+    | (RecordPat (allowsExtra, patterns), typ') ->
         let recordTypes = 
             match typ with
             | Type.Record typs -> 
@@ -741,11 +794,23 @@ let rec collectConstraints term (env: Env) =
             acc @@ consPattern @@ consCondition @@ consRes @@ [Equals (retTyp, typRes)]
         retTyp, List.fold f c1 patterns
     | Let(pattern, t1, t2) ->
-        let typ1, c1 = collectConstraints t1 env
-        let uni = unify Map.empty Map.empty <| c1 @@ defaultUniEnv 
-        let typ1' = applyUniToType typ1 uni
 
-        let env', cons = matchUniversalPattern pattern typ1' (applyUniToEnv env uni) []
+        let env, pat, typ = 
+            match pattern with
+            | Pat (pat, Some typ) -> 
+                let env', typ = env.instantiate typ
+                env', pat, Some typ
+            | Pat (pat, None) -> env, pat, None
+
+        let typ1, c1 = collectConstraints t1 env
+
+        let cons = Option.fold (fun acc x -> Equals (x, typ1) :: acc) [] typ
+            
+        let uni = unify Map.empty Map.empty <| cons @@ c1 @@ defaultUniEnv 
+        let typ1' = applyUniToType typ1 uni
+        let typ' = Option.map (flip applyUniToType uni) typ
+
+        let env', cons = matchUniversalPattern (Pat (pat, typ')) typ1' (applyUniToEnv env uni) []
         
         let typ2, c2 = collectConstraints t2 env'
         typ2, cons @@ c1 @@ c2
