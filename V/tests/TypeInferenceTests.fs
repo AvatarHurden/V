@@ -25,6 +25,10 @@ let shouldFailDirect term =
     
 [<TestFixture>]
 type TestTypeInfer() =
+    
+    [<SetUp>]
+    member this.setup() =
+        TypeInference.varType <- 0
 
     [<Test>]
     member that.letAndCond () =
@@ -116,7 +120,7 @@ else
     [<Test>]
     member that.extendedPatFunction() =
         compare ("let f {age: x, ...} = x + 1; f", 
-            Function (VarType ("X5",[RecordLabel ("age",(ConstType (Int, [])))]),(ConstType (Int, []))))
+            Function (VarType ("X6",[RecordLabel ("age",(ConstType (Int, [])))]),(ConstType (Int, []))))
 
     [<Test>]
     member that.simplePatFunction() =
@@ -297,6 +301,10 @@ empty2 []", (ConstType (Bool, [])))
 [<TestFixture>]
 type TestTypeInstantiation() =
     
+    [<SetUp>]
+    member this.setup() =
+        TypeInference.varType <- 0
+
     [<Test>]
     member this.returnTypedId() =
         compare ("let f x : Int = x; f", Function (Int', Int'))
