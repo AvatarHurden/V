@@ -8,7 +8,9 @@ open Compiler
 //#region Helper Types
 
 type UserState = 
-    {operators: OperatorSpec list}
+    {operators: OperatorSpec list
+     indent: int
+    }
 
     member this.addOperator op =
         let (OpSpec (fix, name)) = op
@@ -44,7 +46,7 @@ let defaultOPs =[
     OpSpec (Infix  (2, Right, BuiltInOp Or            ), "||")]
 
 let defaultUserState =
-    {operators = defaultOPs}
+    {operators = defaultOPs; indent = 0}
 
 //#endregion
 
