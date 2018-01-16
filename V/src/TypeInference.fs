@@ -16,7 +16,6 @@ type Substitution =
 
 type Unified(subs, traits) =
     member that.substitution: Map<string, Type> = subs
-    member that.traits: Map<string, Trait list> = traits
 
 type Constraint =
     | Equals of Type * Type
@@ -392,20 +391,7 @@ let rec replaceVarTypes vars constraints =
          substituteInConstraints (TypeSub (x, VarType (x, traits))) acc
 
     List.fold f constraints vars
-
-let traitsToMap map traits = 
-    let f (acc: Map<string, Trait list>) (x, traits) =
-        acc.Add(x,traits)
-    List.fold f map traits
-
-let rec addTraitsToUnified vars (unified: Unified) =
-    let f (acc: Unified) (x, traits) =
-        if acc.traits.ContainsKey x then
-            acc
-        else        
-            new Unified(acc.substitution, acc.traits.Add(x, traits))
-    List.fold f unified vars
-
+    
 let rec occursIn x typ =
     match typ with
     | ConstType (_, types) -> 
@@ -441,12 +427,17 @@ let rec unify typeSubs traitSubs constraints =
                             |> TypeException |> raise
                     | Some (t', cons') ->
                         let replacedX = substituteInConstraints (TypeSub (x, t')) (cons' @@ rest)
-                        let newSubs = (typeSubs.Add(x, t'))
+                        let newSubs = Map.map (fun _ t -> substituteInType (TypeSub (x, t')) t) typeSubs
+                        let newSubs = (newSubs.Add(x, t'))
                         if t = t' then
                             unify newSubs traitSubs replacedX
                         else
                             let free = getFreeVars t' defaultEnv
-                            unify newSubs (traitsToMap traitSubs free) <| replaceVarTypes free replacedX                                
+                            let f (acc: Map<string, Type>) x =
+                                let acc' = Map.map (fun _ t -> substituteInType (TypeSub (fst x, VarType x)) t) acc
+                                acc'.Add(fst x, VarType x)
+                            let newSubs = List.fold f newSubs free
+                            unify newSubs traitSubs <| replaceVarTypes free replacedX                                
             | ConstType (c1, types1), ConstType (c2, types2) when c1 = c2 ->
                 unify typeSubs traitSubs <| rest @@ List.map2 (fun typ1 typ2 -> Equals (typ1, typ2)) types1 types2
             | Accessor(s1, s2), Accessor(t1, t2) ->
@@ -487,9 +478,7 @@ let rec applyUniToType typ (unified: Unified) =
         List.zip names |> Type.Record
     | VarType(x, traits) -> 
         if unified.substitution.ContainsKey x then
-            applyUniToType (unified.substitution.Item x) unified
-        else if unified.traits.ContainsKey x then
-            VarType (x, applyUniToTraits (unified.traits.Item x) unified)
+            unified.substitution.Item x
         else
             VarType (x, applyUniToTraits traits unified)
             
