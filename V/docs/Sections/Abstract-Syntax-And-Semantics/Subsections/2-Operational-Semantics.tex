@@ -136,16 +136,18 @@ Every call uses the partially updated record provided, and the last call to $tra
 
 \bigskip
 
-Distorted paths require the evaluation of two applications, one before and one after updating.
+Distorted paths require two calls to $traverse$, one before and one after applying the distortions.
 
 \infrule[]
-    {\{\} \vdash v_2 \; v \Downarrow v' \andalso traverse(path, \{l_1: v_1, ... l_n: v_n\}, v') = v'', r\\
-    \{\} \vdash v_1 \; v'' \Downarrow v'''}
-    {traverse(path [v_1, \; v_2], \{l_1: v_1, ... l_n: v_n\}, v) = v''', r}
+    {traverse(path, \{l_1: v_1, ... l_n: v_n\}) = v_{old}, r\\
+    \{\} \vdash v_2 \; v \; v_{old} \Downarrow v' \andalso \{\} \vdash v_1 \; v_{old} \Downarrow v_{old}'\\
+    traverse(path, \{l_1: v_1, ... l_n: v_n\}, v') = v_{old}, r}
+    {traverse(path \; [v_1, \; v_2], \{l_1: v_1, ... l_n: v_n\}, v) = v_{old}', r}
 
-Initially, the provided update value is applied to the second component ($v_2$) of the distorted accessor.
-This value is then provided as the new update value for a call to $traverse$, returning an old value and the updated record.
-This old value is then provided as argument to the first component ($v_1$) of the distorted accessor, and the result of this is the output of the whole $traverse$ (along with the updated record).
+First, the current value of the field is extracted.
+This value is then passed to the first component ($v_1$) of the accessor, returning the distorted current value.
+Then, the new distorted value $v$, along with the current value of the field, is passed to the second component ($v_2$) of the distorted accessor.
+This value is then provided as the new update value for a call to $traverse$, returning the updated record.
 
 \subsubsection{Pattern Matching}
 
