@@ -27,13 +27,13 @@ To build the project in the command line, run the following command.
 msbuild V.sln
 ```
 
-#### macOS/Unix
-
-To run ```msbuild```, it is necessary to install the [Mono framework](http://www.mono-project.com/download/stable/).
-
 #### Windows
 
 To use the command-line program ```msbuild```, it is necessary to download the [build tools](https://www.visualstudio.com/downloads/#build-tools-for-visual-studio-2017).
+
+#### macOS/Unix
+
+To run ```msbuild```, it is necessary to install the [Mono framework](http://www.mono-project.com/download/stable/).
 
 3. ## Running
 
