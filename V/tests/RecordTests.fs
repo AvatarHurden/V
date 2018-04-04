@@ -1,4 +1,4 @@
-﻿module RecordTests
+module RecordTests
 
 open NUnit.Framework
 open FsUnit
@@ -37,14 +37,14 @@ let private definitions =
                 };
                 """;
                 "let stackedNumber = #address :. #number;";
-                "let numberString = stackedNumber ~. (printInt, parseInt);";
+                "let numberString = stackedNumber ~. (printInt, const . parseInt);";
                 """let phoneToStruct phone =
                         let country = take 3 phone;
                         let prefix = take 2 $ drop 3 phone;
                         let rest = drop 5 phone;
                         {country: country, prefix: prefix, number: rest}
                     ;
-                    let structToPhone struct =
+                    let structToPhone struct phone =
                         let country = get #country struct;
                         let prefix = get #prefix struct;
                         let rest = get #number struct;
