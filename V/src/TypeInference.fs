@@ -672,7 +672,7 @@ let rec typeOfBuiltin b =
         let accessTyp1 = Accessor (varType1, varType2)
 
         let getterTyp = Function (varType1, varType3)
-        let setterTyp = Function (varType3, varType1)
+        let setterTyp = Function (varType3, Function (varType1, varType1))
 
         let accessTyp2 = Accessor (varType3, varType2)
 
