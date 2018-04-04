@@ -1,6 +1,6 @@
 ## Installation
 
-Clone the repository and cd into the directory
+Clone the repository and ```cd``` into the directory
 
 ```
 git clone https://github.com/AvatarHurden/V
@@ -13,23 +13,31 @@ For the most recent development version, switch to the develop branch.
 git checkout develop
 ``` 
 
-To build the project, run the following command.
+## Building
+
+### Visual Studio
+
+Simply open the ```V.sln``` project file in Visual Studio to compile and run the code.
+
+### Command Line
+
+To build the project in the command line, run the following command.
 
 ```
 msbuild V.sln
 ```
 
-### macOS/Unix
+#### macOS/Unix
 
-To run msbuild, it is necessary to install the Mono framework.
+To run ```msbuild```, it is necessary to install the [Mono framework](http://www.mono-project.com/download/stable/).
 
-### Windows
+#### Windows
 
-To use the command-line program msbuild, it is necessary to download the [build tools](https://www.visualstudio.com/downloads/#build-tools-for-visual-studio-2017).
+To use the command-line program ```msbuild```, it is necessary to download the [build tools](https://www.visualstudio.com/downloads/#build-tools-for-visual-studio-2017).
 
 ## Running
 
-After compilation, cd into the correct folder.
+After compilation, ```cd``` into the correct folder.
 
 ```
 cd V/bin/Debug
