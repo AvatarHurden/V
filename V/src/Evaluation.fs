@@ -211,11 +211,6 @@ let rec traversePath (path: ResPath) term (newValue: result option) env =
 
                     old, newRecord
         | ResDistorted (path, getter, setter) ->
-            //let newValue' =
-                //match newValue with
-                //| None -> None
-                //| Some value -> Some <| applyResults setter value env
-
             let oldValue, _ = traversePath path term None env
             let oldValue' = applyResults getter oldValue env
 
@@ -229,7 +224,6 @@ let rec traversePath (path: ResPath) term (newValue: result option) env =
             let _, newRec = traversePath path term newValue' env
 
             oldValue', newRec
-
         | ResJoined paths ->
             match newValue with
             | None ->
