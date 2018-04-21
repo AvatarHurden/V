@@ -209,81 +209,6 @@ let runRun (results: ParseResults<Run>) =
                 printfn "Type system error:"
                 Console.WriteLine e
 
-type options =
-    | ShowType
-    | Clear
-
-let rec parseItem lib previous first =
-    
-    if first then 
-        printf "> "
-
-    let line = previous + Console.ReadLine()
-    try
-        let actualText, options =
-            if line.StartsWith "<type>" then
-                line.Substring 6, Some ShowType
-            elif line = "<clear>" then
-                "Nil", Some Clear
-            else
-                line, None
-        let parsed = parseWith lib actualText
-        Choice2Of3 (translate parsed lib.translationEnv, lib), options
-    with
-    | ParseException e -> 
-        if e.Contains "The error occurred at the end of the input stream" then
-            try
-                let newLib = parseLibWith line lib
-                let f = fun (OpSpec (_, s)) -> List.forall (fun (OpSpec (_, name)) -> name <> s) newLib.operators
-                let oldOps' = List.filter f lib.operators
-        
-                let newOps = newLib.operators @ oldOps'
-                let newTerms = lib.terms @ newLib.terms
-                let newEnv = newLib.translationEnv
-                let lib' = {terms = newTerms; operators = newOps; translationEnv = newEnv}
-                Choice1Of3 lib', None
-            with
-            | ParseException e ->
-                parseItem lib line false
-        else
-            Console.WriteLine e
-            Choice3Of3 lib, None
-
-let rec interactive (parsed, option) =
-    match parsed with
-    | Choice1Of3 (newLib: Library) ->
-        try
-            ignore <| typeInferLib newLib
-        with
-        | TypeException e ->
-            printfn "Type system error:"
-            Console.WriteLine e
-        interactive <| parseItem newLib "" true
-    | Choice2Of3 (term, lib) ->
-        try 
-            match option with
-            | Some ShowType ->
-                term |> typeInfer |> printType |> printfn "%O"
-            | Some Clear ->
-                ()
-            | _ ->    
-            term |> typeInfer |> ignore
-            let evaluated = evaluate term
-            evaluated |> printResult |> printfn "%O"
-        with
-        | TypeException e ->
-            printfn "Type system error:"
-            Console.WriteLine e
-        | EvalException e -> 
-            printfn "Evaluation error:"
-            Console.WriteLine e
-        match option with
-        | Some Clear ->
-            interactive <| parseItem emptyLib "" true
-        | _ ->
-            interactive <| parseItem lib "" true
-    | Choice3Of3 lib ->
-        interactive <| parseItem lib "" true
 
 let runInteractive (results: ParseResults<Interactive>) =
     let parser = parser.GetSubCommandParser <@ Interactive @>
@@ -293,10 +218,37 @@ let runInteractive (results: ParseResults<Interactive>) =
     else
         let isPure = results.Contains <@ Pure @>
 
-        if isPure then
-            interactive <| parseItem emptyLib "" true
-        else
-            interactive <| parseItem (stdlib.loadCompiled ()) "" true
+        let mutable env = if isPure then REPL.emptyEnv else REPL.stdlibEnv
+
+        printf "> "
+        while true do
+            let res, env' = REPL.parseLine (Console.ReadLine ()) env
+            env <- env'
+            match res with
+            | REPL.Expression s -> 
+                Console.WriteLine s
+                printf "> "
+            | REPL.Error exn ->
+                match exn with
+                | TypeException e ->
+                    Console.WriteLine "Type inference error:"
+                    Console.WriteLine e
+                | EvalException e ->
+                    Console.WriteLine "Evaluation error:"
+                    Console.WriteLine e
+                | ParseException e ->
+                    Console.WriteLine "Parsing error:"
+                    Console.WriteLine e
+                | e ->
+                    Console.WriteLine "Unknown error:"
+                    Console.WriteLine e.Message
+                printf "> "
+            | REPL.Addition _ ->
+                printf "> "
+            | REPL.Partial -> ()
+            | REPL.Cleared ->
+                Console.WriteLine "Removed all user-generated bindings"
+                printf "> "
 
 let compileStdlib x =
 
