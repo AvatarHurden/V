@@ -4,6 +4,7 @@ open NUnit.Framework
 open FsUnit
 open Parser
 open Definition
+open Translation
 open Evaluation
 
 let compareDirect term result =
@@ -14,103 +15,95 @@ let shouldFailDirect term =
     (fun () -> term |> evaluate |> ignore) |> should throw typeof<EvalException> 
 
 let compare (text, term) =
-    let evaluated = evaluate <| parse text
+    let evaluated = text |> parse |> flip translate stdlib.stdEnv |> evaluate
     evaluated |> should equal term
 
 let shouldFail text =
-    (fun () -> parse text |> evaluate |> ignore) |> should throw typeof<EvalException> 
+    (fun () -> parse text |> flip translate stdlib.stdEnv |> evaluate |> ignore) |> should throw typeof<EvalException> 
 
 [<TestFixture>]
 type TestEval() =
 
     [<Test>]
-    member that.``factorial``() =
-        let fatMult = OP(X("x"), Multiply, OP(X("fat"), Application, OP(X("x"), Subtract, I(1))))
-        let fnTerm = Cond(OP(X("x"), Equal, I(0)), I(1), fatMult)
-        let fat = 
-            Let(Var(XPattern "fat", Some <| Function (Int, Int)), 
-                RecFn("fat", Some Int, Var(XPattern "x", Some Int), fnTerm), OP(X("fat"), Application, I(5)))
-
-        evaluate fat |> should equal (ResI(120))
-
-    [<Test>]
     member that.LCM() =
-        "let modulo (x:Int): Int -> Int =
-    let rec d (y:Int): Int =
-        if x = 0 then  
-            raise
-        else if y<x then
-            y
-        else
-            d (y-x)
-    ;
-    (\(y:Int) -> d y)
+        compare ("
+let rec gcd (x:Int) (y:Int) =
+    match y with
+    | 0 -> x
+    | y -> gcd y (y % x)
 ;
-let rec gcd (x:Int): Int -> Int =
-    let f (y: Int): Int =
-        try
-            gcd y (modulo y x) 
-        except
-            x
-    ;
-    (\(y: Int) -> f y)
+let lcm (x:Int) (y:Int) =
+    x*y/(gcd x y)
 ;
-let lcm (x:Int): Int -> Int =
-    (\(y: Int) -> x*y/(gcd x y))
-;
-lcm 121 11*15" |> parse |> evaluate |> should equal <| ResI 1815
+lcm 121 11*15", ResConstructor (I 1815, []))
 
     [<Test>]
     member that.orderLists() =
-        compare ("[1,2,3] <= [3,4,5]", ResB true)
-        compare ("[1,2,3] > [1,2]", ResB true)
-        compare ("[5,2,3] < [3,4,5]", ResB false)
-        compare ("[] <= [3,4,5]", ResB true)
+        compare ("[1,2,3] <= [3,4,5]", ResConstructor (B true, []))
+        compare ("[1,2,3] > [1,2]", ResConstructor (B true, []))
+        compare ("[5,2,3] < [3,4,5]", ResConstructor (B false, []))
+        compare ("[] <= [3,4,5]", ResConstructor (B true, []))
 
     [<Test>]
     member that.shortCircuit() =
-        compare ("true || raise", ResB true)
-        compare ("false && true", ResB false)
-        compare ("false && raise", ResB false)
-        compare ("let t = []; (empty? t) || (head t) = 0", ResB true)
+        compare ("True || raise", ResConstructor (B true, []))
+        compare ("False && True", ResConstructor (B false, []))
+        compare ("False && raise", ResConstructor (B false, []))
+        compare ("let t = []; (empty? t) || (head t) = 0", ResConstructor (B true, []))
 
 [<TestFixture>]
 type TestEquality() =
 
     [<Test>]
     member that.tuples() =
-        compare ("(1,2,3) = (1,2,4)", ResB false)
-        compare ("(1,2,3) = (1,2,3)", ResB true)
+        compare ("(1,2,3) = (1,2,4)", ResConstructor (B false, []))
+        compare ("(1,2,3) = (1,2,3)", ResConstructor (B true, []))
         shouldFail "(1,2,'c') = (1,2,4)"
 
     [<Test>]
     member that.records() =
-        compare ("{a:1,b:2} = {b:2,a:1}", ResB true)
-        compare ("{a:1,b:2,c:3} = {a:1,b:2,c:4}", ResB false)
+        compare ("{a:1,b:2} = {b:2,a:1}", ResConstructor (B true, []))
+        compare ("{a:1,b:2,c:3} = {a:1,b:2,c:4}", ResConstructor (B false, []))
         shouldFail "{a:1,b:2} = {b:2,a:1,c:4}"
 
     [<Test>]
     member that.lists() =
-        compare ("[1,2,3] = [3,4,5]", ResB false)
-        compare ("[1,2,3] != [1,2]", ResB true)
-        compare ("[1,2,3] = [1]", ResB false)
-        compare ("[3,4,5] = [3,4,5]", ResB true)
-        compare ("[true, false, true] = [true, false, true]", ResB true)
+        compare ("[1,2,3] = [3,4,5]", ResConstructor (B false, []))
+        compare ("[1,2,3] != [1,2]", ResConstructor (B true, []))
+        compare ("[1,2,3] = [1]", ResConstructor (B false, []))
+        compare ("[3,4,5] = [3,4,5]", ResConstructor (B true, []))
+        compare ("[True, False, True] = [True, False, True]", ResConstructor (B true, []))
         
 [<TestFixture>]
 type TestMatchEval() =
 
     [<Test>]
     member that.simpleVar() =
-        compare ("let x = 3; x", ResI 3)
-        
+        compare ("let x = 3; x", ResConstructor (I 3, []))
+    
+    [<Test>]
+    member that.simpleBool() =
+        compare ("let x = True;
+            let True = True; x", ResConstructor (B true, []))
+       
+    [<Test>]
+    member that.wrongBool() =
+        compare ("let x = True;
+            let False = True; x", ResRaise)
+            
+    [<Test>]
+    member that.matchWrongNumber() =
+        compare ("let x = 2;
+            let (3,y) = (x,3);
+            y
+            ", ResRaise)
     [<Test>]
     member that.simpleTuple() =
-        compare ("let (x, y) = (3, 4); x", ResI 3)
+        compare ("let (x, y) = (3, 4); x", ResConstructor (I 3, []))
 
     [<Test>]
     member that.longList() =
-        compare ("let x :: y :: [] = [3,4]; x + y", ResI 7)
+        compare ("let x :: y :: [] = [3,4]; x + y", ResConstructor (I 7, []))
         
     [<Test>]
     member that.longListInvalid() =
@@ -118,15 +111,15 @@ type TestMatchEval() =
 
     [<Test>]
     member that.longListTail() =
-        compare ("let x :: y :: z = [3,4,6]; z", (ResCons (ResI 6, ResNil)))
+        compare ("let x :: y :: z = [3,4,6]; z", (ResConstructor (Cons, [ResConstructor (I 6, []); ResConstructor (Nil, [])])))
         
     [<Test>]
     member that.FnParamater() =
-        compare ("(\(x,y) -> (y,x)) (3,4)", (ResTuple [ResI 4; ResI 3]))
+        compare ("(\(x,y) -> (y,x)) (3,4)", (ResConstructor (Tuple 2, [ResConstructor (I 4, []); ResConstructor (I 3, [])])))
         
     [<Test>]
     member that.FnParamaterRecord() =
-        compare ("(\{a: x, b: y} -> (y,x)) {a: 3, b: 4}", (ResTuple [ResI 4; ResI 3]))
+        compare ("(\{a: x, b: y} -> (y,x)) {a: 3, b: 4}", (ResConstructor (Tuple 2, [ResConstructor (I 4, []); ResConstructor (I 3, [])])))
 
     [<Test>]
     member that.FnParamaterFail() =
@@ -138,8 +131,52 @@ type TestMatchEval() =
 
     [<Test>]
     member that.RecFnParameter() =
-        compare ("(rec count (x :: y) -> if empty? y then 1 else 1 + count y) [3,4,7]", ResI 3)
+        compare ("(rec count (x :: y) -> if empty? y then 1 else 1 + count y) [3,4,7]", ResConstructor (I 3, []))
 
     [<Test>]
     member that.RecFnParameterFail() =
         compare ("(rec count (x :: y) -> if empty? y then 1 else 1 + count y) []", ResRaise)
+
+[<TestFixture>]
+type Strictness() =
+        [<Test>]
+        member that.basic() =
+            compare ("let f x = 3; f raise", ResRaise)
+
+        [<Test>]
+        member that.strict() =
+            compare ("let f x y =
+	    match x with
+	    | 0 -> 0
+	    | x -> x + y
+    ;
+    f 0 raise", ResRaise)
+
+        [<Test>]
+        member that.strict2() =
+            compare ("let f x y =
+	    match x with
+	    | 0 -> 0
+	    | x -> x + y
+    ;
+    f 1 raise
+    ", ResRaise)
+
+        [<Test>]
+        member that.indexing() =
+            compare ("[raise, raise, raise, 3] !! 3", ResRaise)
+
+        [<Test>]
+        member that.partialApplication() =
+            compare ("(+) raise", ResRaise)
+            compare ("(+) raise 4", ResRaise)
+            compare ("(+) 4 raise", ResRaise)
+        
+        [<Test>]
+        member that.partialApplicationShortCircuit() =
+            compare ("(&&) False raise", ResConstructor (B false, []))
+            compare ("(&&) raise", ResRaise)
+            compare ("(&&) raise False ", ResRaise)
+            compare ("(||) True raise", ResConstructor (B true, []))
+            compare ("(||) raise", ResRaise)
+            compare ("(||) raise True", ResRaise)

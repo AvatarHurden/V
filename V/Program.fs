@@ -1,9 +1,10 @@
-﻿// Learn more about F# at http://fsharp.org
+// Learn more about F# at http://fsharp.org
 // See the 'F# Tutorial' project for more help.
 
 open System
 open System.IO
 open Definition
+open Translation
 open StringConversion
 open Parser
 open Printer
@@ -54,6 +55,7 @@ and Argument =
     | [<CliPrefix(CliPrefix.None)>] Compile of ParseResults<Compile>
     | [<CliPrefix(CliPrefix.None)>] Run of ParseResults<Run>
     | [<HiddenAttribute>] CompileStdLib
+    | [<HiddenAttribute>] WriteTests
 with
     interface IArgParserTemplate with
         member s.Usage =
@@ -62,6 +64,7 @@ with
             | Compile _ -> "Compile Files."
             | Run _ -> "Run the specified file."
             | CompileStdLib -> ""
+            | WriteTests -> ""
 
 let parser = ArgumentParser.Create<Argument>(programName = "V.exe")
 
@@ -91,28 +94,36 @@ let runCompile (results: ParseResults<Compile>) =
         let text = path |> IO.File.ReadAllText
         times <- times @ ["read file", stopWatch.Elapsed.TotalMilliseconds]
         
-        try 
-            let text = if isLib then "\x -> " + text + " x" else text
-            
-            stopWatch.Restart()
-            let term = (if isLib || isPure then parsePure else parse) text
-            times <- times @ ["parse", stopWatch.Elapsed.TotalMilliseconds]
-            
-            stopWatch.Restart()
-            ignore <| typeInfer term
-            times <- times @ ["infer type", stopWatch.Elapsed.TotalMilliseconds]
+        try
+            if isLib then
+                stopWatch.Restart()
+                let lib = parseLib text
+                times <- times @ ["parse", stopWatch.Elapsed.TotalMilliseconds]
+                
+                stopWatch.Restart()
+                ignore <| typeInferLib lib
+                times <- times @ ["infer type", stopWatch.Elapsed.TotalMilliseconds]
 
-            if not isLib || isValidLib term then
+                stopWatch.Restart()
+                saveLib lib outputName
+                times <- times @ ["save ", stopWatch.Elapsed.TotalMilliseconds]
+            else
+                stopWatch.Restart()
+                let exTerm = (if isPure then parsePure else parse) text
+                times <- times @ ["parse", stopWatch.Elapsed.TotalMilliseconds]
+                
+                stopWatch.Restart()
+                let env = if isPure then emptyTransEnv else stdlib.stdEnv
+                let term = translate exTerm env
+                times <- times @ ["translate", stopWatch.Elapsed.TotalMilliseconds]
+
+                stopWatch.Restart()
+                ignore <| typeInfer term
+                times <- times @ ["infer type", stopWatch.Elapsed.TotalMilliseconds]
+
                 stopWatch.Restart()
                 saveTerm term outputName
                 times <- times @ ["save ", stopWatch.Elapsed.TotalMilliseconds]
-            else
-                printfn "Compiling error:"
-                printfn "A library must only be composed of constant and function declarations"
-
-            if showTime then
-                Console.WriteLine (List.fold (fun acc (x, t) -> acc + sprintf "\nTime to %s = %f" x t) "" times)
-                printfn "\nTotal time = %f" <| List.fold (fun acc (x, t) -> acc + t) 0.0 times
         with
         | ParseException e -> 
             printfn "Parsing error:"
@@ -120,7 +131,10 @@ let runCompile (results: ParseResults<Compile>) =
         | TypeException e ->
             printfn "Type system error:"
             Console.WriteLine e
-
+             
+        if showTime then
+            Console.WriteLine (List.fold (fun acc (x, t) -> acc + sprintf "\nTime to %s = %f" x t) "" times)
+            printfn "\nTotal time = %f" <| List.fold (fun acc (x, t) -> acc + t) 0.0 times   
 
 let runRun (results: ParseResults<Run>) =
     let parser = parser.GetSubCommandParser <@ Run @>
@@ -160,12 +174,17 @@ let runRun (results: ParseResults<Run>) =
             let text = path |> IO.File.ReadAllText
             times <- times @ ["read file", stopWatch.Elapsed.TotalMilliseconds]
             
-            Parser.baseFolder <- path |> Path.GetFullPath |> Path.GetDirectoryName
+            Compiler.baseFolder <- path |> Path.GetFullPath |> Path.GetDirectoryName
 
             try
                 stopWatch.Restart()
-                let term = if isPure then parsePure text else parse text
+                let exTerm = (if isPure then parsePure else parse) text
                 times <- times @ ["parse", stopWatch.Elapsed.TotalMilliseconds]
+                
+                stopWatch.Restart()
+                let env = if isPure then emptyTransEnv else stdlib.stdEnv
+                let term = translate exTerm env
+                times <- times @ ["translate", stopWatch.Elapsed.TotalMilliseconds]
 
                 stopWatch.Restart()
                 ignore <| typeInfer term
@@ -190,72 +209,6 @@ let runRun (results: ParseResults<Run>) =
                 printfn "Type system error:"
                 Console.WriteLine e
 
-type options =
-    | ShowType
-    | Clear
-
-let rec parseItem previous first =
-    
-    if first then 
-        printf "> "
-
-    let line = previous + Console.ReadLine()
-    try
-        let actualText, options =
-            if line.StartsWith "<type>" then
-                line.Substring 6, Some ShowType
-            elif line = "<clear>" then
-                "nil", Some Clear
-            else
-                line, None
-        let parsed = parsePure actualText
-        Some parsed, options
-    with
-    | ParseException e -> 
-        if e.StartsWith "Expected \"" then
-            parseItem line false
-        elif "\x -> " + line + " x" |> parsePure |> isValidLib then
-            Some (parsePure <| "\x -> " + line + " x"), None
-        else
-            printfn "Parsing error:"
-            Console.WriteLine e
-            None, None
-
-let rec interactive declarations (newTerm, option) =
-    match newTerm with
-    | Some term ->
-        if isValidLib term then
-            let inside = 
-                match term with
-                | Fn(_, inside) -> inside
-            let newDecl = Fn (Var(XPattern "x", None), replaceXLib declarations inside)
-            interactive newDecl <| parseItem "" true
-        else
-            try
-                let term = replaceXLib declarations term
-                match option with
-                | Some ShowType ->
-                    term |> typeInfer |> printType |> printfn "%O"
-                | Some Clear ->
-                    ()
-                | _ ->    
-                ignore <| typeInfer term
-                let evaluated = evaluate term
-                evaluated |> printResult |> printfn "%O"
-            with
-            | TypeException e ->
-                printfn "Type system error:"
-                Console.WriteLine e
-            | EvalException e -> 
-                printfn "Evaluation error:"
-                Console.WriteLine e
-            match option with
-            | Some Clear ->
-                interactive (parsePure <| "\x -> let exit = 0; x") <| parseItem "" true
-            | _ ->
-            interactive declarations <| parseItem "" true
-    | None ->
-        interactive declarations <| parseItem "" true
 
 let runInteractive (results: ParseResults<Interactive>) =
     let parser = parser.GetSubCommandParser <@ Interactive @>
@@ -265,19 +218,46 @@ let runInteractive (results: ParseResults<Interactive>) =
     else
         let isPure = results.Contains <@ Pure @>
 
-        if isPure then
-            interactive (parsePure <| "\x -> let exit = 0; x") <| parseItem "" true
-        else
-            interactive (loadArray stdlib.compiled) <| parseItem "" true
+        let mutable env = if isPure then REPL.emptyEnv else REPL.stdlibEnv
+
+        printf "> "
+        while true do
+            let res, env' = REPL.parseLine (Console.ReadLine ()) env
+            env <- env'
+            match res with
+            | REPL.Expression s -> 
+                Console.WriteLine s
+                printf "> "
+            | REPL.Error exn ->
+                match exn with
+                | TypeException e ->
+                    Console.WriteLine "Type inference error:"
+                    Console.WriteLine e
+                | EvalException e ->
+                    Console.WriteLine "Evaluation error:"
+                    Console.WriteLine e
+                | ParseException e ->
+                    Console.WriteLine "Parsing error:"
+                    Console.WriteLine e
+                | e ->
+                    Console.WriteLine "Unknown error:"
+                    Console.WriteLine e.Message
+                printf "> "
+            | REPL.Addition _ ->
+                printf "> "
+            | REPL.Partial -> ()
+            | REPL.Cleared ->
+                Console.WriteLine "Removed all user-generated bindings"
+                printf "> "
 
 let compileStdlib x =
-    let text = "\x -> " + stdlib.content + " x"
 
-    let term = parsePure text
-    ignore <| typeInfer term
+    try 
+        let lib = parseStdlib ()
+    
+        ignore <| typeInferLib lib
 
-    if isValidLib term then
-        let ar = saveArray term
+        let ar = saveLibArray lib
         
         let text = "module compiledStdlib"
         let text = text + "\n\nlet compiled: byte[] = [|"
@@ -294,6 +274,79 @@ let compileStdlib x =
         let text = text.Substring (0, text.Length - 1) + "\n|]\n\n"
 
         File.WriteAllText("compiledStdlib.fs", text)
+    with
+    | ParseException e ->
+        Console.WriteLine e
+    | TypeException e ->
+        Console.WriteLine e
+
+let rec getTermText x =
+    let text = Console.ReadLine ()
+    if text.Length = 0 then
+        text
+    else
+        text + "\n" + getTermText ()
+
+let rec writeTests x =
+    Console.WriteLine "Select what to test:"
+    Console.WriteLine "1 - Type"
+    Console.WriteLine "2 - Result"
+    //Console.WriteLine "3 - Type and Result"
+    Console.WriteLine "4 - Exit"
+
+    let option = Console.ReadLine()
+    match option with
+    | "4" -> ()
+    | "1" | "2" -> 
+
+        Console.WriteLine "Insert the name of the test: "
+
+        let name = Console.ReadLine ()
+        
+        Console.WriteLine "Insert the expression (empty line finishes):"
+
+        let termText = getTermText ()
+        
+        Console.WriteLine termText
+        try
+            let term = translate (parse termText) stdlib.stdEnv
+            
+            Console.WriteLine ()
+            Console.WriteLine "What should the correct result be?"
+            Console.WriteLine "0 - A result"
+            Console.WriteLine "1 - An error"
+
+            let text =
+                match Console.ReadLine () with
+                | "0" ->
+                    let result = 
+                        if option = "1" then
+                            sprintf "%A" <| typeInfer term
+                        else
+                            sprintf "%A" <| evaluate term
+                    Console.WriteLine "The provided result is: "
+                    Console.WriteLine (sprintf "%AO" result)
+                    sprintf "
+        [<Test>]
+        member that.%O() =
+            compare (%A, %O)\n" name (termText.TrimEnd()) result
+                | "1" -> 
+                    sprintf "
+        [<Test>]
+        member that.%O() =
+            shouldFail %A\n" name termText
+                | _ -> ""
+  
+            File.AppendAllText("tests.txt", text)
+            writeTests ()
+            with
+            | ParseException e ->
+                printfn "Parse error:"
+                Console.WriteLine e
+        
+    | _ ->
+        Console.WriteLine "Wrong Key"
+        writeTests ()
 
 [<EntryPoint>]
 let main argv = 
@@ -311,9 +364,11 @@ let main argv =
             runInteractive <| results.GetResult <@ Interactive @>
         elif results.Contains <@ CompileStdLib @> then
             compileStdlib ()
+        elif results.Contains <@ WriteTests @> then
+            writeTests ()
         else
             Console.WriteLine (parser.PrintUsage())  
-        
+    
     0
 
     

@@ -212,3 +212,10 @@ _Pvt_Extensions/
 ModelManifest.xml
 *.aux
 *.toc
+*.fls
+*.out
+*.fdb_latexmk
+*.synctex.gz
+*.yaml
+*.sta
+*.pdf

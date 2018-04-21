@@ -1,888 +1,636 @@
-module Parser
+﻿module Parser
 
-open System.Text.RegularExpressions
+open FParsec
 open Definition
-open System
-open System.IO
+open Translation
 open Compiler
-open stdlib
-open System.Runtime.Serialization
 
-//#region Helper Types, Modules and Functions
+//#region Helper Types
 
-let mutable baseFolder = AppDomain.CurrentDomain.SetupInformation.ApplicationBase
-let makeRelative fileName = Path.Combine(baseFolder, fileName)
+type UserState = 
+    {operators: OperatorSpec list}
 
-type associativity =
-    | Left
-    | Right
-    | NonAssociative
+    member this.addOperator op =
+        let (OpSpec (fix, name)) = op
+        let ops = List.filter (fun (OpSpec (_, s)) -> s <> name) this.operators
 
-type infixOP =
-    // Infix operators
-    | Def of op
-    | Apply
-    | Compose
-    | Index
-    | Remainder
-    | Concat
+        {this with operators = op :: ops}
 
-type prefixOP =
-    | Negate
-
-type extendedTerm =
-    | Term of term
-    | Infix of infixOP
-    | Prefix of prefixOP
-
-let private associativityOf op =
-    match op with
-    | Concat
-    | Apply
-    | Compose
-    | Def Cons
-    | Def And
-    | Def Or ->
-        Right
-    | Def Add
-    | Def Subtract
-    | Def Multiply
-    | Def Divide
-    | Remainder 
-    | Index
-    | Def Application 
-    | Def Sequence ->
-        Left
-    | Def Equal
-    | Def Different
-    | Def GreaterOrEqual
-    | Def GreaterThan
-    | Def LessOrEqual
-    | Def LessThan ->
-        NonAssociative
-
-let private priorityOf op =
-    match op with        
-    | Term _ 
-    | Infix (Def Application) ->
-        0
-    | Infix Compose
-    | Infix Index ->
-        1
-    | Infix (Def Multiply)
-    | Infix (Def Divide) 
-    | Infix Remainder ->
-        2
-    | Prefix Negate
-    | Infix (Def Add)
-    | Infix (Def Subtract) ->
-        3
-    | Infix (Def Cons) ->
-        4
-    | Infix Concat ->
-        5
-    | Infix (Def LessOrEqual)
-    | Infix (Def LessThan)
-    | Infix (Def Equal)
-    | Infix (Def Different)
-    | Infix (Def GreaterThan)
-    | Infix (Def GreaterOrEqual) ->
-        6
-    | Infix (Def And) ->
-        7
-    | Infix (Def Or) ->
-        8
-    | Infix (Def Sequence) ->
-        9
-    | Infix Apply ->
-        10
-
-
-type closings = bool * string list
-
-let private splitSpaces term =
-    term |> Seq.skipWhile Char.IsWhiteSpace |> String.Concat
-
-let rec private matchStart (text: string) matches =
-    match matches with
-    | [] -> 
-        false, ""
-    | x::rest when text.StartsWith(x) ->
-        true, x
-    | x::rest ->
-        matchStart text rest
+    member this.addOperators ops =
+        let internalF = (fun s (OpSpec (_, name)) -> name <> s)
+        let externalF = (fun (OpSpec (_, s)) -> List.forall (internalF s) ops)
+        let ops' = List.filter externalF this.operators
         
-let private (|Trimmed|) text =
-    splitSpaces text
+        {this with operators = ops @ ops'}
 
-let private (|Number|_|) text =
-    let trimmed = splitSpaces text
-    if trimmed.Length > 0 && Char.IsDigit trimmed.[0] then
-        let s = trimmed.ToCharArray()
-        let num = s |> Seq.takeWhile (fun x -> Char.IsDigit(x)) |> String.Concat
-        Some (int num, trimmed.Substring num.Length)
-    else
-        None
+let defaultOPs =[
+    OpSpec (Infix  (8, Left , BuiltInOp Multiply      ), "*" );
+    OpSpec (Infix  (8, Left , BuiltInOp Divide        ), "/" );
+     
+    OpSpec (Prefix (7,        BuiltInOp Negate        ), "-" ); 
+    OpSpec (Infix  (7, Left , BuiltInOp Add           ), "+" );
+    OpSpec (Infix  (7, Left , BuiltInOp Subtract      ), "-" );
 
-let private (|Identifier|_|) text =
-    match text with
-    | Number rest ->
-        None
-    | Trimmed rest ->
-        let prohibited = " _.,;:+-/*<=>(){}[]%$&|!@#\\'\"\n\r\t".ToCharArray()
-        let ident = String.Concat (rest |> 
-                        Seq.takeWhile (fun x -> not <| Seq.exists ((=) x) prohibited))
-        match ident with
-        | "let" | "true" | "false" | "if" | "then" | "else" 
-        | "fn" | "rec"| "nil" | "head" | "tail" | "raise" 
-        | "skip" | "output" | "input"
-        | "try" | "except" | "for" | "in" | "empty?" | "import" ->
-            None
-        | "" ->
-            None
-        | _ ->
-            Some (ident, rest.Substring ident.Length)
-    
-let private (|AnyStart|_|) (starts: bool * string list) (text: string) =
-    let trimmed = splitSpaces text
-    let doesStart, text, start = 
-        if List.exists ((=) " ") (snd starts) && trimmed.Length <> text.Length then
-            true, text, " "
+    OpSpec (Infix  (6, Right, ConstructorOp Cons      ), "::");
+
+    OpSpec (Infix  (4, Non  , BuiltInOp LessOrEqual   ), "<=");
+    OpSpec (Infix  (4, Non  , BuiltInOp LessThan      ), "<" );
+    OpSpec (Infix  (4, Non  , BuiltInOp Equal         ), "=" );
+    OpSpec (Infix  (4, Non  , BuiltInOp Different     ), "!=");
+    OpSpec (Infix  (4, Non  , BuiltInOp GreaterThan   ), ">" );
+    OpSpec (Infix  (4, Non  , BuiltInOp GreaterOrEqual), ">=");
+
+    OpSpec (Infix  (3, Right, BuiltInOp And           ), "&&");
+    OpSpec (Infix  (2, Right, BuiltInOp Or            ), "||")]
+
+let defaultUserState =
+    {operators = defaultOPs}
+
+//#endregion
+
+//#region Whitespace and helper Functions
+
+let private pComment = pstring "//" >>. skipRestOfLine true
+
+let private ws = many (spaces1 <|> pComment)
+
+let private pBetween s1 s2 p = 
+    between (pstring s1 .>> ws) (pstring s2 .>> ws) p
+
+//#endregion
+
+//#region Identifier and Operator Parsing
+
+let keywords = 
+    Collections.Set
+       ["let" ; "True"  ; "False" ; "if"   ; "then"   ; "else"  ;
+        "rec" ; "Nil"   ; "raise" ; "when" ; "match"  ; "with"  ;
+        "for" ; "in"    ; "import"; "infix"; "infixl" ; "infixr";
+        "type"; "alias" ; "get"   ; "set"  ; "stack"  ; "distort";  "_"]
+
+let typeKeywords = Collections.Set["Int"; "Bool"; "Char"] 
+
+let private isAsciiIdStart c =
+    isAsciiLower c || c = '_'
+
+let private isTypeIdStart c =
+    isAsciiUpper c || c = '_'
+
+let private isAsciiIdContinue c =
+    isAsciiLetter c || isDigit c || c = '_' || c = '\'' || c = '?'
+
+let private parseIdentifierTemplate start cont (keywords: Set<string>) (stream: CharStream<UserState>) =
+    let state = stream.State
+    let reply = identifier (IdentifierOptions(isAsciiIdStart = start,
+                                    isAsciiIdContinue = cont)) stream
+    if reply.Status <> Ok || not (keywords.Contains reply.Result) then 
+        reply
+    else // result is keyword, so backtrack to before the string
+        stream.BacktrackTo(state)
+        Reply(Error, unexpected <| sprintf "keyword '%O' is reserved" reply.Result)
+
+let private pIdentifier: Parser<string, UserState> =
+    parseIdentifierTemplate isAsciiIdStart isAsciiIdContinue keywords
+
+let private pTypeIdentifier: Parser<string, UserState> =
+    parseIdentifierTemplate isTypeIdStart isAsciiIdContinue typeKeywords
+
+let private pOperator = 
+    many1Chars (anyOf ":?!%$&*+-./<=>@^|~") |>>
+        (function
+        | "+" -> BuiltInOp Add
+        | "-" -> BuiltInOp Subtract
+        | "*" -> BuiltInOp Multiply
+        | "/" -> BuiltInOp Divide
+        | "<=" -> BuiltInOp LessOrEqual
+        | "<" -> BuiltInOp LessThan
+        | "=" -> BuiltInOp Equal
+        | "!=" -> BuiltInOp Different
+        | ">=" -> BuiltInOp GreaterOrEqual
+        | ">" -> BuiltInOp GreaterThan
+        | "::" -> ConstructorOp Cons
+        | "&&" -> BuiltInOp And
+        | "||" -> BuiltInOp Or
+        | c -> CustomOp c)
+
+let private pCustomOperator: Parser<string, UserState> = 
+    fun stream ->
+        let state = stream.State
+        let reply = pOperator stream
+        if reply.Status <> Ok then
+            Reply(Error, reply.Error)
         else
-            let doesStart, start = matchStart trimmed <| snd starts
-            doesStart, trimmed, start
-    if doesStart then
-        if fst starts then
-            Some (text.Substring start.Length, start)
+            match reply.Result with
+            | CustomOp c -> Reply(c)
+            | ConstructorOp _
+            | BuiltInOp _ -> 
+                stream.BacktrackTo state
+                Reply(Error, unexpected "cannot redefine built-in operators")
+
+//#endregion
+
+//#region String Value Parsing
+
+let private pNonEscapeChar quote = satisfy (fun c -> c <> quote && c <> '\\')
+let private pEscapeChar = 
+    let codes = ['b';  'n';  'r';  't';  '\\'; '"'; '\'']
+    let repls = ['\b'; '\n'; '\r'; '\t'; '\\'; '\"'; ''']
+    let funEscape code repl = pchar code >>. preturn repl
+    pchar '\\' >>. choice (Seq.map2 funEscape codes repls)
+
+let private pChar = 
+    between (pstring "\'") (pstring "\'") 
+        ((pEscapeChar <|> pNonEscapeChar '\'' <?> "character") 
+            |>> (fun c -> ExConstructor (C c)))
+
+let private pString = 
+    between (pstring "\"") (pstring "\"") 
+        (many ((pEscapeChar <|> pNonEscapeChar '"'))) 
+        |>> fun l -> ExListTerm <| List.map (fun c -> ExConstructor (C c)) l
+
+//#endregion   
+
+//#region Type Parsing
+
+let private pType, private pTypeRef = createParserForwardedToRef<ExType, UserState>()
+let private pTypeValue, private pTypeValueRef = createParserForwardedToRef<ExType, UserState>()
+
+let private pVarType = pTypeIdentifier |>> ExTypeAlias
+let private pIntType = stringReturn "Int" (ExConstType (Int, []))
+let private pBoolType = stringReturn "Bool" (ExConstType (Bool, []))
+let private pCharType = stringReturn "Char" (ExConstType (Char, []))
+
+let private pParenType = 
+    pBetween "(" ")" (sepBy1 pType (pstring "," .>> ws))
+        |>> (function | [x] -> x | xs -> ExConstType ((ConstructorType.Tuple xs.Length), xs))
+
+let private pRecordCompType = tuple2 (pIdentifier .>> ws .>> pstring ":" .>> ws) pType
+
+let private pRecordType =
+    pBetween "{" "}" (sepBy1 pRecordCompType (pstring "," .>> ws)) |>> ExRecordType
+
+let private pListType = pBetween "[" "]" pType |>> (fun t -> ExConstType (List, [t]))
+
+let private pAccessorType =
+    pstring "#" >>. pBetween "(" ")"
+        (tuple2 (pTypeValue .>> ws .>> pstring "->" .>> ws) 
+            (pTypeValue .>> ws)) |>> ExAccessor
+
+do pTypeValueRef := choice [pVarType;
+                        pParenType;
+                        pRecordType;
+                        pIntType;
+                        pBoolType;
+                        pCharType;
+                        pListType;
+                        pAccessorType] <?> "type"
+
+do pTypeRef :=
+    let fold = List.reduceBack (fun x acc -> ExFunction(x, acc))
+    fun stream ->
+        let state = stream.State
+        let reply = (sepBy1 (pTypeValue .>> ws) 
+                        (pstring "->" >>. ws) |>> fold) stream
+        if reply.Status <> Ok then
+            stream.BacktrackTo state
+            (pTypeValue .>> ws) stream
         else
-            Some (text, start)
-    else
-        None
-        
-// If string starts with 'start' (after removing any leading whitespace),
-// returns the remaining string after removing 'start' (and whitespace)
-let private (|Start|_|) start text =
-    let trimmed = splitSpaces text
-    if trimmed.StartsWith start then
-        Some <| trimmed.Substring start.Length
-    else
-        None
-
-let private raiseExp x = raise <| ParseException x
-
-let rec parseMultipleComponents f text closings =
-    match text with
-    | AnyStart closings (t, start) ->
-        t, []
-    | Trimmed rest -> 
-        let removedFirst, ret = f rest (false, snd closings @ [","])
-
-        let rest =
-            match removedFirst with
-            | Start "," rest -> rest
-            | _ -> removedFirst
-
-        let removedRest, restPairs = parseMultipleComponents f rest closings
-        removedRest, ret :: restPairs 
-
-//#endregion
-            
-//#region Identifier and Type Functions
-
-let parseIdent text = 
-    match text with
-    | Identifier (ident, rest) ->
-        rest, ident
-    | Trimmed rest ->
-        raiseExp <| sprintf "Did not find a valid identifier at %A" text
-
-let rec parseType text closings =
-    let remainingText, typ1 = 
-        match text with
-        | Start "(" rest ->
-            parseTupleType rest (true, [")"])
-        | Start "{" rest ->
-            parseRecordType rest (true, ["}"])
-        | Start "[" rest ->
-            let remaining, t = parseType rest (true, ["]"])
-            remaining, List t
-        | Start "Int" rest ->
-            rest, Int
-        | Start "Bool" rest ->
-            rest, Bool
-        | Start "Char" rest ->
-            rest, Definition.Char
-        | Start "Unit" rest ->
-            rest, Unit
-        | Start "String" rest ->
-            rest, List Definition.Char
-        | Trimmed rest ->
-            raiseExp <| sprintf "Could not parse type at %A" rest
-
-    match remainingText with
-    | AnyStart closings (t, start) ->
-        t, typ1
-    | Start "->" rest ->
-        let remaining, typ2 = parseType rest closings
-        remaining, Function (typ1, typ2)
-    | _ -> 
-        raiseExp <| sprintf "Could not parse type at %A" remainingText
-
-and parseRecordTypeComponent text closings =
-    let rest, label = parseIdent text
-    let rest, typ = 
-        match rest with
-        | Start ":" rest ->
-            parseType rest closings
-        | _ -> 
-            raiseExp <| sprintf "Expected %A, but found %A" closings rest
-    rest, (label, typ)
-
-and parseTupleType text closings =
-    let rest, pairs = 
-        parseMultipleComponents parseType text closings
-    match pairs with
-    | [] -> rest, Unit
-    | [typ] -> rest, typ
-    | _ -> 
-        rest, Type.Tuple pairs
-    
-and parseRecordType text closings =
-    let rest, pairs =
-        parseMultipleComponents parseRecordTypeComponent text closings
-    match pairs with
-    | [] -> rest, Unit
-    | _ ->  
-        rest, Type.Record pairs
-        
-let parseSomeType text closings =
-    let rest, typ = parseType text closings
-    rest, Some typ
-
-let rec parseIdentTypePair text closings =
-    let typeString, id = parseIdent text
-
-    let rest, typ =
-        match typeString with
-        | AnyStart closings (t, start) -> t, None
-        | Start ":" rest -> parseSomeType rest closings
-        | _ -> raiseExp <| sprintf "Expected %A, but found %A" closings typeString
-
-    rest, (id, typ)
-
-let rec parsePattern text closings = 
-    let rest, value = parsePatternValue text closings
-    match rest with
-    | AnyStart closings (rest, start) ->
-        rest, value
-    | Start "::" rest ->
-        let rest, value2 = parsePattern rest closings
-        let rest, typ = 
-            match rest with
-            | ":" -> parseSomeType rest closings
-            | AnyStart closings (rest, start) -> rest, None
-            | Trimmed rest ->
-                raiseExp <| sprintf "Could not parse pattern at %A" rest
-        rest, Var(ConsPattern(value, value2), typ)
-    | Start ":" rest ->
-        let rest, typ = parseSomeType rest closings
-        match value with
-        | Var(p, None) ->
-            rest, Var(p, typ)
-        | Var(p, Some typ') ->
-            raiseExp <| sprintf "Cannot declare type twice for pattern at %A" text
-    | Trimmed rest ->
-        raiseExp <| sprintf "Expected \"%A\" at %A" closings rest
-
-and parsePatternValue text closings = 
-    match text with
-    | Identifier (id, rest) -> rest, Var(XPattern id, None)
-    | Start "_" rest -> rest, Var(IgnorePattern, None)
-    | Start "nil" rest -> rest, Var(NilPattern, None)
-    | Start "(" rest ->
-        let rest, pairs = parseMultipleComponents parsePattern rest (true, [")"])
-        match pairs with
-        | [] -> raiseExp <| sprintf "Invalid pattern at %A" text
-        | [p] -> rest, p
-        | _ -> rest, Var(TuplePattern pairs, None)
-    | Start "{" rest ->
-        let rest, pairs = parseMultipleComponents parseRecordPattern rest (true, ["}"])
-        match pairs with
-        | [] -> raiseExp <| sprintf "Invalid pattern at %A" text
-        | _ -> rest, Var(RecordPattern pairs, None)
-    | Start "[" rest ->
-        let rest, pairs = parseMultipleComponents parsePattern rest (true, ["]"])
-        match pairs with
-        | [] -> rest, Var(NilPattern, None)
-        | _ -> 
-            rest, List.fold (fun acc p -> Var (ConsPattern(p, acc), None)) (Var(NilPattern, None)) pairs
-    | Trimmed rest ->
-        raiseExp <| sprintf "No pattern to parse at %A" rest
-
-and parseRecordPattern text closings =
-    let rest, label = parseIdent text
-    let rest, pattern = 
-        match rest with
-        | Start ":" rest ->
-            parsePattern rest closings
-        | _ -> 
-            raiseExp <| sprintf "Expected %A, but found %A" closings rest
-    rest, (label, pattern)
-
-let rec parseParameters text closings = 
-    match text with
-    | AnyStart closings (rest, start) ->
-        rest, []
-    | Trimmed rest ->
-        let rest, curParameter = parsePattern rest (false, " " :: snd closings)
-        let rest, otherParameters = parseParameters rest closings
-        rest, curParameter :: otherParameters
-
-// Returns a tuple of (p, (term, type2), where
-// p: pattern of first paremeter
-// term: return term of function
-// type2: return type of function
-let rec joinMultiParameters parameters returnTerm returnType =
-    match parameters with
-    | [] ->
-        raiseExp "Must pass at least one parameter"
-    | (Var _ as p) :: [] -> 
-        p, (returnTerm, returnType)
-    | _ ->
-        let seq = parameters |> List.toSeq
-        let p = Seq.last seq
-        let (Var(p', typ)) = p
-        let newParams = seq |> Seq.take (parameters.Length - 1) |> Seq.toList
-        let newType = 
-            match typ, returnType with
-            | Some t1, Some t2 ->
-                Some <| Function (t1, t2)
-            | _, _ ->
-                None
-        joinMultiParameters newParams (Fn (p, returnTerm)) newType
-        
-let rec parseStringLiteral (text: string) closing =
-    match text.ToCharArray() |> Array.toList with
-    | [] ->
-        raiseExp <| sprintf "Could not find closing %A" closing
-    | '\\'::tail ->
-        let current = 
-            match tail with
-            | 'n'::rest -> "\n"
-            | 'b'::rest -> "\b"
-            | 'r'::rest  -> "\r"
-            | 't'::rest -> "\t"
-            | '\\'::rest -> "\\"
-            | '"'::rest -> "\""
-            | '\''::rest -> "'"
-            | _ ->
-                raiseExp <| sprintf "Invalid escaped char at %A" text
-        let remaining, parsed = parseStringLiteral (String.Concat tail.Tail) closing
-        remaining, current + parsed
-    | t::tail when t = closing -> 
-        text, ""
-    | t::tail ->
-        let remaining, parsed = parseStringLiteral (String.Concat tail) closing
-        remaining, t.ToString() + parsed
+            reply
 
 //#endregion
 
-//#region Unifying
+//#region Pattern Parsing
 
-let rec condenseTerms prev current nexts priority =
-    match current with
-    | Term x ->
-        match nexts with
-        | [] -> [Term x]
-        | Term y :: rest -> 
-            condenseTerms prev (Term <| OP (x, Application, y)) rest priority
-        | t :: rest ->
-            condenseTerms (Some current) t rest priority
-    | Prefix Negate when priorityOf current = priority ->
-        match prev, nexts with
-        | None, Term y :: rest ->
-            let term = OP (X "negate", Application, y)
-            condenseTerms prev (Term term) rest priority
-        | Some _, _ ->
-            raise (ParseException <| sprintf "Prefix %A cannot be preceded by a term" Negate)
-        | _ ->
-            raiseExp <| sprintf "Prefix %A must be followed by a term" Negate
-    | Prefix Negate ->
-        match prev with
-        | Some _ ->
-            raise (ParseException <| sprintf "Prefix %A cannot be preceded by a term" Negate)
-        | None ->
-            [current] @ condenseTerms None nexts.Head nexts.Tail priority
-    | Infix op when priorityOf current = priority ->
-        let actualNexts =
-            match associativityOf op with
-            | Right ->
-                match nexts with
-                | cur :: Infix op2 :: rest when op2 = op ->
-                    condenseTerms None cur nexts.Tail priority
-                | _ ->
-                    nexts
-            | Left | NonAssociative ->
-                nexts
-        match prev, actualNexts with
-        | Some (Term x), Term y :: rest ->
-            let term = 
-                match op with
-                | Def op -> OP (x, op, y)
-                | Remainder -> OP (OP (X "remainder", Application, x), Application, y)
-                | Concat -> OP (OP (X "concat", Application, x), Application, y)
-                | Apply -> OP(x, Application, y)
-                | Compose -> Fn (Var(XPattern "x", None), OP (x, Application, OP (y, Application, X "x")))
-                | Index -> OP (OP (X "nth", Application, y), Application, x) 
-            condenseTerms None (Term <| term) rest priority
-        | _ ->
-            raiseExp <| sprintf "Infix %A must be surrounded by terms" op
-    | Infix op ->
-        match prev, nexts with
-        | Some (Term x), head :: tail ->
-            [Term x; current] @ condenseTerms None head tail priority
-        | _ ->
-            match op with
-            | Def op ->
-                raiseExp <| sprintf "Infix %A must be surrounded by terms" op
-            | op ->
-                raiseExp <| sprintf "Infix %A must be surrounded by terms" op
+let private pPattern, private pPatternRef = createParserForwardedToRef<ExVarPattern, UserState>()
 
-let rec unifyTerms (terms: extendedTerm list) priority = 
-    let priorities = 
-            Seq.map (fun x -> priorityOf x) terms |>
-            Seq.distinct |>
-            Seq.sort
-    let func = fun (acc: extendedTerm List) x -> condenseTerms None acc.Head acc.Tail x
-    let terms = Seq.fold func terms priorities
-    if terms.Length = 1 then
-        match terms.Head with
-        | Term t -> t
-        | Prefix _ -> raiseExp "Cannot unify to a prefix"
-        | Infix _ -> raiseExp "Cannot unify to an infix"
-    else
-        raiseExp "Unification resulted in more than one term"
-         
+let private pIdentPattern = pIdentifier |>> fun id -> (ExXPat id, None)
+
+let private pIgnorePattern = stringReturn "_" <| (ExIgnorePat, None)
+
+let private pBoolPattern = 
+        (stringReturn "True" <| (ExConstructorPat (B true, []), None))
+            <|> (stringReturn "False" <| (ExConstructorPat (B false, []), None))
+let private pNumPattern = pint32 |>> fun ui -> (ExConstructorPat (I ui, []), None)
+let private pNilPattern = stringReturn "Nil" <| (ExConstructorPat (Nil, []), None)
+
+let private pCharPattern = 
+    pChar |>> 
+         function | ExConstructor (C c) -> (ExConstructorPat (C c, []), None)
+                  | _ -> raise <| invalidArg "char" "Parsing char did not return char"
+let private pStringPattern = 
+    let convertToPat =
+        function
+        | ExConstructor (C c) -> (ExConstructorPat (C c, []), None)
+        | _ -> raise <| invalidArg "string" "Parsing string did not return string"
+    pString |>> function | (ExListTerm l) -> ExListPat <| List.map convertToPat l, None
+                         | _ -> raise <| invalidArg "string" "Parsing string did not return string"
+
+let private pParenPattern = 
+    pBetween "(" ")" (sepBy1 pPattern (pstring "," .>> ws))
+        |>> (function | [x] -> x | xs -> (ExConstructorPat ((Tuple xs.Length), xs), None))
+
+let private pRecordCompPattern = tuple2 (pIdentifier .>> ws .>> pstring ":" .>> ws) pPattern
+
+let private pRecord' p f =
+    Inline.ManyTill(stateFromFirstElement = (fun x -> [x]),
+                     foldState = (fun acc x -> x :: acc),
+                     resultFromStateAndEnd = (fun acc allowsExtra -> f (List.rev acc) allowsExtra),
+                     elementParser = (pstring "," >>. ws >>. p),
+                     endParser = 
+                        (attempt (opt (pstring "," >>. ws >>. pstring "..." .>> ws)) 
+                            .>> pstring "}" |>> fun x -> x.IsSome),
+                     firstElementParser = (pstring "{" >>. ws >>. p))
+
+let private pRecordPattern =
+    pRecord' pRecordCompPattern (fun x y -> (ExRecordPat (y, x), None))
+
+let private pListPattern =
+    pBetween "[" "]" (sepBy pPattern (pstring "," .>> ws)) 
+        |>> fun l -> ExListPat l, None
+
+let private pPatternValue = 
+    pIdentPattern <|> 
+    (choice [pIgnorePattern;
+            pCharPattern;
+            pStringPattern;
+            pBoolPattern;
+            pNumPattern;
+            pNilPattern;
+            pParenPattern;
+            pRecordPattern;
+            pListPattern] <?> "pattern")
+
+let private pConsPattern =
+    let reduce ls =
+        let rev = List.rev ls
+        List.reduce (fun acc p -> (ExConstructorPat (Cons, [p; acc]), None)) rev
+
+    sepBy1 (pPatternValue .>> ws) (pstring "::" >>. ws) |>> reduce
+
+do pPatternRef := 
+    fun stream ->
+        let state = stream.State
+        let firstReply = pPatternValue .>> ws <| stream
+        let afterFirstState = stream.State
+        let secondReply = (pstring ":" >>. ws >>. pType) stream
+        if firstReply.Status <> Ok || secondReply.Status <> Ok then
+            stream.BacktrackTo state
+            pConsPattern stream
+        else
+            match firstReply.Result, secondReply.Result with
+            | (p, None), typ -> Reply((p, Some typ))
+            | (p, Some _), typ -> 
+                stream.BacktrackTo afterFirstState
+                Reply(Error, unexpected "repeated type declaration")
+
+//#region Basic Value Parsing
+
+let private pBool = 
+    (stringReturn "True"  (ExConstructor (B true)))
+        <|> (stringReturn "False" (ExConstructor (B false)))
+
+let private pNum = puint32 |>> fun ui -> ExConstructor (I <| int(ui))
+
+let private pNil = stringReturn "Nil" <| ExConstructor Nil
+
+let private pRaise = stringReturn "raise" ExRaise
+
+let private pGet = pstring "get" >>. ws |>> fun _ -> ExBuiltIn Get
+
+let private pSet = pstring "set" >>. ws |>> fun _ -> ExBuiltIn Set
+
+let private pStack = pstring "stack" >>. ws |>> fun _ -> ExBuiltIn Stack
+
+let private pDistort = pstring "distort" >>. ws |>> fun _ -> ExBuiltIn Distort
+
+
+//#endregion   
+
+let private pTerm, private pTermRef = createParserForwardedToRef<ExTerm, UserState>()
+
+//#region Parse Accessors
+
+let private pPath = 
+    (pIdentifier |>> ExComponent)
+    <|> (pBetween "(" ")" 
+        (sepBy1 pTerm (pstring "," .>> ws)) 
+            |>> ExJoined)
+
+
+let private pProjection = 
+    pstring "#" >>. pPath |>> ExRecordAccess
 
 //#endregion
-    
-//#region Value Parsing
 
-let parseChar text =
-    let remaining, c = parseStringLiteral text '\''
+//#region Parse Functions
 
-    if not <| remaining.StartsWith "'" then
-        raiseExp <| sprintf "Missing closing ' for char literal at %A" text
+let private pParameter =
+    let tupled = pParenPattern .>> ws
+    let enclosed = pBetween "(" ")" pPattern
+    let normal = pPatternValue .>> ws
+    tupled <|> enclosed <|> normal
 
-    if c.Length = 0 then
-        raiseExp <| sprintf "A char literal cannot be empty at %A" text
-    elif c.Length > 1 then
-        raiseExp <| sprintf "A char literal must have length 1 at %A" text
+let private pLambda: Parser<ExTerm, UserState> =
+    tuple2 
+        (pstring "\\" >>. ws >>. many1 pParameter)
+        (pstring "->" >>. ws >>. pTerm) |>> fun x -> ExFn <| ExLambda x
 
-    remaining.Substring 1, C c.[0]
-
-let parseString text =
-    let remaining, s = parseStringLiteral text '"'
-
-    if not <| remaining.StartsWith "\"" then
-        raiseExp <| sprintf "Missing closing \" for string literal at %A" text
-
-    let revArray = s.ToCharArray() |> Array.rev
-    let ret = Array.fold (fun acc x -> OP (C x, Cons, acc)) Nil revArray
-
-    remaining.Substring 1, ret
+let private pRecLambda: Parser<ExTerm, UserState> =
+    tuple4
+        (pstring "rec" >>. ws >>. pIdentifier .>> ws) 
+        (many1 pParameter)
+        (opt (pstring ":" >>. ws >>. pType))
+        (pstring "->" >>. ws >>. pTerm) |>> fun x -> ExFn <| ExRecursive x
 
 //#endregion
 
-//#region Extensions Parsing
+//#region Compound Value Parsing (Tuple, Record, List)
 
-let removeComments (text: string) =
-    let lines = text.Split('\n') |> Array.toSeq
-    let lines = Seq.map (fun (x:string) -> x.Split([|"//"|], StringSplitOptions.None).[0]) lines
-    Seq.reduce (fun acc x -> acc + "\n" + x) lines
+let private pParen =
+    let pTuple = sepBy1 pTerm (pstring "," .>> ws) 
+                |>> (function | [x] -> x | xs -> ExTuple xs)
 
-let rec parseImport text closings =
-    let remaining, libname = 
-        match text with
-        | Start "\"" rest ->
-            let rem, name = parseStringLiteral rest '"'
-            rem.Substring 1, name
-        | _ ->
-            raiseExp <| sprintf "Must have a string literal at %A" text
+    let pPrefixOP =
+        pBetween "(" ")" (pOperator .>> ws)
+            |>> (function
+                  | ConstructorOp c -> ExConstructor c
+                  | BuiltInOp op -> ExBuiltIn op
+                      //ExFn <| ExLambda([(ExXPat "x", None); (ExXPat "y", None)], 
+                        //ExOP(ExX "x", op, ExX "y"))
+                  | CustomOp c ->
+                      ExX c)
 
-    let rest, finalTerm = parseTerm remaining (false, snd closings)
+    attempt pPrefixOP <|> pBetween "(" ")" pTuple
 
-    let pathName = 
-        if not <| Path.HasExtension libname then
-            if Path.ChangeExtension(libname, "vl") |> makeRelative |> File.Exists then
-                Path.ChangeExtension(libname, "vl") |> makeRelative
-            elif Path.ChangeExtension(libname, "v") |> makeRelative |> File.Exists then
-               Path.ChangeExtension(libname, "v") |> makeRelative
+let private pRecordComp =
+    tuple2 (pIdentifier .>> ws .>> pstring ":" .>> ws) pTerm
+
+let private pRecord =
+    pBetween "{" "}" (sepBy1 pRecordComp (pstring "," .>> ws)) |>> ExRecord
+
+let private pRange: Parser<ExTerm, UserState> =
+    fun stream ->
+        let state = stream.State
+        let reply = tuple2 pTerm (opt (pstring "," >>. ws >>. pTerm)) <| stream
+        if reply.Status <> Ok then
+            stream.BacktrackTo state
+            Reply(Error, reply.Error)
+        else
+            let dots = pstring ".." >>. ws <| stream
+            if dots.Status <> Ok then
+                stream.BacktrackTo state
+                Reply(Error, dots.Error)
             else
-                raiseExp <| sprintf "Could not find library file at %A" libname
+                let first, middle = reply.Result
+                pTerm |>> (fun last -> Range (first, middle, last)) <| stream
+    
+let private pComprehension: Parser<ExTerm, UserState> =
+    tuple3 
+        (pTerm .>>? pstring "for" .>> ws) 
+        (pParameter .>> pstring "in" .>> ws)
+        pTerm |>> Comprehension
+
+let private pList =
+    sepBy pTerm (pstring "," .>> ws) |>> ExListTerm
+
+let private pSquareBrackets =
+    pBetween "[" "]" (pComprehension <|> pRange <|> pList)
+
+//#endregion
+
+
+//#region Library Parsing
+
+let private pDecl, private pDeclRef = createParserForwardedToRef<ExDeclaration, UserState>()
+
+let private pOperatorName =
+    fun stream ->
+        let explicit =
+            tuple2
+                ((stringReturn "infixl" Left <|> 
+                    stringReturn "infixr" Right <|> 
+                    stringReturn "infix" Non) .>> ws)
+                (anyOf "0123456789" .>> ws |>> (fun x -> int x - int '0'))
+        let reply = 
+            (tuple2
+                (opt explicit)
+                (pBetween "(" ")" (pCustomOperator .>> ws))) <| stream
+        if reply.Status <> Ok then
+            Reply(Error, reply.Error)
         else
-            if libname |> makeRelative |> File.Exists then
-                libname        
+            let explicit, name = reply.Result
+            let newOp =
+                match explicit with
+                | Some (assoc, prec) ->
+                    OpSpec(Infix (prec, assoc, CustomOp name), name)
+                | None ->
+                    OpSpec(Infix (9, Left, CustomOp name), name)
+            stream.UserState <- stream.UserState.addOperator newOp
+            Reply(name)
+
+let private pFunctionDecl =
+    tuple5
+        (opt (pstring "rec" >>. ws) |>> (fun x -> x.IsSome))
+        ((pIdentifier .>> ws) <|> pOperatorName) 
+        (many pParameter)
+        (opt (pstring ":" >>. ws >>. pType))
+        (pstring "=" >>. ws >>. pTerm)
+         |>> DeclFunc
+
+let private pConstantDecl =
+    tuple2 (pPattern .>> pstring "=" .>> ws) pTerm |>> DeclConst
+
+let private pLibrary =
+    fun stream ->
+        let reply = ws >>. many1 pDecl .>> eof <| stream
+        reply
+
+let parseLibWith text (sourceLib: Library) =
+    let state = defaultUserState.addOperators sourceLib.operators
+    let res = runParserOnString pLibrary state "" text
+    match res with
+    | Failure (err, _, _) -> raise (ParseException err)
+    | Success (decls, state, _) -> 
+        let terms, env = translateLib decls sourceLib.translationEnv
+        let ops = List.filter (fun op -> not <| List.exists ((=) op) defaultOPs) state.operators
+        {terms = terms; operators=ops; translationEnv = env}
+
+let parseLib text = parseLibWith text <| stdlib.loadCompiled ()
+
+let private pImport: Parser<ExDeclaration, UserState> =
+    fun stream ->
+        let reply = 
+            pstring "import" >>. ws >>.
+                (between (pstring "\"") (pstring "\"" .>> ws) 
+                    (manyChars ((pEscapeChar <|> pNonEscapeChar '"')))) <| stream
+        if reply.Status <> Ok then
+            Reply(Error, reply.Error)
+        else
+            let libReply = 
+                try
+                    Reply(loadLib reply.Result)
+                with
+                | UncompiledLib text ->
+                    try 
+                        Reply(parseLib text)
+                    with
+                    | ParseException err ->
+                        Reply(Error, unexpected err)
+                | :? LibNotFound ->
+                    Reply(Error, messageError <| sprintf "Could not find library file at %A" reply.Result)
+            if libReply.Status <> Ok then
+                Reply(Error, libReply.Error)
             else
-                raiseExp <| sprintf "Could not find library file at %A" libname
+                let lib = libReply.Result
+                stream.UserState <- stream.UserState.addOperators lib.operators
+                Reply(DeclImport lib.terms)
 
-    try
-        let libContent = loadLib (makeRelative pathName) finalTerm
-        rest, libContent
-    with
-    | :? SerializationException ->
-        let content = makeRelative pathName |> IO.File.ReadAllText
+let pAlias = 
+    tuple2
+        (pstring "type" >>. ws >>. pstring "alias" >>. ws >>. pTypeIdentifier .>> ws .>> pstring "=" .>> ws)
+        pType |>> DeclAlias
 
-        parseTerm (removeComments content + " " + remaining) (false, snd closings)
-
-
-//#endregion
-
-//#region Term parsing        
-
-and parseLet text closings = 
-    let isRec, start =
-        match text with
-        | Start "rec" rest ->
-            true, rest
-        | Trimmed rest ->
-            false, rest
-    
-    let rest, pattern, parameters = 
-        try
-            let rest, pattern = parsePattern start (false, ["="])
-            rest, pattern, []
-        with
-        | _ ->
-            let rest, pattern = parsePattern start (false, ["="; " "])
-            let rest, parameters = parseParameters rest (false, ["="; ":"])
-            rest, pattern, parameters
-
-//    let rest, pattern = 
-//        match parameters with
-//        | [] -> parsePattern start (false, ["="])
-//        | _ -> rest, pattern
-
-    let rest, retType =
-        match rest with
-        | Start ":" rest -> parseSomeType rest (true, ["="])
-        | Start "=" rest -> rest, None
-        | _ -> raiseExp "Expected a \"=\" at %A" text
-
-    let rest, retTerm = parseTerm rest (true, [";"])
-    let rest, t2 = parseTerm rest (false, snd closings)
-    
-    match isRec, parameters with
-    | false, [] ->
-        rest, Let(pattern, retTerm, t2)
-    | false, _ ->
-        let id =
-            match pattern with
-            | Var (XPattern id, None) -> id
-            | _ ->
-                raiseExp "Functions cannot be named with a pattern at %A" text
-        let p, (retTerm, retType) = joinMultiParameters parameters retTerm retType
-        let (Var(p', typ1)) = p
-        let fn = Fn(p, retTerm)
-        match retType, typ1 with
-        | Some retType, Some typ1 ->
-            rest, Let(Var(XPattern id, Some <| Function(typ1, retType)), fn, t2)
-        | _ ->
-            rest, Let(pattern, fn, t2)
-    | true, _ ->
-        let id =
-            match pattern with
-            | Var (XPattern id, None) -> id
-            | _ ->
-                raiseExp "Recursive functions cannot be named with a pattern at %A" text
-        let p, (retTerm, retType) = joinMultiParameters parameters retTerm retType
-        let (Var(p', typ1)) = p
-        let recFn = RecFn(id, retType, p, retTerm)
-        match recFn with
-        | RecFn(id, Some retType, Var (p, Some typ1), retTerm) ->
-            rest, Let(Var(XPattern id, Some <| Function(typ1, retType)), recFn, t2)
-        | RecFn(id, None, p, retTerm) ->
-            rest, Let(pattern, recFn, t2)
-        | _ -> raiseExp <| sprintf "Wrong recurive function at %A" text
-
-and parseRecFunction text closings =
-    let rest, id = parseIdent text
-    let rest, parameters = parseParameters rest (false, ["->"; ":"])
-    let rest, retType =
-        match rest with
-        | Start ":" rest -> parseSomeType rest (true, ["->"])
-        | Start "->" rest -> rest, None
-        | _ -> raiseExp "Expected a \"->\" at %A" text
-    let rest, retTerm = parseTerm rest closings
-    
-    let p, (retTerm, retType) = joinMultiParameters parameters retTerm retType
-
-    rest, RecFn(id, retType, p, retTerm)
-
-and parseLambda text closings =
-    let rest, parameters = parseParameters text (true, ["->"])
-    let rest, retTerm = parseTerm rest (false, snd closings)
-
-    // A function does not need a return type, but I must know if the
-    // parameters have a type so that joining them will not cause an error
-    let (Var (_, firstType)) = parameters.Head
-    let p, (retTerm, _) = 
-        joinMultiParameters parameters retTerm firstType
-
-    rest, Fn(p, retTerm)
-
-and parseIf text closings =
-    let rest, t1 = parseTerm text (true, ["then"])
-    let rest, t2 = parseTerm rest (true, ["else"])
-    let rest, t3 = parseTerm rest (false, snd closings)
-   
-    rest, Cond(t1, t2, t3)
-
-and parseTry text closings =
-    let rest, t1 = parseTerm text (true, ["except"])
-    let rest, t2 = parseTerm rest (false, snd closings)
-
-    rest, Try(t1, t2)
-
-and parseList text closings =
-    match text with
-    | Start "]" rest -> rest, Nil
-    | Trimmed rest ->
-        let rest, t = parseTerm rest (false, [",";"..";"for";"]"])
-        match rest with
-        | Start "," rest -> 
-            let rest, t2 = parseTerm rest (false, [",";"..";"]"])
-            match rest with
-            | Start ".." rest -> parseRange text closings
-            | Trimmed rest -> parseMultiList text closings
-        | Start ".." rest -> parseRange text closings
-        | Start "for" rest -> parseComprehension text closings
-        | Start "]" rest -> rest, OP(t, Cons, Nil) 
-        | Trimmed rest -> raiseExp <| sprintf "Expected \",\" at %A" rest
-
-and parseMultiList text closings =
-    let rest, t = parseTerm text (false, [",";"]"])
-    match rest with
-    | Start "," rest -> 
-        let rest, t2 = parseMultiList rest closings
-        rest, OP(t, Cons, t2) 
-    | Start "]" rest -> 
-        rest, OP(t, Cons, Nil) 
-    | Trimmed rest ->
-        raiseExp <| sprintf "Expected \"]\" at %A" rest
-
-and parseComprehension text closings =
-    let rest, t1 = parseTerm text (true, ["for"])
-    let rest, p = parsePattern rest (false, [" "; "in"])
-    let rest, t2 = 
-        match rest with
-        | Start "in" rest -> parseTerm rest (true, ["]"])
-        | _ -> raiseExp <| sprintf "Expected \"in\" at %A" rest
-
-    let f = Fn(p, t1)
-    rest, OP (OP (X "map", Application, f), Application, t2)
-
-and parseRange text closings = 
-    let rest, first = parseTerm text (false, [",";".."])
-    let rest, increment =
-        match rest with
-        | Start "," rest -> 
-            let rest, second = parseTerm rest (true, [".."])
-            rest, OP(second, Subtract, first)
-        | Start ".." rest -> rest, I 1
-        | Trimmed rest -> raiseExp <| sprintf "Expected \"..\" at %A" rest
-    let rest, last = parseTerm rest (true, ["]"])
-    
-    rest, OP (OP (OP (X "range", Application, first), Application, last), Application, increment)
-
-//#region Record/Tuple parsing
-
-and parseRecordComponent text closings =
-    let rest, label = parseIdent text
-    let rest, term = 
-        match rest with
-        | Start ":" rest ->
-            parseTerm rest closings
-        | _ -> 
-            raiseExp <| sprintf "Expected %A, but found %A" closings rest
-    rest, (label, term)
-
-and parseRecord text closings =
-    let rest, pairs =
-        parseMultipleComponents parseRecordComponent text closings
-    match pairs with
-    | [] -> rest, Skip
-    | _ ->  
-        rest, Record pairs
-        
-and parseParenthesis text closings =
-    let rest, pairs = 
-        parseMultipleComponents parseTerm text closings
-    match pairs with
-    | [] -> rest, Skip
-    | [term] -> rest, term
-    | _ -> 
-        rest, term.Tuple pairs
-        
-and parseProjection (text: string) closings =
-    if Char.IsWhiteSpace text.[0] then
-        raiseExp <| sprintf "Incomplete projection expression"
-    else
-        match text with
-        | Number (num, rest) ->
-            rest, Fn (Var(XPattern "x", None), ProjectIndex (num, X "x"))
-        | Trimmed rest ->
-            let rest, label = parseIdent rest
-            rest, Fn (Var(XPattern "x", None), ProjectName (label, X "x"))
+do pDeclRef :=
+    let pName = pstring "let" >>. ws >>. ((attempt pConstantDecl) <|> pFunctionDecl)
+    (pImport <|> pAlias <|> pName) .>> pstring ";" .>> ws
 
 //#endregion
 
-and addToTerms string extendedTerm closings =
-    let isTerm =
-        match extendedTerm with
-        | Term t -> true
-        | _ -> false
-    let rem, rest = collectTerms string closings isTerm
-    rem, extendedTerm :: rest
+let private pLet: Parser<ExTerm, UserState> =
+    fun stream ->
+        let op = stream.UserState.operators
+        let compReply = pDecl stream
+        if compReply.Status <> Ok then
+            Reply(Error, compReply.Error)
+        else
+            let decl = compReply.Result
+            let t2Reply = pTerm stream
+            stream.UserState <- {stream.UserState with operators = op}
+            if t2Reply.Status <> Ok then
+                Reply(Error, t2Reply.Error)
+            else
+                Reply(ExLet(decl, t2Reply.Result))
 
-// Iterate through the string, collecting single terms and operators
-and collectTerms text closings isAfterTerm = 
-    match text with
-    | Identifier (ident, rest) ->
-        addToTerms rest (Term <| X ident) closings
-    | AnyStart closings (t, start) ->
-        t, []
-    | Start "(" rest ->
-        let rest, term = parseParenthesis rest (true, [")"])
-        addToTerms rest (Term term) closings
-    | Start "{" rest ->
-        let rest, term = parseRecord rest (true, ["}"])
-        addToTerms rest (Term term) closings
-    // Matching value terms
-    | Number (num, rest) ->
-        addToTerms rest (Term <| I num) closings
-    | Start "true" rest ->
-        addToTerms rest (Term <| B true) closings
-    | Start "false" rest ->
-        addToTerms rest (Term <| B false) closings
-    | Start "raise" rest ->
-        addToTerms rest (Term Raise) closings
-    | Start "nil" rest ->
-        addToTerms rest (Term Nil) closings
-    | Start "skip" rest ->
-        addToTerms rest (Term Skip) closings
-    | Start "\"" rest ->
-        let rem, term = parseString rest
-        addToTerms rem (Term term) closings
-    | Start "'" rest ->
-        let rem, term = parseChar rest
-        addToTerms rem (Term term) closings
-    // Matching normal terms
-    | Start "import" rest ->
-        let rem, term = parseImport rest closings
-        addToTerms rem (Term term) closings
-    | Start "let" rest ->
-        let rem, term = parseLet rest closings
-        addToTerms rem (Term term) closings
-    | Start "rec" rest ->
-        let rem, term = parseRecFunction rest closings
-        addToTerms rem (Term term) closings
-    | Start "\\" rest ->
-        let rem, term = parseLambda rest closings
-        addToTerms rem (Term term) closings
-    | Start "if" rest ->
-        let rem, term = parseIf rest closings
-        addToTerms rem (Term term) closings
-    | Start "try" rest ->
-        let rem, term = parseTry rest closings
-        addToTerms rem (Term term) closings
-    | Start "[" rest ->
-        let rem, term = parseList rest closings
-        addToTerms rem (Term term) closings
-    | Start "input" rest ->
-        addToTerms rest (Term Input) closings
-    // Matching prefix operators
-    | Start "-" rest when not isAfterTerm ->
-        addToTerms rest (Prefix Negate) closings
-    | Start "empty?" rest ->
-        addToTerms rest 
-            (Term <| Fn (Var(XPattern "x", None), IsEmpty <| X "x")) closings
-    | Start "head" rest ->
-        addToTerms rest 
-            (Term <| Fn (Var(XPattern "x", None), Head <| X "x")) closings
-    | Start "tail" rest ->
-        addToTerms rest 
-            (Term <| Fn (Var(XPattern "x", None), Tail <| X "x")) closings
-    | Start "output" rest ->
-        addToTerms rest 
-            (Term <| Fn (Var(XPattern "x", None), Output <| X "x")) closings
-    | Start "#" rest ->
-        let rest, term = parseProjection rest closings
-        addToTerms rest (Term term) closings
-    // Matching infix operators
-    | Start ">>" rest ->
-        addToTerms rest (Infix <| Def Sequence) closings
-    | Start "!!" rest ->
-        addToTerms rest (Infix Index) closings  
-    | Start "%" rest ->
-        addToTerms rest (Infix Remainder) closings        
-    | Start "@" rest ->
-        addToTerms rest (Infix Concat) closings
-    | Start "+" rest ->
-        addToTerms rest (Infix <| Def Add) closings
-    | Start "-" rest when isAfterTerm ->
-        addToTerms rest (Infix <| Def Subtract) closings
-    | Start "*" rest ->
-        addToTerms rest (Infix <| Def Multiply) closings
-    | Start "/" rest ->
-        addToTerms rest (Infix <| Def Divide) closings
-    | Start "<=" rest ->
-        addToTerms rest (Infix <| Def LessOrEqual) closings
-    | Start "<" rest ->
-        addToTerms rest (Infix <| Def LessThan) closings
-    | Start "=" rest ->
-        addToTerms rest (Infix <| Def Equal) closings
-    | Start "!=" rest ->
-        addToTerms rest (Infix <| Def Different) closings
-    | Start ">=" rest ->
-        addToTerms rest (Infix <| Def GreaterOrEqual) closings
-    | Start ">" rest ->
-        addToTerms rest (Infix <| Def GreaterThan) closings
-    // Right associative operators
-    | Start "$" rest ->
-        addToTerms rest (Infix Apply) closings
-    | Start "." rest ->
-        addToTerms rest (Infix Compose) closings
-    | Start "::" rest ->
-        addToTerms rest (Infix <| Def Cons) closings
-    | Start "&&" rest ->
-        addToTerms rest (Infix <| Def And) closings
-    | Start "||" rest ->
-        addToTerms rest (Infix <| Def Or) closings
-    | _ when (snd closings).IsEmpty ->
-        "", []
-    | _ ->
-        raiseExp <| sprintf "Expected \"%A\" at %A" closings text
+//#endregion
 
-   
-// Calls collectTerms and unify, testing if the return is a term
-and parseTerm text closings = 
-    let rem, collected = collectTerms text closings false
-    if collected.Length = 0 then
-        raiseExp <| sprintf "Must have at least one term to process at %A" text
-    rem, unifyTerms collected 0
+//#region Parse Branching Expressions
 
-let parse text =
-    let rem, t = parseTerm (removeComments text) (true, [])
-    let complete = stdlib.loadCompiled t
-    if rem.Length > 0 then
-        raiseExp "Something went very wrong with parsing"
-    else
-        complete
+let private pIf =
+    let first = pstring "if" >>. ws >>. pTerm
+    let second = pstring "then" >>. ws >>. pTerm
+    let third = pstring "else" >>. ws >>. pTerm
+    pipe3 first second third (fun x y z -> Cond(x, y, z))
+    
+let private pMatch = 
+    pipe2
+        (pstring "match" >>. ws >>. pTerm .>> pstring "with" .>> ws)
+        (many1 
+            (tuple3 
+                (pstring "|" >>. ws >>. pPattern)
+                (opt (pstring "when" >>. ws >>. pTerm))
+                (pstring "->" >>. ws >>. pTerm))) <|
+    fun first triplets -> ExMatch(first, triplets)
+
+//#endregion
+
+let private pValue = 
+    pIdentifier |>> ExX <|>
+    (choice [pBool;
+            pNum;
+            pNil;
+            pRaise;
+            pChar;
+            pString;
+            pParen;
+            pRecord;
+            pProjection;
+            pSquareBrackets;
+            pIf;
+            pMatch;
+            pLambda;
+            pRecLambda;
+            pLet;
+            pGet;
+            pSet;
+            pStack;
+            pDistort] <?> "term")
+
+//#region Expression Parsing
+
+let private manyApplication p =
+  Inline.Many(elementParser = p,
+              stateFromFirstElement = (fun x -> x),
+              foldState = (fun acc x -> ExApp(acc, x)),
+              resultFromState = (fun acc -> acc))
+
+let private toOPP x: Operator<ExTerm, string, UserState> = 
+    let updateAssoc = 
+        function 
+        | Left -> Associativity.Left 
+        | Right -> Associativity.Right 
+        | Non -> Associativity.None
+    match x with
+    | OpSpec (Prefix (pri, BuiltInOp op), string) ->
+        upcast PrefixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, false, fun x -> ExApp (ExBuiltIn op, x))
+            : Operator<ExTerm, string, UserState>
+    | OpSpec (Prefix (pri, ConstructorOp op), string) ->
+        upcast PrefixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, false, fun x -> ExApp (ExConstructor op, x))
+            : Operator<ExTerm, string, UserState>
+    | OpSpec (Prefix (pri, CustomOp op), string) ->
+        upcast PrefixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, false, fun x -> ExApp (ExX op, x))
+            : Operator<ExTerm, string, UserState>
+    | OpSpec (Infix (pri, assoc, BuiltInOp op), string) ->
+        upcast InfixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, updateAssoc assoc, fun x y -> ExApp (ExApp (ExBuiltIn op, x), y))
+            : Operator<ExTerm, string, UserState>
+    | OpSpec (Infix (pri, assoc, ConstructorOp op), string) ->
+        upcast InfixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, updateAssoc assoc, fun x y -> ExApp (ExApp (ExConstructor op, x), y))
+            : Operator<ExTerm, string, UserState>
+    | OpSpec (Infix (pri, assoc, CustomOp op), string) ->
+        upcast InfixOperator(string, (notFollowedBy pOperator) >>. ws >>. preturn "", pri, updateAssoc assoc, fun x y -> ExApp (ExApp (ExX op, x), y))
+            : Operator<ExTerm, string, UserState>
+
+let private getExpressionParser state =
+    let operators = state.operators
+    let opp = new OperatorPrecedenceParser<ExTerm,string,UserState>()
+    let expr = opp.ExpressionParser
+    opp.TermParser <- manyApplication (pValue .>> ws)
+
+    for op in operators do
+        opp.AddOperator <| toOPP op
+    opp.AddOperator (InfixOperator("`", pIdentifier .>> pstring "`" .>> ws, 9, Associativity.Left,
+                        (), (fun id x y -> ExApp (ExApp (ExX id, x), y))))
+    opp.ExpressionParser
+
+//#endregion
+
+do pTermRef := 
+    fun stream ->
+        let expr = getExpressionParser (stream.UserState)
+        (expr .>> ws) stream
+
+let private pProgram = ws >>. pTerm .>> eof
+
+let parseWith (lib: Library) text =
+    let state = defaultUserState.addOperators lib.operators
+    let res = runParserOnString pProgram state "" text
+    match res with
+    | Success (a, _, _) -> ExLet(DeclImport(lib.terms), a)
+    | Failure (err, _, _) -> raise (ParseException err)
+
+let parse text = parseWith (stdlib.loadCompiled ()) text
 
 let parsePure text =
-    let rem, t = parseTerm (removeComments text) (true, [])
-    if rem.Length > 0 then
-        raiseExp "Something went very wrong with parsing"
-    else
-        t
+    let res = runParserOnString pProgram defaultUserState "" text
+    match res with
+    | Success (a, _, _) -> a
+    | Failure (err, _, _) -> raise (ParseException err)
+
+let parseStdlib unit =
+    let res = runParserOnString pLibrary defaultUserState "" stdlib.content
+    match res with
+    | Failure (err, _, _) -> raise (ParseException err)
+    | Success (decls, state, _) -> 
+        let terms, env = translateLib decls emptyTransEnv
+        let ops = List.filter (fun op -> not <| List.exists ((=) op) defaultOPs) state.operators
+        {terms = terms; operators=ops; translationEnv = env}
+

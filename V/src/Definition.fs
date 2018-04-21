@@ -1,104 +1,248 @@
-﻿module Definition
+module Definition
 
 exception ParseException of string
 exception EvalException of string
 exception TypeException of string
 
+exception LibNotFound of string
+exception UncompiledLib of string
+
 type Trait =
     | Equatable
     | Orderable
-    | TuplePosition of int * Type
     | RecordLabel of string * Type
 
-and Type =
-    | VarType of string * Trait list
+and ConstructorType =
     | Int
     | Bool
     | Char
-    | Unit
+    | List
+    | Tuple of components:int
+    //| Custom of string * Type list
+
+and Type =
+    | VarType of string * Trait list
+    | ConstType of ConstructorType * Type list
     | Function of Type * Type
-    | List of Type
-    | Tuple of Type list
+    | Accessor of io:Type * record:Type
     | Record of (string * Type) list
 
-let rec mapOption f ls =
-    match ls with
-    | [] -> Some []
-    | x :: rest ->
-        match f x with
-        | Some x' -> 
-            match mapOption f rest with
-            | None -> None
-            | Some rest' -> Some <| x' :: rest'
-        | None -> None
+type Ident = string
+    
+type Constructor =
+    | I of int
+    | C of char
+    | B of bool
+    | Nil
+    | Cons
+    | Tuple of components:int
+    //| Custom of string
 
-type op =
+type VarPattern = Pat of Pattern * Type option
+
+and Pattern =
+    | XPat of Ident
+    | IgnorePat
+    | ConstructorPat of Constructor * VarPattern list
+    | RecordPat of bool * (string * VarPattern) list
+
+type BuiltIn =
+    | Id
+
+    | Get
+    | Set
+    | Stack
+    | Distort
+
     | Add
     | Subtract
     | Multiply
     | Divide
+    | Negate
+
     | LessThan
     | LessOrEqual
     | Equal
     | Different
     | GreaterOrEqual
     | GreaterThan
-    | Application
-    | Cons
-    | Sequence
+
     | And
     | Or
 
+type Function =
+    | Lambda of Ident * term
+    | Recursive of Ident * (Type option) * Ident * term
 
-    
-type Ident = string
-    
-type VarPattern = Var of Pattern * Type option
+and Path =
+    | Component of string
+    //| Stacked of Path * Path
+    | Joined of term list
+    //| Distorted of Path * getter:term * setter:term
 
-and Pattern =
-    | XPattern of Ident
-    | IgnorePattern
-    | TuplePattern of VarPattern list
-    | RecordPattern of (string * VarPattern) list
-    | NilPattern
-    | ConsPattern of VarPattern * VarPattern
-
-type term =
-    | B of bool
-    | Skip
-    | I of int
-    | C of char
-    | OP of term * op * term
-    | Cond of term * term * term
+and term =
+    | Constructor of Constructor
+    | BuiltIn of BuiltIn
     | X of Ident
-    | Fn of VarPattern * term
-    | RecFn of Ident * (Type option) * VarPattern * term
+    | RecordAccess of Path
+    | Fn of Function
+    | App of term * term
+    | Match of term * (VarPattern * term option * term) list
     | Let of VarPattern * term * term
-    | Nil
-    | IsEmpty of term
-    | Head of term
-    | Tail of term
     | Raise
-    | Try of term * term
-    | Output of term
-    | Input
-    | Tuple of term list
     | Record of (string * term) list
-    | ProjectIndex of int * term
-    | ProjectName of string * term
 
-type result =
-    | ResB of bool
-    | ResSkip
-    | ResI of int
-    | ResC of char
+type ResFunction = Function * Env
+
+and ResPath = 
+    | ResComponent of string
+    | ResStacked of ResPath * ResPath
+    | ResJoined of ResPath list
+    | ResDistorted of ResPath * getter:result * setter:result
+
+and ResPartialApp =
+    | AppBuiltIn of BuiltIn
+    | AppConstructor of Constructor
+
+and result =
+    | ResRecordAcess of ResPath
+    | ResFn of ResFunction
+    | ResPartial of ResPartialApp * result list
+    | ResConstructor of Constructor * result list
     | ResRaise
-    | ResNil
-    | ResCons of result * result
-    | ResClosure of VarPattern * term * env
-    | ResRecClosure of Ident * VarPattern * term * env
-    | ResTuple of result list
     | ResRecord of (string * result) list
 and
-    env = Map<Ident, result>
 
+//#region Evaluation Environment
+    Env =
+    {numArgs: Map<Constructor, int>;
+     groups: (Constructor list) list;
+     ids: Map<Ident, result>}
+
+let defaultEnv = 
+    {numArgs = 
+        [Cons, 2; 
+        Nil, 0] 
+        |> Map.ofList
+     groups = 
+        [
+            [Nil; Cons]
+        ]
+     ids = Map.empty}
+
+//#endregion
+
+//#region Library and Parsing
+
+type Operator =
+    | BuiltInOp of BuiltIn
+    | ConstructorOp of Constructor
+    | CustomOp of string
+
+type Assoc =
+    | Left
+    | Right
+    | Non
+
+type Fixity =
+    | Prefix of int * Operator
+    | Infix of int * Assoc * Operator
+
+type OperatorSpec =
+    | OpSpec of fix:Fixity * string:string
+    
+type LibComponent = VarPattern * term
+
+//#endregion
+
+
+//#region Extended Language
+
+type ExType =
+    | ExVarType of string * Trait list
+    | ExConstType of ConstructorType * ExType list
+    | ExFunction of ExType * ExType
+    | ExAccessor of ExType * ExType
+    | ExRecordType of (string * ExType) list
+
+    | ExTypeAlias of string
+
+type ExVarPattern = ExPattern * ExType option
+
+and ExPattern =
+    | ExXPat of Ident
+    | ExIgnorePat
+    | ExRecordPat of bool * (string * ExVarPattern) list
+    | ExConstructorPat of Constructor * ExVarPattern list
+
+    | ExListPat of ExVarPattern list
+    
+type ExConstructor =
+    | ExI of int
+    | ExC of char
+    | ExB of bool
+    | ExNil
+    | ExCons
+    | ExTuple of components: int
+
+type ExFunction =
+    | ExLambda of ExVarPattern list * ExTerm
+    | ExRecursive of Ident * ExVarPattern list * ExType option * ExTerm
+
+and ExPath = 
+    | ExComponent of string
+    //| ExStacked of ExPath * ExPath
+    | ExJoined of ExTerm list
+    //| ExDistorted of ExPath * getter:ExTerm * setter:ExTerm
+
+and ExTerm = 
+    | ExX of Ident
+    | ExRecordAccess of ExPath
+    | ExBuiltIn of BuiltIn
+    | ExConstructor of Constructor
+    | ExFn of ExFunction
+    | ExApp of ExTerm * ExTerm
+    | ExMatch of ExTerm * (ExVarPattern * ExTerm option * ExTerm) list
+    | ExLet of ExDeclaration * ExTerm
+    | ExRaise
+    | ExRecord of (string * ExTerm) list
+    
+    | ExTuple of ExTerm list
+    | ExListTerm of ExTerm list
+    | Cond of ExTerm * ExTerm * ExTerm
+    | Range of ExTerm * ExTerm option * ExTerm
+    | Comprehension of ExTerm * ExVarPattern * ExTerm
+
+and ExDeclaration =
+    | DeclConst of ExVarPattern * ExTerm
+    | DeclFunc of isRec:bool * Ident * ExVarPattern list * ExType option * ExTerm
+    | DeclImport of LibComponent list
+    | DeclAlias of string * ExType
+
+//#endregion
+
+//#region Helper Functions
+
+let flip f a b = f b a
+
+let curry f a b = f (a, b)
+let uncurry f (a, b) = f a b
+
+let rec mapOption f ls =
+    let f' acc x = 
+        match acc with
+        | None -> None
+        | Some acc -> 
+            match f x with
+            | Some x -> Some <| x :: acc
+            | None -> None
+    List.fold f' (Some []) <| List.rev ls
+
+let rec foldOption f acc ls =
+    let f' acc x = 
+        match acc with
+        | None -> None
+        | Some acc -> f acc x
+    List.fold f' acc ls
+
+//#endregion
