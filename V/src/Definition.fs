@@ -194,7 +194,7 @@ and ExPath =
     //| ExStacked of ExPath * ExPath
     | ExJoined of ExTerm list
     //| ExDistorted of ExPath * getter:ExTerm * setter:ExTerm
-
+    
 and ExTerm = 
     | ExX of Ident
     | ExRecordAccess of ExPath
@@ -212,12 +212,17 @@ and ExTerm =
     | Cond of ExTerm * ExTerm * ExTerm
     | Range of ExTerm * ExTerm option * ExTerm
     | Comprehension of ExTerm * ExVarPattern * ExTerm
+    
+    | ExAccess of ExAccessor
 
 and ExDeclaration =
     | DeclConst of ExVarPattern * ExTerm
     | DeclFunc of isRec:bool * Ident * ExVarPattern list * ExType option * ExTerm
     | DeclImport of LibComponent list
     | DeclAlias of string * ExType
+
+and ExAccessor =
+    | ExStacked of string * string list
 
 //#endregion
 

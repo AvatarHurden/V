@@ -138,6 +138,12 @@ let rec transformToIdents parameters =
         | _ -> None
 
     mapOption f parameters
+
+and translateAccessor acc env =
+    match acc with
+    | ExStacked (record, fields) ->
+        let f acc x = ExApp (ExApp (ExBuiltIn Get, ExRecordAccess (ExPath.ExComponent x)), acc)
+        List.fold f (ExX record) fields
     
 and translateDecl decl env = 
     match decl with
@@ -239,14 +245,13 @@ and translateTerm term env =
         | Some x' -> X x'
         | None -> 
             raise <| ParseException (sprintf "Identifier %A was not declared" x)
+    | ExAccess acc -> 
+        let t = translateAccessor acc env
+        translateTerm t env
     | ExRecordAccess path ->
         let rec f = 
             function
             | ExComponent s -> Component s
-            //| ExDistorted (p, getter, setter) ->
-            //    Distorted (f p, translateTerm getter env, translateTerm setter env)
-            //| ExStacked (p1, p2) ->
-            //    Stacked (f p1, f p2)
             | ExJoined [x] as p ->
                 sprintf "Joined accessor %A must have at least 2 terms at %A" p term 
                     |> ParseException |> raise

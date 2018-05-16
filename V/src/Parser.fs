@@ -322,6 +322,18 @@ let private pProjection =
 
 //#endregion
 
+//#region Parse Extended Accessing
+
+let private pDotSyntax =
+    pipe2 (pIdentifier) 
+        (many1 (pstring "." >>. pIdentifier))
+        <| fun x y -> ExAccess (ExStacked (x, y))
+
+let private pVariable =
+    attempt pDotSyntax <|> (pIdentifier |>> ExX)
+
+//#endregion
+
 //#region Parse Functions
 
 let private pParameter =
@@ -534,7 +546,7 @@ let private pMatch =
 //#endregion
 
 let private pValue = 
-    pIdentifier |>> ExX <|>
+    pVariable <|>
     (choice [pBool;
             pNum;
             pNil;
