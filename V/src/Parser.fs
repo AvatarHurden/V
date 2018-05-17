@@ -324,13 +324,36 @@ let private pProjection =
 
 //#region Parse Extended Accessing
 
-let private pDotSyntax =
+let private pDotAccessor, private pDotAccessorRef = createParserForwardedToRef<ExDotAccessor, UserState>()
+
+let private pDotLabel = pIdentifier |>> DotLabel
+let private pDotString = pstring "'" >>. pIdentifier |>> DotString
+let private pDotJoined = 
+    pBetween "(" ")"
+        (sepBy1 pDotAccessor (pstring "," .>> ws) 
+                |>> (function | [x] -> x | xs -> DotJoined xs))
+
+let private pDotValue = 
+    choice 
+        [pDotString;
+         pDotLabel;
+         pDotJoined]
+         
+let private pDotStacked = 
+        pipe2 pDotValue 
+            (pstring "." >>. pDotAccessor)
+             <| curry DotStacked
+
+do pDotAccessorRef := 
+    attempt pDotStacked <|> pDotValue
+         
+let private pDotAccess =
     pipe2 (pIdentifier) 
-        (many1 (pstring "." >>. pIdentifier))
-        <| fun x y -> ExAccess (ExStacked (x, y))
+        (pstring "." >>. pDotAccessor)
+        <| fun x y -> DotAccess (x, y)
 
 let private pVariable =
-    attempt pDotSyntax <|> (pIdentifier |>> ExX)
+    attempt pDotAccess <|> (pIdentifier |>> ExX)
 
 //#endregion
 

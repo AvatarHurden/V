@@ -139,11 +139,17 @@ let rec transformToIdents parameters =
 
     mapOption f parameters
 
-and translateAccessor acc env =
-    match acc with
-    | ExStacked (record, fields) ->
-        let f acc x = ExApp (ExApp (ExBuiltIn Get, ExRecordAccess (ExPath.ExComponent x)), acc)
-        List.fold f (ExX record) fields
+and translateDotAccessor dot env =
+    match dot with
+    | DotLabel x -> RecordAccess <| Path.Component x
+    | DotString x -> 
+        translateTerm (ExX x) env
+    | DotStacked (dot1, dot2) -> 
+        let acc1 = translateDotAccessor dot1 env
+        let acc2 = translateDotAccessor dot2 env
+        App (App (BuiltIn Stack, acc1), acc2)
+    | DotJoined dots ->
+        List.map (flip translateDotAccessor env) dots |> Path.Joined |> RecordAccess 
     
 and translateDecl decl env = 
     match decl with
@@ -245,9 +251,11 @@ and translateTerm term env =
         | Some x' -> X x'
         | None -> 
             raise <| ParseException (sprintf "Identifier %A was not declared" x)
-    | ExAccess acc -> 
-        let t = translateAccessor acc env
-        translateTerm t env
+    | DotAccess (x, dot) -> 
+        let realX = translateTerm (ExX x) env
+        let accessor = translateDotAccessor dot env
+
+        App (App (BuiltIn Get, accessor), realX)
     | ExRecordAccess path ->
         let rec f = 
             function

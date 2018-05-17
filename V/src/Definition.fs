@@ -213,7 +213,7 @@ and ExTerm =
     | Range of ExTerm * ExTerm option * ExTerm
     | Comprehension of ExTerm * ExVarPattern * ExTerm
     
-    | ExAccess of ExAccessor
+    | DotAccess of string * ExDotAccessor
 
 and ExDeclaration =
     | DeclConst of ExVarPattern * ExTerm
@@ -221,8 +221,11 @@ and ExDeclaration =
     | DeclImport of LibComponent list
     | DeclAlias of string * ExType
 
-and ExAccessor =
-    | ExStacked of string * string list
+and ExDotAccessor =
+    | DotStacked of ExDotAccessor * ExDotAccessor
+    | DotLabel of string
+    | DotString of string
+    | DotJoined of ExDotAccessor list
 
 //#endregion
 
