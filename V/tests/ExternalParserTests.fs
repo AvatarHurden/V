@@ -154,6 +154,51 @@ type TestFunctionParsing() =
     member that.maltypedLambda() =
         shouldFail "   (\x: -> x) 3"
         
+[<TestFixture>]
+type TestDotSyntaxParsing() =
+    
+    let record = "let x = {a: {b:1,c:'c'},d:True, e:1};"
+    
+    [<Test>]
+    member that.dotOnValue() =
+        shouldFail <| "{a:1}.a"
+
+    [<Test>]
+    member that.trailingDot() =
+        shouldFail <| "x."
+        
+    [<Test>]
+    member that.nonIdentifier() =
+        shouldFail (record + "x.2")
+        
+    [<Test>]
+    member that.missingClosingParenthesis() =
+        shouldFail (record + "x.(a")
+        
+    [<Test>]
+    member that.emptyParenthesis() =
+        shouldFail (record + "x.()")
+
+    [<Test>]
+    member that.singleName() =
+        compare (record + "x.d") <| ResConstructor (B true, [])
+        
+    [<Test>]
+    member that.compoundName() =
+        compare (record + "x.a.b") <| ResConstructor (I 1, [])
+        
+    [<Test>]
+    member that.simpleJoined() =
+        compare (record + "x.(e, d)") <| ResConstructor (Tuple 2, [ResConstructor (I 1, []);ResConstructor (B true, [])])
+        
+    [<Test>]
+    member that.simpleIdentifier() =
+        compare (record + "let f = #d; x.'f") <| ResConstructor (B true, [])
+        
+    [<Test>]
+    member that.trailingIdentifierMark() =
+        shouldFail (record + "x.'")
+        
 
 [<TestFixture>]
 type TestCond() =
@@ -289,3 +334,4 @@ type TestInteractions() =
                         if empty? x then 0 else (head x)+(sum(tail x))
                     ;
                     sum(4::3::2::1::Nil)" <| ResConstructor (I 10, [])
+

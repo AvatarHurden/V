@@ -353,7 +353,7 @@ let private pDotAccess =
         <| fun x y -> DotAccess (x, y)
 
 let private pVariable =
-    attempt pDotAccess <|> (pIdentifier |>> ExX)
+    attempt (pIdentifier .>> notFollowedByL (pstring ".") "." |>> ExX) <|> pDotAccess
 
 //#endregion
 
