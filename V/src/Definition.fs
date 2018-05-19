@@ -189,15 +189,9 @@ type ExFunction =
     | ExLambda of ExVarPattern list * ExTerm
     | ExRecursive of Ident * ExVarPattern list * ExType option * ExTerm
 
-and ExPath = 
-    | ExComponent of string
-    //| ExStacked of ExPath * ExPath
-    | ExJoined of ExTerm list
-    //| ExDistorted of ExPath * getter:ExTerm * setter:ExTerm
-    
 and ExTerm = 
     | ExX of Ident
-    | ExRecordAccess of ExPath
+    | ExRecordAccess of ExDotAccessor
     | ExBuiltIn of BuiltIn
     | ExConstructor of Constructor
     | ExFn of ExFunction
@@ -220,7 +214,7 @@ and ExDeclaration =
     | DeclFunc of isRec:bool * Ident * ExVarPattern list * ExType option * ExTerm
     | DeclImport of LibComponent list
     | DeclAlias of string * ExType
-
+    
 and ExDotAccessor =
     | DotStacked of ExDotAccessor * ExDotAccessor
     | DotLabel of string

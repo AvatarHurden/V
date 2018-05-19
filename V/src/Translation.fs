@@ -257,15 +257,7 @@ and translateTerm term env =
 
         App (App (BuiltIn Get, accessor), realX)
     | ExRecordAccess path ->
-        let rec f = 
-            function
-            | ExComponent s -> Component s
-            | ExJoined [x] as p ->
-                sprintf "Joined accessor %A must have at least 2 terms at %A" p term 
-                    |> ParseException |> raise
-            | ExJoined paths ->
-                Joined <| List.map (flip translateTerm env) paths
-        RecordAccess <| f path
+        translateDotAccessor path env
     | ExFn fn -> translateFn fn env
     | ExApp (t1, t2) ->
         App(translateTerm t1 env, translateTerm t2 env)

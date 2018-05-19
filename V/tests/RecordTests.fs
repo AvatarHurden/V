@@ -51,7 +51,7 @@ let private definitions =
                         country @ prefix @ rest
                     ;
                     let phoneAsStruct = #phone ~. (phoneToStruct, structToPhone);""";
-                  "let numberAndCountry = #(stackedNumber, phoneAsStruct :. #country);"]
+                  "let numberAndCountry = #('stackedNumber, 'phoneAsStruct.country);"]
 
 let until n text =
     Seq.take n definitions |> flip Seq.append [text] |> String.concat "\n"

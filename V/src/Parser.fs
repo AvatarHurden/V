@@ -308,20 +308,6 @@ let private pDistort = pstring "distort" >>. ws |>> fun _ -> ExBuiltIn Distort
 
 let private pTerm, private pTermRef = createParserForwardedToRef<ExTerm, UserState>()
 
-//#region Parse Accessors
-
-let private pPath = 
-    (pIdentifier |>> ExComponent)
-    <|> (pBetween "(" ")" 
-        (sepBy1 pTerm (pstring "," .>> ws)) 
-            |>> ExJoined)
-
-
-let private pProjection = 
-    pstring "#" >>. pPath |>> ExRecordAccess
-
-//#endregion
-
 //#region Parse Extended Accessing
 
 let private pDotAccessor, private pDotAccessorRef = createParserForwardedToRef<ExDotAccessor, UserState>()
@@ -330,7 +316,7 @@ let private pDotLabel = pIdentifier |>> DotLabel
 let private pDotString = pstring "'" >>. pIdentifier |>> DotString
 let private pDotJoined = 
     pBetween "(" ")"
-        (sepBy1 pDotAccessor (pstring "," .>> ws) 
+        (sepBy1 pDotAccessor (ws >>. pstring "," .>> ws) 
                 |>> (function | [x] -> x | xs -> DotJoined xs))
 
 let private pDotValue = 
@@ -354,6 +340,9 @@ let private pDotAccess =
 
 let private pVariable =
     attempt (pIdentifier .>> notFollowedByL (pstring ".") "." |>> ExX) <|> pDotAccess
+    
+let private pProjection = 
+    pstring "#" >>. pDotAccessor |>> ExRecordAccess
 
 //#endregion
 
