@@ -258,6 +258,32 @@ and translateTerm term env =
         App (App (BuiltIn Get, accessor), realX)
     | ExRecordAccess path ->
         translateDotAccessor path env
+    | Update updates ->
+        let rec parseUpdates updates (env: TranslationEnv) = 
+            match updates with
+            | [] -> ExBuiltIn Id, env
+            | (Declaration decl) :: rest -> 
+                let t, env' = parseUpdates rest env
+                ExLet (decl, t), env'
+            | (FieldSet (accessor, term)) :: rest ->
+                let id, env' = env.generateNewIdent ()
+                let f = ExFn <| ExLambda ([ExXPat id, None], 
+                                    ExApp (ExApp (ExApp (ExBuiltIn Set, ExRecordAccess accessor), term), ExX id))
+                let g, env' = parseUpdates rest env'
+                let id2, env' = env'.generateNewIdent ()
+                ExFn <| ExLambda ([ExXPat id2, None], ExApp (g, ExApp (f, ExX id2))), env'
+            | (FieldModify (accessor, term)) :: rest ->
+                let id, env' = env.generateNewIdent ()
+                let idOld, env' = env'.generateNewIdent ()
+                let modify = 
+                    ExFn <| ExLambda ([ExXPat id, None],
+                                ExLet (DeclConst ((ExXPat idOld, None), ExApp (ExApp (ExBuiltIn Get, ExRecordAccess accessor), ExX id)),
+                                    ExApp (ExApp (ExApp (ExBuiltIn Set, ExRecordAccess accessor), ExApp (term, ExX idOld)), ExX id)))
+                let g, env' = parseUpdates rest env'
+                let id2, env' = env'.generateNewIdent ()
+                ExFn <| ExLambda ([ExXPat id2, None], ExApp (g, ExApp (modify, ExX id2))), env'
+        let term, env' = parseUpdates updates env
+        translateTerm term env'
     | ExFn fn -> translateFn fn env
     | ExApp (t1, t2) ->
         App(translateTerm t1 env, translateTerm t2 env)

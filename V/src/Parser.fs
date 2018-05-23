@@ -66,7 +66,8 @@ let keywords =
        ["let" ; "True"  ; "False" ; "if"   ; "then"   ; "else"  ;
         "rec" ; "Nil"   ; "raise" ; "when" ; "match"  ; "with"  ;
         "for" ; "in"    ; "import"; "infix"; "infixl" ; "infixr";
-        "type"; "alias" ; "get"   ; "set"  ; "stack"  ; "distort";  "_"]
+        "type"; "alias" ; "get"   ; "set"  ; "stack"  ; "distort";  
+        "_"   ; "update" ]
 
 let typeKeywords = Collections.Set["Int"; "Bool"; "Char"] 
 
@@ -466,7 +467,7 @@ let private pConstantDecl =
 
 let private pLibrary =
     fun stream ->
-        let reply = ws >>. many1 pDecl .>> eof <| stream
+        let reply = ws >>. sepEndBy1 pDecl (pstring ";" .>> ws) .>> eof <| stream
         reply
 
 let parseLibWith text (sourceLib: Library) =
@@ -516,14 +517,14 @@ let pAlias =
 
 do pDeclRef :=
     let pName = pstring "let" >>. ws >>. ((attempt pConstantDecl) <|> pFunctionDecl)
-    (pImport <|> pAlias <|> pName) .>> pstring ";" .>> ws
+    (pImport <|> pAlias <|> pName)
 
 //#endregion
 
 let private pLet: Parser<ExTerm, UserState> =
     fun stream ->
         let op = stream.UserState.operators
-        let compReply = pDecl stream
+        let compReply = (pDecl .>> pstring ";" .>> ws) stream
         if compReply.Status <> Ok then
             Reply(Error, compReply.Error)
         else
@@ -536,6 +537,33 @@ let private pLet: Parser<ExTerm, UserState> =
                 Reply(ExLet(decl, t2Reply.Result))
 
 //#endregion
+
+//#region Parse Update Syntax
+
+let private pSetField =
+    (pDotAccessor .>> ws)
+        .>>. ((pstring "<-" >>. ws >>. pTerm |>> Choice1Of2)
+             <|>
+             (pstring "<~" >>. ws >>. pTerm |>> Choice2Of2))
+       |>> (fun (acc, choice) ->
+                match choice with
+                | Choice1Of2 term -> FieldSet (acc, term)
+                | Choice2Of2 term -> FieldModify (acc, term))
+            
+let private pUpdateTerm =
+    choice 
+        [pDecl |>> Declaration;
+         pSetField]
+
+let private pUpdate =
+    (pstring "update" >>. ws >>. 
+        ((pUpdateTerm |>> (fun x -> [x]))
+         <|>
+          pBetween "{" "}" (sepBy1 pUpdateTerm (pstring ";" >>. ws))))
+        |>> Update
+
+//#endregion
+
 
 //#region Parse Branching Expressions
 

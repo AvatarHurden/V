@@ -208,6 +208,7 @@ and ExTerm =
     | Comprehension of ExTerm * ExVarPattern * ExTerm
     
     | DotAccess of string * ExDotAccessor
+    | Update of ExUpdateTerm list
 
 and ExDeclaration =
     | DeclConst of ExVarPattern * ExTerm
@@ -220,6 +221,11 @@ and ExDotAccessor =
     | DotLabel of string
     | DotString of string
     | DotJoined of ExDotAccessor list
+
+and ExUpdateTerm =
+    | FieldModify of ExDotAccessor * ExTerm
+    | FieldSet of ExDotAccessor * ExTerm
+    | Declaration of ExDeclaration
 
 //#endregion
 
