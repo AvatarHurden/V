@@ -605,7 +605,8 @@ let private pValue =
             pGet;
             pSet;
             pStack;
-            pDistort] <?> "term")
+            pDistort;
+            pUpdate] <?> "term")
 
 //#region Expression Parsing
 
