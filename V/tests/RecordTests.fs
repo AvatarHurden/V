@@ -63,7 +63,15 @@ let evaluatesTo result text =
     let evaluated = text |> parse |> flip translate stdlib.stdEnv |> evaluate
     let expected = result|> parse |> flip translate stdlib.stdEnv |> evaluate
     evaluated |> should equal expected
+    
+let shouldFail text =
+    (fun () -> text |> parse |> flip translate stdlib.stdEnv |> ignore) |> should throw typeof<ParseException> 
+    
 
+let compare text term =
+    let evaluated = text |> parse |> flip translate stdlib.stdEnv |> evaluate
+    evaluated |> should equal term
+    
 [<TestFixture>]
 type TestRecordAccess() =
 
@@ -86,4 +94,104 @@ type TestRecordAccess() =
     member that.joined() =
         isValid <| until 5 "numberAndCountry"
         evaluatesTo "(456, \"+55\")" <| until 5 "me ^. numberAndCountry"
+
+[<TestFixture>]
+type TestDotSyntaxParsing() =
     
+    let record = "let x = {a: {b:1,c:'c'},d:True, e:1};"
+    
+    [<Test>]
+    member that.dotOnValue() =
+        shouldFail <| "{a:1}.a"
+
+    [<Test>]
+    member that.trailingDot() =
+        shouldFail <| "x."
+        
+    [<Test>]
+    member that.nonIdentifier() =
+        shouldFail (record + "x.2")
+        
+    [<Test>]
+    member that.missingClosingParenthesis() =
+        shouldFail (record + "x.(a")
+        
+    [<Test>]
+    member that.emptyParenthesis() =
+        shouldFail (record + "x.()")
+
+    [<Test>]
+    member that.singleName() =
+        compare (record + "x.d") <| ResConstructor (B true, [])
+        
+    [<Test>]
+    member that.compoundName() =
+        compare (record + "x.a.b") <| ResConstructor (I 1, [])
+        
+    [<Test>]
+    member that.simpleJoined() =
+        compare (record + "x.(e, d)") <| ResConstructor (Tuple 2, [ResConstructor (I 1, []);ResConstructor (B true, [])])
+        
+    [<Test>]
+    member that.simpleIdentifier() =
+        compare (record + "let f = #d; x.'f") <| ResConstructor (B true, [])
+        
+    [<Test>]
+    member that.trailingIdentifierMark() =
+        shouldFail (record + "x.'")
+
+[<TestFixture>]
+type TestUpdateSyntax() =
+
+    let record = "{a: {b:1,c:'c'},d:True, e:1}"
+
+    let inner = ResRecord (["b", ResConstructor (I 1, []); "c", ResConstructor (C 'c', [])])
+    
+    [<Test>]
+    member that.singleFieldUpdate() =
+        compare ("(update d <- False)" + record) <| ResRecord (["a", inner
+                                                                "d", ResConstructor (B false, []);
+                                                                "e", ResConstructor (I 1, [])])
+
+    [<Test>]
+    member that.singleFieldUpdateBrackets() =
+        compare ("update { d <- False}" + record) <| ResRecord (["a", inner
+                                                                 "d", ResConstructor (B false, []);
+                                                                 "e", ResConstructor (I 1, [])])
+    
+    [<Test>]
+    member that.multipleUpdateFail() =
+        shouldFail ("(update d <- False; e <- 2)" + record)
+            
+    [<Test>]
+    member that.multipleUpdate() =
+        compare ("update { d <- False; e <- 2}" + record) <| ResRecord (["a", inner
+                                                                         "d", ResConstructor (B false, []);
+                                                                         "e", ResConstructor (I 2, [])])
+    [<Test>]
+    member that.multipleUpdateOrder() =
+        compare ("update { e <- 3; e <- 2}" + record) <| ResRecord (["a", inner
+                                                                     "d", ResConstructor (B true, []);
+                                                                     "e", ResConstructor (I 2, [])])
+                                             
+    [<Test>]
+    member that.updateModify() =
+        compare ("let f x = x + 1; update { e <~ f }" + record) <| ResRecord (["a", inner
+                                                                               "d", ResConstructor (B true, []);
+                                                                               "e", ResConstructor (I 2, [])])
+
+    [<Test>]
+    member that.updateModifyInside() =
+        compare ("update { let f x = x + 1; e <~ f }" + record) <| ResRecord (["a", inner
+                                                                               "d", ResConstructor (B true, []);
+                                                                               "e", ResConstructor (I 2, [])])
+
+    [<Test>]
+    member that.updateDeclarationFail() =
+        shouldFail ("update { e <~ f ; let f x = x + 1 }" + record)
+        
+    [<Test>]
+    member that.updateUselessDeclaration() =
+        compare ("update { e <- 2 ; let f x = x + 1 }" + record) <| ResRecord (["a", inner
+                                                                                "d", ResConstructor (B true, []);
+                                                                                "e", ResConstructor (I 2, [])])
