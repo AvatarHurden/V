@@ -175,3 +175,18 @@ and printResult result =
         sprintf "Recursive function with name %A and parameter %A" id id2
     | ResPartial (b, _) -> 
         sprintf "Partial application of builtin function %A" b
+
+
+let parseString (string: string) =
+    let f acc x =
+        ResConstructor (Cons, [ResConstructor (C x, []); acc])
+    string.ToCharArray () |> Array.rev |> Array.fold f (ResConstructor (Nil, []))
+
+let rec formatString (vString: result) =
+    match vString with
+    | ResConstructor (Cons, [ResConstructor (C x, []); rest]) ->
+        "x" + formatString rest
+    | ResConstructor (Nil, []) ->
+        ""
+    | t ->
+        sprintf "Tried to print %A, but it is not a string" (printResult t) |> EvalException |> raise

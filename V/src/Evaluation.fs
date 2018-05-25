@@ -422,6 +422,27 @@ and private evalPartial b results t2_thunk env =
                 | _ -> sprintf "First argument of set is not a function" |> EvalException |> raise
             | _ -> 
                 sprintf "Wrong number of arguments to set" |> EvalException |> raise
+        
+        | Read ->
+            match results with
+            | [] ->
+                match t2 with
+                | ResConstructor (Void, []) ->
+                    let t = System.Console.ReadLine ()
+                    ResConstructor (IO, [parseString t])
+                | _ ->
+                    sprintf "Wrong type of arguments to read" |> EvalException |> raise  
+            | _ -> 
+                sprintf "Wrong number of arguments to read" |> EvalException |> raise
+        
+        | Write ->
+            match results with
+            | [] ->
+                let string = formatString t2 
+                System.Console.WriteLine string
+                ResConstructor (IO, [ResConstructor (Void, [])])
+            | _ -> 
+                sprintf "Wrong number of arguments to read" |> EvalException |> raise
 
 and private applyResults fn res env =
     match fn with
