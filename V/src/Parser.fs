@@ -63,10 +63,11 @@ let private pBetween s1 s2 p =
 
 let keywords = 
     Collections.Set
-       ["let" ; "True"  ; "False" ; "if"   ; "then"   ; "else"  ;
-        "rec" ; "Nil"   ; "raise" ; "when" ; "match"  ; "with"  ;
-        "for" ; "in"    ; "import"; "infix"; "infixl" ; "infixr";
-        "type"; "alias" ; "get"   ; "set"  ; "stack"  ; "distort";  "_"]
+       ["let" ; "True"  ; "False" ; "if"   ; "then"   ; "else"   ;
+        "rec" ; "Nil"   ; "raise" ; "when" ; "match"  ; "with"   ;
+        "for" ; "in"    ; "import"; "infix"; "infixl" ; "infixr" ;
+        "type"; "alias" ; "get"   ; "set"  ; "stack"  ; "distort";  
+        "read"; "write" ; "_" ]
 
 let typeKeywords = Collections.Set["Int"; "Bool"; "Char"] 
 
@@ -226,8 +227,10 @@ let private pStringPattern =
                          | _ -> raise <| invalidArg "string" "Parsing string did not return string"
 
 let private pParenPattern = 
-    pBetween "(" ")" (sepBy1 pPattern (pstring "," .>> ws))
-        |>> (function | [x] -> x | xs -> (ExConstructorPat ((Tuple xs.Length), xs), None))
+    pBetween "(" ")" (sepBy pPattern (pstring "," .>> ws))
+        |>> (function | [] -> (ExConstructorPat (Void, []), None) 
+                      | [x] -> x 
+                      | xs -> (ExConstructorPat ((Tuple xs.Length), xs), None))
 
 let private pRecordCompPattern = tuple2 (pIdentifier .>> ws .>> pstring ":" .>> ws) pPattern
 
@@ -303,6 +306,10 @@ let private pStack = pstring "stack" >>. ws |>> fun _ -> ExBuiltIn Stack
 
 let private pDistort = pstring "distort" >>. ws |>> fun _ -> ExBuiltIn Distort
 
+let private pRead = pstring "read" >>. ws |>> fun _ -> ExBuiltIn Read
+
+let private pWrite = pstring "write" >>. ws |>> fun _ -> ExBuiltIn Write
+
 
 //#endregion   
 
@@ -347,8 +354,10 @@ let private pRecLambda: Parser<ExTerm, UserState> =
 //#region Compound Value Parsing (Tuple, Record, List)
 
 let private pParen =
-    let pTuple = sepBy1 pTerm (pstring "," .>> ws) 
-                |>> (function | [x] -> x | xs -> ExTuple xs)
+    let pTuple = sepBy pTerm (pstring "," .>> ws) 
+                |>> (function | [] -> ExConstructor Void 
+                              | [x] -> x 
+                              | xs -> ExTuple xs)
 
     let pPrefixOP =
         pBetween "(" ")" (pOperator .>> ws)
@@ -553,7 +562,9 @@ let private pValue =
             pGet;
             pSet;
             pStack;
-            pDistort] <?> "term")
+            pDistort;
+            pRead;
+            pWrite] <?> "term")
 
 //#region Expression Parsing
 

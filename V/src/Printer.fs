@@ -28,6 +28,8 @@ let printConstrType constrType =
     | Char -> "Char"
     | Bool -> "Bool"
     | List -> "List"
+    | IOType -> "IO"
+    | Unit -> "()"
     | ConstructorType.Tuple n -> "Tuple " + string n
 
 let printConstructor constr =
@@ -38,6 +40,8 @@ let printConstructor constr =
     | Cons -> "Cons"
     | Nil -> "Nil"
     | Tuple n -> "Tuple " + string n
+    | Void -> "()"
+    | IO -> "IO"
 
 let rec printPatternList (Pat (p, t)) =
     match p with
@@ -82,6 +86,7 @@ and printPattern (Pat(pat, typ)) =
             addSomeType typ "[]"
         | Tuple n -> 
             addSomeType typ <| "(" + printTuple printPattern pats + ")"
+        | Void -> addSomeType typ "()"
     | RecordPat (partial, fields) -> 
         let t = printRecord printPattern fields
         match partial with
@@ -94,6 +99,7 @@ and printTrait trt =
     match trt with
     | Orderable -> "Orderable"
     | Equatable -> "Equatable"
+    | Monad -> "Monad"
     | RecordLabel (label, typ) ->
         sprintf "%O at label %A" (printType typ) label
 
@@ -116,6 +122,8 @@ and printType typ =
     | ConstType (List, [t]) -> sprintf "[%s]" (printType t)
     | ConstType (ConstructorType.Tuple _, types) ->
         sprintf "(%s)" (printTuple printType types)
+    | ConstType (Unit, []) -> "()"
+    | ConstType (IOType, [t]) -> "IO " + printType t
     | ConstType _ -> sprintf "The type %A is invalid" typ |> TypeException |> raise
     | Accessor (t1, t2) ->
         sprintf "#(%O -> %O)" (printType t1) (printType t2)
@@ -151,6 +159,8 @@ and printResult result =
     | ResConstructor (Cons, [ResConstructor (C head, []); tail]) -> "\"" + printResultString result + "\""
     | ResConstructor (Cons, [head; tail]) -> "[" + printResultList result + "]"
     | ResConstructor (Tuple _, v) -> "(" + printTuple printResult v + ")"
+    | ResConstructor (Void, []) -> "()"
+    | ResConstructor (IO, [t]) -> "IO " + printResult t
     | ResConstructor _ -> sprintf "The value %A is invalid" result |> EvalException |> raise
     | ResRecordAcess path ->
         let rec f path =
@@ -185,7 +195,7 @@ let parseString (string: string) =
 let rec formatString (vString: result) =
     match vString with
     | ResConstructor (Cons, [ResConstructor (C x, []); rest]) ->
-        "x" + formatString rest
+        string x + formatString rest
     | ResConstructor (Nil, []) ->
         ""
     | t ->
