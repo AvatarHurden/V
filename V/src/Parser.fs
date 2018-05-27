@@ -162,8 +162,10 @@ let private pBoolType = stringReturn "Bool" (ExConstType (Bool, []))
 let private pCharType = stringReturn "Char" (ExConstType (Char, []))
 
 let private pParenType = 
-    pBetween "(" ")" (sepBy1 pType (pstring "," .>> ws))
-        |>> (function | [x] -> x | xs -> ExConstType ((ConstructorType.Tuple xs.Length), xs))
+    pBetween "(" ")" (sepBy pType (pstring "," .>> ws))
+        |>> (function | [] -> ExConstType (Unit, []) 
+                      | [x] -> x 
+                      | xs -> ExConstType ((ConstructorType.Tuple xs.Length), xs))
 
 let private pRecordCompType = tuple2 (pIdentifier .>> ws .>> pstring ":" .>> ws) pType
 
