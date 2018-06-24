@@ -153,7 +153,6 @@ type TestFunctionParsing() =
     [<Test>]
     member that.maltypedLambda() =
         shouldFail "   (\x: -> x) 3"
-        
 
 [<TestFixture>]
 type TestCond() =
@@ -289,3 +288,4 @@ type TestInteractions() =
                         if empty? x then 0 else (head x)+(sum(tail x))
                     ;
                     sum(4::3::2::1::Nil)" <| ResConstructor (I 10, [])
+
