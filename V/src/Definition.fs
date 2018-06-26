@@ -78,6 +78,9 @@ type BuiltIn =
     | Read
     | Write
 
+    | Return
+    | Bind
+
 type Function =
     | Lambda of Ident * term
     | Recursive of Ident * (Type option) * Ident * term

@@ -67,7 +67,7 @@ let keywords =
         "rec" ; "Nil"   ; "raise" ; "when" ; "match"  ; "with"   ;
         "for" ; "in"    ; "import"; "infix"; "infixl" ; "infixr" ;
         "type"; "alias" ; "get"   ; "set"  ; "stack"  ; "distort";  
-        "read"; "write" ; "_" ]
+        "read"; "write" ; "return"; "bind" ; "_" ]
 
 let typeKeywords = Collections.Set["Int"; "Bool"; "Char"] 
 
@@ -312,6 +312,9 @@ let private pRead = pstring "read" >>. ws |>> fun _ -> ExBuiltIn Read
 
 let private pWrite = pstring "write" >>. ws |>> fun _ -> ExBuiltIn Write
 
+let private pReturn = pstring "return" >>. ws |>> fun _ -> ExBuiltIn Return
+
+let private pBind = pstring "bind" >>. ws |>> fun _ -> ExBuiltIn Bind
 
 //#endregion   
 
@@ -566,7 +569,9 @@ let private pValue =
             pStack;
             pDistort;
             pRead;
-            pWrite] <?> "term")
+            pWrite;
+            pReturn;
+            pBind] <?> "term")
 
 //#region Expression Parsing
 

@@ -706,6 +706,18 @@ let rec typeOfBuiltin b =
         let ret = ConstType (IOType, [ConstType (Unit, [])])
         let param = ConstType (List, [ConstType (Char, [])])
         Function (param, ret)
+
+    | Return ->
+        let varType1 = VarType (getVarType (), [])
+        Function (varType1, ConstType (IOType, [varType1]))
+    | Bind ->
+        let varType1 = VarType (getVarType (), [])
+        let varType2 = VarType (getVarType (), [])
+
+        let param1 = ConstType (IOType, [varType1])
+        let param2 = Function (varType1,  ConstType (IOType, [varType2]))
+
+        Function (param1, Function (param2, ConstType (IOType, [varType2])))
         
 
 // collectConstraints term environment constraints

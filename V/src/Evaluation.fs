@@ -443,6 +443,26 @@ and private evalPartial b results t2_thunk env =
                 ResConstructor (IO, [ResConstructor (Void, [])])
             | _ -> 
                 sprintf "Wrong number of arguments to read" |> EvalException |> raise
+         
+        | Return ->
+            match results with
+            | [] ->
+                ResConstructor (IO, [t2])
+            | _ -> 
+                sprintf "Wrong number of arguments to 'return'" |> EvalException |> raise
+        | Bind ->
+            match results with
+            | [] -> ResPartial (AppBuiltIn b, [t2])
+            | [t1] ->
+                match t1, t2 with
+                | ResConstructor (IO, [t1]), ResFn _ ->
+                    applyResults t2 t1 env
+                | ResConstructor (IO, [t1]), _ ->
+                    sprintf "Second argument of 'bind' must be a function" |> EvalException |> raise
+                | _ ->
+                    sprintf "First argument of 'bind' must be an IO value" |> EvalException |> raise
+            | _ -> 
+                sprintf "Wrong number of arguments to 'return'" |> EvalException |> raise
 
 and private applyResults fn res env =
     match fn with
