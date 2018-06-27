@@ -455,10 +455,8 @@ and private evalPartial b results t2_thunk env =
             | [] -> ResPartial (AppBuiltIn b, [t2])
             | [t1] ->
                 match t1, t2 with
-                | ResConstructor (IO, [t1]), ResFn _ ->
+                | ResConstructor (IO, [t1]), t2 ->
                     applyResults t2 t1 env
-                | ResConstructor (IO, [t1]), _ ->
-                    sprintf "Second argument of 'bind' must be a function" |> EvalException |> raise
                 | _ ->
                     sprintf "First argument of 'bind' must be an IO value" |> EvalException |> raise
             | _ -> 
