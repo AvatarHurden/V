@@ -28,6 +28,7 @@ let apply f x = f x;
 let compose f g x = f (g x);
 
 let infixr 1 ($) = apply;
+let infixl 1 (&) = flip apply;
 let infixr 9 (.) = compose;
 
 // ====================
@@ -77,22 +78,18 @@ let swap (x, y) = (y, x);
 // Record Functions
 // ================
 
-// let get acc r = fst $ acc raise r;
-// let set acc v r = snd $ acc v r;
-
 let modify acc f r =
     let oldV = get acc r;
     set acc (f oldV) r
 ;
 
-let infixl 8 (^.) = flip get;
-let infixr 8 (^=) = set;
-let infixr 8 (^~) = modify;
-
-let infixl 1 (&) = flip apply;
-
-let infixl 9 (:.) = stack;
 let infixl 9 (~.) acc (getter, setter) = distort acc getter setter;
+
+// ===============
+// Monad Functions
+// ===============
+
+let infixl 1 (>>=) = bind;
 
 // ====================
 // Basic List functions
