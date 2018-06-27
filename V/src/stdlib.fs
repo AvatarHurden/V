@@ -74,6 +74,9 @@ let snd (_, y) = y;
 
 let swap (x, y) = (y, x);
 
+let curry f a b = f (a,b);
+let uncurry f (a,b) = f a b;
+
 // ================
 // Record Functions
 // ================
