@@ -226,12 +226,12 @@ and ExTerm =
     | Range of ExTerm * ExTerm option * ExTerm
     | Comprehension of ExTerm * ExVarPattern * ExTerm
 
-    | Do of ExDoTerm list * ExTerm
+    | Do of ExDoTerm list
 
 and ExDoTerm =
     | DoBind of ExVarPattern * ExTerm
     | DoTerm of ExTerm
-    | Declaration of ExDeclaration
+    | DoDeclaration of ExDeclaration
 
 and ExDeclaration =
     | DeclConst of ExVarPattern * ExTerm

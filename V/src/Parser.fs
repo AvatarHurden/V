@@ -67,7 +67,7 @@ let keywords =
         "rec" ; "Nil"   ; "raise" ; "when" ; "match"  ; "with"   ;
         "for" ; "in"    ; "import"; "infix"; "infixl" ; "infixr" ;
         "type"; "alias" ; "get"   ; "set"  ; "stack"  ; "distort";  
-        "read"; "write" ; "return"; "bind" ; "_" ]
+        "read"; "write" ; "return"; "bind" ; "do"     ; "_" ]
 
 let typeKeywords = Collections.Set["Int"; "Bool"; "Char"] 
 
@@ -456,7 +456,7 @@ let private pConstantDecl =
 
 let private pLibrary =
     fun stream ->
-        let reply = ws >>. many1 pDecl .>> eof <| stream
+        let reply = ws >>. sepEndBy1 pDecl (pstring ";" .>> ws) .>> eof <| stream
         reply
 
 let parseLibWith text (sourceLib: Library) =
@@ -506,14 +506,14 @@ let pAlias =
 
 do pDeclRef :=
     let pName = pstring "let" >>. ws >>. ((attempt pConstantDecl) <|> pFunctionDecl)
-    (pImport <|> pAlias <|> pName) .>> pstring ";" .>> ws
+    (pImport <|> pAlias <|> pName)
 
 //#endregion
 
 let private pLet: Parser<ExTerm, UserState> =
     fun stream ->
         let op = stream.UserState.operators
-        let compReply = pDecl stream
+        let compReply = (pDecl .>> pstring ";" .>> ws) stream
         if compReply.Status <> Ok then
             Reply(Error, compReply.Error)
         else
@@ -526,6 +526,24 @@ let private pLet: Parser<ExTerm, UserState> =
                 Reply(ExLet(decl, t2Reply.Result))
 
 //#endregion
+
+//#region Parse Do Notation
+
+let private pDoBind =
+    (pIdentifier .>> ws) .>>. (pstring "<-" >>. ws >>. pTerm) 
+        |>> (fun (id, term) -> DoBind ((ExXPat id, None), term))
+            
+let private pDoTerm =
+    choice 
+        [pDecl |>> DoDeclaration;
+         pDoBind;
+         pTerm |>> DoTerm]
+         
+let private pDo =
+    (pstring "do" >>. ws >>. 
+        pBetween "{" "}" (sepBy1 pDoTerm (pstring ";" >>. ws)))
+        |>> Do
+
 
 //#region Parse Branching Expressions
 
@@ -571,7 +589,8 @@ let private pValue =
             pRead;
             pWrite;
             pReturn;
-            pBind] <?> "term")
+            pBind;
+            pDo] <?> "term")
 
 //#region Expression Parsing
 

@@ -94,6 +94,8 @@ let infixl 9 (~.) acc (getter, setter) = distort acc getter setter;
 
 let infixl 1 (>>=) = bind;
 
+//let infixl 1 (>>) x y = x >>= (\_ -> y);
+
 // ====================
 // Basic List functions
 // ====================
