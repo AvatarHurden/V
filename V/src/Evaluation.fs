@@ -428,8 +428,11 @@ and private evalPartial b results t2_thunk env =
             | [] ->
                 match t2 with
                 | ResConstructor (Void, []) ->
-                    let t = System.Console.ReadLine ()
-                    ResConstructor (IO, [parseString t])
+                    let key = (System.Console.ReadKey ())
+                    if key.Key = System.ConsoleKey.Enter then
+                        System.Console.WriteLine()
+
+                    ResConstructor (IO, [parseChar key.KeyChar])
                 | _ ->
                     sprintf "Wrong type of arguments to read" |> EvalException |> raise  
             | _ -> 
@@ -438,8 +441,8 @@ and private evalPartial b results t2_thunk env =
         | Write ->
             match results with
             | [] ->
-                let string = formatString t2 
-                System.Console.WriteLine string
+                let char = formatChar t2 
+                System.Console.Write char
                 ResConstructor (IO, [ResConstructor (Void, [])])
             | _ -> 
                 sprintf "Wrong number of arguments to read" |> EvalException |> raise

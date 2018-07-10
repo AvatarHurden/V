@@ -536,7 +536,7 @@ let private pDoBind =
 let private pDoTerm =
     choice 
         [pDecl |>> DoDeclaration;
-         pDoBind;
+         attempt pDoBind;
          pTerm |>> DoTerm]
          
 let private pDo =

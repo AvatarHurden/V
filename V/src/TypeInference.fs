@@ -699,12 +699,12 @@ let rec typeOfBuiltin b =
         Function(accessTyp, Function (varType1, Function(varType2, varType2)))
 
     | Read ->
-        let ret = ConstType (IOType, [ConstType (List, [ConstType (Char, [])])])
+        let ret = ConstType (IOType, [ConstType (Char, [])])
         let param = ConstType (Unit, [])
         Function (param, ret)
     | Write -> 
         let ret = ConstType (IOType, [ConstType (Unit, [])])
-        let param = ConstType (List, [ConstType (Char, [])])
+        let param = ConstType (Char, [])
         Function (param, ret)
 
     | Return ->

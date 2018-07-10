@@ -186,6 +186,14 @@ and printResult result =
     | ResPartial (b, _) -> 
         sprintf "Partial application of builtin function %A" b
 
+let parseChar (char: char) =
+    ResConstructor (C char, [])
+
+let formatChar (vChar: result) =
+    match vChar with
+    | ResConstructor (C c, []) -> c
+     | t ->
+        sprintf "Tried to print %A, but it is not a char" (printResult t) |> EvalException |> raise
 
 let parseString (string: string) =
     let f acc x =
