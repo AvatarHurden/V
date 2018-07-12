@@ -405,6 +405,35 @@ let printBool (b: Bool): String =
     else
         "False"
 ;
+
+// ===========================
+// String conversion functions
+// ===========================
+
+let rec readLn () =
+	do {
+		char <- read();
+		match char with
+		| '\n' -> return []
+		| '\r' -> return []
+		| char ->
+			do {
+				rest <- readLn();
+				return $ char :: rest
+			}
+	}
+;
+
+let rec writeLn line =
+	match line with
+	| [] -> write '\n'
+	| char :: rest -> 
+		do { 
+			write char;
+			writeLn rest
+		}
+;
+
 """
 
 let compiled = compiled

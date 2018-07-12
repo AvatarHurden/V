@@ -1873,4 +1873,49 @@ let printBool (b: Bool): String =
     [<Test>]
     member that.printFalse() =
         equalsParsed (PrintBool.func + "printBool False") "\"False\""
-        
+
+
+[<TestFixture>]
+type ReadLn() =
+
+    static member func = Apply.func + """
+let rec readLn () =
+	do {
+		char <- read();
+		match char with
+		| '\n' -> return []
+		| '\r' -> return []
+		| char ->
+			do {
+				rest <- readLn();
+				return $ char :: rest
+			}
+	}
+;
+"""
+
+    [<Test>]
+    member that.testType() =
+        matchesType (ReadLn.func + "readLn") <| 
+            Function (ConstType (Unit, []), ConstType (IOType, [ConstType (List, [ConstType (Char, [])])]))
+
+
+[<TestFixture>]
+type WriteLn() =
+
+    static member func = """
+let rec writeLn line =
+	match line with
+	| [] -> write '\n'
+	| char :: rest -> 
+		do { 
+			write char;
+			writeLn rest
+		}
+;
+"""
+
+    [<Test>]
+    member that.testType() =
+        matchesType (WriteLn.func + "writeLn") <| 
+            Function (ConstType (List, [ConstType (Char, [])]), ConstType (IOType, [ConstType (Unit, [])]))          
