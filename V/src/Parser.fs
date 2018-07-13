@@ -160,11 +160,11 @@ let private pVarType = pTypeIdentifier |>> ExTypeAlias
 let private pIntType = stringReturn "Int" (ExConstType (Int, []))
 let private pBoolType = stringReturn "Bool" (ExConstType (Bool, []))
 let private pCharType = stringReturn "Char" (ExConstType (Char, []))
+let private pUnitType = stringReturn "Void" (ExConstType (Unit, []))
 
 let private pParenType = 
     pBetween "(" ")" (sepBy pType (pstring "," .>> ws))
-        |>> (function | [] -> ExConstType (Unit, []) 
-                      | [x] -> x 
+        |>> (function | [x] -> x 
                       | xs -> ExConstType ((ConstructorType.Tuple xs.Length), xs))
 
 let private pRecordCompType = tuple2 (pIdentifier .>> ws .>> pstring ":" .>> ws) pType
@@ -185,6 +185,7 @@ do pTypeValueRef := choice [pVarType;
                         pIntType;
                         pBoolType;
                         pCharType;
+                        pUnitType;
                         pListType;
                         pAccessorType] <?> "type"
 
