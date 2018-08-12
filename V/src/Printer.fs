@@ -28,6 +28,8 @@ let printConstrType constrType =
     | Char -> "Char"
     | Bool -> "Bool"
     | List -> "List"
+    | IOType -> "IO"
+    | Unit -> "()"
     | ConstructorType.Tuple n -> "Tuple " + string n
 
 let printConstructor constr =
@@ -38,6 +40,8 @@ let printConstructor constr =
     | Cons -> "Cons"
     | Nil -> "Nil"
     | Tuple n -> "Tuple " + string n
+    | Void -> "()"
+    | IO -> "IO"
 
 let rec printPatternList (Pat (p, t)) =
     match p with
@@ -82,6 +86,7 @@ and printPattern (Pat(pat, typ)) =
             addSomeType typ "[]"
         | Tuple n -> 
             addSomeType typ <| "(" + printTuple printPattern pats + ")"
+        | Void -> addSomeType typ "()"
     | RecordPat (partial, fields) -> 
         let t = printRecord printPattern fields
         match partial with
@@ -94,6 +99,7 @@ and printTrait trt =
     match trt with
     | Orderable -> "Orderable"
     | Equatable -> "Equatable"
+    | Monad -> "Monad"
     | RecordLabel (label, typ) ->
         sprintf "%O at label %A" (printType typ) label
 
@@ -116,6 +122,8 @@ and printType typ =
     | ConstType (List, [t]) -> sprintf "[%s]" (printType t)
     | ConstType (ConstructorType.Tuple _, types) ->
         sprintf "(%s)" (printTuple printType types)
+    | ConstType (Unit, []) -> "()"
+    | ConstType (IOType, [t]) -> "IO " + printType t
     | ConstType _ -> sprintf "The type %A is invalid" typ |> TypeException |> raise
     | Accessor (t1, t2) ->
         sprintf "#(%O -> %O)" (printType t1) (printType t2)
@@ -151,6 +159,8 @@ and printResult result =
     | ResConstructor (Cons, [ResConstructor (C head, []); tail]) -> "\"" + printResultString result + "\""
     | ResConstructor (Cons, [head; tail]) -> "[" + printResultList result + "]"
     | ResConstructor (Tuple _, v) -> "(" + printTuple printResult v + ")"
+    | ResConstructor (Void, []) -> "()"
+    | ResConstructor (IO, [t]) -> "IO " + printResult t
     | ResConstructor _ -> sprintf "The value %A is invalid" result |> EvalException |> raise
     | ResRecordAcess path ->
         let rec f path =
@@ -175,3 +185,26 @@ and printResult result =
         sprintf "Recursive function with name %A and parameter %A" id id2
     | ResPartial (b, _) -> 
         sprintf "Partial application of builtin function %A" b
+
+let parseChar (char: char) =
+    ResConstructor (C char, [])
+
+let formatChar (vChar: result) =
+    match vChar with
+    | ResConstructor (C c, []) -> c
+     | t ->
+        sprintf "Tried to print %A, but it is not a char" (printResult t) |> EvalException |> raise
+
+let parseString (string: string) =
+    let f acc x =
+        ResConstructor (Cons, [ResConstructor (C x, []); acc])
+    string.ToCharArray () |> Array.rev |> Array.fold f (ResConstructor (Nil, []))
+
+let rec formatString (vString: result) =
+    match vString with
+    | ResConstructor (Cons, [ResConstructor (C x, []); rest]) ->
+        string x + formatString rest
+    | ResConstructor (Nil, []) ->
+        ""
+    | t ->
+        sprintf "Tried to print %A, but it is not a string" (printResult t) |> EvalException |> raise

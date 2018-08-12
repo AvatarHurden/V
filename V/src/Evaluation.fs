@@ -422,6 +422,48 @@ and private evalPartial b results t2_thunk env =
                 | _ -> sprintf "First argument of set is not a function" |> EvalException |> raise
             | _ -> 
                 sprintf "Wrong number of arguments to set" |> EvalException |> raise
+        
+        | Read ->
+            match results with
+            | [] ->
+                match t2 with
+                | ResConstructor (Void, []) ->
+                    let key = (System.Console.ReadKey ())
+                    if key.Key = System.ConsoleKey.Enter then
+                        System.Console.WriteLine()
+
+                    ResConstructor (IO, [parseChar key.KeyChar])
+                | _ ->
+                    sprintf "Wrong type of arguments to read" |> EvalException |> raise  
+            | _ -> 
+                sprintf "Wrong number of arguments to read" |> EvalException |> raise
+        
+        | Write ->
+            match results with
+            | [] ->
+                let char = formatChar t2 
+                System.Console.Write char
+                ResConstructor (IO, [ResConstructor (Void, [])])
+            | _ -> 
+                sprintf "Wrong number of arguments to read" |> EvalException |> raise
+         
+        | Return ->
+            match results with
+            | [] ->
+                ResConstructor (IO, [t2])
+            | _ -> 
+                sprintf "Wrong number of arguments to 'return'" |> EvalException |> raise
+        | Bind ->
+            match results with
+            | [] -> ResPartial (AppBuiltIn b, [t2])
+            | [t1] ->
+                match t1, t2 with
+                | ResConstructor (IO, [t1]), t2 ->
+                    applyResults t2 t1 env
+                | _ ->
+                    sprintf "First argument of 'bind' must be an IO value" |> EvalException |> raise
+            | _ -> 
+                sprintf "Wrong number of arguments to 'return'" |> EvalException |> raise
 
 and private applyResults fn res env =
     match fn with

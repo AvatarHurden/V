@@ -118,7 +118,12 @@ let runCompile (results: ParseResults<Compile>) =
                 times <- times @ ["translate", stopWatch.Elapsed.TotalMilliseconds]
 
                 stopWatch.Restart()
-                ignore <| typeInfer term
+                
+                let typ = typeInfer term
+                match typ with
+                | ConstType (IOType, _) -> ignore ()
+                | _ -> sprintf "The result type of a program must be IO, not %A" (printType typ)|> TypeException |> raise
+
                 times <- times @ ["infer type", stopWatch.Elapsed.TotalMilliseconds]
 
                 stopWatch.Restart()
@@ -141,8 +146,10 @@ let runRun (results: ParseResults<Run>) =
 
     if results.IsUsageRequested then
         Console.WriteLine (parser.PrintUsage())
+        None
     elif not <| results.Contains <@ Run.Path @> then
         Console.WriteLine (parser.PrintUsage("Missing argument <path>"))
+        None
     else
         let path = results.GetResult <@ Run.Path @>
         let isPure = results.Contains <@ Run.Pure @>
@@ -167,6 +174,12 @@ let runRun (results: ParseResults<Run>) =
             if showTime then
                 Console.WriteLine (List.fold (fun acc (x, t) -> acc + sprintf "\nTime to %s = %f" x t) "" times)
                 printfn "\nTotal time = %f" <| List.fold (fun acc (x, t) -> acc + t) 0.0 times
+                
+            match evaluated with
+            | ResConstructor (IO, [ResConstructor (I i, [])]) -> Some i
+            | _ -> 
+                evaluated |> printResult |> printfn "%O"
+                None
         with
         | :? SerializationException ->
             
@@ -187,27 +200,41 @@ let runRun (results: ParseResults<Run>) =
                 times <- times @ ["translate", stopWatch.Elapsed.TotalMilliseconds]
 
                 stopWatch.Restart()
-                ignore <| typeInfer term
+
+                let typ = typeInfer term
+                match typ with
+                | ConstType (IOType, _) -> ignore ()
+                | _ -> sprintf "The result type of a program must be IO, not %A" (printType typ) |> TypeException |> raise
+
                 times <- times @ ["infer type", stopWatch.Elapsed.TotalMilliseconds]
         
                 stopWatch.Restart()
                 let evaluated = evaluate term
                 times <- times @ ["evaluate", stopWatch.Elapsed.TotalMilliseconds]
 
-                evaluated |> printResult |> printfn "%O"
                 if showTime then
                     Console.WriteLine (List.fold (fun acc (x, t) -> acc + sprintf "\nTime to %s = %f" x t) "" times)
                     printfn "\nTotal time = %f" <| List.fold (fun acc (x, t) -> acc + t) 0.0 times
+                
+                match evaluated with
+                | ResConstructor (IO, [ResConstructor (I i, [])]) -> Some i
+                | _ -> 
+                    evaluated |> printResult |> printfn "%O"
+                    None
             with
             | EvalException e -> 
                 printfn "Evaluation error:"
                 Console.WriteLine e
+                None
             | ParseException e -> 
                 printfn "Parsing error:"
                 Console.WriteLine e
+                None
             | TypeException e ->
                 printfn "Type system error:"
                 Console.WriteLine e
+                None
+            
 
 
 let runInteractive (results: ParseResults<Interactive>) =
@@ -355,20 +382,27 @@ let main argv =
 
     if results.IsUsageRequested then
         Console.WriteLine (parser.PrintUsage())
+        0
     else
         if results.Contains <@ Compile @> then
             runCompile <| results.GetResult <@ Compile @>
+            0
         elif results.Contains <@ Run @> then
-            runRun <| results.GetResult <@ Run @>
+            let result = runRun <| results.GetResult <@ Run @>
+            match result with
+            | Some i -> i
+            | None -> 0
         elif results.Contains <@ Interactive @> then
             runInteractive <| results.GetResult <@ Interactive @>
+            0
         elif results.Contains <@ CompileStdLib @> then
             compileStdlib ()
+            0
         elif results.Contains <@ WriteTests @> then
             writeTests ()
+            0
         else
             Console.WriteLine (parser.PrintUsage())  
-    
-    0
+            0
 
     

@@ -336,6 +336,27 @@ and translateTerm term env =
     | Comprehension (retTerm, p, source) ->
         let fn = translateFn (ExLambda ([p], retTerm)) env
         App (App (X "map", fn), translateTerm source env)
+    
+    | Do terms ->
+        let rec parseDos terms (env: TranslationEnv) =
+            match terms with
+            | [] -> 
+               "A do block must have at least one term" |> ParseException |> raise
+            | [DoTerm term] -> term, env
+            | [_] ->
+                "The final term of a do block must be an expression" |> ParseException |> raise
+            | DoTerm t :: rest ->
+                let rest', env' = parseDos rest env
+                ExApp (ExApp (ExBuiltIn Bind, t), ExFn (ExLambda ([ExIgnorePat, None], rest'))), env'
+            | DoDeclaration decl :: rest ->
+                let rest', env' = parseDos rest env
+                ExLet (decl, rest'), env'
+            | DoBind (pattern, term) :: rest ->
+                let rest', env' = parseDos rest env
+                ExApp (ExApp (ExBuiltIn Bind, term), ExFn (ExLambda ([pattern], rest'))), env'
+        let term', env' = parseDos terms env
+        translateTerm term' env'
+         
        
 let translateLib declarations env =
     let f (comps, env) decl =

@@ -106,6 +106,8 @@ let defaultEnv =
             B false, (ConstType (Bool, []), [])
             Nil, (LIST, [])
             Cons, (LIST, [VarType ("a", []); LIST])
+            Void, (ConstType (Unit, []), [])
+            IO, (ConstType (IOType, [VarType ("a", [])]), [VarType ("a", [])])
             ]
      vars = Map.empty
      varTypes = Map.empty
@@ -121,6 +123,7 @@ let defaultUniEnv =
             Char, [(Equatable, Map.empty); (Orderable, Map.empty)]
             List, [(Equatable, Map.empty.Add(0, [Equatable]))
                    (Orderable, Map.empty.Add(0, [Orderable]))]
+            IOType, [(Monad, Map.empty)]
             ]
     constraints = []
     }
@@ -153,7 +156,8 @@ and getFreeVarsInTraits traits env =
     let f =
         function
         | Equatable
-        | Orderable -> []
+        | Orderable 
+        | Monad -> []
         | RecordLabel (l, t) -> getFreeVars t env
     List.collect f traits
 //#endregion
@@ -189,6 +193,7 @@ and substituteInTraits (sub: Substitution) traits =
         function
         | Equatable -> Equatable
         | Orderable -> Orderable
+        | Monad -> Monad
         | RecordLabel (l, t) -> RecordLabel (l, substituteInType sub t)
     List.map f traits
 
@@ -223,6 +228,7 @@ type Env with
             match trt with
             | Equatable -> env, Equatable
             | Orderable -> env, Orderable
+            | Monad -> env, Monad
             | RecordLabel (l, typ) ->
                 let env', typ' = env.instantiate typ
                 env', RecordLabel (l, typ')
@@ -315,11 +321,11 @@ let rec validateTrait trt typ (env: UniEnv) =
     | Accessor (typ1, typ2) ->
         match trt with
         | Orderable | Equatable
-        | RecordLabel _ -> None
+        | Monad | RecordLabel _ -> None
     | Function (typ1, typ2) ->
         match trt with
         | Orderable | Equatable
-        | RecordLabel _ -> None
+        | Monad | RecordLabel _ -> None
     | Type.Record (pairs) ->
         match trt with
         | Equatable ->
@@ -339,7 +345,7 @@ let rec validateTrait trt typ (env: UniEnv) =
                  Some (Type.Record pairs, [Equals (typ, values.[i])])
             | None ->
                 None
-        | Orderable -> None
+        | Monad | Orderable -> None
     | VarType (x, traits) ->               
         match trt with
         | RecordLabel (name, t) ->
@@ -487,6 +493,7 @@ and applyUniToTraits traits (unified: Unified) =
         function
         | Equatable -> Equatable
         | Orderable -> Orderable
+        | Monad -> Monad
         | RecordLabel (l, t) -> RecordLabel (l, applyUniToType t unified)
     List.map f traits
             
@@ -690,6 +697,28 @@ let rec typeOfBuiltin b =
         let accessTyp = Accessor (varType1, varType2)
 
         Function(accessTyp, Function (varType1, Function(varType2, varType2)))
+
+    | Read ->
+        let ret = ConstType (IOType, [ConstType (Char, [])])
+        let param = ConstType (Unit, [])
+        Function (param, ret)
+    | Write -> 
+        let ret = ConstType (IOType, [ConstType (Unit, [])])
+        let param = ConstType (Char, [])
+        Function (param, ret)
+
+    | Return ->
+        let varType1 = VarType (getVarType (), [])
+        Function (varType1, ConstType (IOType, [varType1]))
+    | Bind ->
+        let varType1 = VarType (getVarType (), [])
+        let varType2 = VarType (getVarType (), [])
+
+        let param1 = ConstType (IOType, [varType1])
+        let param2 = Function (varType1,  ConstType (IOType, [varType2]))
+
+        Function (param1, Function (param2, ConstType (IOType, [varType2])))
+        
 
 // collectConstraints term environment constraints
 let rec collectConstraints term (env: Env) =

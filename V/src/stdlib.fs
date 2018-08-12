@@ -28,6 +28,7 @@ let apply f x = f x;
 let compose f g x = f (g x);
 
 let infixr 1 ($) = apply;
+let infixl 1 (&) = flip apply;
 let infixr 9 (.) = compose;
 
 // ====================
@@ -73,26 +74,27 @@ let snd (_, y) = y;
 
 let swap (x, y) = (y, x);
 
+let curry f a b = f (a,b);
+let uncurry f (a,b) = f a b;
+
 // ================
 // Record Functions
 // ================
-
-// let get acc r = fst $ acc raise r;
-// let set acc v r = snd $ acc v r;
 
 let modify acc f r =
     let oldV = get acc r;
     set acc (f oldV) r
 ;
 
-let infixl 8 (^.) = flip get;
-let infixr 8 (^=) = set;
-let infixr 8 (^~) = modify;
-
-let infixl 1 (&) = flip apply;
-
-let infixl 9 (:.) = stack;
 let infixl 9 (~.) acc (getter, setter) = distort acc getter setter;
+
+// ===============
+// Monad Functions
+// ===============
+
+let infixl 1 (>>=) = bind;
+
+//let infixl 1 (>>) x y = x >>= (\_ -> y);
 
 // ====================
 // Basic List functions
@@ -403,6 +405,35 @@ let printBool (b: Bool): String =
     else
         "False"
 ;
+
+// ===========================
+// String conversion functions
+// ===========================
+
+let rec readLn () =
+	do {
+		char <- read();
+		match char with
+		| '\n' -> return []
+		| '\r' -> return []
+		| char ->
+			do {
+				rest <- readLn();
+				return $ char :: rest
+			}
+	}
+;
+
+let rec writeLn line =
+	match line with
+	| [] -> write '\n'
+	| char :: rest -> 
+		do { 
+			write char;
+			writeLn rest
+		}
+;
+
 """
 
 let compiled = compiled

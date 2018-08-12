@@ -218,7 +218,7 @@ type TestTupleRecords() =
 
     [<Test>]
     member that.emptyTuple() =
-        shouldFail "(   )"
+        compare "(   )" <| ResConstructor (Void, [])
         
     [<Test>]
     member that.singletonTerm() =

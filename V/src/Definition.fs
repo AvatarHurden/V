@@ -11,6 +11,7 @@ type Trait =
     | Equatable
     | Orderable
     | RecordLabel of string * Type
+    | Monad
 
 and ConstructorType =
     | Int
@@ -18,6 +19,8 @@ and ConstructorType =
     | Char
     | List
     | Tuple of components:int
+    | IOType
+    | Unit
     //| Custom of string * Type list
 
 and Type =
@@ -36,6 +39,8 @@ type Constructor =
     | Nil
     | Cons
     | Tuple of components:int
+    | IO
+    | Void
     //| Custom of string
 
 type VarPattern = Pat of Pattern * Type option
@@ -69,6 +74,12 @@ type BuiltIn =
 
     | And
     | Or
+
+    | Read
+    | Write
+
+    | Return
+    | Bind
 
 type Function =
     | Lambda of Ident * term
@@ -121,8 +132,10 @@ and
 
 let defaultEnv = 
     {numArgs = 
-        [Cons, 2; 
-        Nil, 0] 
+        [Cons, 2 
+         Nil, 0 
+         Void, 0
+         IO, 1]
         |> Map.ofList
      groups = 
         [
@@ -209,6 +222,13 @@ and ExTerm =
     
     | DotAccess of string * ExDotAccessor
     | Update of ExUpdateTerm list
+
+    | Do of ExDoTerm list
+
+and ExDoTerm =
+    | DoBind of ExVarPattern * ExTerm
+    | DoTerm of ExTerm
+    | DoDeclaration of ExDeclaration
 
 and ExDeclaration =
     | DeclConst of ExVarPattern * ExTerm

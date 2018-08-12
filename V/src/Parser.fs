@@ -63,11 +63,12 @@ let private pBetween s1 s2 p =
 
 let keywords = 
     Collections.Set
-       ["let" ; "True"  ; "False" ; "if"   ; "then"   ; "else"  ;
-        "rec" ; "Nil"   ; "raise" ; "when" ; "match"  ; "with"  ;
-        "for" ; "in"    ; "import"; "infix"; "infixl" ; "infixr";
-        "type"; "alias" ; "get"   ; "set"  ; "stack"  ; "distort";  
-        "_"   ; "update" ]
+       ["let" ; "True"  ; "False" ; "if"   ; "then"   ; "else"   ;
+        "rec" ; "Nil"   ; "raise" ; "when" ; "match"  ; "with"   ;
+        "for" ; "in"    ; "import"; "infix"; "infixl" ; "infixr" ;
+        "type"; "alias" ; "get"   ; "set"  ; "stack"  ; "distort";
+        "read"; "write" ; "return"; "bind" ; "do"     ; "update" ;
+        "_" ]
 
 let typeKeywords = Collections.Set["Int"; "Bool"; "Char"] 
 
@@ -160,10 +161,12 @@ let private pVarType = pTypeIdentifier |>> ExTypeAlias
 let private pIntType = stringReturn "Int" (ExConstType (Int, []))
 let private pBoolType = stringReturn "Bool" (ExConstType (Bool, []))
 let private pCharType = stringReturn "Char" (ExConstType (Char, []))
+let private pUnitType = stringReturn "Void" (ExConstType (Unit, []))
 
 let private pParenType = 
-    pBetween "(" ")" (sepBy1 pType (pstring "," .>> ws))
-        |>> (function | [x] -> x | xs -> ExConstType ((ConstructorType.Tuple xs.Length), xs))
+    pBetween "(" ")" (sepBy pType (pstring "," .>> ws))
+        |>> (function | [x] -> x 
+                      | xs -> ExConstType ((ConstructorType.Tuple xs.Length), xs))
 
 let private pRecordCompType = tuple2 (pIdentifier .>> ws .>> pstring ":" .>> ws) pType
 
@@ -183,6 +186,7 @@ do pTypeValueRef := choice [pVarType;
                         pIntType;
                         pBoolType;
                         pCharType;
+                        pUnitType;
                         pListType;
                         pAccessorType] <?> "type"
 
@@ -227,8 +231,10 @@ let private pStringPattern =
                          | _ -> raise <| invalidArg "string" "Parsing string did not return string"
 
 let private pParenPattern = 
-    pBetween "(" ")" (sepBy1 pPattern (pstring "," .>> ws))
-        |>> (function | [x] -> x | xs -> (ExConstructorPat ((Tuple xs.Length), xs), None))
+    pBetween "(" ")" (sepBy pPattern (pstring "," .>> ws))
+        |>> (function | [] -> (ExConstructorPat (Void, []), None) 
+                      | [x] -> x 
+                      | xs -> (ExConstructorPat ((Tuple xs.Length), xs), None))
 
 let private pRecordCompPattern = tuple2 (pIdentifier .>> ws .>> pstring ":" .>> ws) pPattern
 
@@ -304,6 +310,13 @@ let private pStack = pstring "stack" >>. ws |>> fun _ -> ExBuiltIn Stack
 
 let private pDistort = pstring "distort" >>. ws |>> fun _ -> ExBuiltIn Distort
 
+let private pRead = pstring "read" >>. ws |>> fun _ -> ExBuiltIn Read
+
+let private pWrite = pstring "write" >>. ws |>> fun _ -> ExBuiltIn Write
+
+let private pReturn = pstring "return" >>. ws |>> fun _ -> ExBuiltIn Return
+
+let private pBind = pstring "bind" >>. ws |>> fun _ -> ExBuiltIn Bind
 
 //#endregion   
 
@@ -372,8 +385,10 @@ let private pRecLambda: Parser<ExTerm, UserState> =
 //#region Compound Value Parsing (Tuple, Record, List)
 
 let private pParen =
-    let pTuple = sepBy1 pTerm (pstring "," .>> ws) 
-                |>> (function | [x] -> x | xs -> ExTuple xs)
+    let pTuple = sepBy pTerm (pstring "," .>> ws) 
+                |>> (function | [] -> ExConstructor Void 
+                              | [x] -> x 
+                              | xs -> ExTuple xs)
 
     let pPrefixOP =
         pBetween "(" ")" (pOperator .>> ws)
@@ -565,6 +580,24 @@ let private pUpdate =
 //#endregion
 
 
+//#region Parse Do Notation
+
+let private pDoBind =
+    (pIdentifier .>> ws) .>>. (pstring "<-" >>. ws >>. pTerm) 
+        |>> (fun (id, term) -> DoBind ((ExXPat id, None), term))
+            
+let private pDoTerm =
+    choice 
+        [pDecl |>> DoDeclaration;
+         attempt pDoBind;
+         pTerm |>> DoTerm]
+         
+let private pDo =
+    (pstring "do" >>. ws >>. 
+        pBetween "{" "}" (sepBy1 pDoTerm (pstring ";" >>. ws)))
+        |>> Do
+
+
 //#region Parse Branching Expressions
 
 let private pIf =
@@ -606,7 +639,12 @@ let private pValue =
             pSet;
             pStack;
             pDistort;
-            pUpdate] <?> "term")
+            pUpdate;
+            pRead;
+            pWrite;
+            pReturn;
+            pBind;
+            pDo] <?> "term")
 
 //#region Expression Parsing
 
