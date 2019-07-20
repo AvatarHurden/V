@@ -6,13 +6,15 @@ open Definition
 
 type TranslationEnv = 
     {idents: Map<Ident, Ident>
+     originalIdents: Map<Ident, Ident>
      nextSuffix: int
      nextTypeSuffix: int
      typeAliases: Map<string, Type>}
 
     member this.generateSubstitutionFor (x: string) =
         let newX, newEnv = this.generateNewIdent ()
-        let newEnv = {newEnv with idents = newEnv.idents.Add (x, newX) }
+        let newEnv = {newEnv with idents = newEnv.idents.Add (x, newX); 
+                                  originalIdents = newEnv.originalIdents.Add (newX, x) }
         newX, newEnv
 
     member this.generateNewIdent (x: unit) =
@@ -47,13 +49,17 @@ type TranslationEnv =
     member this.addTypeAlias name typ =
         let aliases = this.typeAliases.Add (name, typ)
         {this with typeAliases = aliases}
+
+    member this.getOriginalIdent (generated: string) =
+        this.originalIdents.Item generated
         
 let emptyTransEnv = 
-    {idents = Map.empty; 
+    {idents = Map.empty;
+     originalIdents = Map.empty;
      nextSuffix = 0; 
      nextTypeSuffix = 0; 
      typeAliases = Map.empty}
-
+     
 type Library =
     {terms: LibComponent list;
     translationEnv: TranslationEnv;
