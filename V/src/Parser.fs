@@ -496,6 +496,7 @@ let parseLibWith text (sourceLib: Library) =
         {terms = terms; operators=ops; translationEnv = env}
 
 let parseLib text = parseLibWith text <| stdlib.loadCompiled ()
+let parseLibPure text = parseLibWith text <| emptyLib
 
 let private pImport: Parser<ExDeclaration, UserState> =
     fun stream ->

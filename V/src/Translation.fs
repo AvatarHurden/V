@@ -332,10 +332,10 @@ and translateTerm term env =
             | Some second -> 
                 let second' = translateTerm second env
                 App (App (BuiltIn Subtract, second'), first')
-        App (App (App (X "range", first'), last'), increment)
+        App (App (App (X (env.idents.Item "range"), first'), last'), increment)
     | Comprehension (retTerm, p, source) ->
         let fn = translateFn (ExLambda ([p], retTerm)) env
-        App (App (X "map", fn), translateTerm source env)
+        App (App (X (env.idents.Item "map"), fn), translateTerm source env)
     
     | Do terms ->
         let rec parseDos terms (env: TranslationEnv) =

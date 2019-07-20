@@ -36,7 +36,7 @@ let private definitions =
 	                address: home
                 };
                 """;
-                "let stackedNumber = #address :. #number;";
+                "let stackedNumber = #address.number;";
                 "let numberString = stackedNumber ~. (printInt, const . parseInt);";
                 """let phoneToStruct phone =
                         let country = take 3 phone;
@@ -88,12 +88,12 @@ type TestRecordAccess() =
     [<Test>]
     member that.distort2() =
         isValid <| until 4 "phoneAsStruct"
-        evaluatesTo "\"51\"" <| until 4 "me ^. phoneAsStruct :. #prefix"
+        evaluatesTo "\"51\"" <| until 4 "me.'phoneAsStruct.prefix"
         
     [<Test>]
     member that.joined() =
         isValid <| until 5 "numberAndCountry"
-        evaluatesTo "(456, \"+55\")" <| until 5 "me ^. numberAndCountry"
+        evaluatesTo "(456, \"+55\")" <| until 5 "me.'numberAndCountry"
 
 [<TestFixture>]
 type TestDotSyntaxParsing() =

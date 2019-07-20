@@ -97,7 +97,7 @@ let runCompile (results: ParseResults<Compile>) =
         try
             if isLib then
                 stopWatch.Restart()
-                let lib = parseLib text
+                let lib = (if isPure then parseLibPure else parseLib) text
                 times <- times @ ["parse", stopWatch.Elapsed.TotalMilliseconds]
                 
                 stopWatch.Restart()
