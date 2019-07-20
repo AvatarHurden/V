@@ -36,10 +36,10 @@ type options =
 type parseResult =
     | Expression of string
     | Error of exn
-    | Addition of LibComponent list
+    | Addition of (Ident * Type * result) list
     | Partial
     | Cleared
-
+    
 let processTerm line (env: Env) =
     let current = 
         match env.currentCommand with
@@ -90,7 +90,15 @@ let processLib line (env: Env) =
         let newEnv = newLib.translationEnv
         let lib' = {terms = newTerms; operators = newOps; translationEnv = newEnv}
         ignore <| typeInferLib lib'
-        Addition newLib.terms, {env with currentLib = lib'}.append current
+
+        let additions =
+            List.collect (fst >> Translation.getIdents) newLib.terms
+              |> List.map (fun id -> (id, lib'.translationEnv.getOriginalIdent id))
+              |> List.map (fun (id, origId) -> 
+                    let term = List.foldBack (fun (p, t) acc -> Let(p, t, acc)) newLib.terms (X id);
+                    (origId, typeInfer term, evaluate term))
+
+        Addition additions, {env with currentLib = lib'}.append current
     with
     | ParseException _ as e ->
         Partial, {env with currentCommand = Some current}

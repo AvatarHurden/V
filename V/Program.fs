@@ -270,7 +270,9 @@ let runInteractive (results: ParseResults<Interactive>) =
                     Console.WriteLine "Unknown error:"
                     Console.WriteLine e.Message
                 printf "> "
-            | REPL.Addition _ ->
+            | REPL.Addition additions ->
+                for ident, typ, res in additions do
+                    ident + ": " + (printType typ) + " = " + printResult res |> Console.WriteLine
                 printf "> "
             | REPL.Partial -> ()
             | REPL.Cleared ->
