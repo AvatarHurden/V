@@ -42,6 +42,7 @@ let emptyEnv =
 type options =
     | ShowType
     | Clear
+    | ListIds
 
 type parseResult =
     | Expression of string
@@ -61,6 +62,8 @@ let processTerm line (env: Env) =
             current.Substring 6, Some ShowType
         elif current = "<clear>" then
             "Nil", Some Clear
+        elif current = "<list>" then
+            "Nil", Some ListIds
         else
             current, None
     let parsed = parseWith env.currentLib actualText
@@ -75,6 +78,12 @@ let processTerm line (env: Env) =
             res |> Expression, env'
         | Some Clear ->
             Cleared, env'.clearLib ()
+        | Some ListIds ->
+            let s = Map.toList env'.ids 
+                    |> List.map (fun (id, (typ, res)) -> 
+                                 id + ": " + (printType typ) + " = " + printResult res) 
+                    |> String.concat "\n"
+            s |> Expression, env'
         | _ ->    
             term |> typeInfer |> ignore
             let evaluated = evaluate term
