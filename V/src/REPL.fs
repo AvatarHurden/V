@@ -11,6 +11,7 @@ open System.Runtime.InteropServices
 type Env =
     {currentCommand: string option
      commands: string list
+     ids: Map<Ident, (Type * result)>
      browseIndex: int option
      currentLib: Library
      fromStdLib: bool
@@ -24,10 +25,19 @@ type Env =
         { this with commands = oldCommands @ [command]; currentCommand = None }
 
 let stdlibEnv = 
-    { currentCommand = None; commands = []; browseIndex = None; currentLib = parseStdlib (); fromStdLib = true }
+    {currentCommand = None
+     commands = []; ids = Map.empty
+     browseIndex = None
+     currentLib = parseStdlib ()
+     fromStdLib = true}
 
 let emptyEnv = 
-    { currentCommand = None; commands = []; browseIndex = None; currentLib = emptyLib; fromStdLib = false }
+    {currentCommand = None
+     commands = []
+     ids = Map.empty
+     browseIndex = None
+     currentLib = emptyLib
+     fromStdLib = false}
 
 type options =
     | ShowType
@@ -98,7 +108,8 @@ let processLib line (env: Env) =
                     let term = List.foldBack (fun (p, t) acc -> Let(p, t, acc)) newLib.terms (X id);
                     (origId, typeInfer term, evaluate term))
 
-        Addition additions, {env with currentLib = lib'}.append current
+        let newIds = List.fold (fun ids (id, typ, result) -> Map.add id (typ, result) ids) env.ids additions
+        Addition additions, {env with currentLib = lib'; ids = newIds}.append current
     with
     | ParseException _ as e ->
         Partial, {env with currentCommand = Some current}
