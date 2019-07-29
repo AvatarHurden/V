@@ -8,25 +8,57 @@ open TypeInference
 open Printer
 open System.Runtime.InteropServices
 
+let getBindings lib = 
+    let identPairs = List.collect (fst >> Translation.getIdents) lib.terms
+                        |> List.map (fun id -> (id, lib.translationEnv.getOriginalIdent id))
+    let tuple = List.fold (fun  acc (id, _) -> App(acc, X id)) 
+                          (Constructor <| Tuple identPairs.Length) 
+                          identPairs
+    let term = List.foldBack (fun (p, t) acc -> Let(p, t, acc)) lib.terms tuple;
+    let types =
+        match typeInfer term with
+        | ConstType (ConstructorType.Tuple _, types) -> types
+        | _ -> raise <| ParseException "There was an error getting the bindings in the REPL"
+    let results =
+        match evaluate term with
+        | ResConstructor (Tuple _, results) -> results 
+        | _ -> raise <| ParseException "There was an error getting the bindings in the REPL"
+    List.zip3 (List.map snd identPairs) types results
+
+let makeIdList existingIds newIds =
+    List.fold (fun ids (id, typ, result) -> Map.add id (typ, result) ids) 
+                             existingIds newIds
+
 type Env =
     {currentCommand: string option
      commands: string list
      ids: Map<Ident, (Type * result)>
+     allIds: Map<Ident, (Type * result)>
      browseIndex: int option
      currentLib: Library
      fromStdLib: bool
     }
 
     member this.clearLib () =
-        { this with currentLib = if this.fromStdLib then parseStdlib () else emptyLib }
+        let newLib = if this.fromStdLib then parseStdlib () else emptyLib
+        { this with currentLib = newLib
+                    ids = Map.empty
+                    allIds = newLib |> getBindings |> makeIdList Map.empty}
 
     member this.append command =
         let oldCommands = this.commands 
         { this with commands = oldCommands @ [command]; currentCommand = None }
 
+    member this.appendIds newIds = 
+        let ids' = makeIdList this.ids newIds
+        let allIds' = makeIdList this.allIds newIds
+        { this with ids = ids'; allIds = allIds' }
+
 let stdlibEnv = 
     {currentCommand = None
-     commands = []; ids = Map.empty
+     commands = []
+     ids = Map.empty
+     allIds = parseStdlib () |> getBindings |> makeIdList Map.empty
      browseIndex = None
      currentLib = parseStdlib ()
      fromStdLib = true}
@@ -35,6 +67,7 @@ let emptyEnv =
     {currentCommand = None
      commands = []
      ids = Map.empty
+     allIds = Map.empty
      browseIndex = None
      currentLib = emptyLib
      fromStdLib = false}
@@ -43,6 +76,7 @@ type options =
     | ShowType
     | Clear
     | ListIds
+    | ListAllIds // List also Ids bound in std library and by user
 
 type parseResult =
     | Expression of string
@@ -50,7 +84,7 @@ type parseResult =
     | Addition of (Ident * Type * result) list
     | Partial
     | Cleared
-    
+
 let processTerm line (env: Env) =
     let current = 
         match env.currentCommand with
@@ -64,6 +98,8 @@ let processTerm line (env: Env) =
             "Nil", Some Clear
         elif current = "<list>" then
             "Nil", Some ListIds
+        elif current = "<list-all>" then
+            "Nil", Some ListAllIds
         else
             current, None
     let parsed = parseWith env.currentLib actualText
@@ -84,6 +120,13 @@ let processTerm line (env: Env) =
                                  id + ": " + (printType typ) + " = " + printResult res) 
                     |> String.concat "\n"
             s |> Expression, env'
+        | Some ListAllIds ->
+            let s = Map.toList env'.allIds
+                    |> List.map (fun (id, (typ, res)) -> 
+                                 id + ": " + (printType typ) + " = " + printResult res) 
+                    |> String.concat "\n"
+            s |> Expression, env'
+
         | _ ->    
             term |> typeInfer |> ignore
             let evaluated = evaluate term
@@ -110,15 +153,8 @@ let processLib line (env: Env) =
         let lib' = {terms = newTerms; operators = newOps; translationEnv = newEnv}
         ignore <| typeInferLib lib'
 
-        let additions =
-            List.collect (fst >> Translation.getIdents) newLib.terms
-              |> List.map (fun id -> (id, lib'.translationEnv.getOriginalIdent id))
-              |> List.map (fun (id, origId) -> 
-                    let term = List.foldBack (fun (p, t) acc -> Let(p, t, acc)) newLib.terms (X id);
-                    (origId, typeInfer term, evaluate term))
-
-        let newIds = List.fold (fun ids (id, typ, result) -> Map.add id (typ, result) ids) env.ids additions
-        Addition additions, {env with currentLib = lib'; ids = newIds}.append current
+        let additions = getBindings newLib
+        Addition additions, ({env with currentLib = lib' }.append current).appendIds additions
     with
     | ParseException _ as e ->
         Partial, {env with currentCommand = Some current}
