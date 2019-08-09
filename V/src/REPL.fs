@@ -29,6 +29,11 @@ let makeIdList existingIds newIds =
     List.fold (fun ids (id, typ, result) -> Map.add id (typ, result) ids) 
                              existingIds newIds
 
+let printBinding (id, (typ, res)) =
+    match typ with
+    | Function _ -> id + ": " + (printType typ) // Do not try to print value if it is a function.
+    | _ -> id + ": " + (printType typ) + " = " + printResult res
+
 type Env =
     {currentCommand: string option
      commands: string list
@@ -116,14 +121,12 @@ let processTerm line (env: Env) =
             Cleared, env'.clearLib ()
         | Some ListIds ->
             let s = Map.toList env'.ids 
-                    |> List.map (fun (id, (typ, res)) -> 
-                                 id + ": " + (printType typ) + " = " + printResult res) 
+                    |> List.map printBinding
                     |> String.concat "\n"
             s |> Expression, env'
         | Some ListAllIds ->
             let s = Map.toList env'.allIds
-                    |> List.map (fun (id, (typ, res)) -> 
-                                 id + ": " + (printType typ) + " = " + printResult res) 
+                    |> List.map printBinding
                     |> String.concat "\n"
             s |> Expression, env'
 
