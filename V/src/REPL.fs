@@ -82,6 +82,7 @@ type options =
     | Clear
     | ListIds
     | ListAllIds // List also Ids bound in std library and by user
+    | History
 
 type parseResult =
     | Expression of string
@@ -94,7 +95,7 @@ let processTerm line (env: Env) =
     let current = 
         match env.currentCommand with
         | None -> line
-        | Some prev -> prev + line
+        | Some prev -> prev + "\n" + line
 
     let actualText, option =
         if current.StartsWith "<type>" then
@@ -105,12 +106,14 @@ let processTerm line (env: Env) =
             "Nil", Some ListIds
         elif current = "<list-all>" then
             "Nil", Some ListAllIds
+        elif current = "<history>" then
+            "Nil", Some History
         else
             current, None
     let parsed = parseWith env.currentLib actualText
     let term = translate parsed env.currentLib.translationEnv
 
-    let env' = env.append current
+    let env' = if option.IsNone then env.append current else env
 
     try 
         match option with
@@ -129,8 +132,9 @@ let processTerm line (env: Env) =
                     |> List.map printBinding
                     |> String.concat "\n"
             s |> Expression, env'
-
-        | _ ->    
+        | Some History ->
+            String.concat "\n" env'.commands |> Expression, env'
+        | None ->    
             term |> typeInfer |> ignore
             let evaluated = evaluate term
             let res = evaluated |> printResult 
@@ -143,7 +147,7 @@ let processLib line (env: Env) =
     let current = 
         match env.currentCommand with
         | None -> line
-        | Some prev -> prev + line
+        | Some prev -> prev + "\n" + line
     
     try
         let newLib = parseLibWith current env.currentLib
