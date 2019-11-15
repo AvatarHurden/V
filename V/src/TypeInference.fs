@@ -62,7 +62,7 @@ type UniEnv =
     member this.findTraitSpecs c =
         match c with
         | ConstructorType.Tuple n ->
-            let indexes = [1..n]
+            let indexes = [0..n-1]
             let traitsList = List.map (fun _ -> [Equatable]) indexes
             Some <| [Equatable, Map.ofList (List.zip indexes traitsList)]
         | _ -> this.traitAssoc.TryFind c
@@ -245,7 +245,7 @@ type Env with
         | I _ -> ConstType (Int, [])
         | B _ -> ConstType (Bool, [])
         | Tuple n -> 
-            let args = List.map (fun x -> VarType (getVarType (), [])) [1..n]
+            let args = List.map (fun x -> VarType (getVarType (), [])) [0..n-1]
             let ret = ConstType (ConstructorType.Tuple n, args)
             List.foldBack (curry Function) args ret
         | _ -> 
@@ -281,7 +281,7 @@ type Env with
         | I _ -> ConstType (Int, []), []
         | B _ -> ConstType (Bool, []), []
         | Tuple n -> 
-            let args = List.map (fun x -> VarType (getVarType (), [])) [1..n]
+            let args = List.map (fun x -> VarType (getVarType (), [])) [0..n-1]
             let ret = ConstType (ConstructorType.Tuple n, args)
 
             let subs =

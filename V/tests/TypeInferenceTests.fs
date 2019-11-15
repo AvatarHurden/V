@@ -330,3 +330,46 @@ type TestTypeInstantiation() =
     member this.matchFunctionUntyped() =
         let varTyp = VarType ("X2", [])
         compare ("let f x = x 3; f", Function (Function (Int', varTyp), varTyp))
+
+[<TestFixture>]
+type TestTraits() =
+
+    [<Test>]
+    member that.equalityBool() =
+        compare ("True = True", ConstType (Bool, []))
+
+    [<Test>]
+    member that.equalityInt() =
+        compare ("5 = 3", ConstType (Bool, []))
+
+    [<Test>]
+    member that.comparisonInt() =
+        compare ("5 > 3", ConstType (Bool, []))
+
+    [<Test>]
+    member that.equalityChar() =
+        compare ("'a' = 'b'", ConstType (Bool, []))
+
+    [<Test>]
+    member that.comparisonChar() =
+        compare ("'c' > 'b'", ConstType (Bool, []))
+
+    [<Test>]
+    member that.equalityList() =
+        compare ("[1,2] = []", ConstType (Bool, []))
+
+    [<Test>]
+    member that.comparisonList() =
+        compare ("[] < [1]", ConstType (Bool, []))
+
+    [<Test>]
+    member that.comparisonListElementsWithoutTrait() =
+        shouldFail "[] < [True]"
+    
+    [<Test>]
+    member that.equalityTuple() =
+        compare ("(1,2) = (3,4)", ConstType (Bool, []))
+
+    [<Test>]
+    member that.equalityTupleElementsWithoutTrait() =
+        shouldFail "((), ()) = ((), ())"
