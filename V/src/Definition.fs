@@ -91,6 +91,10 @@ and Path =
     | Joined of term list
     //| Distorted of Path * getter:term * setter:term
 
+and Declaration =
+    | Term of VarPattern * term
+    | Data of name:string * typeVariables:string list * constructors:(string * Type list) list
+
 and term =
     | Constructor of Constructor
     | BuiltIn of BuiltIn
