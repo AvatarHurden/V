@@ -718,10 +718,34 @@ let rec typeOfBuiltin b =
         let param2 = Function (varType1,  ConstType (IOType, [varType2]))
 
         Function (param1, Function (param2, ConstType (IOType, [varType2])))
-        
+
+let rec collectDecl (decl: Declaration) (env: Env) =
+    match decl with
+    | Term (pat, term) ->  
+        let env, pat, typ = 
+            match pat with
+            | Pat (pat, Some typ) -> 
+                let env', typ = env.instantiate typ
+                env', pat, Some typ
+            | Pat (pat, None) -> env, pat, None
+
+        let typ1, c1 = collectConstraints term env
+
+        let cons = Option.fold (fun acc x -> Equals (x, typ1) :: acc) [] typ
+            
+        let uni = unify Map.empty Map.empty <| cons @@ c1 @@ defaultUniEnv 
+        let typ1' = applyUniToType typ1 uni
+        let typ' = Option.map (flip applyUniToType uni) typ
+
+        let env', cons = matchUniversalPattern (Pat (pat, typ')) typ1' (applyUniToEnv env uni) []      
+        env', cons @@ c1
+    | NewType (name, typeVars, constructors) ->
+        let typeVars' = List.map VarType typeVars
+        let env' = {env with constructors = List.fold (fun map (s, typs) -> Map.add (Custom s) (ConstType ((CustomType name), typeVars'), typs) map) env.constructors constructors}
+        env', UniEnv.empty
 
 // collectConstraints term environment constraints
-let rec collectConstraints term (env: Env) =
+and collectConstraints term (env: Env) =
     match term with
     | Constructor c -> env.typeOf c, UniEnv.empty
     | BuiltIn b -> typeOfBuiltin b, UniEnv.empty
@@ -811,27 +835,10 @@ let rec collectConstraints term (env: Env) =
             let typRes, consRes = collectConstraints result env'
             acc @@ consPattern @@ consCondition @@ consRes @@ [Equals (retTyp, typRes)]
         retTyp, List.fold f c1 patterns
-    | Let(pattern, t1, t2) ->
-
-        let env, pat, typ = 
-            match pattern with
-            | Pat (pat, Some typ) -> 
-                let env', typ = env.instantiate typ
-                env', pat, Some typ
-            | Pat (pat, None) -> env, pat, None
-
-        let typ1, c1 = collectConstraints t1 env
-
-        let cons = Option.fold (fun acc x -> Equals (x, typ1) :: acc) [] typ
-            
-        let uni = unify Map.empty Map.empty <| cons @@ c1 @@ defaultUniEnv 
-        let typ1' = applyUniToType typ1 uni
-        let typ' = Option.map (flip applyUniToType uni) typ
-
-        let env', cons = matchUniversalPattern (Pat (pat, typ')) typ1' (applyUniToEnv env uni) []
-        
+    | Let(decl, t2) ->
+        let env', cons = collectDecl decl env
         let typ2, c2 = collectConstraints t2 env'
-        typ2, cons @@ c1 @@ c2
+        typ2, cons @@ c2
     | Raise ->
         VarType (getVarType (), []), UniEnv.empty
     | Record(pairs) ->
@@ -851,7 +858,7 @@ let typeInfer t =
     applyUniToType typ substitutions
 
 let typeInferLib lib =
-    let ret = List.foldBack (fun (p, t) acc -> Let(p, t, acc)) lib.terms (X "x")
+    let ret = List.foldBack (fun decl acc -> Let(decl, acc)) lib.terms (X "x")
     let libTerm = Fn <| Lambda("x", ret) 
     libTerm |> typeInfer
        

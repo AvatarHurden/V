@@ -4,6 +4,11 @@ open Definition
 
 //#region Helpers
 
+let rec printCustomTypes printer terms =
+    match terms with
+    | [] -> ""
+    | term :: [] -> printer term
+    | term :: rest -> printer term + " " + printCustomTypes printer rest
 
 let rec printTuple printer terms =
     match terms with
@@ -31,6 +36,7 @@ let printConstrType constrType =
     | IOType -> "IO"
     | Unit -> "()"
     | ConstructorType.Tuple n -> "Tuple " + string n
+    | CustomType s -> s
 
 let printConstructor constr =
     match constr with
@@ -42,6 +48,7 @@ let printConstructor constr =
     | Tuple n -> "Tuple " + string n
     | Void -> "()"
     | IO -> "IO"
+    | Custom s -> s
 
 let rec printPatternList (Pat (p, t)) =
     match p with
@@ -87,6 +94,7 @@ and printPattern (Pat(pat, typ)) =
         | Tuple n -> 
             addSomeType typ <| "(" + printTuple printPattern pats + ")"
         | Void -> addSomeType typ "()"
+        | Custom s -> s
     | RecordPat (partial, fields) -> 
         let t = printRecord printPattern fields
         match partial with
@@ -124,6 +132,7 @@ and printType typ =
         sprintf "(%s)" (printTuple printType types)
     | ConstType (Unit, []) -> "()"
     | ConstType (IOType, [t]) -> "IO " + printType t
+    | ConstType (CustomType s, typs) -> s + printCustomTypes printType typs
     | ConstType _ -> sprintf "The type %A is invalid" typ |> TypeException |> raise
     | Accessor (t1, t2) ->
         sprintf "#(%O -> %O)" (printType t1) (printType t2)
@@ -161,6 +170,7 @@ and printResult result =
     | ResConstructor (Tuple _, v) -> "(" + printTuple printResult v + ")"
     | ResConstructor (Void, []) -> "()"
     | ResConstructor (IO, [t]) -> "IO " + printResult t
+    | ResConstructor (Custom s, results) -> s + printCustomTypes printResult results
     | ResConstructor _ -> sprintf "The value %A is invalid" result |> EvalException |> raise
     | ResRecordAcess path ->
         let rec f path =

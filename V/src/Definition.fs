@@ -21,7 +21,7 @@ and ConstructorType =
     | Tuple of components:int
     | IOType
     | Unit
-    //| Custom of string * Type list
+    | CustomType of string
 
 and Type =
     | VarType of string * Trait list
@@ -41,7 +41,7 @@ type Constructor =
     | Tuple of components:int
     | IO
     | Void
-    //| Custom of string
+    | Custom of string
 
 type VarPattern = Pat of Pattern * Type option
 
@@ -93,7 +93,7 @@ and Path =
 
 and Declaration =
     | Term of VarPattern * term
-    | Data of name:string * typeVariables:string list * constructors:(string * Type list) list
+    | NewType of name:string * typeVariables:(string * Trait list) list * constructors:(string * Type list) list
 
 and term =
     | Constructor of Constructor
@@ -103,7 +103,7 @@ and term =
     | Fn of Function
     | App of term * term
     | Match of term * (VarPattern * term option * term) list
-    | Let of VarPattern * term * term
+    | Let of Declaration * term
     | Raise
     | Record of (string * term) list
 
@@ -168,7 +168,7 @@ type Fixity =
 type OperatorSpec =
     | OpSpec of fix:Fixity * string:string
     
-type LibComponent = VarPattern * term
+type LibComponent = Declaration
 
 //#endregion
 
@@ -239,6 +239,7 @@ and ExDeclaration =
     | DeclFunc of isRec:bool * Ident * ExVarPattern list * ExType option * ExTerm
     | DeclImport of LibComponent list
     | DeclAlias of string * ExType
+    | DeclNewType of name:string * typeVariables:(string * Trait list) list * constructors:(string * ExType list) list
     
 and ExDotAccessor =
     | DotStacked of ExDotAccessor * ExDotAccessor

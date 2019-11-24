@@ -160,7 +160,7 @@ type DeclarationTranslationTests() =
         let term = DeclConst ((ExXPat "x", None), ExConstructor (I 3))
         let assocs, env' = translateDecl term emptyTransEnv
 
-        assocs |> should equal [Pat (XPat "generated0", None), Constructor (I 3)]
+        assocs |> should equal [Term (Pat (XPat "generated0", None), Constructor (I 3))]
         env'.idents |> should equal (Map.empty.Add ("x", "generated0"))
     
     [<Test>]
@@ -170,7 +170,7 @@ type DeclarationTranslationTests() =
 
         let generatedFn = Fn (Recursive <|
             ("generated2", None, "generated3", Match (X "generated3", [Pat (XPat "generated1", Some (ConstType (Int, []))), None, X "generated2"])))
-        assocs.Head |> should equal (Pat (XPat "generated0", None), generatedFn)
+        assocs.Head |> should equal (Term (Pat (XPat "generated0", None), generatedFn))
         env'.idents |> should equal (Map.empty.Add ("f", "generated0"))
    
     [<Test>]
@@ -186,7 +186,7 @@ type DeclarationTranslationTests() =
                         [Pat (XPat "generated1", Some (VarType ("type0", []))),
                          None,
                          X "generated1"]))
-        assocs.Head |> should equal (Pat (XPat "generated0", Some (Function (varType, Int'))), generatedFn)
+        assocs.Head |> should equal (Term (Pat (XPat "generated0", Some (Function (varType, Int'))), generatedFn))
         env'.idents |> should equal (Map.empty.Add ("f", "generated0"))
         
     [<Test>]
@@ -203,7 +203,7 @@ type DeclarationTranslationTests() =
                             [Pat (ConstructorPat (Tuple 2, [Pat (XPat "generated1", Some (VarType ("type0", []))); Pat (IgnorePat, Some Int')]), None),
                              None,
                              X "generated1"])))
-        assocs.Head |> should equal (Pat (XPat "generated0", Some (Function (varType, Function (Int', Int')))), generatedFn)
+        assocs.Head |> should equal (Term (Pat (XPat "generated0", Some (Function (varType, Function (Int', Int')))), generatedFn))
         env'.idents |> should equal (Map.empty.Add ("f", "generated0"))
         
     [<Test>]
@@ -220,7 +220,7 @@ type DeclarationTranslationTests() =
                             [Pat (ConstructorPat (Tuple 2, [Pat (XPat "generated1", Some (VarType ("type0", []))); Pat (IgnorePat, Some Int')]), None),
                              None,
                              X "generated1"])))
-        assocs.Head |> should equal (Pat (XPat "generated0", Some (Function (varType, Function (Int', Int')))), generatedFn)
+        assocs.Head |> should equal (Term (Pat (XPat "generated0", Some (Function (varType, Function (Int', Int')))), generatedFn))
         env'.idents |> should equal (Map.empty.Add ("f", "generated0"))
 
     [<Test>]
@@ -231,7 +231,7 @@ type DeclarationTranslationTests() =
         let generatedFn = 
             Fn <| Recursive ("generated2", Some Int', "generated3", 
                 Match (X "generated3", [Pat (XPat "generated1", Some Int'), None, X "generated1"]))
-        assocs.Head |> should equal (Pat (XPat "generated0", Some (Function (Int', Int'))), generatedFn)
+        assocs.Head |> should equal (Term (Pat (XPat "generated0", Some (Function (Int', Int'))), generatedFn))
         env'.idents |> should equal (Map.empty.Add ("f", "generated0"))
 
     [<Test>]
@@ -242,7 +242,7 @@ type DeclarationTranslationTests() =
         let generatedFn = 
             Fn <| Lambda ("generated2", 
                 Match (X "generated2", [Pat (XPat "generated1", Some Int'), None, X "generated1"]))
-        assocs.Head |> should equal (Pat (XPat "generated0", Some (Function (Int', Int'))), generatedFn)
+        assocs.Head |> should equal (Term (Pat (XPat "generated0", Some (Function (Int', Int'))), generatedFn))
         env'.idents |> should equal (Map.empty.Add ("f", "generated0"))
 
     [<Test>]

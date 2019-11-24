@@ -68,7 +68,7 @@ let keywords =
         "for" ; "in"    ; "import"; "infix"; "infixl" ; "infixr" ;
         "type"; "alias" ; "get"   ; "set"  ; "stack"  ; "distort";
         "read"; "write" ; "return"; "bind" ; "do"     ; "update" ;
-        "_" ]
+        "_"   ]
 
 let typeKeywords = Collections.Set["Int"; "Bool"; "Char"] 
 
@@ -77,6 +77,9 @@ let private isAsciiIdStart c =
 
 let private isTypeIdStart c =
     isAsciiUpper c || c = '_'
+
+let private isConstructorIdStart c =
+    isAsciiUpper c
 
 let private isAsciiIdContinue c =
     isAsciiLetter c || isDigit c || c = '_' || c = '\'' || c = '?'
@@ -96,6 +99,9 @@ let private pIdentifier: Parser<string, UserState> =
 
 let private pTypeIdentifier: Parser<string, UserState> =
     parseIdentifierTemplate isTypeIdStart isAsciiIdContinue typeKeywords
+
+let private pConstructorIdentifier: Parser<string, UserState> =
+    parseIdentifierTemplate isConstructorIdStart isAsciiIdContinue keywords
 
 let private pOperator = 
     many1Chars (anyOf ":?!%$&*+-./<=>@^|~") |>>
@@ -157,7 +163,7 @@ let private pString =
 let private pType, private pTypeRef = createParserForwardedToRef<ExType, UserState>()
 let private pTypeValue, private pTypeValueRef = createParserForwardedToRef<ExType, UserState>()
 
-let private pVarType = pTypeIdentifier |>> ExTypeAlias
+let private pVarType = pTypeIdentifier |>> (fun name -> ExConstType (CustomType name, []))
 let private pIntType = stringReturn "Int" (ExConstType (Int, []))
 let private pBoolType = stringReturn "Bool" (ExConstType (Bool, []))
 let private pCharType = stringReturn "Char" (ExConstType (Char, []))
@@ -255,9 +261,16 @@ let private pListPattern =
     pBetween "[" "]" (sepBy pPattern (pstring "," .>> ws)) 
         |>> fun l -> ExListPat l, None
 
+let private pCustomPattern =
+    tuple2
+        (pConstructorIdentifier .>> ws)
+        (sepBy pPattern ws)
+        |>> fun (name, pats) -> ExConstructorPat (Custom name, pats), None
+
 let private pPatternValue = 
     pIdentPattern <|> 
-    (choice [pIgnorePattern;
+    (choice [pCustomPattern;
+            pIgnorePattern;
             pCharPattern;
             pStringPattern;
             pBoolPattern;
@@ -291,6 +304,10 @@ do pPatternRef :=
                 Reply(Error, unexpected "repeated type declaration")
 
 //#region Basic Value Parsing
+
+let pCustomConstructor = 
+    pConstructorIdentifier .>> ws 
+        |>> (Custom >> ExConstructor)
 
 let private pBool = 
     (stringReturn "True"  (ExConstructor (B true)))
@@ -528,12 +545,24 @@ let private pImport: Parser<ExDeclaration, UserState> =
 
 let pAlias = 
     tuple2
-        (pstring "type" >>. ws >>. pstring "alias" >>. ws >>. pTypeIdentifier .>> ws .>> pstring "=" .>> ws)
+        (pstring "alias" >>. ws >>. pTypeIdentifier .>> ws .>> pstring "=" .>> ws)
         pType |>> DeclAlias
+
+let pConstructorDecl =
+    pConstructorIdentifier .>> ws
+
+let pNewTypeDecl =
+    tuple2
+        (pTypeIdentifier .>> ws .>> pstring "=" .>> ws)
+        (opt (pstring "|" .>> ws) >>. sepBy1 pConstructorDecl (pstring "|" .>> ws))
+        |>> fun (name, constructors) -> DeclNewType (name, [], List.map (fun c -> (c, [])) constructors)
+
+let pTypeDecl =
+    pstring "type" >>. ws >>. (pNewTypeDecl  <|> pAlias)
 
 do pDeclRef :=
     let pName = pstring "let" >>. ws >>. ((attempt pConstantDecl) <|> pFunctionDecl)
-    (pImport <|> pAlias <|> pName)
+    (pTypeDecl <|> pImport <|> pName)
 
 //#endregion
 
@@ -621,7 +650,8 @@ let private pMatch =
 
 let private pValue = 
     pVariable <|>
-    (choice [pBool;
+    (choice [pCustomConstructor;
+            pBool;
             pNum;
             pNil;
             pRaise;
