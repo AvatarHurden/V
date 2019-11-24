@@ -9,12 +9,12 @@ open Printer
 open System.Runtime.InteropServices
 
 let getBindings lib = 
-    let identPairs = List.collect (fst >> Translation.getIdents) lib.terms
+    let identPairs = List.collect (fun decl -> match decl with Term(pat, _) -> Translation.getIdents pat | Data _ -> []) lib.terms
                         |> List.map (fun id -> (id, lib.translationEnv.getOriginalIdent id))
     let tuple = List.fold (fun  acc (id, _) -> App(acc, X id)) 
                           (Constructor <| Tuple identPairs.Length) 
                           identPairs
-    let term = List.foldBack (fun (p, t) acc -> Let(p, t, acc)) lib.terms tuple;
+    let term = List.foldBack (fun decl acc -> Let(decl, acc)) lib.terms tuple;
     let types =
         match typeInfer term with
         | ConstType (ConstructorType.Tuple _, types) -> types

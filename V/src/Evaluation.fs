@@ -515,6 +515,16 @@ and private apply fn t2 (env: Env) =
         | t2' -> eval e <| env'.addId arg t2'
     | t1' -> sprintf "First operand %A is not a function" (printResult t1') |> EvalException |> raise
 
+and private evalDecl (decl: Declaration) (env: Env) =
+    match decl with
+    | Term (pat, term) -> 
+        match eval term env with
+        | ResRaise -> None
+        | term' -> validatePattern pat term' env
+    | Data (name, typeVars, constructors) ->
+        Some {env with groups = List.map (fun (s, _) -> Custom s) constructors :: env.groups;
+                       numArgs = List.fold (fun map (s, typs) -> Map.add (Custom s) (List.length typs) map) env.numArgs constructors}
+
 and private eval (t: term) (env: Env) =
     match t with
     | BuiltIn b -> ResPartial(AppBuiltIn b, [])
@@ -559,13 +569,10 @@ and private eval (t: term) (env: Env) =
             match List.fold f None patterns with
             | None -> ResRaise
             | Some v -> v
-    | Let(pattern, t1, t2) ->
-        match eval t1 env with
-        | ResRaise -> ResRaise
-        | t1' -> 
-            match validatePattern pattern t1' env with
-            | None -> ResRaise
-            | Some env' -> eval t2 env'
+    | Let(decl, t2) ->
+        match evalDecl decl env with
+        | None -> ResRaise
+        | Some env' -> eval t2 env'
     | Raise -> ResRaise
     | Record(pairs) ->
         if Collections.Set(List.unzip pairs |> fst).Count < List.length pairs then

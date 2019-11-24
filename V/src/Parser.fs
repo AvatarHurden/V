@@ -68,7 +68,7 @@ let keywords =
         "for" ; "in"    ; "import"; "infix"; "infixl" ; "infixr" ;
         "type"; "alias" ; "get"   ; "set"  ; "stack"  ; "distort";
         "read"; "write" ; "return"; "bind" ; "do"     ; "update" ;
-        "_" ]
+        "_"   ; "data"  ]
 
 let typeKeywords = Collections.Set["Int"; "Bool"; "Char"] 
 
@@ -77,6 +77,9 @@ let private isAsciiIdStart c =
 
 let private isTypeIdStart c =
     isAsciiUpper c || c = '_'
+
+let private isConstructorIdStart c =
+    isAsciiUpper c
 
 let private isAsciiIdContinue c =
     isAsciiLetter c || isDigit c || c = '_' || c = '\'' || c = '?'
@@ -96,6 +99,9 @@ let private pIdentifier: Parser<string, UserState> =
 
 let private pTypeIdentifier: Parser<string, UserState> =
     parseIdentifierTemplate isTypeIdStart isAsciiIdContinue typeKeywords
+
+let private pConstructorIdentifier: Parser<string, UserState> =
+    parseIdentifierTemplate isConstructorIdStart isAsciiIdContinue keywords
 
 let private pOperator = 
     many1Chars (anyOf ":?!%$&*+-./<=>@^|~") |>>
@@ -291,6 +297,10 @@ do pPatternRef :=
                 Reply(Error, unexpected "repeated type declaration")
 
 //#region Basic Value Parsing
+
+let pCustomConstructor = 
+    pConstructorIdentifier .>> ws 
+        |>> (Custom >> ExConstructor)
 
 let private pBool = 
     (stringReturn "True"  (ExConstructor (B true)))
@@ -531,9 +541,18 @@ let pAlias =
         (pstring "type" >>. ws >>. pstring "alias" >>. ws >>. pTypeIdentifier .>> ws .>> pstring "=" .>> ws)
         pType |>> DeclAlias
 
+let pConstructorDecl =
+    pConstructorIdentifier .>> ws
+
+let pDataDecl =
+    tuple2
+        (pstring "data" >>. ws >>. pTypeIdentifier .>> ws .>> pstring "=" .>> ws)
+        (sepBy1 pConstructorDecl (pstring "|" .>> ws))
+        |>> fun (name, constructors) -> DeclData (name, [], List.map (fun c -> (c, [])) constructors)
+
 do pDeclRef :=
     let pName = pstring "let" >>. ws >>. ((attempt pConstantDecl) <|> pFunctionDecl)
-    (pImport <|> pAlias <|> pName)
+    (pDataDecl <|> pImport <|> pAlias <|> pName)
 
 //#endregion
 
@@ -621,7 +640,8 @@ let private pMatch =
 
 let private pValue = 
     pVariable <|>
-    (choice [pBool;
+    (choice [pCustomConstructor;
+            pBool;
             pNum;
             pNil;
             pRaise;

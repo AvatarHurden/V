@@ -162,7 +162,7 @@ and translateDecl decl env =
     | DeclConst (p, t1) -> 
         let p', env' = translatePattern p env
         let t1' = translateTerm t1 env
-        [(p', t1')], env'
+        [Term (p', t1')], env'
     | DeclFunc (isRec, id, parameters, retTyp, retTerm) ->
         match retTyp with
         | None -> 
@@ -172,7 +172,7 @@ and translateDecl decl env =
                 | false -> ExLambda (parameters, retTerm)
             let id', env' = env.generateSubstitutionFor id
             let fn' = translateFn fn env'
-            [Pat (XPat id', None), fn'], env'
+            [Term (Pat (XPat id', None), fn')], env'
         | Some typ ->
             let parameters', env' = env.typePatterns parameters
             let f (pat: ExVarPattern) retTyp =
@@ -186,13 +186,15 @@ and translateDecl decl env =
                 | false -> ExLambda (parameters', retTerm)
             let id', env' = env'.generateSubstitutionFor id
             let fn' = translateFn fn env'
-            [Pat (XPat id', Some <| translateType retTyp' env'), fn'], env'
+            [Term (Pat (XPat id', Some <| translateType retTyp' env'), fn')], env'
     | DeclImport (comps) -> 
-        let ids = comps |> List.unzip |> fst |> List.map getIdents |> List.concat
         comps, env
     | DeclAlias (s, typ) ->
         let env' = env.addTypeAlias s <| translateType typ env
         [], env'
+    | DeclData (name, varTypes, constructors) ->
+        let constructors' = List.map (fun (s, typs) -> (s, List.map (flip translateType env) typs)) constructors
+        [Data (name, varTypes, constructors')], env
 
 and translateFn fn env =
 
@@ -309,9 +311,9 @@ and translateTerm term env =
         Match(t1', List.map f patterns)
 
     | ExLet (decl, t2) ->
-        let comps, env' = translateDecl decl env
+        let decls', env' = translateDecl decl env
         let t2' = translateTerm t2 env'
-        List.foldBack (fun (p, t) acc -> Let(p, t, acc)) comps t2'
+        List.foldBack (fun decl acc -> Let(decl, acc)) decls' t2'
             
     | ExListTerm l ->
         List.foldBack (fun x acc -> App (App (Constructor Cons, translateTerm x env), acc)) l (Constructor Nil)

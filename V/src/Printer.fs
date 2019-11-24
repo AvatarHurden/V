@@ -31,6 +31,7 @@ let printConstrType constrType =
     | IOType -> "IO"
     | Unit -> "()"
     | ConstructorType.Tuple n -> "Tuple " + string n
+    | CustomType s -> s
 
 let printConstructor constr =
     match constr with
@@ -42,6 +43,7 @@ let printConstructor constr =
     | Tuple n -> "Tuple " + string n
     | Void -> "()"
     | IO -> "IO"
+    | Custom s -> s
 
 let rec printPatternList (Pat (p, t)) =
     match p with
@@ -87,6 +89,7 @@ and printPattern (Pat(pat, typ)) =
         | Tuple n -> 
             addSomeType typ <| "(" + printTuple printPattern pats + ")"
         | Void -> addSomeType typ "()"
+        | Custom s -> s
     | RecordPat (partial, fields) -> 
         let t = printRecord printPattern fields
         match partial with
