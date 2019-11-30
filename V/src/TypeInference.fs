@@ -528,6 +528,10 @@ let rec matchPattern pattern typ (env: Env) cons =
 
     | (ConstructorPat (c, patterns), typ') ->
         let retTyp, parameters = env.parametersOf c None
+        if patterns.Length <> parameters.Length then
+            sprintf "Constructor %A expected %A arguments, but found %A." 
+                c parameters.Length patterns.Length
+                |> TypeException |> raise
         let f = fun (env, cons) p t -> matchPattern p t env cons
         let acc = 
             match typ' with
@@ -576,6 +580,10 @@ let rec matchUniversalPattern pattern typ (env: Env) cons =
 
     | (ConstructorPat (c, patterns), typ') ->
         let retTyp, parameters = env.parametersOf c <| Some typ
+        if patterns.Length <> parameters.Length then
+            sprintf "Constructor %A expected %A arguments, but found %A." 
+                c parameters.Length patterns.Length
+                |> TypeException |> raise
         let f = fun (env, cons) p t -> matchUniversalPattern p t env cons
         let acc = 
             match typ' with

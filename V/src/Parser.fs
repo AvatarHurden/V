@@ -264,7 +264,7 @@ let private pListPattern =
 let private pCustomPattern =
     tuple2
         (pConstructorIdentifier .>> ws)
-        (sepBy pPattern ws)
+        (many pPattern)
         |>> fun (name, pats) -> ExConstructorPat (Custom name, pats), None
 
 let private pPatternValue = 
@@ -549,13 +549,15 @@ let pAlias =
         pType |>> DeclAlias
 
 let pConstructorDecl =
-    pConstructorIdentifier .>> ws
+    tuple2 
+        (pConstructorIdentifier .>> ws)
+        (many pType)
 
 let pNewTypeDecl =
     tuple2
         (pTypeIdentifier .>> ws .>> pstring "=" .>> ws)
         (opt (pstring "|" .>> ws) >>. sepBy1 pConstructorDecl (pstring "|" .>> ws))
-        |>> fun (name, constructors) -> DeclNewType (name, [], List.map (fun c -> (c, [])) constructors)
+        |>> fun (name, constructors) -> DeclNewType (name, [], constructors)
 
 let pTypeDecl =
     pstring "type" >>. ws >>. (pNewTypeDecl  <|> pAlias)

@@ -115,6 +115,28 @@ let equalsParsed text text' =
                     | One -> 1
                     | Two -> 2
                     | Banana -> 3"
+
+    [<Test>]
+    member this.letDeconstructionWorks() =
+        equals "type Data = One | Two | Three;
+                let x = One;
+                let One = x;
+                x" <| ResConstructor (Custom "One", [])
+
+    [<Test>]
+    member this.letDeconstructionRaisesForWrongConstructor() =
+        equals "type Data = One | Two | Three;
+                let x = One;
+                let Two = x;
+                x" <| ResRaise
+    
+    [<Test>]
+    member this.letDeconstructionFailsForWrongType() =
+        throwsWrongType 
+               "type Data = One | Two | Three;
+                let x = One;
+                let False = x;
+                x"
     
     [<Test>]
     member this.matchExpressionFailsWithShadowing() =
@@ -126,3 +148,111 @@ let equalsParsed text text' =
                     | One -> 1
                     | Two -> 2
                     | Three -> 3"
+
+[<TestFixture>]
+ type CompoundTypeDeclaration() =
+
+    [<Test>]
+    member this.allowsSingleDeclaration() =
+        equals "type Shape = Circle Int; Circle 4" <| ResConstructor (Custom "Circle", [ResConstructor (I 4, [])])
+
+    [<Test>]
+    member this.constructorHasCorrectType() =
+        hasType "type Shape = Circle Int; Circle 4" <| ConstType (CustomType "Shape", [])
+
+    [<Test>]
+    member this.failsOnWrongParameter() =
+        throwsWrongType "type Shape = Circle Int; Circle 'a'"
+
+    [<Test>]
+    member this.recognizesExplicitType() =
+        equals "type Shape = Circle Int;
+                 let x: Shape = Circle 4;
+                 x" <| ResConstructor (Custom "Circle", [ResConstructor (I 4, [])])
+    
+    [<Test>]
+    member this.allowsMultipleDeclaration() =
+        equals "type Shape = 
+                    | Circle Int
+                    | Rectangle Int Int;
+                 Rectangle 4 5" <| ResConstructor (Custom "Rectangle", [ResConstructor (I 4, []); ResConstructor (I 5, [])])
+    
+    [<Test>]
+    member this.matchExpressionWorksForCompoundDeclaration() =
+        equals "type Shape = 
+                    | Circle Int
+                    | Rectangle Int Int;
+                let x = Rectangle 5 6;
+                match x with
+                    | Circle r -> 6 * r
+                    | Rectangle w h -> w * h" <| ResConstructor (I 30, [])
+
+    [<Test>]
+    member this.matchExpressionFailsWithMoreArguments() =
+        throwsWrongType 
+               "type Shape = 
+                    | Circle Int
+                    | Rectangle Int Int;
+                let x = Rectangle 5 6;
+                match x with
+                    | Circle r d -> 6 * r
+                    | Rectangle w h -> w * h"
+     
+    [<Test>]
+    member this.matchExpressionFailsWithLessArguments() =
+        throwsWrongType 
+               "type Shape = 
+                    | Circle Int
+                    | Rectangle Int Int;
+                let x = Rectangle 5 6;
+                match x with
+                    | Circle r -> 6 * r
+                    | Rectangle w -> w * 4"
+    
+    [<Test>]
+    member this.letDeconstructionWorks() =
+        equals "type Shape = 
+                    | Circle Int
+                    | Rectangle Int Int;
+                let x = Rectangle 5 6;
+                let Rectangle w d = x;
+                w * d" <| ResConstructor (I 30, [])
+    
+    [<Test>]
+    member this.letDeconstructionFailsWithLessArguments() =
+        throwsWrongType 
+               "type Shape = 
+                    | Circle Int
+                    | Rectangle Int Int;
+                let x = Rectangle 5 6;
+                let Rectangle w = x;
+                w"
+
+    [<Test>]
+    member this.letDeconstructionFailsWithMoreArguments() =
+        throwsWrongType 
+               "type Shape = 
+                    | Circle Int
+                    | Rectangle Int Int;
+                let x = Circle 4;
+                let Circle w d = x;
+                w * d"
+
+    [<Test>]
+    member this.letDeconstructionRaisesWithWrongConstructor() =
+        equals "type Shape = 
+                    | Circle Int
+                    | Rectangle Int Int;
+                let x = Circle 4;
+                let Rectangle w d = x;
+                w * d" <| ResRaise
+
+    [<Test>]
+    member this.letDeconstructionFailsWithWrongType() =
+        throwsWrongType
+               "type Shape = 
+                    | Circle Int
+                    | Rectangle Int Int;
+                let x = Circle 4;
+                let False = x;
+                4"

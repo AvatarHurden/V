@@ -132,7 +132,7 @@ and printType typ =
         sprintf "(%s)" (printTuple printType types)
     | ConstType (Unit, []) -> "()"
     | ConstType (IOType, [t]) -> "IO " + printType t
-    | ConstType (CustomType s, typs) -> s + printCustomTypes printType typs
+    | ConstType (CustomType s, typs) -> s + " " + printCustomTypes printType typs
     | ConstType _ -> sprintf "The type %A is invalid" typ |> TypeException |> raise
     | Accessor (t1, t2) ->
         sprintf "#(%O -> %O)" (printType t1) (printType t2)
@@ -170,7 +170,7 @@ and printResult result =
     | ResConstructor (Tuple _, v) -> "(" + printTuple printResult v + ")"
     | ResConstructor (Void, []) -> "()"
     | ResConstructor (IO, [t]) -> "IO " + printResult t
-    | ResConstructor (Custom s, results) -> s + printCustomTypes printResult results
+    | ResConstructor (Custom s, results) -> s + " " + printCustomTypes printResult results
     | ResConstructor _ -> sprintf "The value %A is invalid" result |> EvalException |> raise
     | ResRecordAcess path ->
         let rec f path =
