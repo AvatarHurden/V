@@ -8,8 +8,8 @@ open TypeInference
 open Printer
 open System.Runtime.InteropServices
 
-let getBindings lib = 
-    let identPairs = List.collect (fun decl -> match decl with Term(pat, _) -> Translation.getIdents pat | NewType _ -> []) lib.terms
+let getBindings additions lib = 
+    let identPairs = List.collect (fun decl -> match decl with Term(pat, _) -> Translation.getIdents pat | NewType _ -> []) additions
                         |> List.map (fun id -> (id, lib.translationEnv.getOriginalIdent id))
     let tuple = List.fold (fun  acc (id, _) -> App(acc, X id)) 
                           (Constructor <| Tuple identPairs.Length) 
@@ -24,6 +24,8 @@ let getBindings lib =
         | ResConstructor (Tuple _, results) -> results 
         | _ -> raise <| ParseException "There was an error getting the bindings in the REPL"
     List.zip3 (List.map snd identPairs) types results
+
+let getBindings' lib = getBindings lib.terms lib
 
 let makeIdList existingIds newIds =
     List.fold (fun ids (id, typ, result) -> Map.add id (typ, result) ids) 
@@ -48,7 +50,7 @@ type Env =
         let newLib = if this.fromStdLib then parseStdlib () else emptyLib
         { this with currentLib = newLib
                     ids = Map.empty
-                    allIds = newLib |> getBindings |> makeIdList Map.empty}
+                    allIds = newLib |> getBindings' |> makeIdList Map.empty}
 
     member this.append command =
         let oldCommands = this.commands 
@@ -63,7 +65,7 @@ let stdlibEnv =
     {currentCommand = None
      commands = []
      ids = Map.empty
-     allIds = parseStdlib () |> getBindings |> makeIdList Map.empty
+     allIds = parseStdlib () |> getBindings' |> makeIdList Map.empty
      browseIndex = None
      currentLib = parseStdlib ()
      fromStdLib = true}
@@ -160,7 +162,7 @@ let processLib line (env: Env) =
         let lib' = {terms = newTerms; operators = newOps; translationEnv = newEnv}
         ignore <| typeInferLib lib'
 
-        let additions = getBindings lib'
+        let additions = getBindings newLib.terms lib'
         Addition additions, ({env with currentLib = lib' }.append current).appendIds additions
     with
     | ParseException _ as e ->
