@@ -749,7 +749,12 @@ let rec collectDecl (decl: Declaration) (env: Env) =
         env', cons @@ c1
     | NewType (name, typeVars, constructors) ->
         let typeVars' = List.map VarType typeVars
-        let env' = {env with constructors = List.fold (fun map (s, typs) -> Map.add (Custom s) (ConstType ((CustomType name), typeVars'), typs) map) env.constructors constructors}
+        let typeVarNames = List.map fst typeVars
+        let f map (s, typs) =
+            if not (List.forall (fun t -> match t with | VarType (name, _) -> List.exists ((=) name) typeVarNames | _ -> true) typs) then
+                "" |> TypeException |> raise
+            Map.add (Custom s) (ConstType ((CustomType name), typeVars'), typs) map
+        let env' = {env with constructors = List.fold f env.constructors constructors}
         env', UniEnv.empty
 
 // collectConstraints term environment constraints

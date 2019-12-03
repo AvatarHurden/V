@@ -100,6 +100,9 @@ let private pIdentifier: Parser<string, UserState> =
 let private pTypeIdentifier: Parser<string, UserState> =
     parseIdentifierTemplate isTypeIdStart isAsciiIdContinue typeKeywords
 
+let private pVarTypeIdentifier: Parser<string, UserState> =
+    parseIdentifierTemplate isAsciiIdStart isAsciiIdStart keywords
+
 let private pConstructorIdentifier: Parser<string, UserState> =
     parseIdentifierTemplate isConstructorIdStart isAsciiIdContinue keywords
 
@@ -163,7 +166,11 @@ let private pString =
 let private pType, private pTypeRef = createParserForwardedToRef<ExType, UserState>()
 let private pTypeValue, private pTypeValueRef = createParserForwardedToRef<ExType, UserState>()
 
-let private pVarType = pTypeIdentifier |>> (fun name -> ExConstType (CustomType name, []))
+let private pCustomType = 
+    tuple2
+        (pTypeIdentifier .>> ws)
+        (many pType)
+        |>> (fun (name, args) -> ExConstType (CustomType name, args))
 let private pIntType = stringReturn "Int" (ExConstType (Int, []))
 let private pBoolType = stringReturn "Bool" (ExConstType (Bool, []))
 let private pCharType = stringReturn "Char" (ExConstType (Char, []))
@@ -186,7 +193,14 @@ let private pAccessorType =
         (tuple2 (pTypeValue .>> ws .>> pstring "->" .>> ws) 
             (pTypeValue .>> ws)) |>> ExAccessor
 
+let private pVarTypeRaw: Parser<(string * Trait list), UserState> =
+    pVarTypeIdentifier .>> ws |>> (fun name -> (name, []))
+
+let private pVarType =
+    pVarTypeRaw |>> ExVarType
+
 do pTypeValueRef := choice [pVarType;
+                        pCustomType;
                         pParenType;
                         pRecordType;
                         pIntType;
@@ -554,10 +568,11 @@ let pConstructorDecl =
         (many pType)
 
 let pNewTypeDecl =
-    tuple2
-        (pTypeIdentifier .>> ws .>> pstring "=" .>> ws)
+    tuple3
+        (pTypeIdentifier .>> ws)
+        (many pVarTypeRaw .>> pstring "=" .>> ws)
         (opt (pstring "|" .>> ws) >>. sepBy1 pConstructorDecl (pstring "|" .>> ws))
-        |>> fun (name, constructors) -> DeclNewType (name, [], constructors)
+        |>> DeclNewType
 
 let pTypeDecl =
     pstring "type" >>. ws >>. (pNewTypeDecl  <|> pAlias)
@@ -741,14 +756,6 @@ let parseWith (lib: Library) text =
     | Success (a, _, _) -> ExLet(DeclImport(lib.terms), a)
     | Failure (err, _, _) -> raise (ParseException err)
 
-let parse text = parseWith (stdlib.loadCompiled ()) text
-
-let parsePure text =
-    let res = runParserOnString pProgram defaultUserState "" text
-    match res with
-    | Success (a, _, _) -> a
-    | Failure (err, _, _) -> raise (ParseException err)
-
 let parseStdlib unit =
     let res = runParserOnString pLibrary defaultUserState "" stdlib.content
     match res with
@@ -758,3 +765,10 @@ let parseStdlib unit =
         let ops = List.filter (fun op -> not <| List.exists ((=) op) defaultOPs) state.operators
         {terms = terms; operators=ops; translationEnv = env}
 
+let parse text = parseWith (parseStdlib ()) text
+
+let parsePure text =
+    let res = runParserOnString pProgram defaultUserState "" text
+    match res with
+    | Success (a, _, _) -> a
+    | Failure (err, _, _) -> raise (ParseException err)
